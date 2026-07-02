@@ -165,6 +165,59 @@ function FieldModal({ title, fields, initial, onClose, onSave, danger }: any) {
   );
 }
 
+/* ---- ItemSearchSelect ---- */
+
+function ItemSearchSelect({ items, value, onChange }: { items: any[]; value: string; onChange: (id: string) => void }) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  const selected = items.find((it: any) => it.id === value);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filtered = query.trim()
+    ? items.filter((it: any) => it.name.toLowerCase().includes(query.trim().toLowerCase()))
+    : items;
+
+  return (
+    <div ref={wrapRef} className="relative flex-1">
+      <button type="button" onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between rounded-xl border border-slate-200 px-2 py-2 text-sm text-left bg-white">
+        <span className="truncate">{selected ? `${selected.name} (stock: ${selected.stock ?? 0})` : "Select item..."}</span>
+        <ChevronDown size={14} className="text-slate-400 shrink-0" />
+      </button>
+      {open && (
+        <div className="absolute z-10 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg max-h-56 overflow-y-auto">
+          <div className="sticky top-0 bg-white p-2 border-b border-slate-100">
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search items..."
+                className="w-full rounded-lg border border-slate-200 py-1.5 pl-7 pr-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+            </div>
+          </div>
+          {filtered.length === 0 ? (
+            <p className="px-3 py-3 text-sm text-slate-400">No items match.</p>
+          ) : (
+            filtered.map((it: any) => (
+              <button key={it.id} type="button" onClick={() => { onChange(it.id); setQuery(""); setOpen(false); }}
+                className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 ${it.id === value ? "bg-blue-50 font-semibold text-blue-700" : "text-slate-700"}`}>
+                {it.name} <span className="text-xs text-slate-400">(stock: {it.stock ?? 0})</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---- DocumentModal ---- */
 
 function DocumentModal({ type, customers, items, onClose, onSave }: any) {
@@ -173,15 +226,19 @@ function DocumentModal({ type, customers, items, onClose, onSave }: any) {
   const [dueDate, setDueDate] = useState(today());
   const [lines, setLines] = useState([{ itemId: items[0]?.id || "", qty: 1 }]);
   const [notes, setNotes] = useState("");
+  const [freightCost, setFreightCost] = useState("");
+  const [labourCost, setLabourCost] = useState("");
 
   const addLine = () => setLines((l) => [...l, { itemId: items[0]?.id || "", qty: 1 }]);
   const updateLine = (i: number, patch: any) => setLines((l) => l.map((ln, idx) => idx === i ? { ...ln, ...patch } : ln));
   const removeLine = (i: number) => setLines((l) => l.filter((_, idx) => idx !== i));
   const itemById = (id: string) => items.find((it: any) => it.id === id);
-  const total = lines.reduce((sum, ln) => {
+  const itemsSubtotal = lines.reduce((sum, ln) => {
     const it = itemById(ln.itemId);
-    return sum + (it ? it.price * Number(ln.qty || 0) : 0);
+    return sum + (it ? (it.sellingPrice ?? it.price) * Number(ln.qty || 0) : 0);
   }, 0);
+  const extraCharges = type === "invoice" ? (Number(freightCost) || 0) + (Number(labourCost) || 0) : 0;
+  const total = itemsSubtotal + extraCharges;
 
   const titleMap: any = { quote: "New Quote", invoice: "New Invoice", challan: "New Delivery Challan" };
   const canSave = customerId && lines.length > 0 && lines.every((l) => l.itemId);
@@ -225,9 +282,7 @@ function DocumentModal({ type, customers, items, onClose, onSave }: any) {
                   const it = itemById(ln.itemId);
                   return (
                     <div key={i} className="flex items-center gap-2">
-                      <select value={ln.itemId} onChange={(e) => updateLine(i, { itemId: e.target.value })} className="flex-1 rounded-xl border border-slate-200 px-2 py-2 text-sm">
-                        {items.map((it: any) => <option key={it.id} value={it.id}>{it.name} (stock: {it.stock ?? 0})</option>)}
-                      </select>
+                      <ItemSearchSelect items={items} value={ln.itemId} onChange={(id) => updateLine(i, { itemId: id })} />
                       <input type="number" min="1" value={ln.qty} onChange={(e) => updateLine(i, { qty: e.target.value })} className="w-16 rounded-xl border border-slate-200 px-2 py-2 text-sm" />
                       {it && Number(ln.qty) > (it.stock ?? 0) && <span title="Exceeds stock"><AlertTriangle size={14} className="text-amber-500 shrink-0" /></span>}
                       {lines.length > 1 && <button onClick={() => removeLine(i)} className="rounded-full p-1.5 text-rose-500 hover:bg-rose-50"><Trash2 size={15} /></button>}
@@ -236,19 +291,41 @@ function DocumentModal({ type, customers, items, onClose, onSave }: any) {
                 })}
               </div>
             </div>
+            {type === "invoice" && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-500">Freight cost</label>
+                  <input type="number" min="0" value={freightCost} onChange={(e) => setFreightCost(e.target.value)} placeholder="0.00" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-500">Labour cost</label>
+                  <input type="number" min="0" value={labourCost} onChange={(e) => setLabourCost(e.target.value)} placeholder="0.00" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                </div>
+              </div>
+            )}
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-500">Notes</label>
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
             </div>
-            <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
-              <span className="text-sm font-semibold text-slate-500">Total</span>
-              <span className="text-lg font-bold text-slate-900">{total.toFixed(2)}</span>
+            <div className="space-y-1.5 rounded-xl bg-slate-50 px-4 py-3">
+              {extraCharges > 0 && (
+                <>
+                  <div className="flex items-center justify-between text-xs text-slate-500"><span>Items subtotal</span><span>{itemsSubtotal.toFixed(2)}</span></div>
+                  {Number(freightCost) > 0 && <div className="flex items-center justify-between text-xs text-slate-500"><span>Freight</span><span>{Number(freightCost).toFixed(2)}</span></div>}
+                  {Number(labourCost) > 0 && <div className="flex items-center justify-between text-xs text-slate-500"><span>Labour</span><span>{Number(labourCost).toFixed(2)}</span></div>}
+                  <div className="my-1 border-t border-slate-200" />
+                </>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-slate-500">Total</span>
+                <span className="text-lg font-bold text-slate-900">{total.toFixed(2)}</span>
+              </div>
             </div>
           </div>
         )}
         <div className="mt-6 flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full border border-slate-200 py-3 text-sm font-semibold text-slate-600">Cancel</button>
-          <button disabled={!canSave} onClick={() => canSave && onSave({ customerId, date, dueDate, lines, notes, total })}
+          <button disabled={!canSave} onClick={() => canSave && onSave({ customerId, date, dueDate, lines, notes, total, ...(type === "invoice" ? { freightCost: Number(freightCost) || 0, labourCost: Number(labourCost) || 0 } : {}) })}
             className="flex-1 rounded-full bg-slate-900 py-3 text-sm font-semibold text-white disabled:opacity-40">Save {type}</button>
         </div>
       </div>
@@ -1703,7 +1780,11 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 
   const saveDocument = async (type: string, v: any) => {
     try {
-      const payload = { customerId: v.customerId, date: v.date, dueDate: v.dueDate, lines: v.lines, notes: v.notes, total: v.total };
+      const payload = {
+        customerId: v.customerId, date: v.date, dueDate: v.dueDate, lines: v.lines, notes: v.notes, total: v.total,
+        ...(v.freightCost !== undefined ? { freightCost: v.freightCost } : {}),
+        ...(v.labourCost !== undefined ? { labourCost: v.labourCost } : {}),
+      };
       const { doc, lowStock } = await api.documents(type as any).create(payload);
       docSetter(type)((l: any[]) => [doc, ...l]);
 

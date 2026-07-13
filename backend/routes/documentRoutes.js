@@ -1,7 +1,7 @@
 const express = require("express");
 const ctrl = require("../controllers/documentController");
 
-// builds a router for one document type: "quote" | "invoice" | "challan"
+// builds a router for one document type: "estimate" | "challan"
 function makeDocumentRouter(type) {
   const router = express.Router();
 
@@ -11,10 +11,6 @@ function makeDocumentRouter(type) {
   router.put("/:id", ctrl.update(type));
   router.patch("/:id/status", ctrl.updateStatus(type));
   router.delete("/:id", ctrl.remove(type));
-
-  if (type === "quote") {
-    router.post("/:id/convert", ctrl.convertQuote);
-  }
 
   return router;
 }

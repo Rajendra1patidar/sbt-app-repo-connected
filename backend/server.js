@@ -18,6 +18,7 @@ const paymentRoutes = require("./routes/paymentRoutes");
 const settingsRoutes = require("./routes/settingsRoutes");
 const reportRoutes = require("./routes/reportRoutes");
 const makeDocumentRouter = require("./routes/documentRoutes");
+const labourSessionRoutes = require("./routes/labourSessionRoutes");
 
 const app = express();
 
@@ -63,9 +64,9 @@ app.use("/api/expenses", protect, expenseRoutes);
 app.use("/api/payments", protect, paymentRoutes);
 app.use("/api/settings", protect, settingsRoutes);
 app.use("/api/reports", protect, reportRoutes);
-app.use("/api/quotes", protect, makeDocumentRouter("quote"));
-app.use("/api/invoices", protect, makeDocumentRouter("invoice"));
+app.use("/api/estimates", protect, makeDocumentRouter("estimate"));
 app.use("/api/challans", protect, makeDocumentRouter("challan"));
+app.use("/api/labour-sessions", protect, labourSessionRoutes);
 
 app.get("/", (req, res) => res.send("SBT backend API is running."));
 

@@ -8,9 +8,8 @@ const Customer = require("../models/Customer");
 exports.summary = async (req, res, next) => {
   try {
     const owner = req.userId;
-    const [invoices, quotes, challans, expenses, payments, items, customers] = await Promise.all([
-      Document.find({ owner, type: "invoice" }),
-      Document.find({ owner, type: "quote" }),
+    const [estimates, challans, expenses, payments, items, customers] = await Promise.all([
+      Document.find({ owner, type: "estimate" }),
       Document.find({ owner, type: "challan" }),
       Expense.find({ owner }),
       Payment.find({ owner }),
@@ -18,19 +17,18 @@ exports.summary = async (req, res, next) => {
       Customer.find({ owner }),
     ]);
 
-    const totalInvoiced = invoices.reduce((s, d) => s + (d.total || 0), 0);
+    const totalInvoiced = estimates.reduce((s, d) => s + (d.total || 0), 0);
     const totalPaid = payments.reduce((s, p) => s + (p.amount || 0), 0);
     const totalExpenses = expenses.reduce((s, e) => s + (e.amount || 0), 0);
-    const outstanding = invoices.filter((i) => i.status !== "Paid").reduce((s, d) => s + (d.total || 0), 0);
-    const overdue = invoices.filter((i) => i.status !== "Paid" && i.dueDate && new Date(i.dueDate) < new Date());
+    const outstanding = estimates.filter((i) => i.status !== "Paid").reduce((s, d) => s + (d.total || 0), 0);
+    const overdue = estimates.filter((i) => i.status === "Due" && i.dueDate && new Date(i.dueDate) < new Date());
     const lowStockItems = items.filter((it) => (it.stock ?? 0) <= (it.lowStock ?? 5));
 
     res.json({
       counts: {
         customers: customers.length,
         items: items.length,
-        invoices: invoices.length,
-        quotes: quotes.length,
+        estimates: estimates.length,
         challans: challans.length,
       },
       totals: { totalInvoiced, totalPaid, totalExpenses, outstanding, netProfit: totalPaid - totalExpenses },

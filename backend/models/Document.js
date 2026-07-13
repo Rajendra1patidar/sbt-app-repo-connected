@@ -4,6 +4,7 @@ const lineSchema = new mongoose.Schema(
   {
     itemId: { type: mongoose.Schema.Types.ObjectId, ref: "Item" },
     qty: { type: Number, default: 1 },
+    rate: { type: Number },
   },
   { _id: false }
 );
@@ -11,7 +12,7 @@ const lineSchema = new mongoose.Schema(
 const documentSchema = new mongoose.Schema(
   {
     owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    type: { type: String, enum: ["quote", "invoice", "challan"], required: true, index: true },
+    type: { type: String, enum: ["estimate", "challan"], required: true, index: true },
     number: { type: String, required: true },
     customerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer" },
     date: { type: String },
@@ -19,10 +20,11 @@ const documentSchema = new mongoose.Schema(
     lines: [lineSchema],
     notes: { type: String },
     total: { type: Number, default: 0 },
-    status: { type: String, default: "Draft" },
-    // invoice-specific extra charges
+    status: { type: String, default: "Due" },
+    // estimate-specific extra charges/carry-forward
     freightCost: { type: Number, default: 0 },
     labourCost: { type: Number, default: 0 },
+    previousDue: { type: Number, default: 0 },
     // challan-specific fields (route sheet)
     route: { type: String },
     fromDate: { type: String },

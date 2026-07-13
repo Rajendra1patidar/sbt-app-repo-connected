@@ -2,8 +2,8 @@ const mongoose = require("mongoose");
 const Document = require("../models/Document");
 const Item = require("../models/Item");
 
-const PREFIX = { quote: "QT", invoice: "INV", challan: "DC" };
-const DEFAULT_STATUS = { quote: "Draft", invoice: "Draft", challan: "Pending" };
+const PREFIX = { estimate: "EST", challan: "DC" };
+const DEFAULT_STATUS = { estimate: "Due", challan: "Pending" };
 
 async function nextNumber(owner, type) {
   const count = await Document.countDocuments({ owner, type });
@@ -50,6 +50,7 @@ exports.create = (type) => async (req, res, next) => {
       status: v.status || DEFAULT_STATUS[type],
       freightCost: v.freightCost || 0,
       labourCost: v.labourCost || 0,
+      previousDue: v.previousDue || 0,
       route: v.route,
       fromDate: v.fromDate,
       toDate: v.toDate,
@@ -61,9 +62,19 @@ exports.create = (type) => async (req, res, next) => {
       feeVerified: v.feeVerified,
     });
 
+    // the previous-due amount just folded into this estimate's total came from these
+    // older, still-unpaid estimates for the same customer — mark them settled so the
+    // balance isn't counted twice in outstanding totals.
+    if (type === "estimate" && Array.isArray(v.rolledEstimateIds) && v.rolledEstimateIds.length) {
+      await Document.updateMany(
+        { _id: { $in: v.rolledEstimateIds }, owner: req.userId, type: "estimate", customerId: v.customerId, status: { $ne: "Paid" } },
+        { $set: { status: "Paid" } }
+      );
+    }
+
     let lowStock = [];
-    // deduct stock from items when an invoice is created, exactly like the frontend used to do client-side
-    if (type === "invoice" && Array.isArray(v.lines) && v.lines.length) {
+    // deduct stock from items when an estimate is created, exactly like the frontend used to do client-side
+    if (type === "estimate" && Array.isArray(v.lines) && v.lines.length) {
       for (const line of v.lines) {
         if (!line.itemId) continue;
         const item = await Item.findOneAndUpdate(
@@ -125,32 +136,6 @@ exports.remove = (type) => async (req, res, next) => {
     const doc = await Document.findOneAndDelete({ _id: req.params.id, owner: req.userId, type });
     if (!doc) return res.status(404).json({ message: "Not found" });
     res.json({ message: "Deleted", id: req.params.id });
-  } catch (err) {
-    next(err);
-  }
-};
-
-// POST /api/quotes/:id/convert  -> creates a new invoice from an accepted quote
-exports.convertQuote = async (req, res, next) => {
-  try {
-    const quote = await Document.findOne({ _id: req.params.id, owner: req.userId, type: "quote" });
-    if (!quote) return res.status(404).json({ message: "Quote not found" });
-
-    const number = await nextNumber(req.userId, "invoice");
-    const invoice = await Document.create({
-      owner: req.userId,
-      type: "invoice",
-      number,
-      customerId: quote.customerId,
-      date: new Date().toISOString().slice(0, 10),
-      dueDate: new Date().toISOString().slice(0, 10),
-      lines: quote.lines,
-      notes: quote.notes,
-      total: quote.total,
-      status: "Draft",
-    });
-
-    res.status(201).json(invoice);
   } catch (err) {
     next(err);
   }

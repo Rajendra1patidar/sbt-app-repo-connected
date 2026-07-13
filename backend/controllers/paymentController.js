@@ -10,7 +10,7 @@ base.create = async (req, res, next) => {
     const v = req.body;
     let invoiceNumber;
     if (v.invoiceId) {
-      const invoice = await Document.findOne({ _id: v.invoiceId, owner: req.userId, type: "invoice" });
+      const invoice = await Document.findOne({ _id: v.invoiceId, owner: req.userId, type: "estimate" });
       invoiceNumber = invoice?.number;
       if (invoice) {
         invoice.status = "Paid";

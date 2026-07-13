@@ -6,7 +6,7 @@
  * Falls back to localhost for local dev.
  */
 
-const API_URL = (import.meta.env.VITE_API_URL || "https://sbt-app-repo-connected.onrender.com").replace(/\/$/, "");
+const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/$/, "");
 const TOKEN_KEY = "sbt_token";
 
 let token: string | null =
@@ -83,7 +83,7 @@ function crud(base: string) {
   };
 }
 
-function documents(type: "quote" | "invoice" | "challan") {
+function documents(type: "estimate" | "challan") {
   const base = `/api/${type}s`;
   return {
     list: () => request(base),
@@ -92,7 +92,6 @@ function documents(type: "quote" | "invoice" | "challan") {
     updateStatus: (id: string, status: string) =>
       request(`${base}/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
     remove: (id: string) => request(`${base}/${id}`, { method: "DELETE" }),
-    convert: (id: string) => request(`/api/quotes/${id}/convert`, { method: "POST" }),
   };
 }
 
@@ -115,6 +114,12 @@ export const api = {
   orders: { ...crud("/api/orders"), receive: (id: string) => request(`/api/orders/${id}/receive`, { method: "PATCH" }) },
   expenses: crud("/api/expenses"),
   payments: crud("/api/payments"),
+  labourSessions: {
+    list: (from?: string, to?: string) => request(`/api/labour-sessions${from && to ? `?from=${from}&to=${to}` : ""}`),
+    create: (v: any) => request("/api/labour-sessions", { method: "POST", body: JSON.stringify(v) }),
+    remove: (id: string) => request(`/api/labour-sessions/${id}`, { method: "DELETE" }),
+    workers: () => request("/api/labour-sessions/meta/workers"),
+  },
 
   settings: {
     get: () => request("/api/settings"),

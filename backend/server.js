@@ -70,6 +70,8 @@ app.use("/api/labour-sessions", protect, labourSessionRoutes);
 
 app.get("/", (req, res) => res.send("SBT backend API is running."));
 
+app.get("/api/debug-version", (req, res) => res.json({ version: "test-123", time: new Date().toISOString() }));
+
 app.use(notFound);
 app.use(errorHandler);
 

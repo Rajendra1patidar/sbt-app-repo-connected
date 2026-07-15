@@ -55,7 +55,7 @@ const NAV = [
   { id: "challans",   label: "Delivery Challans",    icon: Truck },
   { id: "payments",   label: "Payments Received",    icon: ArrowDownToLine },
   { id: "expenses",   label: "Expenses",             icon: Wallet },
-  { id: "todo",       label: "To-Do Tracking",       icon: ClipboardList },
+  { id: "todo",       label: "Inventory",            icon: ClipboardList },
   { id: "labour",     label: "Labour Tracking",      icon: HardHat },
   { id: "contractors", label: "Contractor Scorecard", icon: Award },
   { id: "reports",       label: "Reports",              icon: BarChart3 },
@@ -166,18 +166,92 @@ function FieldModal({ title, fields, initial, onClose, onSave, danger }: any) {
 
 /* ---- DocumentModal ---- */
 
-function DocumentModal({ type, customers, items, estimates, onClose, onSave }: any) {
-  const [customerId, setCustomerId] = useState(customers[0]?.id || "");
-  const [date, setDate] = useState(today());
-  const [dueDate, setDueDate] = useState(today());
-  const [lines, setLines] = useState([{ itemId: items[0]?.id || "", qty: 1, rate: items[0]?.price || 0 }]);
-  const [notes, setNotes] = useState("");
+/* ---- Searchable dropdown (used for customer / item pickers) ---- */
+function SearchableSelect({ options, value, onChange, placeholder }: any) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const selected = options.find((o: any) => o.value === value);
+  const filtered = query
+    ? options.filter((o: any) => o.label.toLowerCase().includes(query.toLowerCase()))
+    : options;
+
+  return (
+    <div
+      className="relative"
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) { setOpen(false); setQuery(""); } }}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left text-sm"
+      >
+        <span className={selected ? "truncate text-slate-900" : "truncate text-slate-400"}>
+          {selected ? selected.label : (placeholder || "Select...")}
+        </span>
+        <ChevronDown size={15} className="ml-2 shrink-0 text-slate-400" />
+      </button>
+      {open && (
+        <div className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+          <div className="sticky top-0 flex items-center gap-2 border-b border-slate-100 bg-white p-2">
+            <Search size={14} className="shrink-0 text-slate-400" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search..."
+              className="w-full text-sm outline-none"
+            />
+          </div>
+          {filtered.length === 0
+            ? <p className="px-3 py-2 text-xs text-slate-400">No matches</p>
+            : filtered.map((o: any) => (
+              <button
+                type="button"
+                key={o.value}
+                onClick={() => { onChange(o.value); setOpen(false); setQuery(""); }}
+                className={`block w-full truncate px-3 py-2 text-left text-sm hover:bg-slate-50 ${o.value === value ? "bg-blue-50 font-semibold text-blue-700" : "text-slate-700"}`}
+              >
+                {o.label}
+              </button>
+            ))
+          }
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---- Due / Paid confirmation popup shown right before an estimate is saved ---- */
+function StatusChoicePopup({ total, currency, onChoose, onCancel }: any) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4">
+      <div className="w-full max-w-xs rounded-3xl bg-white p-6 shadow-xl">
+        <h3 className="text-lg font-bold text-slate-900">Is this estimate paid?</h3>
+        <p className="mt-1 text-sm text-slate-500">Total amount: <span className="font-semibold text-slate-700">{fmtMoney(total, currency)}</span></p>
+        <div className="mt-5 space-y-2">
+          <button onClick={() => onChoose("Paid")} className="w-full rounded-full bg-emerald-500 py-3 text-sm font-bold text-white active:scale-[0.98]">Paid — customer has paid</button>
+          <button onClick={() => onChoose("Due")} className="w-full rounded-full bg-amber-500 py-3 text-sm font-bold text-white active:scale-[0.98]">Due — payment pending</button>
+          <button onClick={onCancel} className="w-full rounded-full border border-slate-200 py-3 text-sm font-semibold text-slate-500">Back to editing</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DocumentModal({ type, customers, items, estimates, editingDoc, onClose, onSave }: any) {
+  const isEditing = !!editingDoc;
+  const [customerId, setCustomerId] = useState(editingDoc?.customerId || customers[0]?.id || "");
+  const [date, setDate] = useState(editingDoc?.date ? String(editingDoc.date).slice(0, 10) : today());
+  const [dueDate, setDueDate] = useState(editingDoc?.dueDate ? String(editingDoc.dueDate).slice(0, 10) : today());
+  const [lines, setLines] = useState(editingDoc?.lines?.length ? editingDoc.lines.map((ln: any) => ({ ...ln })) : [{ itemId: items[0]?.id || "", qty: 1, rate: items[0]?.price || 0 }]);
+  const [notes, setNotes] = useState(editingDoc?.notes || "");
   const [rateEditIndex, setRateEditIndex] = useState<number | null>(null);
-  const [freightCost, setFreightCost] = useState("");
-  const [labourCost, setLabourCost] = useState("");
-  const [includePreviousDue, setIncludePreviousDue] = useState(true);
-  const [contractorName, setContractorName] = useState("");
-  const [destination, setDestination] = useState("");
+  const [freightCost, setFreightCost] = useState(editingDoc?.freightCost ? String(editingDoc.freightCost) : "");
+  const [labourCost, setLabourCost] = useState(editingDoc?.labourCost ? String(editingDoc.labourCost) : "");
+  const [includePreviousDue, setIncludePreviousDue] = useState(!isEditing);
+  const [contractorName, setContractorName] = useState(editingDoc?.contractorName || "");
+  const [destination, setDestination] = useState(editingDoc?.destination || "");
+  const [pendingSave, setPendingSave] = useState<any>(null);
 
   const knownContractors = Array.from(new Set((estimates || []).map((e: any) => e.contractorName).filter(Boolean))) as string[];
   const knownDestinations = Array.from(new Set((estimates || []).map((e: any) => e.destination).filter(Boolean))) as string[];
@@ -192,14 +266,33 @@ function DocumentModal({ type, customers, items, estimates, onClose, onSave }: a
   const itemById = (id: string) => items.find((it: any) => it.id === id);
   const itemsSubtotal = lines.reduce((sum, ln) => sum + Number(ln.qty || 0) * Number(ln.rate || 0), 0);
 
-  const previousDueEstimates = type === "estimate" ? (estimates || []).filter((e: any) => e.customerId === customerId && e.status !== "Paid") : [];
+  // when editing, exclude the estimate being edited itself from its own "previous due" calculation
+  const previousDueEstimates = type === "estimate" && !isEditing ? (estimates || []).filter((e: any) => e.customerId === customerId && e.status !== "Paid") : [];
   const previousDueAmount = previousDueEstimates.reduce((s: number, e: any) => s + Number(e.total || 0), 0);
   const previousDue = includePreviousDue ? previousDueAmount : 0;
 
   const total = itemsSubtotal + Number(freightCost || 0) + Number(labourCost || 0) + previousDue;
 
-  const titleMap: any = { estimate: "New Estimate", challan: "New Delivery Challan" };
+  const titleMap: any = {
+    estimate: isEditing ? "Edit Estimate" : "New Estimate",
+    challan: isEditing ? "Edit Delivery Challan" : "New Delivery Challan",
+  };
   const canSave = customerId && lines.length > 0 && lines.every((l) => l.itemId);
+
+  const buildPayload = () => ({
+    customerId, date, dueDate, lines, notes, total,
+    freightCost: Number(freightCost || 0), labourCost: Number(labourCost || 0), previousDue,
+    rolledEstimateIds: includePreviousDue ? previousDueEstimates.map((e: any) => e.id) : [],
+    contractorName, destination,
+    ...(isEditing ? { id: editingDoc.id } : {}),
+  });
+
+  const handleSaveClick = () => {
+    if (!canSave) return;
+    // new estimates ask Due/Paid before actually saving; edits keep the existing status as-is
+    if (type === "estimate" && !isEditing) { setPendingSave(buildPayload()); return; }
+    onSave(buildPayload());
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-4">
@@ -214,9 +307,12 @@ function DocumentModal({ type, customers, items, estimates, onClose, onSave }: a
           <div className="space-y-4">
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-500">Customer *</label>
-              <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
-                {customers.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <SearchableSelect
+                options={customers.map((c: any) => ({ value: c.id, label: c.name }))}
+                value={customerId}
+                onChange={setCustomerId}
+                placeholder="Select customer"
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -231,34 +327,47 @@ function DocumentModal({ type, customers, items, estimates, onClose, onSave }: a
               )}
             </div>
             <div>
-              <div className="mb-2 flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-500">Items *</label>
-                <button onClick={addLine} className="text-xs font-semibold text-blue-600">+ Add line</button>
-              </div>
-              <div className="space-y-2">
+              <label className="mb-2 block text-xs font-semibold text-slate-500">Items *</label>
+              <div className="space-y-3">
                 {lines.map((ln, i) => {
                   const it = itemById(ln.itemId);
                   const isOverridden = type === "estimate" && it && Number(ln.rate) !== Number(it.price);
+                  const lineSubtotal = Number(ln.qty || 0) * Number(ln.rate || 0);
                   return (
-                    <div key={i} className="flex items-center gap-2">
-                      <select value={ln.itemId} onChange={(e) => setLineItem(i, e.target.value)} className="flex-1 rounded-xl border border-slate-200 px-2 py-2 text-sm">
-                        {items.map((it: any) => <option key={it.id} value={it.id}>{it.name} (stock: {it.stock ?? 0})</option>)}
-                      </select>
-                      <input type="number" min="1" value={ln.qty} onChange={(e) => updateLine(i, { qty: e.target.value })} className="w-16 rounded-xl border border-slate-200 px-2 py-2 text-sm" />
-                      {type === "estimate" && (
-                        <button type="button" onClick={() => setRateEditIndex(i)}
-                          className={`relative flex shrink-0 items-center gap-1 rounded-xl border px-2.5 py-2 text-sm font-semibold ${isOverridden ? "border-amber-200 bg-amber-50 text-amber-700" : "border-blue-100 bg-blue-50 text-blue-700"}`}>
-                          {fmtMoney(Number(ln.rate || 0), "")}
-                          <Pencil size={11} className="opacity-70" />
-                          {isOverridden && <span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-amber-500" />}
-                        </button>
-                      )}
-                      {it && Number(ln.qty) > (it.stock ?? 0) && <span title="Exceeds stock"><AlertTriangle size={14} className="text-amber-500 shrink-0" /></span>}
-                      {lines.length > 1 && <button onClick={() => removeLine(i)} className="rounded-full p-1.5 text-rose-500 hover:bg-rose-50"><Trash2 size={15} /></button>}
+                    <div key={i} className="rounded-xl border border-slate-100 bg-slate-50/60 p-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <SearchableSelect
+                            options={items.map((it: any) => ({ value: it.id, label: `${it.name} (stock: ${it.stock ?? 0})` }))}
+                            value={ln.itemId}
+                            onChange={(v: string) => setLineItem(i, v)}
+                            placeholder="Select item"
+                          />
+                        </div>
+                        <input type="number" min="1" value={ln.qty} onChange={(e) => updateLine(i, { qty: e.target.value })} className="w-16 rounded-xl border border-slate-200 px-2 py-2 text-sm" />
+                        {type === "estimate" && (
+                          <button type="button" onClick={() => setRateEditIndex(i)}
+                            className={`relative flex shrink-0 items-center gap-1 rounded-xl border px-2.5 py-2 text-sm font-semibold ${isOverridden ? "border-amber-200 bg-amber-50 text-amber-700" : "border-blue-100 bg-blue-50 text-blue-700"}`}>
+                            {fmtMoney(Number(ln.rate || 0), "")}
+                            <Pencil size={11} className="opacity-70" />
+                            {isOverridden && <span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-amber-500" />}
+                          </button>
+                        )}
+                        {it && Number(ln.qty) > (it.stock ?? 0) && <span title="Exceeds stock"><AlertTriangle size={14} className="text-amber-500 shrink-0" /></span>}
+                        {lines.length > 1 && <button onClick={() => removeLine(i)} className="rounded-full p-1.5 text-rose-500 hover:bg-rose-50"><Trash2 size={15} /></button>}
+                      </div>
+                      <p className="mt-1.5 px-1 text-xs font-semibold text-slate-500">Subtotal: {fmtMoney(lineSubtotal, "")}</p>
                     </div>
                   );
                 })}
               </div>
+              <button
+                type="button"
+                onClick={addLine}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-blue-300 bg-blue-50 px-4 py-3.5 text-sm font-bold text-blue-600 transition hover:bg-blue-100 hover:border-blue-400 active:scale-[0.98]"
+              >
+                <Plus size={19} /> Add Item
+              </button>
             </div>
             {type === "estimate" && (
               <div className="grid grid-cols-2 gap-3">
@@ -305,9 +414,11 @@ function DocumentModal({ type, customers, items, estimates, onClose, onSave }: a
               </div>
             )}
             <div className="space-y-1 rounded-xl bg-slate-50 px-4 py-3">
+              {type === "estimate" && (
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Items subtotal</span><span>{itemsSubtotal.toFixed(2)}</span></div>
+              )}
               {type === "estimate" && (Number(freightCost || 0) > 0 || Number(labourCost || 0) > 0 || previousDue > 0) && (
                 <>
-                  <div className="flex items-center justify-between text-xs text-slate-500"><span>Items subtotal</span><span>{itemsSubtotal.toFixed(2)}</span></div>
                   {Number(freightCost || 0) > 0 && <div className="flex items-center justify-between text-xs text-slate-500"><span>Freight</span><span>{Number(freightCost).toFixed(2)}</span></div>}
                   {Number(labourCost || 0) > 0 && <div className="flex items-center justify-between text-xs text-slate-500"><span>Labour</span><span>{Number(labourCost).toFixed(2)}</span></div>}
                   {previousDue > 0 && <div className="flex items-center justify-between text-xs text-slate-500"><span>Previous due</span><span>{previousDue.toFixed(2)}</span></div>}
@@ -322,13 +433,8 @@ function DocumentModal({ type, customers, items, estimates, onClose, onSave }: a
         )}
         <div className="mt-6 flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full border border-slate-200 py-3 text-sm font-semibold text-slate-600">Cancel</button>
-          <button disabled={!canSave} onClick={() => canSave && onSave({
-            customerId, date, dueDate, lines, notes, total,
-            freightCost: Number(freightCost || 0), labourCost: Number(labourCost || 0), previousDue,
-            rolledEstimateIds: includePreviousDue ? previousDueEstimates.map((e: any) => e.id) : [],
-            contractorName, destination,
-          })}
-            className="flex-1 rounded-full bg-slate-900 py-3 text-sm font-semibold text-white disabled:opacity-40">Save {type}</button>
+          <button disabled={!canSave} onClick={handleSaveClick}
+            className="flex-1 rounded-full bg-slate-900 py-3 text-sm font-semibold text-white disabled:opacity-40">{isEditing ? "Save changes" : `Save ${type}`}</button>
         </div>
       </div>
       {rateEditIndex !== null && (() => {
@@ -345,6 +451,14 @@ function DocumentModal({ type, customers, items, estimates, onClose, onSave }: a
           />
         );
       })()}
+      {pendingSave && (
+        <StatusChoicePopup
+          total={pendingSave.total}
+          currency=""
+          onChoose={(status: string) => { onSave({ ...pendingSave, status }); setPendingSave(null); }}
+          onCancel={() => setPendingSave(null)}
+        />
+      )}
     </div>
   );
 }
@@ -794,7 +908,21 @@ function Dashboard({ data, settings, openModal, go }: any) {
   ];
 
   const recentMap: any = { estimates, expenses };
-  const recent = recentMap[tab].slice(-5).reverse();
+  const recent = recentMap[tab].slice(0, 5);
+
+  // ---- Monthly sales (last 6 months, from estimate dates) ----
+  const monthKey = (d?: string) => (d || "").slice(0, 7); // "YYYY-MM"
+  const now = new Date();
+  const months = Array.from({ length: 6 }, (_, idx) => {
+    const dt = new Date(now.getFullYear(), now.getMonth() - (5 - idx), 1);
+    return { key: `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`, label: dt.toLocaleDateString("en-IN", { month: "short" }) };
+  });
+  const salesByMonth = months.map((m) => ({
+    ...m,
+    total: estimates.filter((e: any) => monthKey(e.date) === m.key).reduce((s: number, e: any) => s + Number(e.total || 0), 0),
+  }));
+  const maxSale = Math.max(1, ...salesByMonth.map((m) => m.total));
+  const hasSales = salesByMonth.some((m) => m.total > 0);
 
   return (
     <div className="space-y-5 px-5 pb-28">
@@ -830,6 +958,25 @@ function Dashboard({ data, settings, openModal, go }: any) {
         <p className="mt-1 text-sm text-slate-400">Outstanding amounts owed by customers.</p>
         <p className="mt-3 text-2xl font-bold text-slate-900">{fmtMoney(outstanding, settings.currency)}</p>
         <PillButton className="mt-4" onClick={() => openModal("estimate")}><Plus size={16} /> Create Estimate</PillButton>
+      </Card>
+
+      <Card>
+        <div className="mb-4 flex items-center gap-2 text-slate-700">
+          <BarChart3 size={16} /> <h3 className="text-base font-bold">Monthly Sales</h3>
+        </div>
+        {!hasSales ? (
+          <p className="text-sm text-slate-400">No estimates yet in the last 6 months.</p>
+        ) : (
+          <div className="flex items-end justify-between gap-2" style={{ height: 150 }}>
+            {salesByMonth.map((m) => (
+              <div key={m.key} className="flex h-full flex-1 flex-col items-center justify-end gap-1.5">
+                <span className="text-[10px] font-semibold leading-tight text-slate-500">{m.total > 0 ? fmtMoney(m.total, settings.currency) : ""}</span>
+                <div className="w-full rounded-t-lg bg-blue-500" style={{ height: `${Math.max(3, (m.total / maxSale) * 100)}px` }} />
+                <span className="text-xs font-medium text-slate-400">{m.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
 
       <Card>
@@ -991,7 +1138,7 @@ function OrdersView({ orders, items, openModal, markOrderReceived, removeOrder }
             {received.length > 0 && (
               <div>
                 <p className="mb-2 px-1 text-xs font-bold uppercase text-slate-400">Received ({received.length})</p>
-                {[...received].reverse().map((o: any) => (
+                {received.map((o: any) => (
                   <Card key={o.id} className="mb-2 flex items-center justify-between">
                     <div>
                       <p className="font-semibold text-slate-900">{itemName(o.itemId)}</p>
@@ -1014,7 +1161,8 @@ function OrdersView({ orders, items, openModal, markOrderReceived, removeOrder }
 
 /* ---- DocumentList ---- */
 
-function DocumentList({ type, docs, customers, currency, openModal, removeDoc, updateStatus, recordPayment, onShareInvoice, onPrint }: any) {
+function DocumentList({ type, docs, customers, currency, openModal, removeDoc, updateStatus, recordPayment, onShareInvoice, onPrint, onEdit }: any) {
+  const [search, setSearch] = useState("");
   const customerName = (id: string) => customers.find((c: any) => c.id === id)?.name || "Unknown";
   const customerPhone = (id: string) => customers.find((c: any) => c.id === id)?.phone;
   const labelMap: any = { estimate: "Estimate", challan: "Challan" };
@@ -1022,15 +1170,32 @@ function DocumentList({ type, docs, customers, currency, openModal, removeDoc, u
     estimate: "Create estimates to send price quotes and invoices to customers.",
     challan: "Create delivery challans to track goods sent.",
   };
+  // docs already arrive newest-first from the API (and stay that way as new ones are prepended locally)
+  const visibleDocs = type === "estimate" && search.trim()
+    ? docs.filter((d: any) => (d.notes || "").toLowerCase().includes(search.trim().toLowerCase()))
+    : docs;
   return (
     <div className="space-y-3 px-5 pb-28">
       <div className="flex items-center justify-between pt-1">
         <p className="text-sm text-slate-400">{docs.length} {labelMap[type].toLowerCase()}{docs.length !== 1 ? "s" : ""}</p>
         <PillButton onClick={() => openModal(type)}><Plus size={16} /> New {labelMap[type]}</PillButton>
       </div>
+      {type === "estimate" && (
+        <div className="relative">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search estimates by notes..."
+            className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm"
+          />
+        </div>
+      )}
       {docs.length === 0
         ? <Card><EmptyState text={emptyMap[type]} cta={`New ${labelMap[type]}`} onCta={() => openModal(type)} /></Card>
-        : [...docs].reverse().map((d: any) => {
+        : visibleDocs.length === 0
+        ? <Card><p className="text-center text-sm text-slate-400">No estimates match "{search}".</p></Card>
+        : visibleDocs.map((d: any) => {
           const isOverdue = type === "estimate" && d.status === "Due" && d.dueDate && new Date(d.dueDate) < new Date();
           const displayStatus = isOverdue ? "Overdue" : d.status;
           const msg = `Hi ${customerName(d.customerId)}, here is your ${labelMap[type].toLowerCase()} ${d.number} for ${fmtMoney(d.total, currency)}.`;
@@ -1082,12 +1247,14 @@ function DocumentList({ type, docs, customers, currency, openModal, removeDoc, u
                 <Badge status={displayStatus} />
               </div>
               <p className="mt-3 text-lg font-bold text-slate-900">{fmtMoney(d.total, currency)}</p>
+              {type === "estimate" && d.notes && <p className="mt-1 text-xs text-slate-400 line-clamp-2">📝 {d.notes}</p>}
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {type !== "challan" && (
                   <select value={d.status} onChange={(e) => updateStatus(d.id, e.target.value)} className="rounded-full border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600">
                     {["Accepted","Due","Paid"].map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                 )}
+                {type === "estimate" && <GhostButton onClick={() => onEdit(d)}><Pencil size={13} /> Edit</GhostButton>}
                 {type === "estimate" && d.status !== "Paid" && <GhostButton onClick={() => recordPayment(d)}><CheckCircle2 size={13} /> Record payment</GhostButton>}
                 {type === "estimate" && <GhostButton onClick={() => onPrint(d)}><Printer size={13} /> Print</GhostButton>}
                 {type === "estimate"
@@ -1116,7 +1283,7 @@ function PaymentsView({ payments, customers, currency, openModal, removePayment 
       </div>
       {payments.length === 0
         ? <Card><EmptyState text="Record payments you receive." cta="Record Payment" onCta={() => openModal("payment")} /></Card>
-        : [...payments].reverse().map((p: any) => (
+        : payments.map((p: any) => (
           <Card key={p.id} className="flex items-center justify-between">
             <div>
               <p className="font-semibold text-slate-900">{customerName(p.customerId)}</p>
@@ -1144,7 +1311,7 @@ function ExpensesView({ expenses, currency, openModal, removeExpense }: any) {
       </div>
       {expenses.length === 0
         ? <Card><EmptyState text="Record your expenses." cta="Record Expense" onCta={() => openModal("expense")} /></Card>
-        : [...expenses].reverse().map((e: any) => (
+        : expenses.map((e: any) => (
           <Card key={e.id} className="flex items-center justify-between">
             <div><p className="font-semibold text-slate-900">{e.category}</p><p className="text-xs text-slate-400">{e.vendor || "No vendor"} · {fmtDate(e.date)}</p></div>
             <div className="flex items-center gap-3">
@@ -1922,28 +2089,33 @@ function ChangePinCard() {
   const [cur, setCur] = useState("");
   const [next, setNext] = useState("");
   const [msg, setMsg] = useState<{text:string;ok:boolean}|null>(null);
+  const [saving, setSaving] = useState(false);
   const MAX = 4;
 
   const inputCls = "w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm tracking-[0.4em] text-center font-bold";
 
   const handleCurrent = () => {
     if (cur.length < MAX) return;
-    if (cur !== (localStorage.getItem("invoice_app_pin") || "")) {
-      setMsg({ text: "Current PIN is incorrect.", ok: false });
-      setCur(""); return;
-    }
     setMsg(null); setMode("new");
   };
   const handleNew = () => {
     if (next.length < MAX) return;
     setMsg(null); setMode("confirm");
   };
-  const handleConfirm = (val: string) => {
+  const handleConfirm = async (val: string) => {
     if (val.length < MAX) return;
     if (val !== next) { setMsg({ text: "PINs don't match. Try again.", ok: false }); setNext(""); setMode("new"); return; }
-    localStorage.setItem("invoice_app_pin", val);
-    setMsg({ text: "PIN changed successfully!", ok: true });
-    setCur(""); setNext(""); setMode("idle");
+    setSaving(true);
+    try {
+      await api.auth.changePin(cur, val);
+      setMsg({ text: "PIN changed successfully!", ok: true });
+      setCur(""); setNext(""); setMode("idle");
+    } catch (err: any) {
+      setMsg({ text: err?.message || "Current PIN is incorrect.", ok: false });
+      setCur(""); setNext(""); setMode("current");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const numOnly = (v: string) => v.replace(/\D/g, "").slice(0, MAX);
@@ -2286,7 +2458,18 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         payload.rolledEstimateIds = v.rolledEstimateIds || [];
         payload.contractorName = v.contractorName || "";
         payload.destination = v.destination || "";
+        if (v.status) payload.status = v.status; // Due/Paid choice from the confirmation popup, create-only
       }
+
+      if (v.id) {
+        // editing an existing document — update in place, don't touch stock or status
+        const doc = await api.documents(type as any).update(v.id, payload);
+        docSetter(type)((l: any[]) => l.map((x: any) => (x.id === v.id ? doc : x)));
+        showToast(`${doc.number} updated`);
+        closeModal();
+        return;
+      }
+
       const { doc, lowStock } = await api.documents(type as any).create(payload);
       docSetter(type)((l: any[]) => [doc, ...l]);
 
@@ -2404,11 +2587,14 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       ? `Accepted — due ${fmtDate(invoice.dueDate)}`
       : `Due ${fmtDate(invoice.dueDate)}`;
 
+    const notesHtml = invoice.notes ? `<div class="notes">${invoice.notes}</div>` : "";
+
     const bodyHtml = `
       <div class="hd"><span class="org">${settings.orgName || "Your Business"}</span><span class="doc">ESTIMATE ${invoice.number}</span></div>
       <div class="sub">${fmtDate(invoice.date)} · ${customer?.name || "Customer"}</div>
       <div class="lines">${rowsHtml}${extrasHtml}</div>
       <div class="tot"><span>Total</span><span>${fmtMoney(invoice.total, settings.currency)}</span></div>
+      ${notesHtml}
       <div class="stat">${statusNote}</div>
     `;
 
@@ -2431,6 +2617,7 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       .lines { }
       .ln { display: flex; justify-content: space-between; font-size: ${compact ? rowFont + "px" : "12px"}; padding: ${compact ? "0.4mm 0" : "1.5mm 0"}; border-bottom: 0.15mm dotted #e2e8f0; }
       .tot { display: flex; justify-content: space-between; font-weight: 700; font-size: ${compact ? "8.5px" : "14px"}; border-top: 0.3mm solid #0f172a; margin-top: ${compact ? "1mm" : "2mm"}; padding-top: ${compact ? "1mm" : "2mm"}; }
+      .notes { font-size: ${compact ? "6.5px" : "10px"}; color: #475569; margin-top: ${compact ? "1mm" : "2mm"}; font-style: italic; word-break: break-word; }
       .stat { text-align: right; font-size: ${compact ? "6.5px" : "10px"}; color: #d97706; margin-top: ${compact ? "0.5mm" : "1.5mm"}; font-weight: 700; }
     </style></head><body><div class="box">${bodyHtml}</div></body></html>`);
     w.document.close();
@@ -2469,7 +2656,8 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
               removeDoc={removeDoc("estimate")}
               updateStatus={updateDocStatus("estimate")}
               recordPayment={recordPaymentFor} onShareInvoice={(inv: any) => setShareInvoice(inv)}
-              onPrint={printEstimate} />
+              onPrint={printEstimate}
+              onEdit={(doc: any) => openModal("estimate", { editingDoc: doc })} />
           </div>
         </div>
       );
@@ -2519,7 +2707,7 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       return <ChallanModal onClose={closeModal} onSave={saveChallan} />;
 
     if (type === "estimate")
-      return <DocumentModal type={type} customers={customers} items={items} estimates={estimates} onClose={closeModal} onSave={(v: any) => saveDocument(type, v)} />;
+      return <DocumentModal type={type} customers={customers} items={items} estimates={estimates} editingDoc={payload?.editingDoc} onClose={closeModal} onSave={(v: any) => saveDocument(type, v)} />;
 
     if (type === "payment") {
       const invoiceOptions = estimates.filter((i) => i.status !== "Paid").map((i) => ({ value: i.id, label: `${i.number} — ${fmtMoney(i.total, settings.currency)}` }));
@@ -2537,7 +2725,7 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 
   const businessWa = settings.businessWhatsApp;
   const shareCustomer = shareInvoice ? customers.find((c) => c.id === shareInvoice.customerId) : null;
-  const sharePayment = shareInvoice ? [...payments].reverse().find((p) => p.invoiceId === shareInvoice.id) : null;
+  const sharePayment = shareInvoice ? payments.find((p) => p.invoiceId === shareInvoice.id) : null;
 
   if (loading) {
     return (

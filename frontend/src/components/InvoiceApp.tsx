@@ -18,6 +18,24 @@ const fmtDate = (d?: string) =>
 
 const WHATSAPP_GREEN = "#25D366";
 const LOW_STOCK_DEFAULT = 5;
+const GOOGLE_MAPS_API_KEY = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || "";
+
+let googleMapsLoadPromise: Promise<void> | null = null;
+function loadGoogleMaps(): Promise<void> {
+  if (!GOOGLE_MAPS_API_KEY) return Promise.reject(new Error("no-api-key"));
+  if ((window as any).google?.maps?.places) return Promise.resolve();
+  if (googleMapsLoadPromise) return googleMapsLoadPromise;
+  googleMapsLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.id = "google-maps-script";
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load Google Maps"));
+    document.head.appendChild(script);
+  });
+  return googleMapsLoadPromise;
+}
 
 interface InvoiceLine {
   itemId: string;
@@ -129,6 +147,7 @@ function Card({ children, className = "" }: any) {
 
 function FieldModal({ title, fields, initial, onClose, onSave, danger }: any) {
   const [values, setValues] = useState<any>(() => initial || {});
+  const [pickerFor, setPickerFor] = useState<string | null>(null);
   const set = (k: string, v: any) => setValues((s: any) => ({ ...s, [k]: v }));
   const canSave = fields.every((f: any) => !f.required || (values[f.key] !== undefined && values[f.key] !== ""));
   return (
@@ -152,6 +171,16 @@ function FieldModal({ title, fields, initial, onClose, onSave, danger }: any) {
                 <textarea value={values[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)}
                   rows={3} placeholder={f.placeholder}
                   className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+              ) : f.type === "location" ? (
+                <div className="flex gap-2">
+                  <input type="text" value={values[f.key] ?? ""}
+                    onChange={(e) => set(f.key, e.target.value)} placeholder={f.placeholder}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                  <button type="button" onClick={() => setPickerFor(f.key)}
+                    className="flex shrink-0 items-center gap-1 rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+                    <MapPin size={14} /> Map
+                  </button>
+                </div>
               ) : (
                 <input type={f.type || "text"} value={values[f.key] ?? ""}
                   onChange={(e) => set(f.key, e.target.value)} placeholder={f.placeholder}
@@ -164,6 +193,141 @@ function FieldModal({ title, fields, initial, onClose, onSave, danger }: any) {
           <button onClick={onClose} className="flex-1 rounded-full border border-slate-200 py-3 text-sm font-semibold text-slate-600">Cancel</button>
           <button disabled={!canSave} onClick={() => canSave && onSave(values)}
             className={`flex-1 rounded-full py-3 text-sm font-semibold text-white disabled:opacity-40 ${danger ? "bg-rose-600" : "bg-slate-900"}`}>Save</button>
+        </div>
+      </div>
+
+      {pickerFor && (
+        <LocationPickerModal
+          initialAddress={values[pickerFor]}
+          initialLat={values[`${pickerFor}Lat`]}
+          initialLng={values[`${pickerFor}Lng`]}
+          onClose={() => setPickerFor(null)}
+          onPick={({ address, lat, lng }: any) => {
+            set(pickerFor, address);
+            set(`${pickerFor}Lat`, lat);
+            set(`${pickerFor}Lng`, lng);
+            setPickerFor(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ---- LocationPickerModal (Google Maps + Places) ---- */
+function LocationPickerModal({ initialAddress, initialLat, initialLng, onClose, onPick }: any) {
+  const mapDivRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const mapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const [address, setAddress] = useState(initialAddress || "");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+    initialLat && initialLng ? { lat: Number(initialLat), lng: Number(initialLng) } : null
+  );
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const updateFromLatLng = (lat: number, lng: number) => {
+      setCoords({ lat, lng });
+      const g = (window as any).google;
+      const geocoder = new g.maps.Geocoder();
+      geocoder.geocode({ location: { lat, lng } }, (results: any, geoStatus: string) => {
+        if (!cancelled && geoStatus === "OK" && results?.[0]) setAddress(results[0].formatted_address);
+      });
+    };
+
+    loadGoogleMaps()
+      .then(() => {
+        if (cancelled || !mapDivRef.current) return;
+        const g = (window as any).google;
+        const start = coords || { lat: 22.9734, lng: 78.6569 }; // roughly central India as a default
+        const map = new g.maps.Map(mapDivRef.current, { center: start, zoom: coords ? 16 : 5 });
+        const marker = new g.maps.Marker({ position: start, map, draggable: true });
+        mapRef.current = map;
+        markerRef.current = marker;
+
+        marker.addListener("dragend", () => {
+          const pos = marker.getPosition();
+          updateFromLatLng(pos.lat(), pos.lng());
+        });
+        map.addListener("click", (e: any) => {
+          marker.setPosition(e.latLng);
+          updateFromLatLng(e.latLng.lat(), e.latLng.lng());
+        });
+
+        if (searchInputRef.current) {
+          const autocomplete = new g.maps.places.Autocomplete(searchInputRef.current, { fields: ["geometry", "formatted_address", "name"] });
+          autocomplete.bindTo("bounds", map);
+          autocomplete.addListener("place_changed", () => {
+            const place = autocomplete.getPlace();
+            if (!place.geometry?.location) return;
+            const lat = place.geometry.location.lat();
+            const lng = place.geometry.location.lng();
+            map.setCenter({ lat, lng });
+            map.setZoom(16);
+            marker.setPosition({ lat, lng });
+            setCoords({ lat, lng });
+            setAddress(place.formatted_address || place.name || "");
+          });
+        }
+        if (!cancelled) setStatus("ready");
+      })
+      .catch(() => { if (!cancelled) setStatus("error"); });
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-slate-900/50 p-0 sm:p-4">
+      <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-6 shadow-xl">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-slate-900">Pick location on map</h3>
+          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>
+        </div>
+
+        {status === "error" ? (
+          <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+            {!GOOGLE_MAPS_API_KEY
+              ? "No Google Maps API key is configured. Add VITE_GOOGLE_MAPS_API_KEY to your environment variables (Netlify site settings) to enable the map picker."
+              : "Couldn't load Google Maps. Check your API key and enabled APIs (Maps JavaScript API, Places API, Geocoding API)."}
+          </div>
+        ) : (
+          <>
+            <div className="relative mb-3">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                ref={searchInputRef}
+                placeholder="Search for an address or place..."
+                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm"
+              />
+            </div>
+            <div ref={mapDivRef} className="w-full rounded-xl bg-slate-100" style={{ height: 320 }}>
+              {status === "loading" && (
+                <div className="flex h-full items-center justify-center text-sm text-slate-400 gap-2">
+                  <Loader2 size={16} className="animate-spin" /> Loading map…
+                </div>
+              )}
+            </div>
+            <p className="mt-2 text-xs text-slate-400">Tap the map or drag the pin to fine-tune the exact spot.</p>
+          </>
+        )}
+
+        {address && (
+          <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-700">{address}</div>
+        )}
+
+        <div className="mt-6 flex gap-3">
+          <button onClick={onClose} className="flex-1 rounded-full border border-slate-200 py-3 text-sm font-semibold text-slate-600">Cancel</button>
+          <button
+            disabled={!coords}
+            onClick={() => coords && onPick({ address, lat: coords.lat, lng: coords.lng })}
+            className="flex-1 rounded-full bg-slate-900 py-3 text-sm font-semibold text-white disabled:opacity-40"
+          >
+            Use this location
+          </button>
         </div>
       </div>
     </div>
@@ -694,6 +858,83 @@ function OrderModal({ items, onClose, onSave }: any) {
   );
 }
 
+function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
+  const alreadyReturned: Record<string, number> = {};
+  for (const r of doc.returns || []) alreadyReturned[r.itemId] = (alreadyReturned[r.itemId] || 0) + r.qty;
+
+  const returnableLines = (doc.lines || [])
+    .map((l: any) => ({
+      itemId: l.itemId,
+      rate: l.rate,
+      qty: l.qty,
+      returned: alreadyReturned[l.itemId] || 0,
+      name: items.find((it: any) => it.id === l.itemId)?.name || "Item",
+    }))
+    .filter((l: any) => l.qty - l.returned > 0);
+
+  const [qtyMap, setQtyMap] = useState<Record<string, string>>({});
+  const setQty = (itemId: string, v: string) => setQtyMap((m) => ({ ...m, [itemId]: v }));
+
+  const lines = returnableLines
+    .map((l: any) => ({ ...l, returnQty: Math.min(Number(qtyMap[l.itemId] || 0), l.qty - l.returned) }))
+    .filter((l: any) => l.returnQty > 0);
+  const refundTotal = lines.reduce((s: number, l: any) => s + l.returnQty * l.rate, 0);
+  const canSave = lines.length > 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-4">
+      <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-6 shadow-xl">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-lg font-bold text-slate-900">Return items</h3>
+          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>
+        </div>
+        <p className="mb-4 text-xs text-slate-500">{doc.number} — enter how many of each item are being returned.</p>
+
+        {returnableLines.length === 0 ? (
+          <p className="text-sm text-slate-500">Every item on this estimate has already been returned.</p>
+        ) : (
+          <div className="space-y-3">
+            {returnableLines.map((l: any) => (
+              <div key={l.itemId} className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">{l.name}</p>
+                  <p className="text-xs text-slate-400">
+                    {l.qty - l.returned} available to return · {fmtMoney(l.rate, currency)} each
+                    {l.returned > 0 ? ` · ${l.returned} already returned` : ""}
+                  </p>
+                </div>
+                <input
+                  type="number" min="0" max={l.qty - l.returned} placeholder="0"
+                  value={qtyMap[l.itemId] || ""} onChange={(e) => setQty(l.itemId, e.target.value)}
+                  className="w-16 rounded-xl border border-slate-200 px-2 py-2 text-sm text-center"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {refundTotal > 0 && (
+          <div className="mt-4 flex items-center justify-between rounded-xl bg-rose-50 px-3 py-2.5">
+            <span className="text-sm font-semibold text-rose-600">Refund due</span>
+            <span className="text-base font-bold text-rose-700">{fmtMoney(refundTotal, currency)}</span>
+          </div>
+        )}
+
+        <div className="mt-6 flex gap-3">
+          <button onClick={onClose} className="flex-1 rounded-full border border-slate-200 py-3 text-sm font-semibold text-slate-600">Cancel</button>
+          <button
+            disabled={!canSave}
+            onClick={() => canSave && onSave(lines.map((l: any) => ({ itemId: l.itemId, qty: l.returnQty })))}
+            className="flex-1 rounded-full bg-rose-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
+          >
+            Refund {refundTotal > 0 ? fmtMoney(refundTotal, currency) : ""}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---- InvoiceShareModal ---- */
 
 function InvoiceShareModal({ invoice, customer, items, settings, payment, onClose }: any) {
@@ -897,7 +1138,7 @@ function Topbar({ onMenu, settings, view }: any) {
 /* ---- Dashboard ---- */
 
 function Dashboard({ data, settings, openModal, go }: any) {
-  const { customers, estimates, expenses, items } = data;
+  const { customers, estimates, expenses, items, payments } = data;
   const [tab, setTab] = useState("estimates");
   const outstanding = estimates.filter((i: any) => i.status !== "Paid").reduce((s: number, i: any) => s + i.total, 0);
   const byCategory: any = {};
@@ -913,7 +1154,11 @@ function Dashboard({ data, settings, openModal, go }: any) {
     { label: "New Order", icon: ShoppingCart, bg: "bg-amber-100", fg: "text-amber-600", action: () => openModal("order") },
   ];
 
-  const recentMap: any = { estimates, expenses };
+  const refundPayments = (payments || []).filter((p: any) => Number(p.amount) < 0);
+  const returnsForList = refundPayments.map((p: any) => ({
+    id: p.id, number: `Refund — ${p.invoiceNumber || "—"}`, date: p.date, total: Math.abs(Number(p.amount)),
+  }));
+  const recentMap: any = { estimates, expenses, returns: returnsForList };
   const recent = recentMap[tab].slice(0, 5);
 
   // ---- Monthly sales (last 6 months, from estimate dates) ----
@@ -929,6 +1174,14 @@ function Dashboard({ data, settings, openModal, go }: any) {
   }));
   const maxSale = Math.max(1, ...salesByMonth.map((m) => m.total));
   const hasSales = salesByMonth.some((m) => m.total > 0);
+
+  // ---- Today / this-month sales vs refunds ----
+  const todayKey = today();
+  const thisMonthKey = monthKey(now.toISOString());
+  const todaySales = estimates.filter((e: any) => e.date === todayKey).reduce((s: number, e: any) => s + Number(e.total || 0), 0);
+  const monthSales = salesByMonth[salesByMonth.length - 1]?.total || 0;
+  const refundsToday = refundPayments.filter((p: any) => p.date === todayKey).reduce((s: number, p: any) => s + Math.abs(Number(p.amount)), 0);
+  const refundsMonth = refundPayments.filter((p: any) => monthKey(p.date) === thisMonthKey).reduce((s: number, p: any) => s + Math.abs(Number(p.amount)), 0);
 
   return (
     <div className="space-y-5 px-5 pb-28">
@@ -967,6 +1220,26 @@ function Dashboard({ data, settings, openModal, go }: any) {
       </Card>
 
       <Card>
+        <div className="mb-3 flex items-center gap-2 text-slate-700">
+          <ArrowDownToLine size={16} /> <h3 className="text-base font-bold">Sales &amp; Refunds</h3>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-xs font-semibold text-slate-400">Today</p>
+            <p className="mt-1 text-lg font-bold text-slate-900">{fmtMoney(todaySales, settings.currency)}</p>
+            {refundsToday > 0 && <p className="text-xs font-semibold text-rose-500">−{fmtMoney(refundsToday, settings.currency)} refunded</p>}
+            <p className="text-xs font-semibold text-emerald-600">Net {fmtMoney(todaySales - refundsToday, settings.currency)}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-slate-400">This month</p>
+            <p className="mt-1 text-lg font-bold text-slate-900">{fmtMoney(monthSales, settings.currency)}</p>
+            {refundsMonth > 0 && <p className="text-xs font-semibold text-rose-500">−{fmtMoney(refundsMonth, settings.currency)} refunded</p>}
+            <p className="text-xs font-semibold text-emerald-600">Net {fmtMoney(monthSales - refundsMonth, settings.currency)}</p>
+          </div>
+        </div>
+      </Card>
+
+      <Card>
         <div className="mb-4 flex items-center gap-2 text-slate-700">
           <BarChart3 size={16} /> <h3 className="text-base font-bold">Monthly Sales</h3>
         </div>
@@ -990,13 +1263,13 @@ function Dashboard({ data, settings, openModal, go }: any) {
           <RotateCcw size={16} /> <h3 className="text-base font-bold">Recent Transactions</h3>
         </div>
         <div className="mb-4 flex gap-2">
-          {["estimates", "expenses"].map((t) => (
+          {["estimates", "expenses", "returns"].map((t) => (
             <button key={t} onClick={() => setTab(t)} className={`rounded-full px-4 py-1.5 text-sm font-semibold capitalize ${tab === t ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-600"}`}>{t}</button>
           ))}
         </div>
         {recent.length === 0 ? (
-          <EmptyState text={`No ${tab} yet.`} cta={`Create ${tab === "estimates" ? "Estimate" : "Expense"}`}
-            onCta={() => openModal(tab === "estimates" ? "estimate" : "expense")} />
+          <EmptyState text={`No ${tab} yet.`} cta={`Create ${tab === "estimates" ? "Estimate" : tab === "expenses" ? "Expense" : "Estimate"}`}
+            onCta={() => openModal(tab === "expenses" ? "expense" : "estimate")} />
         ) : (
           <ul className="divide-y divide-slate-100">
             {recent.map((r: any) => (
@@ -1048,7 +1321,15 @@ function CustomersView({ customers, openModal, removeCustomer }: any) {
             <div>
               <p className="font-semibold text-slate-900">{c.name}</p>
               <p className="text-xs text-slate-400">{c.email || "No email"}{c.phone ? ` · ${c.phone}` : ""}</p>
-              {c.location && <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-400"><MapPin size={11} /> {c.location}</p>}
+              {c.location && (
+                <a
+                  href={c.lat && c.lng ? `https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.location)}`}
+                  target="_blank" rel="noreferrer"
+                  className="mt-0.5 flex items-center gap-1 text-xs text-slate-400 hover:text-blue-500 hover:underline"
+                >
+                  <MapPin size={11} /> {c.location}
+                </a>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <WhatsAppButton phone={c.phone} message={`Hi ${c.name}, reaching out from ${c.name}'s account.`} />
@@ -1167,7 +1448,7 @@ function OrdersView({ orders, items, openModal, markOrderReceived, removeOrder }
 
 /* ---- DocumentList ---- */
 
-function DocumentList({ type, docs, customers, currency, openModal, removeDoc, updateStatus, recordPayment, onShareInvoice, onPrint, onEdit }: any) {
+function DocumentList({ type, docs, customers, currency, openModal, removeDoc, updateStatus, recordPayment, onShareInvoice, onPrint, onEdit, onReturn }: any) {
   const [search, setSearch] = useState("");
   const customerName = (id: string) => customers.find((c: any) => c.id === id)?.name || "Unknown";
   const customerPhone = (id: string) => customers.find((c: any) => c.id === id)?.phone;
@@ -1262,6 +1543,7 @@ function DocumentList({ type, docs, customers, currency, openModal, removeDoc, u
                 )}
                 {type === "estimate" && <GhostButton onClick={() => onEdit(d)}><Pencil size={13} /> Edit</GhostButton>}
                 {type === "estimate" && d.status !== "Paid" && <GhostButton onClick={() => recordPayment(d)}><CheckCircle2 size={13} /> Record payment</GhostButton>}
+                {type === "estimate" && (d.lines || []).length > 0 && <GhostButton onClick={() => onReturn(d)}><RotateCcw size={13} /> Return items</GhostButton>}
                 {type === "estimate" && <GhostButton onClick={() => onPrint(d)}><Printer size={13} /> Print</GhostButton>}
                 {type === "estimate"
                   ? <button onClick={() => onShareInvoice(d)} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white transition active:scale-[0.98]" style={{ backgroundColor: WHATSAPP_GREEN }}><Phone size={13} /> Share estimate</button>
@@ -1691,7 +1973,7 @@ function ToDoTrackingView({ items, settings }: any) {
 /* ---- Reports ---- */
 
 let gmapsPromise: Promise<any> | null = null;
-function loadGoogleMaps(apiKey: string): Promise<any> {
+function loadGoogleMapsSDK(apiKey: string): Promise<any> {
   if ((window as any).google?.maps) return Promise.resolve((window as any).google);
   if (gmapsPromise) return gmapsPromise;
   gmapsPromise = new Promise((resolve, reject) => {
@@ -1724,7 +2006,7 @@ function EstimatesMapCard({ invoices, currency }: any) {
   useEffect(() => {
     if (!apiKey || destinations.length === 0 || !mapRef.current) return;
     let cancelled = false;
-    loadGoogleMaps(apiKey).then((google) => {
+    loadGoogleMapsSDK(apiKey).then((google) => {
       if (cancelled || !mapRef.current) return;
       const map = new google.maps.Map(mapRef.current, { zoom: 5, center: { lat: 22.5, lng: 78.9 } });
       const geocoder = new google.maps.Geocoder();
@@ -2403,7 +2685,9 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 
   const saveCustomer = async (v: any) => {
     try {
-      const doc = await api.customers.create(v);
+      const { locationLat, locationLng, ...rest } = v;
+      const payload = { ...rest, ...(locationLat != null ? { lat: locationLat } : {}), ...(locationLng != null ? { lng: locationLng } : {}) };
+      const doc = await api.customers.create(payload);
       setCustomers((c) => [doc, ...c]);
       showToast("Customer added");
       closeModal();
@@ -2518,6 +2802,17 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       showToast("Payment recorded");
       closeModal();
     } catch (err) { onApiError(err, "Failed to record payment"); }
+  };
+
+  const saveReturn = async (docId: string, lines: { itemId: string; qty: number }[]) => {
+    try {
+      const { doc, payment, items: freshItems } = await api.documents("estimate").addReturn(docId, lines);
+      setEstimates((list) => list.map((e) => (e.id === docId ? doc : e)));
+      setItems(freshItems);
+      setPayments((p) => [payment, ...p]);
+      showToast(`Refund of ${fmtMoney(Math.abs(payment.amount), settings.currency)} recorded, stock updated`);
+      closeModal();
+    } catch (err) { onApiError(err, "Failed to record return"); }
   };
 
   const removePayment = async (id: string) => {
@@ -2661,7 +2956,7 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
             <DocumentList type="estimate" docs={estimates} customers={customers} currency={settings.currency} openModal={openModal}
               removeDoc={removeDoc("estimate")}
               updateStatus={updateDocStatus("estimate")}
-              recordPayment={recordPaymentFor} onShareInvoice={(inv: any) => setShareInvoice(inv)}
+              recordPayment={recordPaymentFor} onReturn={(doc: any) => openModal("return", { doc })} onShareInvoice={(inv: any) => setShareInvoice(inv)}
               onPrint={printEstimate}
               onEdit={(doc: any) => openModal("estimate", { editingDoc: doc })} />
           </div>
@@ -2688,7 +2983,7 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       { key: "name",     label: "Customer name",                     required: true, placeholder: "Acme Co." },
       { key: "email",    label: "Email",                             placeholder: "name@example.com" },
       { key: "phone",    label: "Phone (with country code)",         placeholder: "+91 98765 43210" },
-      { key: "location", label: "Location / Address",                placeholder: "City, area or full address" },
+      { key: "location", label: "Location / Address",                type: "location", placeholder: "City, area or full address" },
     ]} onClose={closeModal} onSave={saveCustomer} />;
 
     if (type === "item") return <FieldModal title="New Item" fields={[
@@ -2725,6 +3020,11 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         { key: "method",     label: "Method",  type: "select", options: [{ value: "Cash", label: "Cash" }, { value: "Bank Transfer", label: "Bank Transfer" }, { value: "UPI", label: "UPI" }, { value: "Card", label: "Card" }] },
         { key: "date",       label: "Date",    type: "date" },
       ]} initial={{ date: today(), customerId: payload?.customerId || "", invoiceId: payload?.invoiceId || "", amount: payload?.amount || "" }} onClose={closeModal} onSave={savePayment} />;
+    }
+
+    if (type === "return") {
+      return <ReturnModal doc={payload?.doc} items={items} currency={settings.currency} onClose={closeModal}
+        onSave={(lines: { itemId: string; qty: number }[]) => saveReturn(payload?.doc?.id, lines)} />;
     }
     return null;
   };

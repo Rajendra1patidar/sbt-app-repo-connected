@@ -7,6 +7,8 @@ const customerSchema = new mongoose.Schema(
     email: { type: String, trim: true },
     phone: { type: String, trim: true },
     location: { type: String, trim: true },
+    lat: { type: Number },
+    lng: { type: Number },
   },
   { timestamps: true }
 );

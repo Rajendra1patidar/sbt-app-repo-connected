@@ -37,6 +37,18 @@ const documentSchema = new mongoose.Schema(
     incomes: [{ label: String, amount: Number }],
     deliveryFee: { type: Number },
     feeVerified: { type: Boolean },
+    // items the customer returned after this estimate was paid — each entry books a refund
+    returns: [
+      {
+        itemId: { type: mongoose.Schema.Types.ObjectId, ref: "Item" },
+        name: { type: String },
+        qty: { type: Number },
+        rate: { type: Number },
+        amount: { type: Number },
+        date: { type: String },
+        _id: false,
+      },
+    ],
   },
   { timestamps: true }
 );

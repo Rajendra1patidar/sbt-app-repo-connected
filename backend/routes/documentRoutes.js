@@ -10,6 +10,7 @@ function makeDocumentRouter(type) {
   router.post("/", ctrl.create(type));
   router.put("/:id", ctrl.update(type));
   router.patch("/:id/status", ctrl.updateStatus(type));
+  router.post("/:id/returns", ctrl.addReturn(type));
   router.delete("/:id", ctrl.remove(type));
 
   return router;

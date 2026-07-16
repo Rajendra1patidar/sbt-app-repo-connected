@@ -91,6 +91,8 @@ function documents(type: "estimate" | "challan") {
     update: (id: string, v: any) => request(`${base}/${id}`, { method: "PUT", body: JSON.stringify(v) }),
     updateStatus: (id: string, status: string) =>
       request(`${base}/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
+    addReturn: (id: string, lines: { itemId: string; qty: number }[], date?: string) =>
+      request(`${base}/${id}/returns`, { method: "POST", body: JSON.stringify({ lines, date }) }),
     remove: (id: string) => request(`${base}/${id}`, { method: "DELETE" }),
   };
 }

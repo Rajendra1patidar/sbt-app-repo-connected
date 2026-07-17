@@ -241,38 +241,42 @@ function LocationPickerModal({ initialAddress, initialLat, initialLng, onClose, 
     loadGoogleMaps()
       .then(() => {
         if (cancelled || !mapDivRef.current) return;
-        const g = (window as any).google;
-        const start = coords || { lat: 22.9734, lng: 78.6569 }; // roughly central India as a default
-        const map = new g.maps.Map(mapDivRef.current, { center: start, zoom: coords ? 16 : 5 });
-        const marker = new g.maps.Marker({ position: start, map, draggable: true });
-        mapRef.current = map;
-        markerRef.current = marker;
+        try {
+          const g = (window as any).google;
+          const start = coords || { lat: 22.9734, lng: 78.6569 }; // roughly central India as a default
+          const map = new g.maps.Map(mapDivRef.current, { center: start, zoom: coords ? 16 : 5 });
+          const marker = new g.maps.Marker({ position: start, map, draggable: true });
+          mapRef.current = map;
+          markerRef.current = marker;
 
-        marker.addListener("dragend", () => {
-          const pos = marker.getPosition();
-          updateFromLatLng(pos.lat(), pos.lng());
-        });
-        map.addListener("click", (e: any) => {
-          marker.setPosition(e.latLng);
-          updateFromLatLng(e.latLng.lat(), e.latLng.lng());
-        });
-
-        if (searchInputRef.current) {
-          const autocomplete = new g.maps.places.Autocomplete(searchInputRef.current, { fields: ["geometry", "formatted_address", "name"] });
-          autocomplete.bindTo("bounds", map);
-          autocomplete.addListener("place_changed", () => {
-            const place = autocomplete.getPlace();
-            if (!place.geometry?.location) return;
-            const lat = place.geometry.location.lat();
-            const lng = place.geometry.location.lng();
-            map.setCenter({ lat, lng });
-            map.setZoom(16);
-            marker.setPosition({ lat, lng });
-            setCoords({ lat, lng });
-            setAddress(place.formatted_address || place.name || "");
+          marker.addListener("dragend", () => {
+            const pos = marker.getPosition();
+            updateFromLatLng(pos.lat(), pos.lng());
           });
+          map.addListener("click", (e: any) => {
+            marker.setPosition(e.latLng);
+            updateFromLatLng(e.latLng.lat(), e.latLng.lng());
+          });
+
+          if (searchInputRef.current) {
+            const autocomplete = new g.maps.places.Autocomplete(searchInputRef.current, { fields: ["geometry", "formatted_address", "name"] });
+            autocomplete.bindTo("bounds", map);
+            autocomplete.addListener("place_changed", () => {
+              const place = autocomplete.getPlace();
+              if (!place.geometry?.location) return;
+              const lat = place.geometry.location.lat();
+              const lng = place.geometry.location.lng();
+              map.setCenter({ lat, lng });
+              map.setZoom(16);
+              marker.setPosition({ lat, lng });
+              setCoords({ lat, lng });
+              setAddress(place.formatted_address || place.name || "");
+            });
+          }
+          if (!cancelled) setStatus("ready");
+        } catch (e) {
+          if (!cancelled) setStatus("error");
         }
-        if (!cancelled) setStatus("ready");
       })
       .catch(() => { if (!cancelled) setStatus("error"); });
 
@@ -304,9 +308,10 @@ function LocationPickerModal({ initialAddress, initialLat, initialLng, onClose, 
                 className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm"
               />
             </div>
-            <div ref={mapDivRef} className="w-full rounded-xl bg-slate-100" style={{ height: 320 }}>
+            <div className="relative w-full rounded-xl bg-slate-100" style={{ height: 320 }}>
+              <div ref={mapDivRef} className="absolute inset-0 rounded-xl overflow-hidden" />
               {status === "loading" && (
-                <div className="flex h-full items-center justify-center text-sm text-slate-400 gap-2">
+                <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-400 gap-2 pointer-events-none">
                   <Loader2 size={16} className="animate-spin" /> Loading map…
                 </div>
               )}
@@ -1736,7 +1741,7 @@ function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, currency
 
         <label className="mb-1 block text-xs font-semibold text-slate-500">Number of workers</label>
         <div className="mb-3 flex items-center gap-3">
-          <button onClick={() => setWorkerCountSafe(workerCount - 1)} className="h-8 w-8 rounded-lg border border-slate-200 bg-slate-50 text-lg font-bold text-slate-600">−</button>
+          <button onClick={() => setWorkerCountSafe(workerCount - 1)} className="h-8 w-8 rounded-lg border border-slate-200 bg-slate-50 text-lg font-bold text-slate-600">âˆ’</button>
           <span className="w-6 text-center text-base font-bold text-slate-900">{workerCount}</span>
           <button onClick={() => setWorkerCountSafe(workerCount + 1)} className="h-8 w-8 rounded-lg border border-slate-200 bg-slate-50 text-lg font-bold text-slate-600">+</button>
         </div>
@@ -1754,19 +1759,19 @@ function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, currency
         <label className="mb-2 block text-xs font-semibold text-slate-500">Materials moved (shared by the group)</label>
         <div className="mb-2 flex items-center gap-2">
           <span className="w-16 text-sm font-semibold text-slate-700">Cement</span>
-          <span className="w-16 text-xs text-slate-400">₹{LABOUR_RATES.cement}/unit</span>
+          <span className="w-16 text-xs text-slate-400">â‚¹{LABOUR_RATES.cement}/unit</span>
           <input type="number" min="0" value={cementQty} onChange={(e) => setCementQty(e.target.value)} className="w-20 rounded-xl border border-slate-200 px-2 py-2 text-center text-sm" />
           <span className="ml-auto text-sm font-bold text-blue-600">{fmtMoney(cementAmt, currency)}</span>
         </div>
         <div className="mb-2 flex items-center gap-2">
           <span className="w-16 text-sm font-semibold text-slate-700">Saria</span>
-          <span className="w-16 text-xs text-slate-400">₹{LABOUR_RATES.saria}/unit</span>
+          <span className="w-16 text-xs text-slate-400">â‚¹{LABOUR_RATES.saria}/unit</span>
           <input type="number" min="0" value={sariaQty} onChange={(e) => setSariaQty(e.target.value)} className="w-20 rounded-xl border border-slate-200 px-2 py-2 text-center text-sm" />
           <span className="ml-auto text-sm font-bold text-blue-600">{fmtMoney(sariaAmt, currency)}</span>
         </div>
         <div className="mb-3 flex items-center gap-2">
           <span className="w-16 text-sm font-semibold text-slate-700">Balu</span>
-          <span className="w-16 text-xs text-slate-400">₹{LABOUR_RATES.balu}/unit</span>
+          <span className="w-16 text-xs text-slate-400">â‚¹{LABOUR_RATES.balu}/unit</span>
           <input type="number" min="0" value={baluQty} onChange={(e) => setBaluQty(e.target.value)} className="w-20 rounded-xl border border-slate-200 px-2 py-2 text-center text-sm" />
           <span className="ml-auto text-sm font-bold text-blue-600">{fmtMoney(baluAmt, currency)}</span>
         </div>
@@ -1781,7 +1786,7 @@ function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, currency
           <div className="mb-3 flex items-center gap-2">
             <span className="w-16 text-sm font-semibold text-slate-700">Other</span>
             <span className="w-16 text-xs text-slate-400">your rate</span>
-            <input type="number" min="0" value={otherAmount} onChange={(e) => setOtherAmount(e.target.value)} placeholder="₹" className="w-20 rounded-xl border border-slate-200 px-2 py-2 text-center text-sm" />
+            <input type="number" min="0" value={otherAmount} onChange={(e) => setOtherAmount(e.target.value)} placeholder="â‚¹" className="w-20 rounded-xl border border-slate-200 px-2 py-2 text-center text-sm" />
             <span className="ml-auto text-sm font-bold text-blue-600">{fmtMoney(otherAmt, currency)}</span>
           </div>
         )}
@@ -1791,7 +1796,7 @@ function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, currency
           <span className="text-lg font-bold text-blue-700">{fmtMoney(sessionTotal, currency)}</span>
         </div>
         <button disabled={!canSave || saving} onClick={save} className="mt-3 w-full rounded-full bg-slate-900 py-3 text-sm font-semibold text-white disabled:opacity-40">
-          {saving ? "Saving…" : "+ Save session"}
+          {saving ? "Savingâ€¦" : "+ Save session"}
         </button>
       </Card>
 
@@ -1809,7 +1814,7 @@ function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, currency
                 <div className="flex gap-3">
                   <span className="w-16 shrink-0 text-xs font-bold text-slate-400">{new Date(s.time).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}</span>
                   <div>
-                    <p className="text-sm font-semibold text-slate-800">{(s.workers || []).join(", ") || "—"}</p>
+                    <p className="text-sm font-semibold text-slate-800">{(s.workers || []).join(", ") || "â€”"}</p>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {s.cementQty > 0 && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">Cement {fmtMoney(s.cementQty * LABOUR_RATES.cement, currency)}</span>}
                       {s.sariaQty > 0 && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">Saria {fmtMoney(s.sariaQty * LABOUR_RATES.saria, currency)}</span>}
@@ -1883,8 +1888,8 @@ function ToDoTrackingView({ items, settings }: any) {
       th, td { text-align: left; padding: 4px 6px; border-bottom: 0.2mm solid #e2e8f0; font-size: 11px; }
       th { color: #64748b; font-weight: 600; }
     </style></head><body>
-      <h1>${settings?.orgName || "Business"} — Inventory</h1>
-      <table><thead><tr><th>Item</th><th>Unit</th><th style="text-align:right;">In stock</th><th style="text-align:right;">Alert ≤</th></tr></thead>
+      <h1>${settings?.orgName || "Business"} â€” Inventory</h1>
+      <table><thead><tr><th>Item</th><th>Unit</th><th style="text-align:right;">In stock</th><th style="text-align:right;">Alert â‰¤</th></tr></thead>
       <tbody>${rowsHtml}</tbody></table>
     </body></html>`);
     w.document.close();
@@ -1914,7 +1919,7 @@ function ToDoTrackingView({ items, settings }: any) {
               <li key={it.id} className="flex items-center justify-between rounded-xl bg-amber-50 px-4 py-3">
                 <div>
                   <p className="font-semibold text-slate-900">{it.name}</p>
-                  <p className="text-xs text-slate-500">{it.unit || "unit"} · Alert threshold: {it.lowStock ?? LOW_STOCK_DEFAULT}</p>
+                  <p className="text-xs text-slate-500">{it.unit || "unit"} Â· Alert threshold: {it.lowStock ?? LOW_STOCK_DEFAULT}</p>
                 </div>
                 <div className="text-right">
                   <p className={`text-xl font-bold ${(it.stock ?? 0) === 0 ? "text-rose-600" : "text-amber-600"}`}>{it.stock ?? 0}</p>
@@ -1926,7 +1931,7 @@ function ToDoTrackingView({ items, settings }: any) {
         )}
       </Card>
 
-      {/* Full inventory — collapsible */}
+      {/* Full inventory â€” collapsible */}
       <Card>
         <button
           onClick={() => setInventoryOpen((v) => !v)}
@@ -1957,7 +1962,7 @@ function ToDoTrackingView({ items, settings }: any) {
                     </div>
                     <div className="text-right">
                       <p className={`text-base font-bold ${stockColor(it)}`}>{it.stock ?? 0}</p>
-                      <p className="text-xs text-slate-400">/ alert ≤{it.lowStock ?? LOW_STOCK_DEFAULT}</p>
+                      <p className="text-xs text-slate-400">/ alert â‰¤{it.lowStock ?? LOW_STOCK_DEFAULT}</p>
                     </div>
                   </li>
                 ))}
@@ -1972,25 +1977,10 @@ function ToDoTrackingView({ items, settings }: any) {
 
 /* ---- Reports ---- */
 
-let gmapsPromise: Promise<any> | null = null;
-function loadGoogleMapsSDK(apiKey: string): Promise<any> {
-  if ((window as any).google?.maps) return Promise.resolve((window as any).google);
-  if (gmapsPromise) return gmapsPromise;
-  gmapsPromise = new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`;
-    script.async = true;
-    script.onload = () => resolve((window as any).google);
-    script.onerror = () => reject(new Error("Failed to load Google Maps"));
-    document.head.appendChild(script);
-  });
-  return gmapsPromise;
-}
-
 function EstimatesMapCard({ invoices, currency }: any) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapError, setMapError] = useState("");
-  const apiKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+  const apiKey = GOOGLE_MAPS_API_KEY || undefined;
 
   const byDestination: Record<string, { total: number; count: number }> = {};
   invoices.forEach((inv: any) => {
@@ -2006,7 +1996,8 @@ function EstimatesMapCard({ invoices, currency }: any) {
   useEffect(() => {
     if (!apiKey || destinations.length === 0 || !mapRef.current) return;
     let cancelled = false;
-    loadGoogleMapsSDK(apiKey).then((google) => {
+    loadGoogleMaps().then(() => {
+      const google = (window as any).google;
       if (cancelled || !mapRef.current) return;
       const map = new google.maps.Map(mapRef.current, { zoom: 5, center: { lat: 22.5, lng: 78.9 } });
       const geocoder = new google.maps.Geocoder();
@@ -2056,6 +2047,19 @@ function EstimatesMapCard({ invoices, currency }: any) {
   }
 
   return (
+    <Card>
+      <h3 className="mb-1 text-base font-bold text-slate-900">Estimates by place</h3>
+      {destinations.length === 0 ? (
+        <p className="text-sm text-slate-400">No estimates in this range have a destination set yet.</p>
+      ) : mapError ? (
+        <p className="text-sm text-rose-500">{mapError}</p>
+      ) : (
+        <div ref={mapRef} style={{ width: "100%", height: 260, borderRadius: 12 }} className="mt-2 bg-slate-100" />
+      )}
+    </Card>
+  );
+}
+return (
     <Card>
       <h3 className="mb-1 text-base font-bold text-slate-900">Estimates by place</h3>
       {destinations.length === 0 ? (
@@ -2122,7 +2126,7 @@ function ReportsView({ data, currency, settings }: any) {
       th, td { text-align: left; padding: 4px 6px; border-bottom: 0.2mm solid #e2e8f0; font-size: 11px; }
       th { color: #64748b; font-weight: 600; }
     </style></head><body>
-      <h1>${settings?.orgName || "Business"} — Report</h1>
+      <h1>${settings?.orgName || "Business"} â€” Report</h1>
       <div class="sub">${fmtDate(fromDate)} to ${fmtDate(toDate)}</div>
       <div class="stats">
         <div class="stat">Invoiced<b>${fmtMoney(rInvoiced, currency)}</b></div>
@@ -2179,7 +2183,29 @@ function ReportsView({ data, currency, settings }: any) {
               : <ul className="divide-y divide-slate-100">
                 {nameMatchedInvoices.map((inv: any) => {
                   const c = customers.find((cu: any) => cu.id === inv.customerId);
-                  return (<li key={inv.id} className="py-3"><div className="flex items-start justify-between"><div><p className="font-semibold text-slate-900">{inv.number}</p><p className="text-xs text-slate-500">{c?.name} · {fmtDate(inv.date)}</p>{c?.location && <p className="flex items-center gap-1 text-xs text-slate-400"><MapPin size={10} /> {c.location}</p>}</div><div className="text-right"><p className="font-bold text-slate-800">{fmtMoney(inv.total, currency)}</p><Badge status={inv.status} /></div></div></li>);
+                  return (<li key={inv.id} className="py-3"><div className="flex items-start justify-between"><div><p className="font-semibold text-slate-900">{inv.number}</p><p className="text-xs text-slate-500">{c?.name} Â· {fmtDate(inv.date)}</p>{c?.location && <p className="flex items-center gap-1 text-xs text-slate-400"><MapPin size={10} /> {c.location}</p>}</div><div className="text-right"><p className="font-bold text-slate-800">{fmtMoney(inv.total, currency)}</p><Badge status={inv.status} /></div></div></li>);
+                })}
+              </ul>
+            }
+          </div>
+        )}
+      </Card>
+
+      {/* Search by name */}
+      <Card>
+        <div className="mb-3 flex items-center gap-2"><Search size={16} className="text-blue-500" /><h3 className="text-base font-bold text-slate-900">Search estimates by customer name</h3></div>
+        <div className="relative">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input value={nameQuery} onChange={(e) => setNameQuery(e.target.value)} placeholder="Type customer name..." className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        </div>
+        {trimmedName && (
+          <div className="mt-3">
+            {nameMatchedInvoices.length === 0
+              ? <p className="text-sm text-slate-400">{nameMatchedCustomers.length === 0 ? `No customer matching "${nameQuery}".` : "Customer found but no estimates yet."}</p>
+              : <ul className="divide-y divide-slate-100">
+                {nameMatchedInvoices.map((inv: any) => {
+                  const c = customers.find((cu: any) => cu.id === inv.customerId);
+                  return (<li key={inv.id} className="py-3"><div className="flex items-start justify-between"><div><p className="font-semibold text-slate-900">{inv.number}</p><p className="text-xs text-slate-500">{c?.name} Â· {fmtDate(inv.date)}</p>{c?.location && <p className="flex items-center gap-1 text-xs text-slate-400"><MapPin size={10} /> {c.location}</p>}</div><div className="text-right"><p className="font-bold text-slate-800">{fmtMoney(inv.total, currency)}</p><Badge status={inv.status} /></div></div></li>);
                 })}
               </ul>
             }
@@ -2208,7 +2234,7 @@ function ReportsView({ data, currency, settings }: any) {
                         <div><p className="font-semibold text-slate-900">{c.name}</p><p className="flex items-center gap-1 text-xs text-slate-400 mt-0.5"><MapPin size={10} /> {c.location}</p>{c.phone && <p className="text-xs text-slate-400">{c.phone}</p>}</div>
                         <div className="text-right"><p className="text-xs text-slate-400">{custInvoices.length} estimate{custInvoices.length !== 1 ? "s" : ""}</p><p className="font-bold text-slate-800">{fmtMoney(custTotal, currency)}</p></div>
                       </div>
-                      {custInvoices.length > 0 && <ul className="mt-2 space-y-1 pl-2 border-l-2 border-slate-100">{custInvoices.map((inv: any) => (<li key={inv.id} className="flex items-center justify-between text-xs text-slate-500"><span>{inv.number} · {fmtDate(inv.date)}</span><span className="flex items-center gap-2">{fmtMoney(inv.total, currency)}<Badge status={inv.status} /></span></li>))}</ul>}
+                      {custInvoices.length > 0 && <ul className="mt-2 space-y-1 pl-2 border-l-2 border-slate-100">{custInvoices.map((inv: any) => (<li key={inv.id} className="flex items-center justify-between text-xs text-slate-500"><span>{inv.number} Â· {fmtDate(inv.date)}</span><span className="flex items-center gap-2">{fmtMoney(inv.total, currency)}<Badge status={inv.status} /></span></li>))}</ul>}
                     </li>
                   );
                 })}
@@ -2247,14 +2273,14 @@ function ShareReportView({ invoices, items, customers, currency, settings }: any
 
   const buildReport = () => {
     const lines = [
-      `📊 *Daily Sales Report — ${fmtDate(todayStr)}*`,
-      `🏢 ${settings.orgName}`,
+      `ðŸ“Š *Daily Sales Report â€” ${fmtDate(todayStr)}*`,
+      `ðŸ¢ ${settings.orgName}`,
       ``,
-      `📦 *Items Sold Today:*`,
-      ...rows.map((r) => `  • ${r.name}: ${r.qty} unit(s) — ${currency}${r.amount.toFixed(2)}`),
+      `ðŸ“¦ *Items Sold Today:*`,
+      ...rows.map((r) => `  â€¢ ${r.name}: ${r.qty} unit(s) â€” ${currency}${r.amount.toFixed(2)}`),
       ``,
-      `🧾 Estimates raised: ${totalInvoices}`,
-      `💰 *Total Sales: ${currency}${totalSales.toFixed(2)}*`,
+      `ðŸ§¾ Estimates raised: ${totalInvoices}`,
+      `ðŸ’° *Total Sales: ${currency}${totalSales.toFixed(2)}*`,
     ];
     return lines.join("\n");
   };
@@ -2339,167 +2365,6 @@ function ShareReportView({ invoices, items, customers, currency, settings }: any
     </div>
   );
 }
-
-/* ---- Advanced Billing ---- */
-
-function AdvancedBillingView({ autoReminder, setAutoReminder, overdueCount, settings }: any) {
-  return (
-    <div className="space-y-4 px-5 pb-28">
-      <Card>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-base font-bold text-slate-900">WhatsApp payment reminders</h3>
-            <p className="mt-1 text-sm text-slate-400">Show a banner for overdue estimates with one-tap WhatsApp messaging.</p>
-          </div>
-          <button onClick={() => setAutoReminder((v: boolean) => !v)} className={`h-7 w-12 shrink-0 rounded-full p-0.5 transition ${autoReminder ? "bg-emerald-500" : "bg-slate-200"}`}>
-            <span className={`block h-6 w-6 rounded-full bg-white transition ${autoReminder ? "translate-x-5" : "translate-x-0"}`} />
-          </button>
-        </div>
-        {autoReminder && <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">Enabled — {overdueCount} overdue estimate{overdueCount !== 1 ? "s" : ""} will be flagged.</p>}
-      </Card>
-      <Card>
-        <h3 className="text-base font-bold text-slate-900">Recurring estimates</h3>
-        <p className="mt-1 text-sm text-slate-400">Set up retainer or subscription billing.</p>
-        <EmptyState text="No recurring profiles yet." />
-      </Card>
-      <Card>
-        <h3 className="text-base font-bold text-slate-900">Business WhatsApp number</h3>
-        <p className="mt-1 text-sm text-slate-400">{settings.businessWhatsApp ? `Connected: ${settings.businessWhatsApp}` : "Not set — add one in Settings."}</p>
-      </Card>
-    </div>
-  );
-}
-
-/* ---- Settings ---- */
-
-function ChangePinCard() {
-  const [mode, setMode] = useState<"idle"|"current"|"new"|"confirm">("idle");
-  const [cur, setCur] = useState("");
-  const [next, setNext] = useState("");
-  const [msg, setMsg] = useState<{text:string;ok:boolean}|null>(null);
-  const [saving, setSaving] = useState(false);
-  const MAX = 4;
-
-  const inputCls = "w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm tracking-[0.4em] text-center font-bold";
-
-  const handleCurrent = () => {
-    if (cur.length < MAX) return;
-    setMsg(null); setMode("new");
-  };
-  const handleNew = () => {
-    if (next.length < MAX) return;
-    setMsg(null); setMode("confirm");
-  };
-  const handleConfirm = async (val: string) => {
-    if (val.length < MAX) return;
-    if (val !== next) { setMsg({ text: "PINs don't match. Try again.", ok: false }); setNext(""); setMode("new"); return; }
-    setSaving(true);
-    try {
-      await api.auth.changePin(cur, val);
-      setMsg({ text: "PIN changed successfully!", ok: true });
-      setCur(""); setNext(""); setMode("idle");
-    } catch (err: any) {
-      setMsg({ text: err?.message || "Current PIN is incorrect.", ok: false });
-      setCur(""); setNext(""); setMode("current");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const numOnly = (v: string) => v.replace(/\D/g, "").slice(0, MAX);
-
-  return (
-    <Card className="space-y-3">
-      <div className="flex items-center gap-2">
-        <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center"><SettingsIcon size={14} className="text-slate-600" /></div>
-        <h3 className="text-sm font-bold text-slate-900">Change PIN</h3>
-      </div>
-      {msg && <p className={`rounded-xl px-3 py-2 text-xs font-semibold ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-600"}`}>{msg.text}</p>}
-
-      {mode === "idle" && (
-        <button onClick={() => { setMode("current"); setMsg(null); }}
-          className="w-full rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition">
-          Change my PIN
-        </button>
-      )}
-      {mode === "current" && (
-        <div className="space-y-2">
-          <label className="block text-xs font-semibold text-slate-500">Enter current PIN</label>
-          <input type="password" inputMode="numeric" maxLength={MAX} value={cur} onChange={(e) => setCur(numOnly(e.target.value))} placeholder="••••" className={inputCls} />
-          <div className="flex gap-2">
-            <button onClick={() => setMode("idle")} className="flex-1 rounded-xl border border-slate-200 py-2 text-sm text-slate-500">Cancel</button>
-            <button disabled={cur.length < MAX} onClick={handleCurrent} className="flex-1 rounded-xl bg-slate-900 py-2 text-sm font-semibold text-white disabled:opacity-40">Next</button>
-          </div>
-        </div>
-      )}
-      {mode === "new" && (
-        <div className="space-y-2">
-          <label className="block text-xs font-semibold text-slate-500">Enter new PIN</label>
-          <input type="password" inputMode="numeric" maxLength={MAX} value={next} onChange={(e) => setNext(numOnly(e.target.value))} placeholder="••••" className={inputCls} autoFocus />
-          <div className="flex gap-2">
-            <button onClick={() => setMode("idle")} className="flex-1 rounded-xl border border-slate-200 py-2 text-sm text-slate-500">Cancel</button>
-            <button disabled={next.length < MAX} onClick={handleNew} className="flex-1 rounded-xl bg-slate-900 py-2 text-sm font-semibold text-white disabled:opacity-40">Next</button>
-          </div>
-        </div>
-      )}
-      {mode === "confirm" && (
-        <div className="space-y-2">
-          <label className="block text-xs font-semibold text-slate-500">Confirm new PIN</label>
-          <input type="password" inputMode="numeric" maxLength={MAX} placeholder="••••" className={inputCls} autoFocus
-            onChange={(e) => { const v = numOnly(e.target.value); if (v.length === MAX) handleConfirm(v); }} />
-          <button onClick={() => setMode("idle")} className="w-full rounded-xl border border-slate-200 py-2 text-sm text-slate-500">Cancel</button>
-        </div>
-      )}
-    </Card>
-  );
-}
-
-function SettingsView({ settings, setSettings }: any) {
-  const [local, setLocal] = useState(settings);
-  const set = (k: string, v: any) => setLocal((s: any) => ({ ...s, [k]: v }));
-  const dirty = JSON.stringify(local) !== JSON.stringify(settings);
-  return (
-    <div className="space-y-4 px-5 pb-28">
-      <Card className="space-y-4">
-        {[["orgName","Organization name","Acme Ltd."],["ownerName","Your name",""],["email","Address / Email","Address or email"]].map(([k,l,p]) => (
-          <div key={k}><label className="mb-1 block text-xs font-semibold text-slate-500">{l}</label>
-          <input value={(local as any)[k]} onChange={(e) => set(k, e.target.value)} placeholder={p} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" /></div>
-        ))}
-        <div><label className="mb-1 block text-xs font-semibold text-slate-500">Currency symbol</label>
-        <select value={local.currency} onChange={(e) => set("currency", e.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
-          {["₹","$","€","£"].map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
-      </Card>
-      <Card className="space-y-3">
-        <div className="flex items-center gap-2"><Phone size={16} style={{ color: WHATSAPP_GREEN }} /><h3 className="text-sm font-bold text-slate-900">WhatsApp integration</h3></div>
-        <div><label className="mb-1 block text-xs font-semibold text-slate-500">Business WhatsApp number (with country code)</label>
-        <input value={local.businessWhatsApp} onChange={(e) => set("businessWhatsApp", e.target.value)} placeholder="+91 98765 43210" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" /></div>
-      </Card>
-      <ChangePinCard />
-      <PillButton disabled={!dirty} onClick={() => setSettings(local)} className="w-full justify-center">Save changes</PillButton>
-    </div>
-  );
-}
-
-/* ---- Main App ---- */
-
-/* ---- PIN Screen ---- */
-
-const PIN_KEY = "invoice_app_pin";
-// Session is tracked in React state only — clears on every page load/refresh
-
-function PinScreen({ onUnlocked }: { onUnlocked: () => void }) {
-  const storedPin = localStorage.getItem(PIN_KEY);
-  const isSetup = !storedPin;
-
-  const [phase, setPhase] = useState<"enter" | "setup" | "confirm">(isSetup ? "setup" : "enter");
-  const [pin, setPin] = useState("");
-  const [setupPin, setSetupPin] = useState("");
-  const [error, setError] = useState("");
-  const [shake, setShake] = useState(false);
-
-  const MAX = 4;
-
-  const triggerShake = (msg: string) => {
     setError(msg);
     setShake(true);
     setPin("");
@@ -2568,9 +2433,9 @@ function PinScreen({ onUnlocked }: { onUnlocked: () => void }) {
 
         {/* Numpad */}
         <div className="grid grid-cols-3 gap-3 w-full">
-          {["1","2","3","4","5","6","7","8","9","","0","⌫"].map((k, i) => {
+          {["1","2","3","4","5","6","7","8","9","","0","âŒ«"].map((k, i) => {
             if (k === "") return <div key={i} />;
-            const isDelete = k === "⌫";
+            const isDelete = k === "âŒ«";
             return (
               <button
                 key={k + i}
@@ -2624,7 +2489,7 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   const [loadError, setLoadError] = useState("");
 
   const [settings, setSettings] = useState({
-    orgName: "SHREE BALAJI TRADERS", ownerName: "SBT", email: "SARANGPUR SANDAWTA ROAD PADLYA MATAJI", currency: "₹", businessWhatsApp: "",
+    orgName: "SHREE BALAJI TRADERS", ownerName: "SBT", email: "SARANGPUR SANDAWTA ROAD PADLYA MATAJI", currency: "â‚¹", businessWhatsApp: "",
   });
 
   const [customers, setCustomers] = useState<any[]>([]);
@@ -2676,7 +2541,7 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ---- handlers (all persist to the backend, then sync local state from the response) ---- */
+/* ---- handlers (all persist to the backend, then sync local state from the response) ---- */
 
   const onApiError = (err: any, fallback: string) => {
     if (err?.status === 401) { onSignOut(); return; }
@@ -2752,7 +2617,7 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       }
 
       if (v.id) {
-        // editing an existing document — update in place, don't touch stock or status
+        // editing an existing document â€” update in place, don't touch stock or status
         const doc = await api.documents(type as any).update(v.id, payload);
         docSetter(type)((l: any[]) => l.map((x: any) => (x.id === v.id ? doc : x)));
         showToast(`${doc.number} updated`);
@@ -2767,11 +2632,11 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         if (v.rolledEstimateIds && v.rolledEstimateIds.length) {
           setEstimates((l) => l.map((e) => (v.rolledEstimateIds.includes(e.id) ? { ...e, status: "Paid" } : e)));
         }
-        /* stock was deducted server-side — pull the fresh numbers */
+        /* stock was deducted server-side â€” pull the fresh numbers */
         const freshItems = await api.items.list();
         setItems(freshItems);
         if (lowStock && lowStock.length > 0) {
-          showToast(`⚠️ Low stock: ${lowStock.map((i: any) => `${i.name} (${i.stock} left)`).join(", ")}`);
+          showToast(`âš ï¸ Low stock: ${lowStock.map((i: any) => `${i.name} (${i.stock} left)`).join(", ")}`);
         } else {
           showToast(`${doc.number} created`);
         }
@@ -2863,7 +2728,7 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   const printEstimate = (invoice: any) => {
     const customer = customers.find((c) => c.id === invoice.customerId);
     const lines = invoice.lines || [];
-    const COMPACT_MAX_LINES = 12; // beyond this, a quarter-strip can't stay readable — use a fresh full page instead
+    const COMPACT_MAX_LINES = 12; // beyond this, a quarter-strip can't stay readable â€” use a fresh full page instead
     const compact = lines.length <= COMPACT_MAX_LINES;
     const rowFont = lines.length <= 4 ? 8.5 : lines.length <= 8 ? 7.5 : 6.5;
 
@@ -2873,7 +2738,7 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       const qty = Number(ln.qty || 0);
       const rate = ln.rate ?? it?.price ?? 0;
       const amount = qty * rate;
-      return `<div class="ln"><span class="ln-name">${name} × ${qty}</span><span class="ln-amt">${fmtMoney(amount, settings.currency)}</span></div>`;
+      return `<div class="ln"><span class="ln-name">${name} Ã— ${qty}</span><span class="ln-amt">${fmtMoney(amount, settings.currency)}</span></div>`;
     }).join("");
 
     const extrasHtml = [
@@ -2885,14 +2750,14 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     const statusNote = invoice.status === "Paid"
       ? "PAID"
       : invoice.status === "Accepted"
-      ? `Accepted — due ${fmtDate(invoice.dueDate)}`
+      ? `Accepted â€” due ${fmtDate(invoice.dueDate)}`
       : `Due ${fmtDate(invoice.dueDate)}`;
 
     const notesHtml = invoice.notes ? `<div class="notes">${invoice.notes}</div>` : "";
 
     const bodyHtml = `
       <div class="hd"><span class="org">${settings.orgName || "Your Business"}</span><span class="doc">ESTIMATE ${invoice.number}</span></div>
-      <div class="sub">${fmtDate(invoice.date)} · ${customer?.name || "Customer"}</div>
+      <div class="sub">${fmtDate(invoice.date)} Â· ${customer?.name || "Customer"}</div>
       <div class="lines">${rowsHtml}${extrasHtml}</div>
       <div class="tot"><span>Total</span><span>${fmtMoney(invoice.total, settings.currency)}</span></div>
       ${notesHtml}
@@ -2937,7 +2802,7 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   const overdueCount = estimates.filter((i) => i.status === "Due" && i.dueDate && new Date(i.dueDate) < new Date()).length;
   const data = { customers, items, orders, estimates, invoices: estimates, challans, expenses, payments, labourSessions };
 
-  /* ---- view renderer ---- */
+/* ---- view renderer ---- */
   const renderView = () => {
     switch (view) {
       case "dashboard": return <Dashboard data={data} settings={settings} openModal={openModal} go={setView} />;
@@ -2949,8 +2814,8 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         <div className="px-5 pt-1">
           {autoReminder && overdueCount > 0 && <div className="mb-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700 flex items-center gap-2"><AlertCircle size={16} /> {overdueCount} estimate{overdueCount !== 1 ? "s" : ""} overdue.</div>}
           <div className="mb-3 flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-2.5 text-xs text-slate-500">
-            <span>Next print → <b className="text-slate-700">top-{printSide}</b> corner</span>
-            <button onClick={togglePrintSide} className="font-semibold text-blue-600">Switch side ⇄</button>
+            <span>Next print â†’ <b className="text-slate-700">top-{printSide}</b> corner</span>
+            <button onClick={togglePrintSide} className="font-semibold text-blue-600">Switch side â‡„</button>
           </div>
           <div className="-mx-5">
             <DocumentList type="estimate" docs={estimates} customers={customers} currency={settings.currency} openModal={openModal}
@@ -3011,7 +2876,7 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       return <DocumentModal type={type} customers={customers} items={items} estimates={estimates} editingDoc={payload?.editingDoc} onClose={closeModal} onSave={(v: any) => saveDocument(type, v)} />;
 
     if (type === "payment") {
-      const invoiceOptions = estimates.filter((i) => i.status !== "Paid").map((i) => ({ value: i.id, label: `${i.number} — ${fmtMoney(i.total, settings.currency)}` }));
+      const invoiceOptions = estimates.filter((i) => i.status !== "Paid").map((i) => ({ value: i.id, label: `${i.number} â€” ${fmtMoney(i.total, settings.currency)}` }));
       const customerOptions = customers.map((c) => ({ value: c.id, label: c.name }));
       return <FieldModal title="Record Payment" fields={[
         { key: "customerId", label: "Customer", type: "select", options: customerOptions, required: true },
@@ -3037,7 +2902,7 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 bg-slate-50 text-slate-500">
         <Loader2 size={28} className="animate-spin" />
-        <p className="text-sm font-medium">Loading your data…</p>
+        <p className="text-sm font-medium">Loading your dataâ€¦</p>
       </div>
     );
   }
@@ -3154,7 +3019,7 @@ function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-3 text-sm font-semibold text-white disabled:opacity-50"
         >
           {busy && <Loader2 size={16} className="animate-spin" />}
-          {busy ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
+          {busy ? "Please waitâ€¦" : mode === "login" ? "Sign in" : "Create account"}
         </button>
 
         <button
@@ -3173,4 +3038,3 @@ export default function App() {
   const [authed, setAuthed] = useState<boolean>(!!api.getToken());
   if (!authed) return <AuthScreen onAuthed={() => setAuthed(true)} />;
   return <InvoiceApp onSignOut={() => { api.setToken(null); setAuthed(false); }} />;
-}

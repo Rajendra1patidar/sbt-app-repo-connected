@@ -1624,7 +1624,13 @@ function DocumentList({ type, docs, customers, items, currency, openModal, remov
   if (type === "estimate") {
     if (search.trim()) {
       const q = search.trim().toLowerCase();
-      visibleDocs = visibleDocs.filter((d: any) => (d.notes || "").toLowerCase().includes(q));
+      visibleDocs = visibleDocs.filter((d: any) => {
+        const cust = customers.find((c: any) => c.id === d.customerId);
+        const name = (cust?.name || "").toLowerCase();
+        const location = (cust?.location || "").toLowerCase();
+        const notes = (d.notes || "").toLowerCase();
+        return name.includes(q) || location.includes(q) || notes.includes(q);
+      });
     }
     if (statusFilter === "due") visibleDocs = visibleDocs.filter((d: any) => d.status !== "Paid");
     else if (statusFilter === "paid") visibleDocs = visibleDocs.filter((d: any) => d.status === "Paid");
@@ -1762,7 +1768,7 @@ function DocumentList({ type, docs, customers, items, currency, openModal, remov
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search estimates by notes..."
+              placeholder="Search by customer, location or notes..."
               className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm"
             />
           </div>

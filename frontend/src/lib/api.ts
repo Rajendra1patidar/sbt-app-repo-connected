@@ -93,6 +93,8 @@ function documents(type: "estimate" | "challan") {
       request(`${base}/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
     addReturn: (id: string, lines: { itemId: string; qty: number }[], date?: string) =>
       request(`${base}/${id}/returns`, { method: "POST", body: JSON.stringify({ lines, date }) }),
+    addDelivery: (id: string, lines: { itemId: string; qty: number }[], date?: string) =>
+      request(`${base}/${id}/deliveries`, { method: "POST", body: JSON.stringify({ lines, date }) }),
     remove: (id: string) => request(`${base}/${id}`, { method: "DELETE" }),
   };
 }

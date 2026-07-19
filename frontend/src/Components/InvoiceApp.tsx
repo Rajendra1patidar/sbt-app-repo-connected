@@ -1191,11 +1191,11 @@ function InvoiceShareModal({ invoice, customer, items, settings, payment, onClos
     const itemFont = lines.length <= 4 ? 26 : lines.length <= 8 ? 23 : 20;
     const rowH = itemFont + 22;
 
-    const extras: [string, number][] = [
+    const extras = ([
       ["Freight", Number(invoice.freightCost || 0)],
       ["Labour", Number(invoice.labourCost || 0)],
       ["Previous due", Number(invoice.previousDue || 0)],
-    ].filter(([, v]) => v > 0) as [string, number][];
+    ] as [string, number][]).filter(([, v]) => v > 0);
 
     const HEADER_H = 96;   // name/date + location + divider
     const TOTAL_H = 78;

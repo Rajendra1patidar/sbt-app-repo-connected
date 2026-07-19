@@ -117,7 +117,7 @@ const NAV = [
 function PillButton({ children, onClick, className = "", disabled }: any) {
   return (
     <button onClick={onClick} disabled={disabled}
-      className={`inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] transition ${className}`}>
+      className={`inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-3 text-sm font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] transition ${className}`}>
       {children}
     </button>
   );
@@ -216,7 +216,7 @@ function FieldModal({ title, fields, initial, onClose, onSave, danger }: any) {
         <div className="mt-6 flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full border border-slate-200 py-3 text-sm font-semibold text-slate-600">Cancel</button>
           <button disabled={!canSave} onClick={() => canSave && onSave(values)}
-            className={`flex-1 rounded-full py-3 text-sm font-semibold text-white disabled:opacity-40 ${danger ? "bg-rose-600" : "bg-slate-900"}`}>Save</button>
+            className={`flex-1 rounded-full py-3 text-sm font-semibold text-white disabled:opacity-40 ${danger ? "bg-rose-600" : "bg-blue-600"}`}>Save</button>
         </div>
       </div>
 
@@ -353,7 +353,7 @@ function LocationPickerModal({ initialAddress, initialLat, initialLng, onClose, 
           <button
             disabled={!coords}
             onClick={() => coords && onPick({ address, lat: coords.lat, lng: coords.lng })}
-            className="flex-1 rounded-full bg-slate-900 py-3 text-sm font-semibold text-white disabled:opacity-40"
+            className="flex-1 rounded-full bg-blue-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
           >
             Use this location
           </button>
@@ -645,7 +645,7 @@ function DocumentModal({ type, customers, items, estimates, editingDoc, onClose,
         <div className="mt-6 flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full border border-slate-200 py-3 text-sm font-semibold text-slate-600">Cancel</button>
           <button disabled={!canSave} onClick={handleSaveClick}
-            className="flex-1 rounded-full bg-slate-900 py-3 text-sm font-semibold text-white disabled:opacity-40">{isEditing ? "Save changes" : `Save ${type}`}</button>
+            className="flex-1 rounded-full bg-blue-600 py-3 text-sm font-semibold text-white disabled:opacity-40">{isEditing ? "Save changes" : `Save ${type}`}</button>
         </div>
       </div>
       {rateEditIndex !== null && (() => {
@@ -968,7 +968,7 @@ function ChallanModal({ onClose, onSave }: any) {
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full border border-slate-200 py-3 text-sm font-semibold text-slate-600">Cancel</button>
           <button disabled={!canSave} onClick={() => canSave && onSave({ route, fromDate, toDate, byWhom, transporter, expenses, incomes, deliveryFee: Number(deliveryFee) || 0, feeVerified, total: totalIncomes - totalExpenses + (Number(deliveryFee) || 0) })}
-            className="flex-1 rounded-full bg-slate-900 py-3 text-sm font-semibold text-white disabled:opacity-40">Save Challan</button>
+            className="flex-1 rounded-full bg-blue-600 py-3 text-sm font-semibold text-white disabled:opacity-40">Save Challan</button>
         </div>
       </div>
     </div>
@@ -1018,7 +1018,7 @@ function OrderModal({ items, onClose, onSave, prefill }: any) {
         <div className="mt-6 flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full border border-slate-200 py-3 text-sm font-semibold text-slate-600">Cancel</button>
           <button disabled={!canSave} onClick={() => canSave && onSave({ itemId, qty: Number(qty), date, notes })}
-            className="flex-1 rounded-full bg-slate-900 py-3 text-sm font-semibold text-white disabled:opacity-40">Place Order</button>
+            className="flex-1 rounded-full bg-blue-600 py-3 text-sm font-semibold text-white disabled:opacity-40">Place Order</button>
         </div>
       </div>
     </div>
@@ -2452,7 +2452,7 @@ function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, currency
           <span className="text-sm font-semibold text-blue-700">This session</span>
           <span className="text-lg font-bold text-blue-700">{fmtMoney(sessionTotal, currency)}</span>
         </div>
-        <button disabled={!canSave || saving} onClick={save} className="mt-3 w-full rounded-full bg-slate-900 py-3 text-sm font-semibold text-white disabled:opacity-40">
+        <button disabled={!canSave || saving} onClick={save} className="mt-3 w-full rounded-full bg-blue-600 py-3 text-sm font-semibold text-white disabled:opacity-40">
           {saving ? "Saving…" : "+ Save session"}
         </button>
       </Card>
@@ -3028,7 +3028,7 @@ function ShareReportView({ invoices, items, customers, currency, settings }: any
             </div>
 
             {/* Totals */}
-            <div className="mt-3 flex justify-between items-center rounded-xl bg-slate-900 px-4 py-3">
+            <div className="mt-3 flex justify-between items-center rounded-xl bg-blue-600 px-4 py-3">
               <div>
                 <p className="text-xs text-slate-400">{totalInvoices} invoice{totalInvoices !== 1 ? "s" : ""} today</p>
                 <p className="text-sm font-bold text-white">Total Sales</p>
@@ -3150,7 +3150,7 @@ function ChangePinCard() {
           <input type="password" inputMode="numeric" maxLength={MAX} value={cur} onChange={(e) => setCur(numOnly(e.target.value))} placeholder="••••" className={inputCls} />
           <div className="flex gap-2">
             <button onClick={() => setMode("idle")} className="flex-1 rounded-xl border border-slate-200 py-2 text-sm text-slate-500">Cancel</button>
-            <button disabled={cur.length < MAX} onClick={handleCurrent} className="flex-1 rounded-xl bg-slate-900 py-2 text-sm font-semibold text-white disabled:opacity-40">Next</button>
+            <button disabled={cur.length < MAX} onClick={handleCurrent} className="flex-1 rounded-xl bg-blue-600 py-2 text-sm font-semibold text-white disabled:opacity-40">Next</button>
           </div>
         </div>
       )}
@@ -3160,7 +3160,7 @@ function ChangePinCard() {
           <input type="password" inputMode="numeric" maxLength={MAX} value={next} onChange={(e) => setNext(numOnly(e.target.value))} placeholder="••••" className={inputCls} autoFocus />
           <div className="flex gap-2">
             <button onClick={() => setMode("idle")} className="flex-1 rounded-xl border border-slate-200 py-2 text-sm text-slate-500">Cancel</button>
-            <button disabled={next.length < MAX} onClick={handleNew} className="flex-1 rounded-xl bg-slate-900 py-2 text-sm font-semibold text-white disabled:opacity-40">Next</button>
+            <button disabled={next.length < MAX} onClick={handleNew} className="flex-1 rounded-xl bg-blue-600 py-2 text-sm font-semibold text-white disabled:opacity-40">Next</button>
           </div>
         </div>
       )}
@@ -3267,7 +3267,7 @@ function PinScreen({ onUnlocked }: { onUnlocked: () => void }) {
   const phaseHint  = phase === "setup" ? "You'll enter this every time you open the app." : phase === "confirm" ? "Re-enter the same PIN to confirm." : "";
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-900 select-none">
+    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-blue-950 select-none">
       <div className="flex flex-col items-center gap-8 w-full max-w-xs px-6">
         {/* Icon + title */}
         <div className="flex flex-col items-center gap-3">
@@ -3820,7 +3820,7 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <div className="flex h-screen flex-col items-center justify-center gap-3 bg-slate-50 px-6 text-center">
         <AlertCircle size={28} className="text-rose-500" />
         <p className="text-sm font-medium text-slate-700">{loadError}</p>
-        <button onClick={() => window.location.reload()} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+        <button onClick={() => window.location.reload()} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white">
           Try again
         </button>
         <button onClick={onSignOut} className="text-xs font-medium text-slate-500">Sign out</button>
@@ -3860,7 +3860,7 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       )}
 
       {toast && (
-        <div className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg max-w-sm text-center">
+        <div className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg max-w-sm text-center">
           {toast}
         </div>
       )}
@@ -3933,7 +3933,7 @@ function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
         <button
           type="submit"
           disabled={busy}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-3 text-sm font-semibold text-white disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white disabled:opacity-50"
         >
           {busy && <Loader2 size={16} className="animate-spin" />}
           {busy ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}

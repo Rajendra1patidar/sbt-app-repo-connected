@@ -80,17 +80,17 @@ function fmtMoney(n: number | string, currency: string) {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  Accepted: "bg-blue-100 text-blue-700",
-  Due: "bg-amber-100 text-amber-700",
-  "Partially Paid": "bg-sky-100 text-sky-700",
-  Paid: "bg-emerald-100 text-emerald-700",
-  Overdue: "bg-rose-100 text-rose-700",
-  Pending: "bg-amber-100 text-amber-700",
-  Delivered: "bg-emerald-100 text-emerald-700",
-  Received: "bg-emerald-100 text-emerald-700",
+  Accepted: "bg-advance-50 text-advance-700",
+  Due: "bg-warn-50 text-warn-700",
+  "Partially Paid": "bg-advance-50 text-advance-700",
+  Paid: "bg-good-50 text-good-700",
+  Overdue: "bg-bad-50 text-bad-700",
+  Pending: "bg-warn-50 text-warn-700",
+  Delivered: "bg-good-50 text-good-700",
+  Received: "bg-good-50 text-good-700",
 };
 
-const CATEGORY_COLORS = ["bg-blue-400","bg-sky-300","bg-amber-300","bg-violet-300","bg-emerald-300","bg-rose-300"];
+const CATEGORY_COLORS = ["bg-brand-400","bg-brand-300","bg-warn-500","bg-advance-500","bg-good-500","bg-bad-500"];
 
 /* ---- nav ---- */
 
@@ -117,7 +117,7 @@ const NAV = [
 function PillButton({ children, onClick, className = "", disabled }: any) {
   return (
     <button onClick={onClick} disabled={disabled}
-      className={`inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-3 text-sm font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] transition ${className}`}>
+      className={`inline-flex items-center gap-2 rounded-pill bg-brand-500 px-5 py-3 text-sm font-semibold text-white shadow-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-brand-600 active:scale-[0.97] transition-all duration-150 ${className}`}>
       {children}
     </button>
   );
@@ -125,7 +125,7 @@ function PillButton({ children, onClick, className = "", disabled }: any) {
 function GhostButton({ children, onClick, className = "" }: any) {
   return (
     <button onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 active:scale-[0.98] transition ${className}`}>
+      className={`inline-flex items-center gap-1.5 rounded-pill border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink/70 hover:bg-paper hover:border-brand-200 active:scale-[0.97] transition-all duration-150 ${className}`}>
       {children}
     </button>
   );
@@ -153,18 +153,23 @@ function SmsButton({ phone, message, label = "SMS" }: any) {
   );
 }
 function Badge({ status }: any) {
-  return <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_STYLES[status] || "bg-slate-100 text-slate-600"}`}>{status}</span>;
+  return <span className={`rounded-pill px-2.5 py-1 text-xs font-semibold tracking-tight ${STATUS_STYLES[status] || "bg-ink/5 text-ink/60"}`}>{status}</span>;
 }
 function EmptyState({ text, cta, onCta }: any) {
   return (
     <div className="flex flex-col items-center gap-4 py-10 text-center">
-      <p className="text-slate-500 text-sm max-w-xs">{text}</p>
+      <p className="text-ink/50 text-sm max-w-xs">{text}</p>
       {cta && <PillButton onClick={onCta}><Plus size={16} /> {cta}</PillButton>}
     </div>
   );
 }
 function Card({ children, className = "", onClick }: any) {
-  return <div onClick={onClick} className={`rounded-2xl bg-white p-5 shadow-sm border border-slate-100 ${className}`}>{children}</div>;
+  return (
+    <div onClick={onClick}
+      className={`rounded-card bg-white p-5 shadow-card border border-line/70 transition-all duration-150 ${onClick ? "cursor-pointer hover:border-brand-200 active:scale-[0.995]" : ""} ${className}`}>
+      {children}
+    </div>
+  );
 }
 
 /* ---- FieldModal ---- */
@@ -175,48 +180,48 @@ function FieldModal({ title, fields, initial, onClose, onSave, danger }: any) {
   const set = (k: string, v: any) => setValues((s: any) => ({ ...s, [k]: v }));
   const canSave = fields.every((f: any) => !f.required || (values[f.key] !== undefined && values[f.key] !== ""));
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
       <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-slate-900">{title}</h3>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>
+          <h3 className="font-display text-lg font-bold text-ink">{title}</h3>
+          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
         <div className="space-y-4">
           {fields.map((f: any) => (
             <div key={f.key}>
-              <label className="mb-1 block text-xs font-semibold text-slate-500">{f.label}{f.required && <span className="text-rose-500"> *</span>}</label>
+              <label className="mb-1 block text-xs font-semibold text-ink/50">{f.label}{f.required && <span className="text-bad-500"> *</span>}</label>
               {f.type === "select" ? (
                 <select value={values[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                  className="w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400">
                   <option value="" disabled>Choose...</option>
                   {f.options.map((o: any) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               ) : f.type === "textarea" ? (
                 <textarea value={values[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)}
                   rows={3} placeholder={f.placeholder}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                  className="w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400" />
               ) : f.type === "location" ? (
                 <div className="flex gap-2">
                   <input type="text" value={values[f.key] ?? ""}
                     onChange={(e) => set(f.key, e.target.value)} placeholder={f.placeholder}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                    className="w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400" />
                   <button type="button" onClick={() => setPickerFor(f.key)}
-                    className="flex shrink-0 items-center gap-1 rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+                    className="flex shrink-0 items-center gap-1 rounded-xl border border-line px-3 py-2.5 text-xs font-semibold text-ink/70 hover:bg-paper">
                     <MapPin size={14} /> Map
                   </button>
                 </div>
               ) : (
                 <input type={f.type || "text"} value={values[f.key] ?? ""}
                   onChange={(e) => set(f.key, e.target.value)} placeholder={f.placeholder}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                  className="w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400" />
               )}
             </div>
           ))}
         </div>
         <div className="mt-6 flex gap-3">
-          <button onClick={onClose} className="flex-1 rounded-full border border-slate-200 py-3 text-sm font-semibold text-slate-600">Cancel</button>
+          <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
           <button disabled={!canSave} onClick={() => canSave && onSave(values)}
-            className={`flex-1 rounded-full py-3 text-sm font-semibold text-white disabled:opacity-40 ${danger ? "bg-rose-600" : "bg-blue-600"}`}>Save</button>
+            className={`flex-1 rounded-full py-3 text-sm font-semibold text-white disabled:opacity-40 ${danger ? "bg-bad-600" : "bg-brand-600"}`}>Save</button>
         </div>
       </div>
 
@@ -309,15 +314,15 @@ function LocationPickerModal({ initialAddress, initialLat, initialLng, onClose, 
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-slate-900/50 p-0 sm:p-4">
+    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-ink/50 p-0 sm:p-4">
       <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-slate-900">Pick location on map</h3>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>
+          <h3 className="font-display text-lg font-bold text-ink">Pick location on map</h3>
+          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
 
         {status === "error" ? (
-          <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+          <div className="rounded-xl bg-warn-50 border border-warn-200 px-4 py-3 text-sm text-warn-800">
             {!GOOGLE_MAPS_API_KEY
               ? "No Google Maps API key is configured. Add VITE_GOOGLE_MAPS_API_KEY to your environment variables (Netlify site settings) to enable the map picker."
               : "Couldn't load Google Maps. Check your API key and enabled APIs (Maps JavaScript API, Places API, Geocoding API)."}
@@ -325,35 +330,35 @@ function LocationPickerModal({ initialAddress, initialLat, initialLng, onClose, 
         ) : (
           <>
             <div className="relative mb-3">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
               <input
                 ref={searchInputRef}
                 placeholder="Search for an address or place..."
-                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm"
+                className="w-full rounded-xl border border-line bg-white py-2.5 pl-9 pr-3 text-sm"
               />
             </div>
-            <div className="relative w-full rounded-xl bg-slate-100" style={{ height: 320 }}>
+            <div className="relative w-full rounded-xl bg-paper" style={{ height: 320 }}>
               <div ref={mapDivRef} className="absolute inset-0 rounded-xl overflow-hidden" />
               {status === "loading" && (
-                <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-400 gap-2 pointer-events-none">
+                <div className="absolute inset-0 flex items-center justify-center text-sm text-ink/40 gap-2 pointer-events-none">
                   <Loader2 size={16} className="animate-spin" /> Loading map…
                 </div>
               )}
             </div>
-            <p className="mt-2 text-xs text-slate-400">Tap the map or drag the pin to fine-tune the exact spot.</p>
+            <p className="mt-2 text-xs text-ink/40">Tap the map or drag the pin to fine-tune the exact spot.</p>
           </>
         )}
 
         {address && (
-          <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-700">{address}</div>
+          <div className="mt-3 rounded-xl bg-paper px-3 py-2.5 text-sm text-ink/80">{address}</div>
         )}
 
         <div className="mt-6 flex gap-3">
-          <button onClick={onClose} className="flex-1 rounded-full border border-slate-200 py-3 text-sm font-semibold text-slate-600">Cancel</button>
+          <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
           <button
             disabled={!coords}
             onClick={() => coords && onPick({ address, lat: coords.lat, lng: coords.lng })}
-            className="flex-1 rounded-full bg-blue-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
+            className="flex-1 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
           >
             Use this location
           </button>
@@ -382,17 +387,17 @@ function SearchableSelect({ options, value, onChange, placeholder }: any) {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left text-sm"
+        className="flex w-full items-center justify-between rounded-xl border border-line bg-white px-3 py-2.5 text-left text-sm"
       >
-        <span className={selected ? "truncate text-slate-900" : "truncate text-slate-400"}>
+        <span className={selected ? "truncate text-ink" : "truncate text-ink/40"}>
           {selected ? selected.label : (placeholder || "Select...")}
         </span>
-        <ChevronDown size={15} className="ml-2 shrink-0 text-slate-400" />
+        <ChevronDown size={15} className="ml-2 shrink-0 text-ink/40" />
       </button>
       {open && (
-        <div className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
-          <div className="sticky top-0 flex items-center gap-2 border-b border-slate-100 bg-white p-2">
-            <Search size={14} className="shrink-0 text-slate-400" />
+        <div className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-line bg-white shadow-lg">
+          <div className="sticky top-0 flex items-center gap-2 border-b border-line bg-white p-2">
+            <Search size={14} className="shrink-0 text-ink/40" />
             <input
               autoFocus
               value={query}
@@ -402,13 +407,13 @@ function SearchableSelect({ options, value, onChange, placeholder }: any) {
             />
           </div>
           {filtered.length === 0
-            ? <p className="px-3 py-2 text-xs text-slate-400">No matches</p>
+            ? <p className="px-3 py-2 text-xs text-ink/40">No matches</p>
             : filtered.map((o: any) => (
               <button
                 type="button"
                 key={o.value}
                 onClick={() => { onChange(o.value); setOpen(false); setQuery(""); }}
-                className={`block w-full truncate px-3 py-2 text-left text-sm hover:bg-slate-50 ${o.value === value ? "bg-blue-50 font-semibold text-blue-700" : "text-slate-700"}`}
+                className={`block w-full truncate px-3 py-2 text-left text-sm hover:bg-paper ${o.value === value ? "bg-brand-50 font-semibold text-brand-700" : "text-ink/80"}`}
               >
                 {o.label}
               </button>
@@ -423,15 +428,15 @@ function SearchableSelect({ options, value, onChange, placeholder }: any) {
 /* ---- Due / Paid confirmation popup shown right before an estimate is saved ---- */
 function StatusChoicePopup({ total, currency, onChoose, onCancel }: any) {
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/50 p-4">
       <div className="w-full max-w-xs rounded-3xl bg-white p-6 shadow-xl">
-        <h3 className="text-lg font-bold text-slate-900">Is this estimate paid?</h3>
-        <p className="mt-1 text-sm text-slate-500">Total amount: <span className="font-semibold text-slate-700">{fmtMoney(total, currency)}</span></p>
+        <h3 className="font-display text-lg font-bold text-ink">Is this estimate paid?</h3>
+        <p className="mt-1 text-sm text-ink/50">Total amount: <span className="font-semibold text-ink/80">{fmtMoney(total, currency)}</span></p>
         <div className="mt-5 space-y-2">
-          <button onClick={() => onChoose("Paid", false)} className="w-full rounded-full bg-emerald-500 py-3 text-sm font-bold text-white active:scale-[0.98]">Paid — customer has paid</button>
-          <button onClick={() => onChoose("Due", false)} className="w-full rounded-full bg-amber-500 py-3 text-sm font-bold text-white active:scale-[0.98]">Due — payment pending</button>
-          <button onClick={() => onChoose("Paid", true)} className="w-full rounded-full bg-blue-600 py-3 text-sm font-bold text-white active:scale-[0.98]">Advance Booking — paid now, collected in batches</button>
-          <button onClick={onCancel} className="w-full rounded-full border border-slate-200 py-3 text-sm font-semibold text-slate-500">Back to editing</button>
+          <button onClick={() => onChoose("Paid", false)} className="w-full rounded-full bg-good-500 py-3 text-sm font-bold text-white active:scale-[0.98]">Paid — customer has paid</button>
+          <button onClick={() => onChoose("Due", false)} className="w-full rounded-full bg-warn-500 py-3 text-sm font-bold text-white active:scale-[0.98]">Due — payment pending</button>
+          <button onClick={() => onChoose("Paid", true)} className="w-full rounded-full bg-brand-600 py-3 text-sm font-bold text-white active:scale-[0.98]">Advance Booking — paid now, collected in batches</button>
+          <button onClick={onCancel} className="w-full rounded-full border border-line py-3 text-sm font-semibold text-ink/50">Back to editing</button>
         </div>
       </div>
     </div>
@@ -505,18 +510,18 @@ function DocumentModal({ type, customers, items, estimates, editingDoc, onClose,
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
       <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-slate-900">{titleMap[type]}</h3>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>
+          <h3 className="font-display text-lg font-bold text-ink">{titleMap[type]}</h3>
+          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
-        {customers.length === 0 ? <p className="text-sm text-slate-500">Add a customer first.</p>
-          : items.length === 0 ? <p className="text-sm text-slate-500">Add an item first.</p>
+        {customers.length === 0 ? <p className="text-sm text-ink/50">Add a customer first.</p>
+          : items.length === 0 ? <p className="text-sm text-ink/50">Add an item first.</p>
           : (
           <div className="space-y-4">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-500">Customer *</label>
+              <label className="mb-1 block text-xs font-semibold text-ink/50">Customer *</label>
               <SearchableSelect
                 options={customers.map((c: any) => ({ value: c.id, label: c.name }))}
                 value={customerId}
@@ -526,25 +531,25 @@ function DocumentModal({ type, customers, items, estimates, editingDoc, onClose,
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-500">{type === "challan" ? "Delivery date" : "Date"}</label>
-                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                <label className="mb-1 block text-xs font-semibold text-ink/50">{type === "challan" ? "Delivery date" : "Date"}</label>
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
               </div>
               {type !== "challan" && (
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-500">Due date</label>
-                  <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                  <label className="mb-1 block text-xs font-semibold text-ink/50">Due date</label>
+                  <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
                 </div>
               )}
             </div>
             <div>
-              <label className="mb-2 block text-xs font-semibold text-slate-500">Items *</label>
+              <label className="mb-2 block text-xs font-semibold text-ink/50">Items *</label>
               <div className="space-y-3">
                 {lines.map((ln, i) => {
                   const it = itemById(ln.itemId);
                   const isOverridden = type === "estimate" && it && Number(ln.rate) !== Number(it.price);
                   const lineSubtotal = Number(ln.qty || 0) * Number(ln.rate || 0);
                   return (
-                    <div key={i} className="rounded-xl border border-slate-100 bg-slate-50/60 p-2">
+                    <div key={i} className="rounded-xl border border-line bg-paper/60 p-2">
                       <div className="flex items-center gap-2">
                         <div className="flex-1">
                           <SearchableSelect
@@ -554,19 +559,19 @@ function DocumentModal({ type, customers, items, estimates, editingDoc, onClose,
                             placeholder="Select item"
                           />
                         </div>
-                        <input type="number" min="1" value={ln.qty} onChange={(e) => updateLine(i, { qty: e.target.value })} className="w-16 rounded-xl border border-slate-200 px-2 py-2 text-sm" />
+                        <input type="number" min="1" value={ln.qty} onChange={(e) => updateLine(i, { qty: e.target.value })} className="w-16 rounded-xl border border-line px-2 py-2 text-sm" />
                         {type === "estimate" && (
                           <button type="button" onClick={() => setRateEditIndex(i)}
-                            className={`relative flex shrink-0 items-center gap-1 rounded-xl border px-2.5 py-2 text-sm font-semibold ${isOverridden ? "border-amber-200 bg-amber-50 text-amber-700" : "border-blue-100 bg-blue-50 text-blue-700"}`}>
+                            className={`relative flex shrink-0 items-center gap-1 rounded-xl border px-2.5 py-2 text-sm font-semibold ${isOverridden ? "border-warn-200 bg-warn-50 text-warn-700" : "border-brand-100 bg-brand-50 text-brand-700"}`}>
                             {fmtMoney(Number(ln.rate || 0), "")}
                             <Pencil size={11} className="opacity-70" />
-                            {isOverridden && <span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-amber-500" />}
+                            {isOverridden && <span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-warn-500" />}
                           </button>
                         )}
-                        {it && Number(ln.qty) > (it.stock ?? 0) && <span title="Exceeds stock"><AlertTriangle size={14} className="text-amber-500 shrink-0" /></span>}
-                        {lines.length > 1 && <button onClick={() => removeLine(i)} className="rounded-full p-1.5 text-rose-500 hover:bg-rose-50"><Trash2 size={15} /></button>}
+                        {it && Number(ln.qty) > (it.stock ?? 0) && <span title="Exceeds stock"><AlertTriangle size={14} className="text-warn-500 shrink-0" /></span>}
+                        {lines.length > 1 && <button onClick={() => removeLine(i)} className="rounded-full p-1.5 text-bad-500 hover:bg-bad-50"><Trash2 size={15} /></button>}
                       </div>
-                      <p className="mt-1.5 px-1 text-xs font-semibold text-slate-500">Subtotal: {fmtMoney(lineSubtotal, "")}</p>
+                      <p className="mt-1.5 px-1 text-xs font-semibold text-ink/50">Subtotal: {fmtMoney(lineSubtotal, "")}</p>
                     </div>
                   );
                 })}
@@ -574,7 +579,7 @@ function DocumentModal({ type, customers, items, estimates, editingDoc, onClose,
               <button
                 type="button"
                 onClick={addLine}
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-blue-300 bg-blue-50 px-4 py-3.5 text-sm font-bold text-blue-600 transition hover:bg-blue-100 hover:border-blue-400 active:scale-[0.98]"
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-brand-300 bg-brand-50 px-4 py-3.5 text-sm font-bold text-brand-600 transition hover:bg-brand-100 hover:border-brand-400 active:scale-[0.98]"
               >
                 <Plus size={19} /> Add Item
               </button>
@@ -582,70 +587,70 @@ function DocumentModal({ type, customers, items, estimates, editingDoc, onClose,
             {type === "estimate" && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-500">Contractor name</label>
-                  <input list="contractor-names" value={contractorName} onChange={(e) => setContractorName(e.target.value)} placeholder="Optional" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                  <label className="mb-1 block text-xs font-semibold text-ink/50">Contractor name</label>
+                  <input list="contractor-names" value={contractorName} onChange={(e) => setContractorName(e.target.value)} placeholder="Optional" className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
                   <datalist id="contractor-names">{knownContractors.map((n) => <option key={n} value={n} />)}</datalist>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-500">Destination</label>
-                  <input list="destination-names" value={destination} onChange={(e) => { setDestination(e.target.value); setDestinationTouched(true); }} placeholder="Place / area" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                  <label className="mb-1 block text-xs font-semibold text-ink/50">Destination</label>
+                  <input list="destination-names" value={destination} onChange={(e) => { setDestination(e.target.value); setDestinationTouched(true); }} placeholder="Place / area" className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
                   <datalist id="destination-names">{knownDestinations.map((n) => <option key={n} value={n} />)}</datalist>
-                  <p className="mt-1 text-[11px] text-slate-400">Auto-filled from the customer's saved location — edit if this delivery goes elsewhere.</p>
+                  <p className="mt-1 text-[11px] text-ink/40">Auto-filled from the customer's saved location — edit if this delivery goes elsewhere.</p>
                 </div>
               </div>
             )}
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-500">Notes</label>
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+              <label className="mb-1 block text-xs font-semibold text-ink/50">Notes</label>
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
             </div>
             {type === "estimate" && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-500">Freight cost</label>
-                  <input type="number" min="0" value={freightCost} onChange={(e) => setFreightCost(e.target.value)} placeholder="0" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                  <label className="mb-1 block text-xs font-semibold text-ink/50">Freight cost</label>
+                  <input type="number" min="0" value={freightCost} onChange={(e) => setFreightCost(e.target.value)} placeholder="0" className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-500">Labour cost</label>
-                  <input type="number" min="0" value={labourCost} onChange={(e) => setLabourCost(e.target.value)} placeholder="0" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                  <label className="mb-1 block text-xs font-semibold text-ink/50">Labour cost</label>
+                  <input type="number" min="0" value={labourCost} onChange={(e) => setLabourCost(e.target.value)} placeholder="0" className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
                 </div>
               </div>
             )}
             {type === "estimate" && previousDueAmount > 0 && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <div className="rounded-xl border border-warn-200 bg-warn-50 px-4 py-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-amber-800">Previous due — {fmtMoney(previousDueAmount, "")}</p>
-                    <p className="mt-0.5 text-xs text-amber-700">From {previousDueEstimates.length} earlier unpaid estimate{previousDueEstimates.length !== 1 ? "s" : ""}: {previousDueEstimates.map((e: any) => e.number).join(", ")}</p>
+                    <p className="text-sm font-semibold text-warn-800">Previous due — {fmtMoney(previousDueAmount, "")}</p>
+                    <p className="mt-0.5 text-xs text-warn-700">From {previousDueEstimates.length} earlier unpaid estimate{previousDueEstimates.length !== 1 ? "s" : ""}: {previousDueEstimates.map((e: any) => e.number).join(", ")}</p>
                   </div>
-                  <button type="button" onClick={() => setIncludePreviousDue((v) => !v)} className={`h-6 w-11 shrink-0 rounded-full p-0.5 transition ${includePreviousDue ? "bg-amber-500" : "bg-slate-200"}`}>
+                  <button type="button" onClick={() => setIncludePreviousDue((v) => !v)} className={`h-6 w-11 shrink-0 rounded-full p-0.5 transition ${includePreviousDue ? "bg-warn-500" : "bg-paper"}`}>
                     <span className={`block h-5 w-5 rounded-full bg-white transition ${includePreviousDue ? "translate-x-5" : "translate-x-0"}`} />
                   </button>
                 </div>
-                {includePreviousDue && <p className="mt-2 text-[11px] text-amber-700">Included in this estimate's total. Those {previousDueEstimates.length} earlier estimate{previousDueEstimates.length !== 1 ? "s" : ""} will be marked Paid once this one is saved.</p>}
+                {includePreviousDue && <p className="mt-2 text-[11px] text-warn-700">Included in this estimate's total. Those {previousDueEstimates.length} earlier estimate{previousDueEstimates.length !== 1 ? "s" : ""} will be marked Paid once this one is saved.</p>}
               </div>
             )}
-            <div className="space-y-1 rounded-xl bg-slate-50 px-4 py-3">
+            <div className="space-y-1 rounded-xl bg-paper px-4 py-3">
               {type === "estimate" && (
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Items subtotal</span><span>{itemsSubtotal.toFixed(2)}</span></div>
+                <div className="flex items-center justify-between text-xs font-semibold text-ink/50"><span>Items subtotal</span><span>{itemsSubtotal.toFixed(2)}</span></div>
               )}
               {type === "estimate" && (Number(freightCost || 0) > 0 || Number(labourCost || 0) > 0 || previousDue > 0) && (
                 <>
-                  {Number(freightCost || 0) > 0 && <div className="flex items-center justify-between text-xs text-slate-500"><span>Freight</span><span>{Number(freightCost).toFixed(2)}</span></div>}
-                  {Number(labourCost || 0) > 0 && <div className="flex items-center justify-between text-xs text-slate-500"><span>Labour</span><span>{Number(labourCost).toFixed(2)}</span></div>}
-                  {previousDue > 0 && <div className="flex items-center justify-between text-xs text-slate-500"><span>Previous due</span><span>{previousDue.toFixed(2)}</span></div>}
+                  {Number(freightCost || 0) > 0 && <div className="flex items-center justify-between text-xs text-ink/50"><span>Freight</span><span>{Number(freightCost).toFixed(2)}</span></div>}
+                  {Number(labourCost || 0) > 0 && <div className="flex items-center justify-between text-xs text-ink/50"><span>Labour</span><span>{Number(labourCost).toFixed(2)}</span></div>}
+                  {previousDue > 0 && <div className="flex items-center justify-between text-xs text-ink/50"><span>Previous due</span><span>{previousDue.toFixed(2)}</span></div>}
                 </>
               )}
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-slate-500">Total</span>
-                <span className="text-lg font-bold text-slate-900">{total.toFixed(2)}</span>
+                <span className="text-sm font-semibold text-ink/50">Total</span>
+                <span className="font-display text-lg font-bold text-ink">{total.toFixed(2)}</span>
               </div>
             </div>
           </div>
         )}
         <div className="mt-6 flex gap-3">
-          <button onClick={onClose} className="flex-1 rounded-full border border-slate-200 py-3 text-sm font-semibold text-slate-600">Cancel</button>
+          <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
           <button disabled={!canSave} onClick={handleSaveClick}
-            className="flex-1 rounded-full bg-blue-600 py-3 text-sm font-semibold text-white disabled:opacity-40">{isEditing ? "Save changes" : `Save ${type}`}</button>
+            className="flex-1 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40">{isEditing ? "Save changes" : `Save ${type}`}</button>
         </div>
       </div>
       {rateEditIndex !== null && (() => {
@@ -681,44 +686,44 @@ function ViewEstimateModal({ doc, customers, items, currency, onClose }: any) {
   const itemsSubtotal = (doc.lines || []).reduce((s: number, ln: any) => s + Number(ln.qty || 0) * Number(ln.rate || 0), 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
       <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-bold text-slate-900">{doc.number}</h3>
-            <p className="text-xs text-slate-400">{fmtDate(doc.date)}{doc.dueDate ? ` · Due ${fmtDate(doc.dueDate)}` : ""}</p>
+            <h3 className="font-display text-lg font-bold text-ink">{doc.number}</h3>
+            <p className="text-xs text-ink/40">{fmtDate(doc.date)}{doc.dueDate ? ` · Due ${fmtDate(doc.dueDate)}` : ""}</p>
           </div>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>
+          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
 
         <div className="space-y-4">
-          <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
+          <div className="flex items-center justify-between rounded-xl bg-paper px-4 py-3">
             <div>
-              <p className="text-sm font-semibold text-slate-800">{customer?.name || "Unknown customer"}</p>
-              {customer?.location && <p className="text-xs text-slate-400">{customer.location}</p>}
+              <p className="text-sm font-semibold text-ink">{customer?.name || "Unknown customer"}</p>
+              {customer?.location && <p className="text-xs text-ink/40">{customer.location}</p>}
             </div>
             <Badge status={doc.status} />
           </div>
 
           {(doc.contractorName || doc.destination) && (
             <div className="grid grid-cols-2 gap-3 text-sm">
-              {doc.contractorName && <div><p className="text-xs font-semibold text-slate-400">Contractor</p><p className="text-slate-700">{doc.contractorName}</p></div>}
-              {doc.destination && <div><p className="text-xs font-semibold text-slate-400">Destination</p><p className="text-slate-700">{doc.destination}</p></div>}
+              {doc.contractorName && <div><p className="text-xs font-semibold text-ink/40">Contractor</p><p className="text-ink/80">{doc.contractorName}</p></div>}
+              {doc.destination && <div><p className="text-xs font-semibold text-ink/40">Destination</p><p className="text-ink/80">{doc.destination}</p></div>}
             </div>
           )}
 
           <div>
-            <p className="mb-2 text-xs font-semibold text-slate-500">Items</p>
+            <p className="mb-2 text-xs font-semibold text-ink/50">Items</p>
             <div className="space-y-2">
               {(doc.lines || []).map((ln: any, i: number) => {
                 const it = itemById(ln.itemId);
                 return (
-                  <div key={i} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2 text-sm">
+                  <div key={i} className="flex items-center justify-between rounded-xl border border-line bg-paper/60 px-3 py-2 text-sm">
                     <div>
-                      <p className="font-semibold text-slate-800">{it?.name || ln.name || "Item"}</p>
-                      <p className="text-xs text-slate-400">{ln.qty} × {fmtMoney(ln.rate, currency)}</p>
+                      <p className="font-semibold text-ink">{it?.name || ln.name || "Item"}</p>
+                      <p className="text-xs text-ink/40">{ln.qty} × {fmtMoney(ln.rate, currency)}</p>
                     </div>
-                    <p className="font-semibold text-slate-800">{fmtMoney(Number(ln.qty || 0) * Number(ln.rate || 0), currency)}</p>
+                    <p className="font-semibold text-ink">{fmtMoney(Number(ln.qty || 0) * Number(ln.rate || 0), currency)}</p>
                   </div>
                 );
               })}
@@ -727,32 +732,32 @@ function ViewEstimateModal({ doc, customers, items, currency, onClose }: any) {
 
           {doc.notes && (
             <div>
-              <p className="mb-1 text-xs font-semibold text-slate-500">Notes</p>
-              <p className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600">{doc.notes}</p>
+              <p className="mb-1 text-xs font-semibold text-ink/50">Notes</p>
+              <p className="rounded-xl bg-paper px-3 py-2 text-sm text-ink/70">{doc.notes}</p>
             </div>
           )}
 
-          <div className="space-y-1 rounded-xl bg-slate-50 px-4 py-3">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Items subtotal</span><span>{fmtMoney(itemsSubtotal, currency)}</span></div>
-            {Number(doc.freightCost || 0) > 0 && <div className="flex items-center justify-between text-xs text-slate-500"><span>Freight</span><span>{fmtMoney(doc.freightCost, currency)}</span></div>}
-            {Number(doc.labourCost || 0) > 0 && <div className="flex items-center justify-between text-xs text-slate-500"><span>Labour</span><span>{fmtMoney(doc.labourCost, currency)}</span></div>}
-            {Number(doc.previousDue || 0) > 0 && <div className="flex items-center justify-between text-xs text-slate-500"><span>Previous due</span><span>{fmtMoney(doc.previousDue, currency)}</span></div>}
+          <div className="space-y-1 rounded-xl bg-paper px-4 py-3">
+            <div className="flex items-center justify-between text-xs font-semibold text-ink/50"><span>Items subtotal</span><span>{fmtMoney(itemsSubtotal, currency)}</span></div>
+            {Number(doc.freightCost || 0) > 0 && <div className="flex items-center justify-between text-xs text-ink/50"><span>Freight</span><span>{fmtMoney(doc.freightCost, currency)}</span></div>}
+            {Number(doc.labourCost || 0) > 0 && <div className="flex items-center justify-between text-xs text-ink/50"><span>Labour</span><span>{fmtMoney(doc.labourCost, currency)}</span></div>}
+            {Number(doc.previousDue || 0) > 0 && <div className="flex items-center justify-between text-xs text-ink/50"><span>Previous due</span><span>{fmtMoney(doc.previousDue, currency)}</span></div>}
             <div className="flex items-center justify-between pt-1">
-              <span className="text-sm font-semibold text-slate-500">Total</span>
-              <span className="text-lg font-bold text-slate-900">{fmtMoney(doc.total, currency)}</span>
+              <span className="text-sm font-semibold text-ink/50">Total</span>
+              <span className="font-display text-lg font-bold text-ink">{fmtMoney(doc.total, currency)}</span>
             </div>
-            <div className="flex items-center justify-between text-xs font-semibold text-emerald-600"><span>Paid</span><span>{fmtMoney(doc.amountPaid, currency)}</span></div>
+            <div className="flex items-center justify-between text-xs font-semibold text-good-600"><span>Paid</span><span>{fmtMoney(doc.amountPaid, currency)}</span></div>
             {Number(doc.total || 0) - Number(doc.amountPaid || 0) > 0 && (
-              <div className="flex items-center justify-between text-xs font-semibold text-rose-600"><span>Balance due</span><span>{fmtMoney(Number(doc.total || 0) - Number(doc.amountPaid || 0), currency)}</span></div>
+              <div className="flex items-center justify-between text-xs font-semibold text-bad-600"><span>Balance due</span><span>{fmtMoney(Number(doc.total || 0) - Number(doc.amountPaid || 0), currency)}</span></div>
             )}
           </div>
 
           {(doc.returns || []).length > 0 && (
             <div>
-              <p className="mb-2 text-xs font-semibold text-slate-500">Returns</p>
+              <p className="mb-2 text-xs font-semibold text-ink/50">Returns</p>
               <div className="space-y-1.5">
                 {doc.returns.map((r: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                  <div key={i} className="flex items-center justify-between rounded-xl bg-bad-50 px-3 py-2 text-xs text-bad-700">
                     <span>{r.name} × {r.qty} ({fmtDate(r.date)})</span>
                     <span className="font-semibold">-{fmtMoney(r.amount, currency)}</span>
                   </div>
@@ -763,12 +768,12 @@ function ViewEstimateModal({ doc, customers, items, currency, onClose }: any) {
 
           {(doc.deliveries || []).length > 0 && (
             <div>
-              <p className="mb-2 text-xs font-semibold text-slate-500">Collections (advance booking)</p>
+              <p className="mb-2 text-xs font-semibold text-ink/50">Collections (advance booking)</p>
               <div className="space-y-1.5">
                 {doc.deliveries.map((d: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between rounded-xl bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                  <div key={i} className="flex items-center justify-between rounded-xl bg-brand-50 px-3 py-2 text-xs text-brand-700">
                     <span>{d.name} × {d.qty}</span>
-                    <span className="text-blue-500">{fmtDate(d.date)}</span>
+                    <span className="text-brand-500">{fmtDate(d.date)}</span>
                   </div>
                 ))}
               </div>
@@ -776,12 +781,12 @@ function ViewEstimateModal({ doc, customers, items, currency, onClose }: any) {
           )}
           {(doc.history || []).length > 0 && (
             <div>
-              <p className="mb-2 text-xs font-semibold text-slate-500">History</p>
-              <div className="space-y-2 border-l-2 border-slate-100 pl-3">
+              <p className="mb-2 text-xs font-semibold text-ink/50">History</p>
+              <div className="space-y-2 border-l-2 border-line pl-3">
                 {[...doc.history].reverse().map((h: any, i: number) => (
                   <div key={i} className="text-xs">
-                    <p className="font-semibold text-slate-700">{h.action}</p>
-                    <p className="text-slate-400">{fmtDate(h.date)}{h.note ? ` · ${h.note}` : ""}</p>
+                    <p className="font-semibold text-ink/80">{h.action}</p>
+                    <p className="text-ink/40">{fmtDate(h.date)}{h.note ? ` · ${h.note}` : ""}</p>
                   </div>
                 ))}
               </div>
@@ -790,7 +795,7 @@ function ViewEstimateModal({ doc, customers, items, currency, onClose }: any) {
         </div>
 
         <div className="mt-6">
-          <button onClick={onClose} className="w-full rounded-full border border-slate-200 py-3 text-sm font-semibold text-slate-600">Close</button>
+          <button onClick={onClose} className="w-full rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Close</button>
         </div>
       </div>
     </div>
@@ -803,32 +808,32 @@ function RateEditPopup({ itemName, listPrice, rate, onCancel, onReset, onSave }:
   const canSave = value !== "" && !isNaN(numeric) && numeric >= 0;
   const isOverridden = Number(rate) !== Number(listPrice);
   return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-slate-900/40 p-4">
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-ink/40 p-4">
       <div className="w-full sm:max-w-xs rounded-3xl bg-white p-5 shadow-xl">
-        <h3 className="text-base font-bold text-slate-900">Edit rate</h3>
-        <p className="mb-4 mt-0.5 text-xs text-slate-500">{itemName} — this estimate only</p>
+        <h3 className="font-display text-base font-bold text-ink">Edit rate</h3>
+        <p className="mb-4 mt-0.5 text-xs text-ink/50">{itemName} — this estimate only</p>
 
-        <label className="mb-1.5 block text-xs font-semibold text-slate-500">Rate per unit</label>
-        <div className="flex items-center rounded-xl border-[1.5px] border-blue-600 px-3 py-2.5">
-          <span className="mr-1 text-slate-500">₹</span>
+        <label className="mb-1.5 block text-xs font-semibold text-ink/50">Rate per unit</label>
+        <div className="flex items-center rounded-xl border-[1.5px] border-brand-600 px-3 py-2.5">
+          <span className="mr-1 text-ink/50">₹</span>
           <input
             type="number" min="0" autoFocus value={value}
             onChange={(e) => setValue(e.target.value)}
-            className="w-full border-none p-0 text-base font-bold text-slate-900 outline-none"
+            className="w-full border-none p-0 font-display text-base font-bold text-ink outline-none"
           />
         </div>
-        <p className="mb-4 mt-1.5 text-xs text-slate-400">Item's list price: ₹{Number(listPrice).toFixed(2)}</p>
+        <p className="mb-4 mt-1.5 text-xs text-ink/40">Item's list price: ₹{Number(listPrice).toFixed(2)}</p>
 
-        <p className="mb-4 text-[11px] leading-relaxed text-slate-400">
+        <p className="mb-4 text-[11px] leading-relaxed text-ink/40">
           This only changes the rate on this estimate. Your saved item price in the Items list won't be affected.
         </p>
 
         <div className="flex gap-2">
-          <button onClick={onCancel} className="flex-1 rounded-xl bg-slate-100 py-2.5 text-sm font-bold text-slate-600">Cancel</button>
-          <button disabled={!canSave} onClick={() => canSave && onSave(numeric)} className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-bold text-white disabled:opacity-40">Save rate</button>
+          <button onClick={onCancel} className="flex-1 rounded-xl bg-paper py-2.5 text-sm font-bold text-ink/70">Cancel</button>
+          <button disabled={!canSave} onClick={() => canSave && onSave(numeric)} className="flex-1 rounded-xl bg-brand-600 py-2.5 text-sm font-bold text-white disabled:opacity-40">Save rate</button>
         </div>
         {isOverridden && (
-          <button onClick={onReset} className="mt-3 text-left text-xs font-semibold text-blue-600 underline">
+          <button onClick={onReset} className="mt-3 text-left text-xs font-semibold text-brand-600 underline">
             ↺ Reset to list price (₹{Number(listPrice).toFixed(2)})
           </button>
         )}
@@ -865,16 +870,16 @@ function ChallanModal({ onClose, onSave }: any) {
   const totalIncomes = incomes.reduce((s, r) => s + (Number(r.amount) || 0), 0);
   const canSave = route.trim().length > 0;
 
-  const inputCls = "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300";
-  const labelCls = "mb-1 block text-xs font-semibold text-slate-500";
+  const inputCls = "w-full rounded-xl border border-line px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300";
+  const labelCls = "mb-1 block text-xs font-semibold text-ink/50";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
       <div className="w-full sm:max-w-xl max-h-[93vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-6 shadow-xl space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-900">New Delivery Challan</h3>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>
+          <h3 className="font-display text-lg font-bold text-ink">New Delivery Challan</h3>
+          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
 
         {/* Row 1: Route | From Date | To Date */}
@@ -910,19 +915,19 @@ function ChallanModal({ onClose, onSave }: any) {
           <div className="flex items-center justify-between mb-2">
             <label className={labelCls}>Expense Types</label>
             {expenses.length < MAX_ENTRY_ROWS && (
-              <button onClick={() => addRow(setExpenses, expenses)} className="text-xs font-semibold text-blue-600">+ Add ({expenses.length}/{MAX_ENTRY_ROWS})</button>
+              <button onClick={() => addRow(setExpenses, expenses)} className="text-xs font-semibold text-brand-600">+ Add ({expenses.length}/{MAX_ENTRY_ROWS})</button>
             )}
           </div>
           <div className="space-y-2">
             {expenses.map((r, i) => (
               <div key={i} className="flex items-center gap-2">
-                <input value={r.label} onChange={(e) => updateRow(setExpenses, expenses, i, "label", e.target.value)} placeholder="Expense label (e.g. Fuel)" className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm" />
-                <input type="number" value={r.amount} onChange={(e) => updateRow(setExpenses, expenses, i, "amount", e.target.value)} placeholder="Amount" className="w-28 rounded-xl border border-slate-200 px-3 py-2 text-sm" />
-                {expenses.length > 1 && <button onClick={() => removeRow(setExpenses, expenses, i)} className="rounded-full p-1.5 text-rose-400 hover:bg-rose-50"><Trash2 size={14} /></button>}
+                <input value={r.label} onChange={(e) => updateRow(setExpenses, expenses, i, "label", e.target.value)} placeholder="Expense label (e.g. Fuel)" className="flex-1 rounded-xl border border-line px-3 py-2 text-sm" />
+                <input type="number" value={r.amount} onChange={(e) => updateRow(setExpenses, expenses, i, "amount", e.target.value)} placeholder="Amount" className="w-28 rounded-xl border border-line px-3 py-2 text-sm" />
+                {expenses.length > 1 && <button onClick={() => removeRow(setExpenses, expenses, i)} className="rounded-full p-1.5 text-bad-400 hover:bg-bad-50"><Trash2 size={14} /></button>}
               </div>
             ))}
           </div>
-          {totalExpenses > 0 && <p className="mt-1 text-right text-xs text-slate-400">Total: <span className="font-semibold text-rose-600">₹{totalExpenses.toFixed(2)}</span></p>}
+          {totalExpenses > 0 && <p className="mt-1 text-right text-xs text-ink/40">Total: <span className="font-semibold text-bad-600">₹{totalExpenses.toFixed(2)}</span></p>}
         </div>
 
         {/* Income Types */}
@@ -930,45 +935,45 @@ function ChallanModal({ onClose, onSave }: any) {
           <div className="flex items-center justify-between mb-2">
             <label className={labelCls}>Income Types</label>
             {incomes.length < MAX_ENTRY_ROWS && (
-              <button onClick={() => addRow(setIncomes, incomes)} className="text-xs font-semibold text-blue-600">+ Add ({incomes.length}/{MAX_ENTRY_ROWS})</button>
+              <button onClick={() => addRow(setIncomes, incomes)} className="text-xs font-semibold text-brand-600">+ Add ({incomes.length}/{MAX_ENTRY_ROWS})</button>
             )}
           </div>
           <div className="space-y-2">
             {incomes.map((r, i) => (
               <div key={i} className="flex items-center gap-2">
-                <input value={r.label} onChange={(e) => updateRow(setIncomes, incomes, i, "label", e.target.value)} placeholder="Income label (e.g. Freight)" className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm" />
-                <input type="number" value={r.amount} onChange={(e) => updateRow(setIncomes, incomes, i, "amount", e.target.value)} placeholder="Amount" className="w-28 rounded-xl border border-slate-200 px-3 py-2 text-sm" />
-                {incomes.length > 1 && <button onClick={() => removeRow(setIncomes, incomes, i)} className="rounded-full p-1.5 text-rose-400 hover:bg-rose-50"><Trash2 size={14} /></button>}
+                <input value={r.label} onChange={(e) => updateRow(setIncomes, incomes, i, "label", e.target.value)} placeholder="Income label (e.g. Freight)" className="flex-1 rounded-xl border border-line px-3 py-2 text-sm" />
+                <input type="number" value={r.amount} onChange={(e) => updateRow(setIncomes, incomes, i, "amount", e.target.value)} placeholder="Amount" className="w-28 rounded-xl border border-line px-3 py-2 text-sm" />
+                {incomes.length > 1 && <button onClick={() => removeRow(setIncomes, incomes, i)} className="rounded-full p-1.5 text-bad-400 hover:bg-bad-50"><Trash2 size={14} /></button>}
               </div>
             ))}
           </div>
-          {totalIncomes > 0 && <p className="mt-1 text-right text-xs text-slate-400">Total: <span className="font-semibold text-emerald-600">₹{totalIncomes.toFixed(2)}</span></p>}
+          {totalIncomes > 0 && <p className="mt-1 text-right text-xs text-ink/40">Total: <span className="font-semibold text-good-600">₹{totalIncomes.toFixed(2)}</span></p>}
         </div>
 
         {/* Delivery Fee */}
-        <div className={`rounded-2xl border p-4 space-y-3 ${!feeVerified && deliveryFee ? "border-amber-400 bg-amber-50" : "border-slate-200 bg-slate-50"}`}>
+        <div className={`rounded-2xl border p-4 space-y-3 ${!feeVerified && deliveryFee ? "border-warn-400 bg-warn-50" : "border-line bg-paper"}`}>
           <div>
             <label className={labelCls}>Delivery Fee</label>
-            <input type="number" value={deliveryFee} onChange={(e) => setDeliveryFee(e.target.value)} placeholder="0.00" className={`w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white ${!feeVerified && deliveryFee ? "border-amber-400" : "border-slate-200"}`} />
+            <input type="number" value={deliveryFee} onChange={(e) => setDeliveryFee(e.target.value)} placeholder="0.00" className={`w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white ${!feeVerified && deliveryFee ? "border-warn-400" : "border-line"}`} />
           </div>
           <button
             type="button"
             onClick={() => setFeeVerified((v) => !v)}
             className="flex items-center gap-2.5 w-full rounded-xl px-3 py-2.5 transition select-none"
           >
-            <span className={`w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center transition ${feeVerified ? "border-emerald-500 bg-emerald-500" : "border-slate-300 bg-white"}`}>
+            <span className={`w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center transition ${feeVerified ? "border-good-500 bg-good-500" : "border-line bg-white"}`}>
               {feeVerified && <Check size={11} className="text-white" />}
             </span>
-            <span className={`text-sm font-medium ${feeVerified ? "text-emerald-700" : "text-slate-600"}`}>Verify delivery fee</span>
-            {!feeVerified && deliveryFee && <span className="ml-auto text-xs font-semibold text-amber-600 flex items-center gap-1"><AlertTriangle size={12} /> Not verified</span>}
+            <span className={`text-sm font-medium ${feeVerified ? "text-good-700" : "text-ink/70"}`}>Verify delivery fee</span>
+            {!feeVerified && deliveryFee && <span className="ml-auto text-xs font-semibold text-warn-600 flex items-center gap-1"><AlertTriangle size={12} /> Not verified</span>}
           </button>
         </div>
 
         {/* Actions */}
         <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 rounded-full border border-slate-200 py-3 text-sm font-semibold text-slate-600">Cancel</button>
+          <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
           <button disabled={!canSave} onClick={() => canSave && onSave({ route, fromDate, toDate, byWhom, transporter, expenses, incomes, deliveryFee: Number(deliveryFee) || 0, feeVerified, total: totalIncomes - totalExpenses + (Number(deliveryFee) || 0) })}
-            className="flex-1 rounded-full bg-blue-600 py-3 text-sm font-semibold text-white disabled:opacity-40">Save Challan</button>
+            className="flex-1 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40">Save Challan</button>
         </div>
       </div>
     </div>
@@ -984,16 +989,16 @@ function OrderModal({ items, onClose, onSave, prefill }: any) {
   const [notes, setNotes] = useState("");
   const canSave = itemId && Number(qty) > 0;
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
       <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-slate-900">New Order</h3>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>
+          <h3 className="font-display text-lg font-bold text-ink">New Order</h3>
+          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
-        {items.length === 0 ? <p className="text-sm text-slate-500">Add items first.</p> : (
+        {items.length === 0 ? <p className="text-sm text-ink/50">Add items first.</p> : (
           <div className="space-y-4">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-500">Item *</label>
+              <label className="mb-1 block text-xs font-semibold text-ink/50">Item *</label>
               <SearchableSelect
                 options={items.map((it: any) => ({ value: it.id, label: `${it.name} (current stock: ${it.stock ?? 0})` }))}
                 value={itemId}
@@ -1002,23 +1007,23 @@ function OrderModal({ items, onClose, onSave, prefill }: any) {
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-500">Qty to order *</label>
-              <input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+              <label className="mb-1 block text-xs font-semibold text-ink/50">Qty to order *</label>
+              <input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-500">Date</label>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+              <label className="mb-1 block text-xs font-semibold text-ink/50">Date</label>
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-500">Notes / Supplier</label>
-              <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Supplier name" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+              <label className="mb-1 block text-xs font-semibold text-ink/50">Notes / Supplier</label>
+              <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Supplier name" className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
             </div>
           </div>
         )}
         <div className="mt-6 flex gap-3">
-          <button onClick={onClose} className="flex-1 rounded-full border border-slate-200 py-3 text-sm font-semibold text-slate-600">Cancel</button>
+          <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
           <button disabled={!canSave} onClick={() => canSave && onSave({ itemId, qty: Number(qty), date, notes })}
-            className="flex-1 rounded-full bg-blue-600 py-3 text-sm font-semibold text-white disabled:opacity-40">Place Order</button>
+            className="flex-1 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40">Place Order</button>
         </div>
       </div>
     </div>
@@ -1049,23 +1054,23 @@ function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
   const canSave = lines.length > 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
       <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-6 shadow-xl">
         <div className="flex items-center justify-between mb-1">
-          <h3 className="text-lg font-bold text-slate-900">Return items</h3>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>
+          <h3 className="font-display text-lg font-bold text-ink">Return items</h3>
+          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
-        <p className="mb-4 text-xs text-slate-500">{doc.number} — enter how many of each item are being returned.</p>
+        <p className="mb-4 text-xs text-ink/50">{doc.number} — enter how many of each item are being returned.</p>
 
         {returnableLines.length === 0 ? (
-          <p className="text-sm text-slate-500">Every item on this estimate has already been returned.</p>
+          <p className="text-sm text-ink/50">Every item on this estimate has already been returned.</p>
         ) : (
           <div className="space-y-3">
             {returnableLines.map((l: any) => (
               <div key={l.itemId} className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">{l.name}</p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-sm font-semibold text-ink">{l.name}</p>
+                  <p className="text-xs text-ink/40">
                     {l.qty - l.returned} available to return · {fmtMoney(l.rate, currency)} each
                     {l.returned > 0 ? ` · ${l.returned} already returned` : ""}
                   </p>
@@ -1073,7 +1078,7 @@ function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
                 <input
                   type="number" min="0" max={l.qty - l.returned} placeholder="0"
                   value={qtyMap[l.itemId] || ""} onChange={(e) => setQty(l.itemId, e.target.value)}
-                  className="w-16 rounded-xl border border-slate-200 px-2 py-2 text-sm text-center"
+                  className="w-16 rounded-xl border border-line px-2 py-2 text-sm text-center"
                 />
               </div>
             ))}
@@ -1081,18 +1086,18 @@ function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
         )}
 
         {refundTotal > 0 && (
-          <div className="mt-4 flex items-center justify-between rounded-xl bg-rose-50 px-3 py-2.5">
-            <span className="text-sm font-semibold text-rose-600">Refund due</span>
-            <span className="text-base font-bold text-rose-700">{fmtMoney(refundTotal, currency)}</span>
+          <div className="mt-4 flex items-center justify-between rounded-xl bg-bad-50 px-3 py-2.5">
+            <span className="text-sm font-semibold text-bad-600">Refund due</span>
+            <span className="font-display text-base font-bold text-bad-700">{fmtMoney(refundTotal, currency)}</span>
           </div>
         )}
 
         <div className="mt-6 flex gap-3">
-          <button onClick={onClose} className="flex-1 rounded-full border border-slate-200 py-3 text-sm font-semibold text-slate-600">Cancel</button>
+          <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
           <button
             disabled={!canSave}
             onClick={() => canSave && onSave(lines.map((l: any) => ({ itemId: l.itemId, qty: l.returnQty })))}
-            className="flex-1 rounded-full bg-rose-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
+            className="flex-1 rounded-full bg-bad-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
           >
             Refund {refundTotal > 0 ? fmtMoney(refundTotal, currency) : ""}
           </button>
@@ -1118,23 +1123,23 @@ function DeliveryModal({ doc, items, onClose, onSave }: any) {
   const canSave = lines.length > 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
       <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-6 shadow-xl">
         <div className="flex items-center justify-between mb-1">
-          <h3 className="text-lg font-bold text-slate-900">Record collection</h3>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>
+          <h3 className="font-display text-lg font-bold text-ink">Record collection</h3>
+          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
-        <p className="mb-4 text-xs text-slate-500">{doc.number} — enter how many of each booked item the customer is taking right now. Can't exceed what's still remaining.</p>
+        <p className="mb-4 text-xs text-ink/50">{doc.number} — enter how many of each booked item the customer is taking right now. Can't exceed what's still remaining.</p>
 
         {rows.length === 0 ? (
-          <p className="text-sm text-slate-500">Everything booked on this estimate has already been collected.</p>
+          <p className="text-sm text-ink/50">Everything booked on this estimate has already been collected.</p>
         ) : (
           <div className="space-y-3">
             {rows.map((r: any) => (
               <div key={r.itemId} className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">{r.name}</p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-sm font-semibold text-ink">{r.name}</p>
+                  <p className="text-xs text-ink/40">
                     {r.remaining} of {r.booked} remaining
                     {r.delivered > 0 ? ` · ${r.delivered} collected so far` : ""}
                   </p>
@@ -1142,7 +1147,7 @@ function DeliveryModal({ doc, items, onClose, onSave }: any) {
                 <input
                   type="number" min="0" max={r.remaining} placeholder="0"
                   value={qtyMap[r.itemId] || ""} onChange={(e) => setQty(r.itemId, e.target.value)}
-                  className="w-16 rounded-xl border border-slate-200 px-2 py-2 text-sm text-center"
+                  className="w-16 rounded-xl border border-line px-2 py-2 text-sm text-center"
                 />
               </div>
             ))}
@@ -1150,11 +1155,11 @@ function DeliveryModal({ doc, items, onClose, onSave }: any) {
         )}
 
         <div className="mt-6 flex gap-3">
-          <button onClick={onClose} className="flex-1 rounded-full border border-slate-200 py-3 text-sm font-semibold text-slate-600">Cancel</button>
+          <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
           <button
             disabled={!canSave}
             onClick={() => canSave && onSave(lines.map((l: any) => ({ itemId: l.itemId, qty: l.collectQty })))}
-            className="flex-1 rounded-full bg-blue-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
+            className="flex-1 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
           >
             Record collection
           </button>
@@ -1278,20 +1283,20 @@ function InvoiceShareModal({ invoice, customer, items, settings, payment, onClos
     : `Hi ${customer?.name || ""}, estimate ${invoice.number} for ${fmtMoney(invoice.total, settings.currency)} due ${fmtDate(invoice.dueDate)}. - ${settings.orgName}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
       <div className="w-full sm:max-w-md max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-5 shadow-xl">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-900">Share estimate</h3>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>
+          <h3 className="font-display text-lg font-bold text-ink">Share estimate</h3>
+          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
-        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-slate-50">
+        <div className="overflow-hidden rounded-2xl border border-line bg-paper">
           {imgUrl ? <img src={imgUrl} alt={`Estimate ${invoice.number}`} className="block h-auto w-full" />
-            : <div className="flex h-40 items-center justify-center text-sm text-slate-400">Generating preview…</div>}
+            : <div className="flex h-40 items-center justify-center text-sm text-ink/40">Generating preview…</div>}
         </div>
-        <p className="mt-3 text-xs leading-relaxed text-slate-400">Press and hold the image to save it, then share from your gallery — or use the buttons below.</p>
+        <p className="mt-3 text-xs leading-relaxed text-ink/40">Press and hold the image to save it, then share from your gallery — or use the buttons below.</p>
         <div className="mt-4 grid grid-cols-1 gap-2">
           <a href={imgUrl || undefined} download={`${invoice.number}.png`} onClick={(e) => { if (!imgUrl) e.preventDefault(); }}
-            className={`flex items-center justify-center gap-2 rounded-full border border-slate-200 py-3 text-sm font-semibold text-slate-700 transition active:scale-[0.98] ${!imgUrl ? "opacity-40" : ""}`}>
+            className={`flex items-center justify-center gap-2 rounded-full border border-line py-3 text-sm font-semibold text-ink/80 transition active:scale-[0.98] ${!imgUrl ? "opacity-40" : ""}`}>
             <ArrowDownToLine size={15} /> Download image
           </a>
           <a href={customer?.phone ? waLink(customer.phone, message) : undefined} target="_blank" rel="noreferrer"
@@ -1307,7 +1312,7 @@ function InvoiceShareModal({ invoice, customer, items, settings, payment, onClos
             <MessageSquare size={15} /> Send via SMS
           </a>
         </div>
-        {!customer?.phone && <p className="mt-2 text-center text-xs text-rose-500">Add a phone number to enable sharing.</p>}
+        {!customer?.phone && <p className="mt-2 text-center text-xs text-bad-500">Add a phone number to enable sharing.</p>}
       </div>
     </div>
   );
@@ -1318,12 +1323,12 @@ function InvoiceShareModal({ invoice, customer, items, settings, payment, onClos
 function Sidebar({ open, onClose, active, onNav, settings, onSignOut }: any) {
   return (
     <>
-      {open && <div onClick={onClose} className="fixed inset-0 z-30 bg-slate-900/30 md:hidden" />}
-      <aside className={`fixed z-40 inset-y-0 left-0 w-72 transform bg-white border-r border-slate-100 transition-transform md:translate-x-0 md:static md:z-0 ${open ? "translate-x-0" : "-translate-x-full"}`}>
+      {open && <div onClick={onClose} className="fixed inset-0 z-30 bg-ink/40 backdrop-blur-[1px] md:hidden animate-fade-in" />}
+      <aside className={`fixed z-40 inset-y-0 left-0 w-72 transform bg-white border-r border-line transition-transform duration-300 ease-out md:translate-x-0 md:static md:z-0 ${open ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex h-full flex-col overflow-y-auto px-5 py-6">
           <div className="flex items-center justify-between md:hidden mb-2">
-            <span className="text-sm font-semibold text-slate-400">Menu</span>
-            <button onClick={onClose} className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>
+            <span className="text-sm font-semibold text-ink/40">Menu</span>
+            <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
           </div>
           <div className="mb-5 flex flex-col items-center text-center">
             <div className="mb-3 relative w-16 h-16 select-none">
@@ -1348,23 +1353,23 @@ function Sidebar({ open, onClose, active, onNav, settings, onSignOut }: any) {
                 <text x="32" y="36" textAnchor="middle" fontFamily="Arial Black, Arial, sans-serif" fontWeight="900" fontSize="20" letterSpacing="1" fill="white">SBT</text>
               </svg>
             </div>
-            <button className="flex items-center gap-1 text-lg font-bold text-slate-900">{settings.orgName} <ChevronDown size={16} className="text-slate-400" /></button>
-            <p className="text-sm text-slate-400">{settings.email}</p>
+            <button className="flex items-center gap-1 font-display text-lg font-semibold text-ink">{settings.orgName} <ChevronDown size={16} className="text-ink/30" /></button>
+            <p className="text-sm text-ink/40">{settings.email}</p>
           </div>
-          <div className="-mx-5 mb-2 border-t border-slate-100" />
+          <div className="-mx-5 mb-2 border-t border-line" />
           <nav className="flex-1 space-y-1">
             {NAV.map((n) => {
               const Icon = n.icon; const isActive = active === n.id;
               return (
                 <button key={n.id} onClick={() => { onNav(n.id); onClose(); }}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition ${isActive ? "bg-blue-500 text-white" : "text-slate-700 hover:bg-slate-50"}`}>
+                  className={`flex w-full items-center gap-3 rounded-pill px-3 py-3 text-sm font-semibold transition-all duration-150 ${isActive ? "bg-brand-500 text-white shadow-sm" : "text-ink/70 hover:bg-paper"}`}>
                   <Icon size={19} /> {n.label}
                 </button>
               );
             })}
           </nav>
-          <div className="-mx-5 mt-2 border-t border-slate-100 pt-3">
-            <button onClick={onSignOut} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-500 hover:bg-slate-50">
+          <div className="-mx-5 mt-2 border-t border-line pt-3">
+            <button onClick={onSignOut} className="flex w-full items-center gap-3 rounded-pill px-3 py-3 text-sm font-semibold text-ink/50 hover:bg-paper">
               <X size={19} /> Sign out
             </button>
           </div>
@@ -1378,17 +1383,82 @@ function Topbar({ onMenu, settings, view, onOpenSearch }: any) {
   const titleMap: any = Object.fromEntries(NAV.map((n) => [n.id, n.label]));
   titleMap.customerDetail = "Customer";
   return (
-    <div className="sticky top-0 z-20 flex items-center justify-between bg-slate-50/95 backdrop-blur px-5 py-4">
+    <div className="sticky top-0 z-20 flex items-center justify-between bg-paper/90 backdrop-blur px-5 py-4 border-b border-line/60">
       <div className="flex items-center gap-3">
-        <button onClick={onMenu} className="rounded-full p-2 hover:bg-slate-100 md:hidden"><Menu size={22} /></button>
-        <span className="text-lg font-bold text-slate-900">{view === "dashboard" ? settings.orgName : titleMap[view]}</span>
+        <button onClick={onMenu} className="rounded-full p-2 hover:bg-white md:hidden"><Menu size={22} /></button>
+        <span className="font-display text-lg font-semibold text-ink">{view === "dashboard" ? settings.orgName : titleMap[view]}</span>
       </div>
       <div className="flex items-center gap-2">
-        <button onClick={onOpenSearch} className="rounded-full border border-slate-200 bg-white p-2"><Search size={18} className="text-slate-500" /></button>
-        <button className="rounded-full border border-slate-200 bg-white p-2"><LifeBuoy size={18} className="text-slate-500" /></button>
-        <button className="rounded-full border border-slate-200 bg-white p-2"><Bell size={18} className="text-slate-500" /></button>
+        <button onClick={onOpenSearch} className="rounded-full border border-line bg-white p-2 hover:border-brand-200 transition-colors"><Search size={18} className="text-ink/50" /></button>
+        <button className="rounded-full border border-line bg-white p-2 hover:border-brand-200 transition-colors hidden sm:inline-flex"><LifeBuoy size={18} className="text-ink/50" /></button>
+        <button className="relative rounded-full border border-line bg-white p-2 hover:border-brand-200 transition-colors"><Bell size={18} className="text-ink/50" /></button>
       </div>
     </div>
+  );
+}
+
+/* ---- Bottom nav (mobile) + radial quick-add FAB ---- */
+
+const BOTTOM_NAV_IDS = ["dashboard", "estimates", "customers"];
+
+function BottomNav({ active, onNav, onMore, onQuickAction }: any) {
+  const [fabOpen, setFabOpen] = useState(false);
+  const items = NAV.filter((n) => BOTTOM_NAV_IDS.includes(n.id));
+  const quickActions = [
+    { key: "expense", label: "New expense", icon: Wallet },
+    { key: "customer", label: "New customer", icon: Users },
+    { key: "estimate", label: "New estimate", icon: Receipt },
+  ];
+  return (
+    <>
+      {fabOpen && (
+        <div onClick={() => setFabOpen(false)} className="fixed inset-0 z-40 bg-ink/30 backdrop-blur-[1px] md:hidden animate-fade-in" />
+      )}
+      <div className="fixed inset-x-0 bottom-0 z-50 md:hidden">
+        {fabOpen && (
+          <div className="absolute bottom-24 right-4 flex flex-col items-end gap-2">
+            {quickActions.map((a, i) => {
+              const Icon = a.icon;
+              return (
+                <button key={a.key} onClick={() => { onQuickAction(a.key); setFabOpen(false); }}
+                  style={{ animationDelay: `${i * 30}ms` }}
+                  className="animate-pop-in flex items-center gap-2 rounded-pill bg-white border border-line pl-4 pr-3 py-2.5 shadow-card text-sm font-semibold text-ink/80">
+                  {a.label} <Icon size={16} className="text-brand-500" />
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <nav className="relative flex items-center justify-around bg-white border-t border-line pt-2 pb-[calc(env(safe-area-inset-bottom)+8px)] px-2">
+          {items.slice(0, 2).map((n) => {
+            const Icon = n.icon; const isActive = active === n.id;
+            return (
+              <button key={n.id} onClick={() => onNav(n.id)} className="flex flex-col items-center gap-1 px-3 py-1">
+                <Icon size={20} className={isActive ? "text-brand-500" : "text-ink/35"} />
+                <span className={`text-[10px] font-semibold ${isActive ? "text-brand-500" : "text-ink/35"}`}>{n.label}</span>
+              </button>
+            );
+          })}
+          <button onClick={() => setFabOpen((o) => !o)}
+            className={`-mt-7 flex h-14 w-14 items-center justify-center rounded-full bg-brand-500 text-white shadow-card transition-transform duration-200 active:scale-95 ${fabOpen ? "rotate-45" : ""}`}>
+            <Plus size={24} />
+          </button>
+          {items.slice(2).map((n) => {
+            const Icon = n.icon; const isActive = active === n.id;
+            return (
+              <button key={n.id} onClick={() => onNav(n.id)} className="flex flex-col items-center gap-1 px-3 py-1">
+                <Icon size={20} className={isActive ? "text-brand-500" : "text-ink/35"} />
+                <span className={`text-[10px] font-semibold ${isActive ? "text-brand-500" : "text-ink/35"}`}>{n.label}</span>
+              </button>
+            );
+          })}
+          <button onClick={onMore} className="flex flex-col items-center gap-1 px-3 py-1">
+            <Menu size={20} className="text-ink/35" />
+            <span className="text-[10px] font-semibold text-ink/35">More</span>
+          </button>
+        </nav>
+      </div>
+    </>
   );
 }
 
@@ -1415,10 +1485,10 @@ function GlobalSearchOverlay({ customers, items, estimates, currency, onSelectCu
   const noResults = query && matchedCustomers.length === 0 && matchedItems.length === 0 && matchedEstimates.length === 0;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40">
+    <div className="fixed inset-0 z-50 bg-ink/40">
       <div className="mx-auto max-w-lg bg-white h-full sm:h-auto sm:mt-16 sm:rounded-3xl sm:shadow-xl overflow-y-auto">
-        <div className="sticky top-0 flex items-center gap-2 border-b border-slate-100 bg-white p-4">
-          <Search size={18} className="text-slate-400 shrink-0" />
+        <div className="sticky top-0 flex items-center gap-2 border-b border-line bg-white p-4">
+          <Search size={18} className="text-ink/40 shrink-0" />
           <input
             autoFocus
             value={q}
@@ -1426,23 +1496,23 @@ function GlobalSearchOverlay({ customers, items, estimates, currency, onSelectCu
             placeholder="Search customers, items, estimates..."
             className="flex-1 text-sm focus:outline-none"
           />
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>
+          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
 
         <div className="p-4 space-y-5">
-          {!query && <p className="text-sm text-slate-400 text-center py-6">Start typing to search across customers, items and estimates.</p>}
+          {!query && <p className="text-sm text-ink/40 text-center py-6">Start typing to search across customers, items and estimates.</p>}
 
           {matchedCustomers.length > 0 && (
             <div>
-              <p className="mb-2 text-xs font-semibold text-slate-400">Customers</p>
+              <p className="mb-2 text-xs font-semibold text-ink/40">Customers</p>
               <div className="space-y-1.5">
                 {matchedCustomers.map((c: any) => (
-                  <button key={c.id} onClick={() => onSelectCustomer(c.id)} className="w-full flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5 text-left">
+                  <button key={c.id} onClick={() => onSelectCustomer(c.id)} className="w-full flex items-center justify-between rounded-xl bg-paper px-3 py-2.5 text-left">
                     <div>
-                      <p className="text-sm font-semibold text-slate-800">{c.name}</p>
-                      {c.location && <p className="text-xs text-slate-400">{c.location}</p>}
+                      <p className="text-sm font-semibold text-ink">{c.name}</p>
+                      {c.location && <p className="text-xs text-ink/40">{c.location}</p>}
                     </div>
-                    <ArrowRight size={14} className="text-slate-300" />
+                    <ArrowRight size={14} className="text-ink/30" />
                   </button>
                 ))}
               </div>
@@ -1451,15 +1521,15 @@ function GlobalSearchOverlay({ customers, items, estimates, currency, onSelectCu
 
           {matchedItems.length > 0 && (
             <div>
-              <p className="mb-2 text-xs font-semibold text-slate-400">Items</p>
+              <p className="mb-2 text-xs font-semibold text-ink/40">Items</p>
               <div className="space-y-1.5">
                 {matchedItems.map((it: any) => (
-                  <button key={it.id} onClick={() => onSelectItem(it.id)} className="w-full flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5 text-left">
+                  <button key={it.id} onClick={() => onSelectItem(it.id)} className="w-full flex items-center justify-between rounded-xl bg-paper px-3 py-2.5 text-left">
                     <div>
-                      <p className="text-sm font-semibold text-slate-800">{it.name}</p>
-                      <p className="text-xs text-slate-400">Stock: {it.stock ?? 0}</p>
+                      <p className="text-sm font-semibold text-ink">{it.name}</p>
+                      <p className="text-xs text-ink/40">Stock: {it.stock ?? 0}</p>
                     </div>
-                    <ArrowRight size={14} className="text-slate-300" />
+                    <ArrowRight size={14} className="text-ink/30" />
                   </button>
                 ))}
               </div>
@@ -1468,15 +1538,15 @@ function GlobalSearchOverlay({ customers, items, estimates, currency, onSelectCu
 
           {matchedEstimates.length > 0 && (
             <div>
-              <p className="mb-2 text-xs font-semibold text-slate-400">Estimates</p>
+              <p className="mb-2 text-xs font-semibold text-ink/40">Estimates</p>
               <div className="space-y-1.5">
                 {matchedEstimates.map((e: any) => {
                   const cust = customers.find((c: any) => c.id === e.customerId);
                   return (
-                    <button key={e.id} onClick={() => onSelectEstimate(e)} className="w-full flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5 text-left">
+                    <button key={e.id} onClick={() => onSelectEstimate(e)} className="w-full flex items-center justify-between rounded-xl bg-paper px-3 py-2.5 text-left">
                       <div>
-                        <p className="text-sm font-semibold text-slate-800">{e.number} · {cust?.name || "Unknown"}</p>
-                        <p className="text-xs text-slate-400">{fmtMoney(e.total, currency)}</p>
+                        <p className="text-sm font-semibold text-ink">{e.number} · {cust?.name || "Unknown"}</p>
+                        <p className="text-xs text-ink/40">{fmtMoney(e.total, currency)}</p>
                       </div>
                       <Badge status={e.status} />
                     </button>
@@ -1486,7 +1556,7 @@ function GlobalSearchOverlay({ customers, items, estimates, currency, onSelectCu
             </div>
           )}
 
-          {noResults && <p className="text-sm text-slate-400 text-center py-6">No matches for "{q}".</p>}
+          {noResults && <p className="text-sm text-ink/40 text-center py-6">No matches for "{q}".</p>}
         </div>
       </div>
     </div>
@@ -1508,11 +1578,13 @@ function Dashboard({ data, settings, openModal, go }: any) {
   const lowStockItems = items.filter((it: any) => (it.stock ?? 0) <= (it.lowStock ?? LOW_STOCK_DEFAULT));
 
   const quickActions = [
-    { label: "New Estimate", icon: Receipt, bg: "bg-blue-100", fg: "text-blue-600", action: () => openModal("estimate") },
-    { label: "New Customer", icon: Users, bg: "bg-emerald-100", fg: "text-emerald-600", action: () => openModal("customer") },
-    { label: "New Expense", icon: Wallet, bg: "bg-rose-100", fg: "text-rose-600", action: () => openModal("expense") },
-    { label: "New Order", icon: ShoppingCart, bg: "bg-amber-100", fg: "text-amber-600", action: () => openModal("order") },
+    { label: "New Estimate", icon: Receipt, bg: "bg-brand-50", fg: "text-brand-500", action: () => openModal("estimate") },
+    { label: "New Customer", icon: Users, bg: "bg-good-50", fg: "text-good-500", action: () => openModal("customer") },
+    { label: "New Expense", icon: Wallet, bg: "bg-bad-50", fg: "text-bad-500", action: () => openModal("expense") },
+    { label: "New Order", icon: ShoppingCart, bg: "bg-warn-50", fg: "text-warn-500", action: () => openModal("order") },
   ];
+  const [segment, setSegment] = useState<"receivable" | "collected">("receivable");
+  const collectedThisMonth = estimates.reduce((s: number, e: any) => s + Number(e.amountPaid || 0), 0);
 
   const refundPayments = (payments || []).filter((p: any) => Number(p.amount) < 0);
   const returnsForList = refundPayments.map((p: any) => ({
@@ -1545,100 +1617,120 @@ function Dashboard({ data, settings, openModal, go }: any) {
 
   return (
     <div className="space-y-5 px-5 pb-28">
-      <div className="flex items-center gap-2 pt-1">
-        <Sparkles size={18} className="text-orange-400" />
-        <h1 className="text-xl font-bold text-slate-900">Welcome {settings.ownerName}</h1>
+      <div className="pt-1">
+        <h1 className="font-display text-2xl font-semibold text-ink">Welcome, {settings.ownerName}</h1>
+        <p className="text-sm text-ink/40">Here's where the business stands today</p>
       </div>
-      <p className="-mt-3 text-sm text-slate-400">Here's your organization's overview</p>
+
+      <div className="flex rounded-2xl bg-white border border-line p-1">
+        <button onClick={() => setSegment("receivable")}
+          className={`flex-1 rounded-xl py-2 text-sm font-semibold transition-all duration-150 ${segment === "receivable" ? "bg-paper text-ink shadow-sm" : "text-ink/40"}`}>Receivable</button>
+        <button onClick={() => setSegment("collected")}
+          className={`flex-1 rounded-xl py-2 text-sm font-semibold transition-all duration-150 ${segment === "collected" ? "bg-paper text-ink shadow-sm" : "text-ink/40"}`}>Collected</button>
+      </div>
+
+      <div className="relative overflow-hidden rounded-card bg-brand-700 p-6 text-white">
+        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-brand-500/40" />
+        <div className="relative">
+          <p className="text-xs font-semibold text-white/70">{segment === "receivable" ? "Total receivable" : "Collected this month"}</p>
+          <p className="mt-1 font-display text-3xl font-semibold">{fmtMoney(segment === "receivable" ? outstanding : collectedThisMonth, settings.currency)}</p>
+          <p className={`mt-1 text-xs font-semibold ${segment === "receivable" && overdueEstimates.length > 0 ? "text-bad-200" : "text-good-200"}`}>
+            {segment === "receivable"
+              ? overdueEstimates.length > 0 ? `${overdueEstimates.length} overdue estimate${overdueEstimates.length !== 1 ? "s" : ""}` : "Nothing overdue"
+              : "Across all estimates"}
+          </p>
+          <div className="mt-4 flex gap-6">
+            <div>
+              <p className="text-[11px] text-white/60">Today</p>
+              <p className="font-mono text-sm font-semibold">{fmtMoney(todaySales, settings.currency)}</p>
+            </div>
+            <div>
+              <p className="text-[11px] text-white/60">This month</p>
+              <p className="font-mono text-sm font-semibold">{fmtMoney(monthSales, settings.currency)}</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {lowStockItems.length > 0 && (
-        <div className="rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3">
-          <div className="flex items-start gap-3">
-            <AlertTriangle size={18} className="text-amber-500 mt-0.5 shrink-0" />
-            <p className="text-sm font-bold text-amber-800">Low stock alert</p>
-          </div>
-          <div className="mt-2 space-y-1.5">
-            {lowStockItems.map((it: any) => {
-              const threshold = it.lowStock ?? LOW_STOCK_DEFAULT;
-              const suggestedQty = Math.max(1, threshold * 2 - (it.stock ?? 0));
-              return (
-                <div key={it.id} className="flex items-center justify-between rounded-xl bg-white/60 px-3 py-2">
-                  <p className="text-xs font-semibold text-amber-800">{it.name} ({it.stock ?? 0} left)</p>
-                  <button
-                    onClick={() => openModal("order", { itemId: it.id, qty: suggestedQty })}
-                    className="rounded-full bg-amber-600 px-3 py-1 text-[11px] font-semibold text-white"
-                  >
-                    Reorder
-                  </button>
-                </div>
-              );
-            })}
+        <div className="flex items-start gap-3 rounded-card bg-warn-50 border border-warn-500/20 px-4 py-3">
+          <AlertTriangle size={16} className="text-warn-700 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-warn-700">Low stock — {lowStockItems.length} item{lowStockItems.length !== 1 ? "s" : ""}</p>
+            <div className="mt-2 space-y-1.5">
+              {lowStockItems.map((it: any) => {
+                const threshold = it.lowStock ?? LOW_STOCK_DEFAULT;
+                const suggestedQty = Math.max(1, threshold * 2 - (it.stock ?? 0));
+                return (
+                  <div key={it.id} className="flex items-center justify-between rounded-xl bg-white/70 px-3 py-2">
+                    <p className="text-xs font-semibold text-warn-700">{it.name} ({it.stock ?? 0} left)</p>
+                    <button
+                      onClick={() => openModal("order", { itemId: it.id, qty: suggestedQty })}
+                      className="rounded-pill bg-warn-500 px-3 py-1 text-[11px] font-semibold text-white"
+                    >
+                      Reorder
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
 
-      <Card>
-        <div className="grid grid-cols-4 gap-2 text-center">
-          {quickActions.map((q) => (
-            <button key={q.label} onClick={q.action} className="flex flex-col items-center gap-2">
-              <span className={`flex h-14 w-14 items-center justify-center rounded-full ${q.bg} ${q.fg}`}><q.icon size={22} /></span>
-              <span className="text-xs font-medium text-slate-600 leading-tight">{q.label}</span>
-            </button>
-          ))}
-        </div>
-      </Card>
-
-      <Card>
-        <h3 className="text-base font-bold text-slate-900">Receivables Summary</h3>
-        <p className="mt-1 text-sm text-slate-400">Outstanding amounts owed by customers.</p>
-        <p className="mt-3 text-2xl font-bold text-slate-900">{fmtMoney(outstanding, settings.currency)}</p>
-        <PillButton className="mt-4" onClick={() => openModal("estimate")}><Plus size={16} /> Create Estimate</PillButton>
-      </Card>
+      <div className="grid grid-cols-4 gap-2 text-center">
+        {quickActions.map((q) => (
+          <button key={q.label} onClick={q.action} className="flex flex-col items-center gap-2">
+            <span className={`flex h-[52px] w-[52px] items-center justify-center rounded-2xl ${q.bg} ${q.fg} transition-transform duration-150 active:scale-90`}><q.icon size={20} /></span>
+            <span className="text-[11px] font-medium text-ink/60 leading-tight">{q.label}</span>
+          </button>
+        ))}
+      </div>
 
       {overdueEstimates.length > 0 && (
-        <Card className="border border-rose-100 bg-rose-50/40">
-          <div className="flex items-center gap-2 text-rose-700">
-            <AlertCircle size={16} /> <h3 className="text-base font-bold">Overdue</h3>
+        <Card className="border-bad-500/20 bg-bad-50/60">
+          <div className="flex items-center gap-2 text-bad-700">
+            <AlertCircle size={16} /> <h3 className="font-display text-base font-semibold">Overdue</h3>
           </div>
-          <p className="mt-1 text-sm text-rose-600">{overdueEstimates.length} estimate{overdueEstimates.length !== 1 ? "s" : ""} past due date.</p>
-          <p className="mt-3 text-2xl font-bold text-rose-700">{fmtMoney(overdueAmount, settings.currency)}</p>
-          <PillButton className="mt-4 !bg-rose-600" onClick={() => go("estimates")}>View overdue estimates</PillButton>
+          <p className="mt-1 text-sm text-bad-500">{overdueEstimates.length} estimate{overdueEstimates.length !== 1 ? "s" : ""} past due date.</p>
+          <p className="mt-3 font-display text-2xl font-semibold text-bad-700">{fmtMoney(overdueAmount, settings.currency)}</p>
+          <PillButton className="mt-4 !bg-bad-500 hover:!bg-bad-700" onClick={() => go("estimates")}>View overdue estimates</PillButton>
         </Card>
       )}
 
       <Card>
-        <div className="mb-3 flex items-center gap-2 text-slate-700">
-          <ArrowDownToLine size={16} /> <h3 className="text-base font-bold">Sales &amp; Refunds</h3>
+        <div className="mb-3 flex items-center gap-2 text-ink/70">
+          <ArrowDownToLine size={16} className="text-brand-500" /> <h3 className="font-display text-base font-semibold">Sales &amp; refunds</h3>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="text-xs font-semibold text-slate-400">Today</p>
-            <p className="mt-1 text-lg font-bold text-slate-900">{fmtMoney(todaySales, settings.currency)}</p>
-            {refundsToday > 0 && <p className="text-xs font-semibold text-rose-500">−{fmtMoney(refundsToday, settings.currency)} refunded</p>}
-            <p className="text-xs font-semibold text-emerald-600">Net {fmtMoney(todaySales - refundsToday, settings.currency)}</p>
+            <p className="text-xs font-semibold text-ink/40">Today</p>
+            <p className="mt-1 font-mono text-lg font-semibold text-ink">{fmtMoney(todaySales, settings.currency)}</p>
+            {refundsToday > 0 && <p className="text-xs font-semibold text-bad-500">−{fmtMoney(refundsToday, settings.currency)} refunded</p>}
+            <p className="text-xs font-semibold text-good-500">Net {fmtMoney(todaySales - refundsToday, settings.currency)}</p>
           </div>
           <div>
-            <p className="text-xs font-semibold text-slate-400">This month</p>
-            <p className="mt-1 text-lg font-bold text-slate-900">{fmtMoney(monthSales, settings.currency)}</p>
-            {refundsMonth > 0 && <p className="text-xs font-semibold text-rose-500">−{fmtMoney(refundsMonth, settings.currency)} refunded</p>}
-            <p className="text-xs font-semibold text-emerald-600">Net {fmtMoney(monthSales - refundsMonth, settings.currency)}</p>
+            <p className="text-xs font-semibold text-ink/40">This month</p>
+            <p className="mt-1 font-mono text-lg font-semibold text-ink">{fmtMoney(monthSales, settings.currency)}</p>
+            {refundsMonth > 0 && <p className="text-xs font-semibold text-bad-500">−{fmtMoney(refundsMonth, settings.currency)} refunded</p>}
+            <p className="text-xs font-semibold text-good-500">Net {fmtMoney(monthSales - refundsMonth, settings.currency)}</p>
           </div>
         </div>
       </Card>
 
       <Card>
-        <div className="mb-4 flex items-center gap-2 text-slate-700">
-          <BarChart3 size={16} /> <h3 className="text-base font-bold">Monthly Sales</h3>
+        <div className="mb-4 flex items-center gap-2 text-ink/70">
+          <BarChart3 size={16} className="text-brand-500" /> <h3 className="font-display text-base font-semibold">Sales, last 6 months</h3>
         </div>
         {!hasSales ? (
-          <p className="text-sm text-slate-400">No estimates yet in the last 6 months.</p>
+          <p className="text-sm text-ink/40">No estimates yet in the last 6 months.</p>
         ) : (
           <div className="flex items-end justify-between gap-2" style={{ height: 150 }}>
             {salesByMonth.map((m) => (
               <div key={m.key} className="flex h-full flex-1 flex-col items-center justify-end gap-1.5">
-                <span className="text-[10px] font-semibold leading-tight text-slate-500">{m.total > 0 ? fmtMoney(m.total, settings.currency) : ""}</span>
-                <div className="w-full rounded-t-lg bg-blue-500" style={{ height: `${Math.max(3, (m.total / maxSale) * 100)}px` }} />
-                <span className="text-xs font-medium text-slate-400">{m.label}</span>
+                <span className="text-[10px] font-semibold leading-tight text-ink/50">{m.total > 0 ? fmtMoney(m.total, settings.currency) : ""}</span>
+                <div className="w-full rounded-t-lg bg-brand-500 transition-all duration-500 ease-out" style={{ height: `${Math.max(3, (m.total / maxSale) * 100)}px` }} />
+                <span className="text-xs font-medium text-ink/40">{m.label}</span>
               </div>
             ))}
           </div>
@@ -1646,23 +1738,23 @@ function Dashboard({ data, settings, openModal, go }: any) {
       </Card>
 
       <Card>
-        <div className="mb-3 flex items-center gap-2 text-slate-700">
-          <RotateCcw size={16} /> <h3 className="text-base font-bold">Recent Transactions</h3>
+        <div className="mb-3 flex items-center gap-2 text-ink/70">
+          <RotateCcw size={16} className="text-brand-500" /> <h3 className="font-display text-base font-semibold">Recent transactions</h3>
         </div>
         <div className="mb-4 flex gap-2">
           {["estimates", "expenses", "returns"].map((t) => (
-            <button key={t} onClick={() => setTab(t)} className={`rounded-full px-4 py-1.5 text-sm font-semibold capitalize ${tab === t ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-600"}`}>{t}</button>
+            <button key={t} onClick={() => setTab(t)} className={`rounded-pill px-4 py-1.5 text-sm font-semibold capitalize transition-all duration-150 ${tab === t ? "bg-brand-500 text-white" : "bg-paper text-ink/60"}`}>{t}</button>
           ))}
         </div>
         {recent.length === 0 ? (
           <EmptyState text={`No ${tab} yet.`} cta={`Create ${tab === "estimates" ? "Estimate" : tab === "expenses" ? "Expense" : "Estimate"}`}
             onCta={() => openModal(tab === "expenses" ? "expense" : "estimate")} />
         ) : (
-          <ul className="divide-y divide-slate-100">
-            {recent.map((r: any) => (
-              <li key={r.id} className="flex items-center justify-between py-3 text-sm">
-                <div><p className="font-semibold text-slate-800">{r.number || r.category}</p><p className="text-xs text-slate-400">{fmtDate(r.date)}</p></div>
-                <div className="text-right"><p className="font-bold text-slate-800">{fmtMoney(r.total ?? r.amount, settings.currency)}</p>{r.status && <Badge status={r.status} />}</div>
+          <ul className="divide-y divide-line">
+            {recent.map((r: any, i: number) => (
+              <li key={r.id} style={{ animationDelay: `${i * 25}ms` }} className="animate-row-in flex items-center justify-between py-3 text-sm">
+                <div><p className="font-semibold text-ink">{r.number || r.category}</p><p className="text-xs text-ink/40">{fmtDate(r.date)}</p></div>
+                <div className="text-right"><p className="font-mono font-semibold text-ink">{fmtMoney(r.total ?? r.amount, settings.currency)}</p>{r.status && <Badge status={r.status} />}</div>
               </li>
             ))}
           </ul>
@@ -1672,17 +1764,17 @@ function Dashboard({ data, settings, openModal, go }: any) {
       {catEntries.length > 0 && (
         <Card>
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-base font-bold text-slate-900">Top Expenses</h3>
-            <span className="text-xs font-semibold text-slate-400">This Fiscal Year</span>
+            <h3 className="font-display text-base font-semibold text-ink">Top expenses</h3>
+            <span className="text-xs font-semibold text-ink/40">This fiscal year</span>
           </div>
-          <div className="mb-4 flex h-3 w-full overflow-hidden rounded-full">
+          <div className="mb-4 flex h-3 w-full overflow-hidden rounded-pill">
             {catEntries.map(([cat, v], i) => <div key={cat} className={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} style={{ width: `${(v / catTotal) * 100}%` }} />)}
           </div>
           <ul className="space-y-2">
             {catEntries.map(([cat, v], i) => (
               <li key={cat} className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-2 text-slate-600"><span className={`h-2.5 w-2.5 rounded-full ${CATEGORY_COLORS[i % CATEGORY_COLORS.length]}`} />{cat}</span>
-                <span className="font-semibold text-slate-800">{fmtMoney(v, settings.currency)}</span>
+                <span className="flex items-center gap-2 text-ink/60"><span className={`h-2.5 w-2.5 rounded-full ${CATEGORY_COLORS[i % CATEGORY_COLORS.length]}`} />{cat}</span>
+                <span className="font-mono font-semibold text-ink">{fmtMoney(v, settings.currency)}</span>
               </li>
             ))}
           </ul>
@@ -1703,34 +1795,38 @@ function CustomersView({ customers, openModal, removeCustomer, estimates, onSele
   return (
     <div className="space-y-3 px-5 pb-28">
       <div className="flex items-center justify-between pt-1">
-        <p className="text-sm text-slate-400">{customers.length} customer{customers.length !== 1 ? "s" : ""}</p>
+        <p className="text-sm text-ink/40">{customers.length} customer{customers.length !== 1 ? "s" : ""}</p>
         <PillButton onClick={() => openModal("customer")}><Plus size={16} /> New Customer</PillButton>
       </div>
       {customers.length === 0
         ? <Card><EmptyState text="Add your first customer." cta="New Customer" onCta={() => openModal("customer")} /></Card>
-        : customers.map((c: any) => {
+        : customers.map((c: any, idx: number) => {
           const balance = balanceFor(c.id);
+          const initials = (c.name || "?").trim().split(/\s+/).slice(0, 2).map((w: string) => w[0]).join("").toUpperCase();
           return (
-            <Card key={c.id} className="flex items-center justify-between cursor-pointer" onClick={() => onSelectCustomer(c.id)}>
-              <div>
-                <p className="font-semibold text-slate-900">{c.name}</p>
-                <p className="text-xs text-slate-400">{c.email || "No email"}{c.phone ? ` · ${c.phone}` : ""}</p>
-                {c.location && (
-                  <a
-                    href={c.lat && c.lng ? `https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.location)}`}
-                    target="_blank" rel="noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="mt-0.5 flex items-center gap-1 text-xs text-slate-400 hover:text-blue-500 hover:underline"
-                  >
-                    <MapPin size={11} /> {c.location}
-                  </a>
-                )}
-                {balance > 0 && <p className="mt-1 text-xs font-semibold text-rose-600">Due {fmtMoney(balance, "₹")}</p>}
+            <Card key={c.id} style={{ animationDelay: `${Math.min(idx, 8) * 25}ms` }} className="animate-row-in flex items-center gap-3 justify-between cursor-pointer" onClick={() => onSelectCustomer(c.id)}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${balance > 0 ? "bg-bad-50 text-bad-500" : "bg-good-50 text-good-500"}`}>{initials}</div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-ink truncate">{c.name}</p>
+                  <p className="text-xs text-ink/40 truncate">{c.email || "No email"}{c.phone ? ` · ${c.phone}` : ""}</p>
+                  {c.location && (
+                    <a
+                      href={c.lat && c.lng ? `https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.location)}`}
+                      target="_blank" rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-0.5 flex items-center gap-1 text-xs text-ink/40 hover:text-brand-500 hover:underline"
+                    >
+                      <MapPin size={11} /> {c.location}
+                    </a>
+                  )}
+                  {balance > 0 && <p className="mt-1 text-xs font-semibold text-bad-500">Due {fmtMoney(balance, "₹")}</p>}
+                </div>
               </div>
-              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                 <WhatsAppButton phone={c.phone} message={`Hi ${c.name}, reaching out from ${c.name}'s account.`} />
                 <SmsButton phone={c.phone} message={`Hi ${c.name}, reaching out from ${c.name}'s account.`} />
-                <button onClick={() => removeCustomer(c.id)} className="rounded-full p-2 text-rose-400 hover:bg-rose-50"><Trash2 size={16} /></button>
+                <button onClick={() => removeCustomer(c.id)} className="rounded-full p-2 text-bad-500/70 hover:bg-bad-50"><Trash2 size={16} /></button>
               </div>
             </Card>
           );
@@ -1746,7 +1842,7 @@ function CustomerDetailView({ customer, estimates, payments, items, currency, op
   if (!customer) {
     return (
       <div className="px-5 pb-28 pt-1">
-        <button onClick={onBack} className="flex items-center gap-1 text-sm font-semibold text-slate-500"><ChevronLeft size={16} /> Back</button>
+        <button onClick={onBack} className="flex items-center gap-1 text-sm font-semibold text-ink/50"><ChevronLeft size={16} /> Back</button>
         <Card className="mt-3"><EmptyState text="Customer not found." /></Card>
       </div>
     );
@@ -1764,18 +1860,18 @@ function CustomerDetailView({ customer, estimates, payments, items, currency, op
 
   return (
     <div className="space-y-4 px-5 pb-28 pt-1">
-      <button onClick={onBack} className="flex items-center gap-1 text-sm font-semibold text-slate-500"><ChevronLeft size={16} /> Back</button>
+      <button onClick={onBack} className="flex items-center gap-1 text-sm font-semibold text-ink/50"><ChevronLeft size={16} /> Back</button>
 
       <Card>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-lg font-bold text-slate-900">{customer.name}</p>
-            <p className="text-xs text-slate-400">{customer.email || "No email"}{customer.phone ? ` · ${customer.phone}` : ""}</p>
+            <p className="font-display text-lg font-bold text-ink">{customer.name}</p>
+            <p className="text-xs text-ink/40">{customer.email || "No email"}{customer.phone ? ` · ${customer.phone}` : ""}</p>
             {customer.location && (
               <a
                 href={customer.lat && customer.lng ? `https://www.google.com/maps/search/?api=1&query=${customer.lat},${customer.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customer.location)}`}
                 target="_blank" rel="noreferrer"
-                className="mt-1 flex items-center gap-1 text-xs text-slate-400 hover:text-blue-500 hover:underline"
+                className="mt-1 flex items-center gap-1 text-xs text-ink/40 hover:text-brand-500 hover:underline"
               >
                 <MapPin size={11} /> {customer.location}
               </a>
@@ -1789,15 +1885,15 @@ function CustomerDetailView({ customer, estimates, payments, items, currency, op
       </Card>
 
       <Card>
-        <p className="text-sm font-semibold text-slate-400">Balance due</p>
-        <p className={`mt-1 text-2xl font-bold ${balance > 0 ? "text-rose-600" : "text-emerald-600"}`}>{fmtMoney(balance, currency)}</p>
+        <p className="text-sm font-semibold text-ink/40">Balance due</p>
+        <p className={`mt-1 text-2xl font-bold ${balance > 0 ? "text-bad-600" : "text-good-600"}`}>{fmtMoney(balance, currency)}</p>
         {overdueEstimates.length > 0 && (
-          <p className="mt-1 text-xs font-semibold text-amber-600">{overdueEstimates.length} overdue estimate{overdueEstimates.length !== 1 ? "s" : ""}</p>
+          <p className="mt-1 text-xs font-semibold text-warn-600">{overdueEstimates.length} overdue estimate{overdueEstimates.length !== 1 ? "s" : ""}</p>
         )}
       </Card>
 
       <div>
-        <h3 className="mb-2 text-sm font-bold text-slate-700">Estimates ({custEstimates.length})</h3>
+        <h3 className="mb-2 text-sm font-bold text-ink/80">Estimates ({custEstimates.length})</h3>
         {custEstimates.length === 0 ? (
           <Card><EmptyState text="No estimates yet." /></Card>
         ) : (
@@ -1807,11 +1903,11 @@ function CustomerDetailView({ customer, estimates, payments, items, currency, op
               return (
                 <Card key={e.id} onClick={() => openModal("viewEstimate", { doc: e })} className="flex items-center justify-between cursor-pointer active:scale-[0.99] transition-transform">
                   <div>
-                    <p className="font-semibold text-slate-800">{e.number}</p>
-                    <p className="text-xs text-slate-400">{fmtDate(e.date)}</p>
+                    <p className="font-semibold text-ink">{e.number}</p>
+                    <p className="text-xs text-ink/40">{fmtDate(e.date)}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-slate-800">{fmtMoney(e.total, currency)}</p>
+                    <p className="font-bold text-ink">{fmtMoney(e.total, currency)}</p>
                     <Badge status={overdue ? "Overdue" : e.status} />
                   </div>
                 </Card>
@@ -1822,7 +1918,7 @@ function CustomerDetailView({ customer, estimates, payments, items, currency, op
       </div>
 
       <div>
-        <h3 className="mb-2 text-sm font-bold text-slate-700">Payments ({custPayments.length})</h3>
+        <h3 className="mb-2 text-sm font-bold text-ink/80">Payments ({custPayments.length})</h3>
         {custPayments.length === 0 ? (
           <Card><EmptyState text="No payments yet." /></Card>
         ) : (
@@ -1830,10 +1926,10 @@ function CustomerDetailView({ customer, estimates, payments, items, currency, op
             {custPayments.map((p: any) => (
               <Card key={p.id} className="flex items-center justify-between">
                 <div>
-                  <p className="font-semibold text-slate-800">{p.invoiceNumber || "—"}</p>
-                  <p className="text-xs text-slate-400">{fmtDate(p.date)}{p.method ? ` · ${p.method}` : ""}</p>
+                  <p className="font-semibold text-ink">{p.invoiceNumber || "—"}</p>
+                  <p className="text-xs text-ink/40">{fmtDate(p.date)}{p.method ? ` · ${p.method}` : ""}</p>
                 </div>
-                <p className={`font-bold ${Number(p.amount) < 0 ? "text-rose-600" : "text-emerald-600"}`}>{fmtMoney(p.amount, currency)}</p>
+                <p className={`font-bold ${Number(p.amount) < 0 ? "text-bad-600" : "text-good-600"}`}>{fmtMoney(p.amount, currency)}</p>
               </Card>
             ))}
           </div>
@@ -1858,27 +1954,27 @@ function ItemsView({ items, openModal, removeItem, currency }: any) {
   return (
     <div className="space-y-3 px-5 pb-28">
       <div className="flex items-center justify-between pt-1">
-        <p className="text-sm text-slate-400">{items.length} item{items.length !== 1 ? "s" : ""}</p>
+        <p className="text-sm text-ink/40">{items.length} item{items.length !== 1 ? "s" : ""}</p>
         <PillButton onClick={() => openModal("item")}><Plus size={16} /> New Item</PillButton>
       </div>
       <div className="relative">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search items..."
-          className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm"
+          className="w-full rounded-xl border border-line bg-white py-2.5 pl-9 pr-3 text-sm"
         />
       </div>
       <div className="flex flex-wrap gap-2">
         {["All", ...ITEM_CATEGORIES].map((c) => (
-          <button key={c} onClick={() => setCategory(c)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${category === c ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-600"}`}>{c}</button>
+          <button key={c} onClick={() => setCategory(c)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${category === c ? "bg-brand-500 text-white" : "bg-paper text-ink/70"}`}>{c}</button>
         ))}
       </div>
       {items.length === 0
         ? <Card><EmptyState text="Add items you sell." cta="New Item" onCta={() => openModal("item")} /></Card>
         : filtered.length === 0
-        ? <Card><p className="text-center text-sm text-slate-400">No items match your search/filter.</p></Card>
+        ? <Card><p className="text-center text-sm text-ink/40">No items match your search/filter.</p></Card>
         : filtered.map((it: any) => {
           const threshold = it.lowStock ?? LOW_STOCK_DEFAULT;
           const isLow = (it.stock ?? 0) <= threshold;
@@ -1886,19 +1982,19 @@ function ItemsView({ items, openModal, removeItem, currency }: any) {
             <Card key={it.id} className="flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <p className="font-semibold text-slate-900">{it.name}</p>
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">{it.category || "Others"}</span>
-                  {isLow && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 flex items-center gap-1"><AlertTriangle size={10} /> Low stock</span>}
+                  <p className="font-semibold text-ink">{it.name}</p>
+                  <span className="rounded-full bg-paper px-2 py-0.5 text-xs font-semibold text-ink/50">{it.category || "Others"}</span>
+                  {isLow && <span className="rounded-full bg-warn-100 px-2 py-0.5 text-xs font-semibold text-warn-700 flex items-center gap-1"><AlertTriangle size={10} /> Low stock</span>}
                 </div>
-                <p className="text-xs text-slate-400">{it.unit || "unit"} · Stock: <span className={`font-semibold ${isLow ? "text-amber-600" : "text-slate-700"}`}>{it.stock ?? 0}</span> (alert at ≤{threshold})</p>
+                <p className="text-xs text-ink/40">{it.unit || "unit"} · Stock: <span className={`font-semibold ${isLow ? "text-warn-600" : "text-ink/80"}`}>{it.stock ?? 0}</span> (alert at ≤{threshold})</p>
               </div>
               <div className="flex items-center gap-3">
                 <div className="text-right">
-                  <p className="text-xs text-slate-400">Sell: <span className="font-bold text-slate-800">{fmtMoney(it.sellingPrice ?? it.price, currency)}</span></p>
-                  {it.purchasePrice > 0 && <p className="text-xs text-slate-400">Buy: <span className="font-semibold text-slate-600">{fmtMoney(it.purchasePrice, currency)}</span></p>}
+                  <p className="text-xs text-ink/40">Sell: <span className="font-bold text-ink">{fmtMoney(it.sellingPrice ?? it.price, currency)}</span></p>
+                  {it.purchasePrice > 0 && <p className="text-xs text-ink/40">Buy: <span className="font-semibold text-ink/70">{fmtMoney(it.purchasePrice, currency)}</span></p>}
                 </div>
-                <button onClick={() => openModal("item", { editingItem: it })} className="rounded-full p-2 text-slate-400 hover:bg-slate-100"><Pencil size={16} /></button>
-                <button onClick={() => removeItem(it.id)} className="rounded-full p-2 text-rose-400 hover:bg-rose-50"><Trash2 size={16} /></button>
+                <button onClick={() => openModal("item", { editingItem: it })} className="rounded-full p-2 text-ink/40 hover:bg-paper"><Pencil size={16} /></button>
+                <button onClick={() => removeItem(it.id)} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
               </div>
             </Card>
           );
@@ -1921,39 +2017,39 @@ function OrdersView({ orders, items, openModal, markOrderReceived, removeOrder }
   return (
     <div className="space-y-3 px-5 pb-28">
       <div className="flex items-center justify-between pt-1">
-        <p className="text-sm text-slate-400">{orders.length} order{orders.length !== 1 ? "s" : ""}</p>
+        <p className="text-sm text-ink/40">{orders.length} order{orders.length !== 1 ? "s" : ""}</p>
         <PillButton onClick={() => openModal("order")}><Plus size={16} /> New Order</PillButton>
       </div>
       <div className="flex flex-wrap gap-2">
         {["All", ...ITEM_CATEGORIES].map((c) => (
-          <button key={c} onClick={() => setCategory(c)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${category === c ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-600"}`}>{c}</button>
+          <button key={c} onClick={() => setCategory(c)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${category === c ? "bg-brand-500 text-white" : "bg-paper text-ink/70"}`}>{c}</button>
         ))}
       </div>
 
       {orders.length === 0
         ? <Card><EmptyState text="Place orders to restock your inventory. Marking an order as Received will automatically update the item's stock." cta="New Order" onCta={() => openModal("order")} /></Card>
         : pending.length === 0 && received.length === 0
-        ? <Card><p className="text-center text-sm text-slate-400">No orders match this category.</p></Card>
+        ? <Card><p className="text-center text-sm text-ink/40">No orders match this category.</p></Card>
         : (
           <>
             {pending.length > 0 && (
               <div>
-                <p className="mb-2 px-1 text-xs font-bold uppercase text-slate-400">Pending ({pending.length})</p>
+                <p className="mb-2 px-1 text-xs font-bold uppercase text-ink/40">Pending ({pending.length})</p>
                 {pending.map((o: any) => (
                   <Card key={o.id} className="mb-2">
                     <div className="flex items-start justify-between">
                       <div>
-                        <p className="font-semibold text-slate-900">{itemName(o.itemId)}</p>
-                        <p className="text-xs text-slate-400">Qty: {o.qty} · {fmtDate(o.date)}{o.notes ? ` · ${o.notes}` : ""}</p>
+                        <p className="font-semibold text-ink">{itemName(o.itemId)}</p>
+                        <p className="text-xs text-ink/40">Qty: {o.qty} · {fmtDate(o.date)}{o.notes ? ` · ${o.notes}` : ""}</p>
                       </div>
                       <Badge status="Pending" />
                     </div>
                     <div className="mt-3 flex gap-2">
                       <button onClick={() => markOrderReceived(o.id)}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white active:scale-[0.98]">
+                        className="inline-flex items-center gap-1.5 rounded-full bg-good-500 px-3 py-1.5 text-xs font-semibold text-white active:scale-[0.98]">
                         <PackageCheck size={13} /> Mark Received
                       </button>
-                      <button onClick={() => removeOrder(o.id)} className="rounded-full p-1.5 text-rose-400 hover:bg-rose-50"><Trash2 size={14} /></button>
+                      <button onClick={() => removeOrder(o.id)} className="rounded-full p-1.5 text-bad-400 hover:bg-bad-50"><Trash2 size={14} /></button>
                     </div>
                   </Card>
                 ))}
@@ -1961,16 +2057,16 @@ function OrdersView({ orders, items, openModal, markOrderReceived, removeOrder }
             )}
             {received.length > 0 && (
               <div>
-                <p className="mb-2 px-1 text-xs font-bold uppercase text-slate-400">Received ({received.length})</p>
+                <p className="mb-2 px-1 text-xs font-bold uppercase text-ink/40">Received ({received.length})</p>
                 {received.map((o: any) => (
                   <Card key={o.id} className="mb-2 flex items-center justify-between">
                     <div>
-                      <p className="font-semibold text-slate-900">{itemName(o.itemId)}</p>
-                      <p className="text-xs text-slate-400">Qty: {o.qty} · {fmtDate(o.date)}{o.notes ? ` · ${o.notes}` : ""}</p>
+                      <p className="font-semibold text-ink">{itemName(o.itemId)}</p>
+                      <p className="text-xs text-ink/40">Qty: {o.qty} · {fmtDate(o.date)}{o.notes ? ` · ${o.notes}` : ""}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge status="Received" />
-                      <button onClick={() => removeOrder(o.id)} className="rounded-full p-1.5 text-rose-400 hover:bg-rose-50"><Trash2 size={14} /></button>
+                      <button onClick={() => removeOrder(o.id)} className="rounded-full p-1.5 text-bad-400 hover:bg-bad-50"><Trash2 size={14} /></button>
                     </div>
                   </Card>
                 ))}
@@ -2043,35 +2139,35 @@ function DocumentList({ type, docs, customers, items, currency, openModal, remov
         <Card key={d.id}>
           <div className="flex items-start justify-between">
             <div>
-              <p className="font-semibold text-slate-900">{d.number} · {d.route || "–"}</p>
-              <p className="text-xs text-slate-400">{fmtDate(d.fromDate)} → {fmtDate(d.toDate)}</p>
+              <p className="font-semibold text-ink">{d.number} · {d.route || "–"}</p>
+              <p className="text-xs text-ink/40">{fmtDate(d.fromDate)} → {fmtDate(d.toDate)}</p>
             </div>
             <Badge status={d.status} />
           </div>
           {(d.byWhom || d.transporter) && (
-            <div className="mt-2 flex gap-3 text-xs text-slate-500">
-              {d.byWhom && <span><span className="font-semibold text-slate-400">By:</span> {d.byWhom}</span>}
-              {d.transporter && <span><span className="font-semibold text-slate-400">Via:</span> {d.transporter}</span>}
+            <div className="mt-2 flex gap-3 text-xs text-ink/50">
+              {d.byWhom && <span><span className="font-semibold text-ink/40">By:</span> {d.byWhom}</span>}
+              {d.transporter && <span><span className="font-semibold text-ink/40">Via:</span> {d.transporter}</span>}
             </div>
           )}
           <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-            {totalExp > 0 && <div className="rounded-xl bg-rose-50 px-2 py-1.5"><p className="text-xs text-rose-400">Expenses</p><p className="text-sm font-bold text-rose-600">{fmtMoney(totalExp, currency)}</p></div>}
-            {totalInc > 0 && <div className="rounded-xl bg-emerald-50 px-2 py-1.5"><p className="text-xs text-emerald-500">Income</p><p className="text-sm font-bold text-emerald-700">{fmtMoney(totalInc, currency)}</p></div>}
+            {totalExp > 0 && <div className="rounded-xl bg-bad-50 px-2 py-1.5"><p className="text-xs text-bad-400">Expenses</p><p className="text-sm font-bold text-bad-600">{fmtMoney(totalExp, currency)}</p></div>}
+            {totalInc > 0 && <div className="rounded-xl bg-good-50 px-2 py-1.5"><p className="text-xs text-good-500">Income</p><p className="text-sm font-bold text-good-700">{fmtMoney(totalInc, currency)}</p></div>}
             {d.deliveryFee > 0 && (
-              <div className={`rounded-xl px-2 py-1.5 ${d.feeVerified ? "bg-blue-50" : "bg-amber-50 border border-amber-300"}`}>
-                <p className={`text-xs flex items-center justify-center gap-1 ${d.feeVerified ? "text-blue-400" : "text-amber-500"}`}>
+              <div className={`rounded-xl px-2 py-1.5 ${d.feeVerified ? "bg-brand-50" : "bg-warn-50 border border-warn-300"}`}>
+                <p className={`text-xs flex items-center justify-center gap-1 ${d.feeVerified ? "text-brand-400" : "text-warn-500"}`}>
                   {!d.feeVerified && <AlertTriangle size={10} />}Delivery fee
                 </p>
-                <p className={`text-sm font-bold ${d.feeVerified ? "text-blue-700" : "text-amber-700"}`}>{fmtMoney(d.deliveryFee, currency)}</p>
-                {!d.feeVerified && <p className="text-xs text-amber-500 font-semibold">Unverified</p>}
+                <p className={`text-sm font-bold ${d.feeVerified ? "text-brand-700" : "text-warn-700"}`}>{fmtMoney(d.deliveryFee, currency)}</p>
+                {!d.feeVerified && <p className="text-xs text-warn-500 font-semibold">Unverified</p>}
               </div>
             )}
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <select value={d.status} onChange={(e) => updateStatus(d.id, e.target.value)} className="rounded-full border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600">
+            <select value={d.status} onChange={(e) => updateStatus(d.id, e.target.value)} className="rounded-full border border-line px-2.5 py-1.5 text-xs font-semibold text-ink/70">
               {["Pending","Delivered"].map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
-            <button onClick={() => removeDoc(d.id)} className="ml-auto rounded-full p-2 text-rose-400 hover:bg-rose-50"><Trash2 size={15} /></button>
+            <button onClick={() => removeDoc(d.id)} className="ml-auto rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={15} /></button>
           </div>
         </Card>
       );
@@ -2081,36 +2177,36 @@ function DocumentList({ type, docs, customers, items, currency, openModal, remov
       <Card key={d.id}>
         <div className="flex items-start justify-between">
           <div>
-            <p className="font-semibold text-slate-900">{d.number}</p>
-            <p className="text-xs text-slate-400">{customerName(d.customerId)} · {fmtDate(d.date)}</p>
+            <p className="font-semibold text-ink">{d.number}</p>
+            <p className="text-xs text-ink/40">{customerName(d.customerId)} · {fmtDate(d.date)}</p>
           </div>
           <div className="flex flex-col items-end gap-1">
             <Badge status={displayStatus} />
             {type === "estimate" && d.isAdvanceBooking && (
-              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">Advance Booking</span>
+              <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-semibold text-brand-700">Advance Booking</span>
             )}
           </div>
         </div>
-        <p className="mt-3 text-lg font-bold text-slate-900">{fmtMoney(d.total, currency)}</p>
+        <p className="mt-3 font-display text-lg font-bold text-ink">{fmtMoney(d.total, currency)}</p>
         {type === "estimate" && d.status !== "Due" && Number(d.amountPaid || 0) > 0 && (
-          <p className="mt-0.5 text-xs text-slate-500">
+          <p className="mt-0.5 text-xs text-ink/50">
             Paid {fmtMoney(d.amountPaid, currency)}
-            {d.status !== "Paid" && <span className="text-amber-600 font-semibold"> · {fmtMoney(Number(d.total || 0) - Number(d.amountPaid || 0), currency)} due</span>}
+            {d.status !== "Paid" && <span className="text-warn-600 font-semibold"> · {fmtMoney(Number(d.total || 0) - Number(d.amountPaid || 0), currency)} due</span>}
           </p>
         )}
-        {type === "estimate" && d.notes && <p className="mt-1 text-xs text-slate-400 line-clamp-2">📝 {d.notes}</p>}
+        {type === "estimate" && d.notes && <p className="mt-1 text-xs text-ink/40 line-clamp-2">📝 {d.notes}</p>}
         {type === "estimate" && d.isAdvanceBooking && (() => {
           const rows = bookingLineProgress(d);
           const pending = rows.filter((r: any) => r.remaining > 0);
           if (rows.length === 0) return null;
           const itemName = (id: string) => items?.find?.((it: any) => it.id === id)?.name;
           return (
-            <div className="mt-2 rounded-xl bg-blue-50 px-3 py-2">
-              <p className="text-xs font-semibold text-blue-700 mb-1">{pending.length > 0 ? "Advance booking — collection pending" : "Advance booking — fully collected"}</p>
+            <div className="mt-2 rounded-xl bg-brand-50 px-3 py-2">
+              <p className="text-xs font-semibold text-brand-700 mb-1">{pending.length > 0 ? "Advance booking — collection pending" : "Advance booking — fully collected"}</p>
               {pending.length > 0 && (
                 <div className="space-y-0.5">
                   {pending.map((r: any) => (
-                    <p key={r.itemId} className="text-xs text-blue-600">
+                    <p key={r.itemId} className="text-xs text-brand-600">
                       {itemName(r.itemId) || "Item"}: {r.remaining} of {r.booked} remaining{r.delivered > 0 ? ` (${r.delivered} collected)` : ""}
                     </p>
                   ))}
@@ -2121,7 +2217,7 @@ function DocumentList({ type, docs, customers, items, currency, openModal, remov
         })()}
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {type !== "challan" && (
-            <select value={d.status} onChange={(e) => updateStatus(d.id, e.target.value)} className="rounded-full border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600">
+            <select value={d.status} onChange={(e) => updateStatus(d.id, e.target.value)} className="rounded-full border border-line px-2.5 py-1.5 text-xs font-semibold text-ink/70">
               {["Accepted","Due","Partially Paid","Paid"].map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           )}
@@ -2134,7 +2230,7 @@ function DocumentList({ type, docs, customers, items, currency, openModal, remov
             ? <button onClick={() => onShareInvoice(d)} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white transition active:scale-[0.98]" style={{ backgroundColor: WHATSAPP_GREEN }}><Phone size={13} /> Share estimate</button>
             : <WhatsAppButton phone={customerPhone(d.customerId)} message={msg} label="Send" />
           }
-          <button onClick={() => removeDoc(d.id)} className="ml-auto rounded-full p-2 text-rose-400 hover:bg-rose-50"><Trash2 size={15} /></button>
+          <button onClick={() => removeDoc(d.id)} className="ml-auto rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={15} /></button>
         </div>
       </Card>
     );
@@ -2143,23 +2239,23 @@ function DocumentList({ type, docs, customers, items, currency, openModal, remov
   return (
     <div className="space-y-3 px-5 pb-28">
       <div className="flex items-center justify-between pt-1">
-        <p className="text-sm text-slate-400">{docs.length} {labelMap[type].toLowerCase()}{docs.length !== 1 ? "s" : ""}</p>
+        <p className="text-sm text-ink/40">{docs.length} {labelMap[type].toLowerCase()}{docs.length !== 1 ? "s" : ""}</p>
         <PillButton onClick={() => openModal(type)}><Plus size={16} /> New {labelMap[type]}</PillButton>
       </div>
       {type === "estimate" && (
         <>
           <div className="relative">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by customer, location or notes..."
-              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm"
+              className="w-full rounded-xl border border-line bg-white py-2.5 pl-9 pr-3 text-sm"
             />
           </div>
           <div className="flex flex-wrap gap-2">
             {[["all", "All"], ["due", "Due"], ["paid", "Paid"], ["returned", "Returned items"]].map(([key, label]) => (
-              <button key={key} onClick={() => setStatusFilter(key)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${statusFilter === key ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-600"}`}>{label}</button>
+              <button key={key} onClick={() => setStatusFilter(key)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${statusFilter === key ? "bg-brand-500 text-white" : "bg-paper text-ink/70"}`}>{label}</button>
             ))}
           </div>
         </>
@@ -2168,14 +2264,14 @@ function DocumentList({ type, docs, customers, items, currency, openModal, remov
         ? <Card><EmptyState text={emptyMap[type]} cta={`New ${labelMap[type]}`} onCta={() => openModal(type)} /></Card>
         : type === "estimate"
         ? (visibleDocs.length === 0
-          ? <Card><p className="text-center text-sm text-slate-400">No estimates match your search/filter.</p></Card>
+          ? <Card><p className="text-center text-sm text-ink/40">No estimates match your search/filter.</p></Card>
           : monthGroups.map((g, idx) => {
             const isCollapsed = collapsedMonths[g.key] !== undefined ? collapsedMonths[g.key] : idx !== 0;
             return (
               <div key={g.key}>
-                <button onClick={() => toggleMonth(g.key)} className="flex w-full items-center justify-between rounded-xl bg-slate-100 px-4 py-2.5">
-                  <span className="text-sm font-bold text-slate-700">{monthLabel(g.key)}</span>
-                  <span className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                <button onClick={() => toggleMonth(g.key)} className="flex w-full items-center justify-between rounded-xl bg-paper px-4 py-2.5">
+                  <span className="text-sm font-bold text-ink/80">{monthLabel(g.key)}</span>
+                  <span className="flex items-center gap-2 text-xs font-semibold text-ink/50">
                     {g.docs.length} estimate{g.docs.length !== 1 ? "s" : ""}
                     {isCollapsed ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
                   </span>
@@ -2208,40 +2304,40 @@ function PaymentsView({ payments, customers, currency, openModal, removePayment 
   return (
     <div className="space-y-3 px-5 pb-28">
       <div className="flex items-center justify-between pt-1">
-        <p className="text-sm text-slate-400">{payments.length} total</p>
+        <p className="text-sm text-ink/40">{payments.length} total</p>
         <PillButton onClick={() => openModal("payment")}><Plus size={16} /> Record Payment</PillButton>
       </div>
       <div className="flex gap-2">
-        <button onClick={() => setTab("received")} className={`rounded-full px-4 py-1.5 text-sm font-semibold ${tab === "received" ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-600"}`}>Payments Received ({received.length})</button>
-        <button onClick={() => setTab("refunds")} className={`rounded-full px-4 py-1.5 text-sm font-semibold ${tab === "refunds" ? "bg-rose-500 text-white" : "bg-slate-100 text-slate-600"}`}>Refunds ({refunds.length})</button>
+        <button onClick={() => setTab("received")} className={`rounded-full px-4 py-1.5 text-sm font-semibold ${tab === "received" ? "bg-brand-500 text-white" : "bg-paper text-ink/70"}`}>Payments Received ({received.length})</button>
+        <button onClick={() => setTab("refunds")} className={`rounded-full px-4 py-1.5 text-sm font-semibold ${tab === "refunds" ? "bg-bad-500 text-white" : "bg-paper text-ink/70"}`}>Refunds ({refunds.length})</button>
       </div>
       <div className="relative">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by customer or estimate number..."
-          className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm"
+          className="w-full rounded-xl border border-line bg-white py-2.5 pl-9 pr-3 text-sm"
         />
       </div>
       {list.length === 0
         ? <Card><EmptyState text={tab === "received" ? "Record payments you receive." : "Refunds from returned items will show up here."} cta={tab === "received" ? "Record Payment" : undefined} onCta={() => openModal("payment")} /></Card>
         : filtered.length === 0
-        ? <Card><p className="text-center text-sm text-slate-400">No matches for "{search}".</p></Card>
+        ? <Card><p className="text-center text-sm text-ink/40">No matches for "{search}".</p></Card>
         : filtered.map((p: any) => (
           <Card key={p.id} className="flex items-center justify-between">
             <div>
-              <p className="font-semibold text-slate-900">{customerName(p.customerId)}</p>
+              <p className="font-semibold text-ink">{customerName(p.customerId)}</p>
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                <span className="text-xs text-slate-400">{fmtDate(p.date)}{p.method ? ` · ${p.method}` : ""}</span>
+                <span className="text-xs text-ink/40">{fmtDate(p.date)}{p.method ? ` · ${p.method}` : ""}</span>
                 {p.invoiceNumber
-                  ? <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-600">{p.invoiceNumber}</span>
-                  : <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-400">No estimate linked</span>}
+                  ? <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-600">{p.invoiceNumber}</span>
+                  : <span className="rounded-full bg-paper px-2 py-0.5 text-xs font-semibold text-ink/40">No estimate linked</span>}
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <span className={`font-bold ${Number(p.amount) < 0 ? "text-rose-600" : "text-emerald-600"}`}>{Number(p.amount) < 0 ? "−" : "+"}{fmtMoney(Math.abs(p.amount), currency)}</span>
-              <button onClick={() => removePayment(p.id)} className="rounded-full p-2 text-rose-400 hover:bg-rose-50"><Trash2 size={16} /></button>
+              <span className={`font-bold ${Number(p.amount) < 0 ? "text-bad-600" : "text-good-600"}`}>{Number(p.amount) < 0 ? "−" : "+"}{fmtMoney(Math.abs(p.amount), currency)}</span>
+              <button onClick={() => removePayment(p.id)} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
             </div>
           </Card>
         ))
@@ -2256,17 +2352,17 @@ function ExpensesView({ expenses, currency, openModal, removeExpense }: any) {
   return (
     <div className="space-y-3 px-5 pb-28">
       <div className="flex items-center justify-between pt-1">
-        <p className="text-sm text-slate-400">{expenses.length} expense{expenses.length !== 1 ? "s" : ""}</p>
+        <p className="text-sm text-ink/40">{expenses.length} expense{expenses.length !== 1 ? "s" : ""}</p>
         <PillButton onClick={() => openModal("expense")}><Plus size={16} /> Record Expense</PillButton>
       </div>
       {expenses.length === 0
         ? <Card><EmptyState text="Record your expenses." cta="Record Expense" onCta={() => openModal("expense")} /></Card>
         : expenses.map((e: any) => (
           <Card key={e.id} className="flex items-center justify-between">
-            <div><p className="font-semibold text-slate-900">{e.category}</p><p className="text-xs text-slate-400">{e.vendor || "No vendor"} · {fmtDate(e.date)}</p></div>
+            <div><p className="font-semibold text-ink">{e.category}</p><p className="text-xs text-ink/40">{e.vendor || "No vendor"} · {fmtDate(e.date)}</p></div>
             <div className="flex items-center gap-3">
-              <span className="font-bold text-rose-600">-{fmtMoney(e.amount, currency)}</span>
-              <button onClick={() => removeExpense(e.id)} className="rounded-full p-2 text-rose-400 hover:bg-rose-50"><Trash2 size={16} /></button>
+              <span className="font-bold text-bad-600">-{fmtMoney(e.amount, currency)}</span>
+              <button onClick={() => removeExpense(e.id)} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
             </div>
           </Card>
         ))
@@ -2303,7 +2399,7 @@ function ContractorScorecardView({ estimates, items, currency }: any) {
   return (
     <div className="space-y-3 px-5 pb-28">
       {contractors.length === 0 ? (
-        <Card><p className="text-sm text-slate-400">No estimates have a contractor name set yet. Add one when creating an estimate to see them here.</p></Card>
+        <Card><p className="text-sm text-ink/40">No estimates have a contractor name set yet. Add one when creating an estimate to see them here.</p></Card>
       ) : contractors.map((name) => {
         const c = byContractor[name];
         const itemRows = Object.values(c.itemMap).sort((a, b) => b.amount - a.amount);
@@ -2312,18 +2408,18 @@ function ContractorScorecardView({ estimates, items, currency }: any) {
           <Card key={name}>
             <button className="flex w-full items-center justify-between text-left" onClick={() => setOpenContractor(isOpen ? null : name)}>
               <div>
-                <p className="text-sm font-bold text-slate-900">{name}</p>
-                <p className="mt-0.5 text-xs text-slate-400">{c.count} estimate{c.count !== 1 ? "s" : ""} · {fmtMoney(c.total, currency)}</p>
+                <p className="text-sm font-bold text-ink">{name}</p>
+                <p className="mt-0.5 text-xs text-ink/40">{c.count} estimate{c.count !== 1 ? "s" : ""} · {fmtMoney(c.total, currency)}</p>
               </div>
-              {isOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+              {isOpen ? <ChevronUp size={18} className="text-ink/40" /> : <ChevronDown size={18} className="text-ink/40" />}
             </button>
             {isOpen && (
-              <div className="mt-3 border-t border-slate-100 pt-3">
+              <div className="mt-3 border-t border-line pt-3">
                 {itemRows.map((r) => (
                   <div key={r.name} className="flex items-center justify-between py-1.5 text-sm">
-                    <span className="text-slate-600">{r.name}</span>
-                    <span className="text-slate-500">{r.qty} units</span>
-                    <span className="font-semibold text-slate-900">{fmtMoney(r.amount, currency)}</span>
+                    <span className="text-ink/70">{r.name}</span>
+                    <span className="text-ink/50">{r.qty} units</span>
+                    <span className="font-semibold text-ink">{fmtMoney(r.amount, currency)}</span>
                   </div>
                 ))}
               </div>
@@ -2394,13 +2490,13 @@ function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, currency
   return (
     <div className="space-y-4 px-5 pb-28">
       <Card>
-        <h3 className="mb-3 text-base font-bold text-slate-900">Log a work session</h3>
+        <h3 className="mb-3 font-display text-base font-bold text-ink">Log a work session</h3>
 
-        <label className="mb-1 block text-xs font-semibold text-slate-500">Number of workers</label>
+        <label className="mb-1 block text-xs font-semibold text-ink/50">Number of workers</label>
         <div className="mb-3 flex items-center gap-3">
-          <button onClick={() => setWorkerCountSafe(workerCount - 1)} className="h-8 w-8 rounded-lg border border-slate-200 bg-slate-50 text-lg font-bold text-slate-600">−</button>
-          <span className="w-6 text-center text-base font-bold text-slate-900">{workerCount}</span>
-          <button onClick={() => setWorkerCountSafe(workerCount + 1)} className="h-8 w-8 rounded-lg border border-slate-200 bg-slate-50 text-lg font-bold text-slate-600">+</button>
+          <button onClick={() => setWorkerCountSafe(workerCount - 1)} className="h-8 w-8 rounded-lg border border-line bg-paper font-display text-lg font-bold text-ink/70">−</button>
+          <span className="w-6 text-center font-display text-base font-bold text-ink">{workerCount}</span>
+          <button onClick={() => setWorkerCountSafe(workerCount + 1)} className="h-8 w-8 rounded-lg border border-line bg-paper font-display text-lg font-bold text-ink/70">+</button>
         </div>
 
         <datalist id="labour-worker-names">
@@ -2409,105 +2505,105 @@ function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, currency
         <div className="mb-4 space-y-2">
           {names.map((n, i) => (
             <input key={i} list="labour-worker-names" value={n} onChange={(e) => setNames((prev) => prev.map((x, idx) => idx === i ? e.target.value : x))}
-              placeholder={`Worker ${i + 1} name`} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+              placeholder={`Worker ${i + 1} name`} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
           ))}
         </div>
 
-        <label className="mb-2 block text-xs font-semibold text-slate-500">Materials moved (shared by the group)</label>
+        <label className="mb-2 block text-xs font-semibold text-ink/50">Materials moved (shared by the group)</label>
         <div className="mb-2 flex items-center gap-2">
-          <span className="w-16 text-sm font-semibold text-slate-700">Cement</span>
-          <span className="w-16 text-xs text-slate-400">₹{LABOUR_RATES.cement}/unit</span>
-          <input type="number" min="0" value={cementQty} onChange={(e) => setCementQty(e.target.value)} className="w-20 rounded-xl border border-slate-200 px-2 py-2 text-center text-sm" />
-          <span className="ml-auto text-sm font-bold text-blue-600">{fmtMoney(cementAmt, currency)}</span>
+          <span className="w-16 text-sm font-semibold text-ink/80">Cement</span>
+          <span className="w-16 text-xs text-ink/40">₹{LABOUR_RATES.cement}/unit</span>
+          <input type="number" min="0" value={cementQty} onChange={(e) => setCementQty(e.target.value)} className="w-20 rounded-xl border border-line px-2 py-2 text-center text-sm" />
+          <span className="ml-auto text-sm font-bold text-brand-600">{fmtMoney(cementAmt, currency)}</span>
         </div>
         <div className="mb-2 flex items-center gap-2">
-          <span className="w-16 text-sm font-semibold text-slate-700">Saria</span>
-          <span className="w-16 text-xs text-slate-400">₹{LABOUR_RATES.saria}/unit</span>
-          <input type="number" min="0" value={sariaQty} onChange={(e) => setSariaQty(e.target.value)} className="w-20 rounded-xl border border-slate-200 px-2 py-2 text-center text-sm" />
-          <span className="ml-auto text-sm font-bold text-blue-600">{fmtMoney(sariaAmt, currency)}</span>
+          <span className="w-16 text-sm font-semibold text-ink/80">Saria</span>
+          <span className="w-16 text-xs text-ink/40">₹{LABOUR_RATES.saria}/unit</span>
+          <input type="number" min="0" value={sariaQty} onChange={(e) => setSariaQty(e.target.value)} className="w-20 rounded-xl border border-line px-2 py-2 text-center text-sm" />
+          <span className="ml-auto text-sm font-bold text-brand-600">{fmtMoney(sariaAmt, currency)}</span>
         </div>
         <div className="mb-3 flex items-center gap-2">
-          <span className="w-16 text-sm font-semibold text-slate-700">Balu</span>
-          <span className="w-16 text-xs text-slate-400">₹{LABOUR_RATES.balu}/unit</span>
-          <input type="number" min="0" value={baluQty} onChange={(e) => setBaluQty(e.target.value)} className="w-20 rounded-xl border border-slate-200 px-2 py-2 text-center text-sm" />
-          <span className="ml-auto text-sm font-bold text-blue-600">{fmtMoney(baluAmt, currency)}</span>
+          <span className="w-16 text-sm font-semibold text-ink/80">Balu</span>
+          <span className="w-16 text-xs text-ink/40">₹{LABOUR_RATES.balu}/unit</span>
+          <input type="number" min="0" value={baluQty} onChange={(e) => setBaluQty(e.target.value)} className="w-20 rounded-xl border border-line px-2 py-2 text-center text-sm" />
+          <span className="ml-auto text-sm font-bold text-brand-600">{fmtMoney(baluAmt, currency)}</span>
         </div>
 
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-xs font-semibold text-slate-500">Include "Other" work?</span>
-          <button type="button" onClick={() => setOtherIncluded((v) => !v)} className={`h-6 w-11 shrink-0 rounded-full p-0.5 transition ${otherIncluded ? "bg-amber-500" : "bg-slate-200"}`}>
+          <span className="text-xs font-semibold text-ink/50">Include "Other" work?</span>
+          <button type="button" onClick={() => setOtherIncluded((v) => !v)} className={`h-6 w-11 shrink-0 rounded-full p-0.5 transition ${otherIncluded ? "bg-warn-500" : "bg-paper"}`}>
             <span className={`block h-5 w-5 rounded-full bg-white transition ${otherIncluded ? "translate-x-5" : "translate-x-0"}`} />
           </button>
         </div>
         {otherIncluded && (
           <div className="mb-3 flex items-center gap-2">
-            <span className="w-16 text-sm font-semibold text-slate-700">Other</span>
-            <span className="w-16 text-xs text-slate-400">your rate</span>
-            <input type="number" min="0" value={otherAmount} onChange={(e) => setOtherAmount(e.target.value)} placeholder="₹" className="w-20 rounded-xl border border-slate-200 px-2 py-2 text-center text-sm" />
-            <span className="ml-auto text-sm font-bold text-blue-600">{fmtMoney(otherAmt, currency)}</span>
+            <span className="w-16 text-sm font-semibold text-ink/80">Other</span>
+            <span className="w-16 text-xs text-ink/40">your rate</span>
+            <input type="number" min="0" value={otherAmount} onChange={(e) => setOtherAmount(e.target.value)} placeholder="₹" className="w-20 rounded-xl border border-line px-2 py-2 text-center text-sm" />
+            <span className="ml-auto text-sm font-bold text-brand-600">{fmtMoney(otherAmt, currency)}</span>
           </div>
         )}
 
-        <div className="mt-2 flex items-center justify-between rounded-xl bg-blue-50 px-4 py-3">
-          <span className="text-sm font-semibold text-blue-700">This session</span>
-          <span className="text-lg font-bold text-blue-700">{fmtMoney(sessionTotal, currency)}</span>
+        <div className="mt-2 flex items-center justify-between rounded-xl bg-brand-50 px-4 py-3">
+          <span className="text-sm font-semibold text-brand-700">This session</span>
+          <span className="font-display text-lg font-bold text-brand-700">{fmtMoney(sessionTotal, currency)}</span>
         </div>
-        <button disabled={!canSave || saving} onClick={save} className="mt-3 w-full rounded-full bg-blue-600 py-3 text-sm font-semibold text-white disabled:opacity-40">
+        <button disabled={!canSave || saving} onClick={save} className="mt-3 w-full rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40">
           {saving ? "Saving…" : "+ Save session"}
         </button>
       </Card>
 
       <Card>
         <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-base font-bold text-slate-900">Today's sessions</h3>
-          <span className="text-xs font-semibold text-slate-400">{todaySessions.length} session{todaySessions.length !== 1 ? "s" : ""}</span>
+          <h3 className="font-display text-base font-bold text-ink">Today's sessions</h3>
+          <span className="text-xs font-semibold text-ink/40">{todaySessions.length} session{todaySessions.length !== 1 ? "s" : ""}</span>
         </div>
         {todaySessions.length === 0 ? (
-          <p className="text-sm text-slate-400">No sessions logged yet today.</p>
+          <p className="text-sm text-ink/40">No sessions logged yet today.</p>
         ) : (
           <div>
             {todaySessions.map((s: any) => (
-              <div key={s.id} className="flex items-start justify-between border-b border-slate-100 py-2.5 last:border-none">
+              <div key={s.id} className="flex items-start justify-between border-b border-line py-2.5 last:border-none">
                 <div className="flex gap-3">
-                  <span className="w-16 shrink-0 text-xs font-bold text-slate-400">{new Date(s.time).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}</span>
+                  <span className="w-16 shrink-0 text-xs font-bold text-ink/40">{new Date(s.time).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}</span>
                   <div>
-                    <p className="text-sm font-semibold text-slate-800">{(s.workers || []).join(", ") || "—"}</p>
+                    <p className="text-sm font-semibold text-ink">{(s.workers || []).join(", ") || "—"}</p>
                     <div className="mt-1 flex flex-wrap gap-1">
-                      {s.cementQty > 0 && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">Cement {fmtMoney(s.cementQty * LABOUR_RATES.cement, currency)}</span>}
-                      {s.sariaQty > 0 && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">Saria {fmtMoney(s.sariaQty * LABOUR_RATES.saria, currency)}</span>}
-                      {s.baluQty > 0 && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">Balu {fmtMoney(s.baluQty * LABOUR_RATES.balu, currency)}</span>}
-                      {s.otherIncluded && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">Other {fmtMoney(s.otherAmount, currency)}</span>}
+                      {s.cementQty > 0 && <span className="rounded-full bg-paper px-2 py-0.5 text-[10px] text-ink/50">Cement {fmtMoney(s.cementQty * LABOUR_RATES.cement, currency)}</span>}
+                      {s.sariaQty > 0 && <span className="rounded-full bg-paper px-2 py-0.5 text-[10px] text-ink/50">Saria {fmtMoney(s.sariaQty * LABOUR_RATES.saria, currency)}</span>}
+                      {s.baluQty > 0 && <span className="rounded-full bg-paper px-2 py-0.5 text-[10px] text-ink/50">Balu {fmtMoney(s.baluQty * LABOUR_RATES.balu, currency)}</span>}
+                      {s.otherIncluded && <span className="rounded-full bg-paper px-2 py-0.5 text-[10px] text-ink/50">Other {fmtMoney(s.otherAmount, currency)}</span>}
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-slate-900">{fmtMoney(s.total, currency)}</span>
-                  <button onClick={() => onRemove(s.id)} className="rounded-full p-1 text-rose-400 hover:bg-rose-50"><Trash2 size={13} /></button>
+                  <span className="text-sm font-bold text-ink">{fmtMoney(s.total, currency)}</span>
+                  <button onClick={() => onRemove(s.id)} className="rounded-full p-1 text-bad-400 hover:bg-bad-50"><Trash2 size={13} /></button>
                 </div>
               </div>
             ))}
-            <div className="mt-2 flex items-center justify-between rounded-xl bg-emerald-50 px-4 py-3">
-              <span className="text-sm font-semibold text-emerald-700">Today's total ({todaySessions.length})</span>
-              <span className="text-base font-bold text-emerald-700">{fmtMoney(todayTotal, currency)}</span>
+            <div className="mt-2 flex items-center justify-between rounded-xl bg-good-50 px-4 py-3">
+              <span className="text-sm font-semibold text-good-700">Today's total ({todaySessions.length})</span>
+              <span className="font-display text-base font-bold text-good-700">{fmtMoney(todayTotal, currency)}</span>
             </div>
           </div>
         )}
       </Card>
 
       <Card>
-        <h3 className="mb-3 text-base font-bold text-slate-900">History</h3>
+        <h3 className="mb-3 font-display text-base font-bold text-ink">History</h3>
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <label className="text-xs font-semibold text-slate-500">From</label>
-          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" />
-          <label className="text-xs font-semibold text-slate-500">To</label>
-          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" />
+          <label className="text-xs font-semibold text-ink/50">From</label>
+          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="rounded-lg border border-line px-2 py-1.5 text-xs" />
+          <label className="text-xs font-semibold text-ink/50">To</label>
+          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="rounded-lg border border-line px-2 py-1.5 text-xs" />
         </div>
-        {dayRows.length === 0 ? <p className="text-sm text-slate-400">No sessions in this range.</p> : (
+        {dayRows.length === 0 ? <p className="text-sm text-ink/40">No sessions in this range.</p> : (
           <div>
             {dayRows.map((d) => (
-              <div key={d} className="flex items-center justify-between border-b border-slate-100 py-2 last:border-none">
-                <span className="text-sm text-slate-600">{fmtDate(d)}</span>
-                <span className="text-sm font-bold text-slate-900">{fmtMoney(byDay[d], currency)}</span>
+              <div key={d} className="flex items-center justify-between border-b border-line py-2 last:border-none">
+                <span className="text-sm text-ink/70">{fmtDate(d)}</span>
+                <span className="text-sm font-bold text-ink">{fmtMoney(byDay[d], currency)}</span>
               </div>
             ))}
           </div>
@@ -2528,9 +2624,9 @@ function ToDoTrackingView({ items, settings, openModal }: any) {
   const stockColor = (it: any) => {
     const s = it.stock ?? 0;
     const t = it.lowStock ?? LOW_STOCK_DEFAULT;
-    if (s === 0) return "text-rose-600";
-    if (s <= t) return "text-amber-600";
-    return "text-emerald-600";
+    if (s === 0) return "text-bad-600";
+    if (s <= t) return "text-warn-600";
+    return "text-good-600";
   };
 
   const printInventory = () => {
@@ -2561,31 +2657,31 @@ function ToDoTrackingView({ items, settings, openModal }: any) {
       {/* Low inventory alerts */}
       <Card>
         <div className="mb-3 flex items-center gap-2">
-          <AlertTriangle size={18} className="text-amber-500" />
-          <h3 className="text-base font-bold text-slate-900">Low Inventory Alerts</h3>
+          <AlertTriangle size={18} className="text-warn-500" />
+          <h3 className="font-display text-base font-bold text-ink">Low Inventory Alerts</h3>
           {lowItems.length > 0 && (
-            <span className="ml-auto rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700">{lowItems.length}</span>
+            <span className="ml-auto rounded-full bg-warn-100 px-2.5 py-0.5 text-xs font-bold text-warn-700">{lowItems.length}</span>
           )}
         </div>
         {lowItems.length === 0 ? (
-          <div className="flex items-center gap-3 rounded-xl bg-emerald-50 px-4 py-3">
-            <CheckCircle2 size={18} className="text-emerald-500" />
-            <p className="text-sm font-semibold text-emerald-700">All items are well-stocked!</p>
+          <div className="flex items-center gap-3 rounded-xl bg-good-50 px-4 py-3">
+            <CheckCircle2 size={18} className="text-good-500" />
+            <p className="text-sm font-semibold text-good-700">All items are well-stocked!</p>
           </div>
         ) : (
           <ul className="space-y-2">
             {lowItems.map((it: any) => (
-              <li key={it.id} className="flex items-center justify-between rounded-xl bg-amber-50 px-4 py-3">
+              <li key={it.id} className="flex items-center justify-between rounded-xl bg-warn-50 px-4 py-3">
                 <div>
-                  <p className="font-semibold text-slate-900">{it.name}</p>
-                  <p className="text-xs text-slate-500">{it.unit || "unit"} · Alert threshold: {it.lowStock ?? LOW_STOCK_DEFAULT}</p>
+                  <p className="font-semibold text-ink">{it.name}</p>
+                  <p className="text-xs text-ink/50">{it.unit || "unit"} · Alert threshold: {it.lowStock ?? LOW_STOCK_DEFAULT}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="text-right">
-                    <p className={`text-xl font-bold ${(it.stock ?? 0) === 0 ? "text-rose-600" : "text-amber-600"}`}>{it.stock ?? 0}</p>
-                    <p className="text-xs text-slate-400">in stock</p>
+                    <p className={`font-display text-xl font-bold ${(it.stock ?? 0) === 0 ? "text-bad-600" : "text-warn-600"}`}>{it.stock ?? 0}</p>
+                    <p className="text-xs text-ink/40">in stock</p>
                   </div>
-                  <button onClick={() => openModal("item", { editingItem: it })} className="rounded-full p-2 text-slate-400 hover:bg-white"><Pencil size={15} /></button>
+                  <button onClick={() => openModal("item", { editingItem: it })} className="rounded-full p-2 text-ink/40 hover:bg-white"><Pencil size={15} /></button>
                 </div>
               </li>
             ))}
@@ -2600,13 +2696,13 @@ function ToDoTrackingView({ items, settings, openModal }: any) {
           className="flex w-full items-center justify-between"
         >
           <div className="flex items-center gap-2">
-            <ShoppingBag size={17} className="text-slate-500" />
-            <h3 className="text-base font-bold text-slate-900">Full Inventory Stock</h3>
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">{items.length}</span>
+            <ShoppingBag size={17} className="text-ink/50" />
+            <h3 className="font-display text-base font-bold text-ink">Full Inventory Stock</h3>
+            <span className="rounded-full bg-paper px-2 py-0.5 text-xs font-semibold text-ink/50">{items.length}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span onClick={(e) => { e.stopPropagation(); printInventory(); }} className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700"><Printer size={12} /> Print</span>
-            {inventoryOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+            <span onClick={(e) => { e.stopPropagation(); printInventory(); }} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-2.5 py-1 text-xs font-semibold text-ink/80"><Printer size={12} /> Print</span>
+            {inventoryOpen ? <ChevronUp size={18} className="text-ink/40" /> : <ChevronDown size={18} className="text-ink/40" />}
           </div>
         </button>
 
@@ -2614,27 +2710,27 @@ function ToDoTrackingView({ items, settings, openModal }: any) {
           <div className="mt-4">
             <div className="mb-3 flex flex-wrap gap-2">
               {["All", ...ITEM_CATEGORIES].map((c) => (
-                <button key={c} onClick={() => setCategory(c)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${category === c ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-600"}`}>{c}</button>
+                <button key={c} onClick={() => setCategory(c)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${category === c ? "bg-brand-500 text-white" : "bg-paper text-ink/70"}`}>{c}</button>
               ))}
             </div>
             {items.length === 0 ? (
-              <p className="text-sm text-slate-400">No items added yet. Go to Items to add your first product.</p>
+              <p className="text-sm text-ink/40">No items added yet. Go to Items to add your first product.</p>
             ) : allItems.length === 0 ? (
-              <p className="text-sm text-slate-400">No items match this category.</p>
+              <p className="text-sm text-ink/40">No items match this category.</p>
             ) : (
               <ul className="space-y-2">
                 {allItems.map((it: any) => (
-                  <li key={it.id} className="flex items-center justify-between rounded-xl border border-slate-100 px-4 py-2.5">
+                  <li key={it.id} className="flex items-center justify-between rounded-xl border border-line px-4 py-2.5">
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">{it.name}</p>
-                      <p className="text-xs text-slate-400">{it.unit || "unit"} · {it.category || "Others"}</p>
+                      <p className="text-sm font-semibold text-ink">{it.name}</p>
+                      <p className="text-xs text-ink/40">{it.unit || "unit"} · {it.category || "Others"}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="text-right">
-                        <p className={`text-base font-bold ${stockColor(it)}`}>{it.stock ?? 0}</p>
-                        <p className="text-xs text-slate-400">/ alert ≤{it.lowStock ?? LOW_STOCK_DEFAULT}</p>
+                        <p className={`font-display text-base font-bold ${stockColor(it)}`}>{it.stock ?? 0}</p>
+                        <p className="text-xs text-ink/40">/ alert ≤{it.lowStock ?? LOW_STOCK_DEFAULT}</p>
                       </div>
-                      <button onClick={() => openModal("item", { editingItem: it })} className="rounded-full p-2 text-slate-400 hover:bg-slate-100"><Pencil size={15} /></button>
+                      <button onClick={() => openModal("item", { editingItem: it })} className="rounded-full p-2 text-ink/40 hover:bg-paper"><Pencil size={15} /></button>
                     </div>
                   </li>
                 ))}
@@ -2712,21 +2808,21 @@ function EstimatesMapCard({ invoices, currency }: any) {
   if (!apiKey) {
     return (
       <Card>
-        <h3 className="mb-1 text-base font-bold text-slate-900">Estimates by place</h3>
-        <p className="text-xs text-slate-400">Add a Google Maps API key as <code className="rounded bg-slate-100 px-1">VITE_GOOGLE_MAPS_API_KEY</code> in your frontend's environment to enable this map.</p>
+        <h3 className="mb-1 font-display text-base font-bold text-ink">Estimates by place</h3>
+        <p className="text-xs text-ink/40">Add a Google Maps API key as <code className="rounded bg-paper px-1">VITE_GOOGLE_MAPS_API_KEY</code> in your frontend's environment to enable this map.</p>
       </Card>
     );
   }
 
   return (
     <Card>
-      <h3 className="mb-1 text-base font-bold text-slate-900">Estimates by place</h3>
+      <h3 className="mb-1 font-display text-base font-bold text-ink">Estimates by place</h3>
       {destinations.length === 0 ? (
-        <p className="text-sm text-slate-400">No estimates in this range have a destination set yet.</p>
+        <p className="text-sm text-ink/40">No estimates in this range have a destination set yet.</p>
       ) : mapError ? (
-        <p className="text-sm text-rose-500">{mapError}</p>
+        <p className="text-sm text-bad-500">{mapError}</p>
       ) : (
-        <div ref={mapRef} style={{ width: "100%", height: 260, borderRadius: 12 }} className="mt-2 bg-slate-100" />
+        <div ref={mapRef} style={{ width: "100%", height: 260, borderRadius: 12 }} className="mt-2 bg-paper" />
       )}
     </Card>
   );
@@ -2780,10 +2876,10 @@ function ReportsView({ data, currency, settings }: any) {
   const grossMarginPercent = itemRevenue ? (grossProfit / itemRevenue) * 100 : 0;
 
   const stats = [
-    { label: "Total Invoiced", value: totalInvoiced, color: "text-blue-600" },
-    { label: "Total Received", value: totalReceived, color: "text-emerald-600" },
-    { label: "Outstanding", value: outstanding, color: "text-amber-600" },
-    { label: "Total Expenses", value: totalExpenses, color: "text-rose-600" },
+    { label: "Total Invoiced", value: totalInvoiced, color: "text-brand-600" },
+    { label: "Total Received", value: totalReceived, color: "text-good-600" },
+    { label: "Outstanding", value: outstanding, color: "text-warn-600" },
+    { label: "Total Expenses", value: totalExpenses, color: "text-bad-600" },
   ];
   const trimmedName = nameQuery.trim().toLowerCase();
   const nameMatchedCustomers = trimmedName ? customers.filter((c: any) => c.name.toLowerCase().includes(trimmedName)) : [];
@@ -2838,70 +2934,70 @@ function ReportsView({ data, currency, settings }: any) {
       <Card>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5">
-            <label className="text-xs font-semibold text-slate-500">From</label>
-            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" />
+            <label className="text-xs font-semibold text-ink/50">From</label>
+            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="rounded-lg border border-line px-2 py-1.5 text-xs" />
           </div>
           <div className="flex items-center gap-1.5">
-            <label className="text-xs font-semibold text-slate-500">To</label>
-            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" />
+            <label className="text-xs font-semibold text-ink/50">To</label>
+            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="rounded-lg border border-line px-2 py-1.5 text-xs" />
           </div>
-          <button onClick={printRangeReport} className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700"><Printer size={13} /> Print report</button>
+          <button onClick={printRangeReport} className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1.5 text-xs font-semibold text-ink/80"><Printer size={13} /> Print report</button>
         </div>
-        <p className="mt-2 text-xs text-slate-400">Prints estimates, payments received, and expenses between the two dates.</p>
-        {rangeLabourTotal > 0 && <p className="mt-1 text-xs font-semibold text-amber-600">Labour cost in this range: {fmtMoney(rangeLabourTotal, currency)} ({rangeLabour.length} session{rangeLabour.length !== 1 ? "s" : ""})</p>}
+        <p className="mt-2 text-xs text-ink/40">Prints estimates, payments received, and expenses between the two dates.</p>
+        {rangeLabourTotal > 0 && <p className="mt-1 text-xs font-semibold text-warn-600">Labour cost in this range: {fmtMoney(rangeLabourTotal, currency)} ({rangeLabour.length} session{rangeLabour.length !== 1 ? "s" : ""})</p>}
       </Card>
       <EstimatesMapCard invoices={invoices.filter((i: any) => i.date >= fromDate && i.date <= toDate)} currency={currency} />
       <div className="grid grid-cols-2 gap-3">
-        {stats.map((s) => (<Card key={s.label}><p className="text-xs font-semibold text-slate-400">{s.label}</p><p className={`mt-1 text-xl font-bold ${s.color}`}>{fmtMoney(s.value, currency)}</p></Card>))}
+        {stats.map((s) => (<Card key={s.label}><p className="text-xs font-semibold text-ink/40">{s.label}</p><p className={`mt-1 font-display text-xl font-bold ${s.color}`}>{fmtMoney(s.value, currency)}</p></Card>))}
       </div>
 
-      <Card className="border border-emerald-100 bg-emerald-50/40">
-        <p className="text-xs font-semibold text-emerald-700">Gross Profit (revenue − cost of goods sold)</p>
-        <p className="mt-1 text-2xl font-bold text-emerald-700">{fmtMoney(grossProfit, currency)}</p>
-        <p className="mt-1 text-xs text-emerald-600">{grossMarginPercent.toFixed(1)}% margin · Cost of goods sold: {fmtMoney(costOfGoodsSold, currency)}</p>
-        <p className="mt-2 text-xs text-slate-400">This is different from "Total Received − Total Expenses" — it accounts for what your items actually cost to buy, not just cash overhead.</p>
+      <Card className="border border-good-100 bg-good-50/40">
+        <p className="text-xs font-semibold text-good-700">Gross Profit (revenue − cost of goods sold)</p>
+        <p className="mt-1 text-2xl font-bold text-good-700">{fmtMoney(grossProfit, currency)}</p>
+        <p className="mt-1 text-xs text-good-600">{grossMarginPercent.toFixed(1)}% margin · Cost of goods sold: {fmtMoney(costOfGoodsSold, currency)}</p>
+        <p className="mt-2 text-xs text-ink/40">This is different from "Total Received − Total Expenses" — it accounts for what your items actually cost to buy, not just cash overhead.</p>
       </Card>
 
       {itemProfitability.length > 0 && (
         <Card>
-          <h3 className="mb-3 text-base font-bold text-slate-900">Item profitability</h3>
+          <h3 className="mb-3 font-display text-base font-bold text-ink">Item profitability</h3>
           <div className="space-y-2">
             {itemProfitability.slice(0, 10).map((it) => (
-              <div key={it.itemId} className="flex items-center justify-between border-b border-slate-50 pb-2 last:border-0 last:pb-0">
+              <div key={it.itemId} className="flex items-center justify-between border-b border-line pb-2 last:border-0 last:pb-0">
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">{it.name}</p>
-                  <p className="text-xs text-slate-400">{it.qtySold} sold · Revenue {fmtMoney(it.revenue, currency)}</p>
+                  <p className="text-sm font-semibold text-ink">{it.name}</p>
+                  <p className="text-xs text-ink/40">{it.qtySold} sold · Revenue {fmtMoney(it.revenue, currency)}</p>
                 </div>
-                <p className={`text-sm font-bold ${it.margin >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{fmtMoney(it.margin, currency)}</p>
+                <p className={`text-sm font-bold ${it.margin >= 0 ? "text-good-600" : "text-bad-600"}`}>{fmtMoney(it.margin, currency)}</p>
               </div>
             ))}
           </div>
-          {itemProfitability.length > 10 && <p className="mt-2 text-xs text-slate-400">Showing top 10 of {itemProfitability.length} items.</p>}
+          {itemProfitability.length > 10 && <p className="mt-2 text-xs text-ink/40">Showing top 10 of {itemProfitability.length} items.</p>}
         </Card>
       )}
 
       <Card>
-        <h3 className="mb-3 text-base font-bold text-slate-900">Estimates by status</h3>
-        {Object.keys(statusCounts).length === 0 ? <p className="text-sm text-slate-400">No estimates yet.</p>
-          : <ul className="space-y-2">{Object.entries(statusCounts).map(([s, c]) => (<li key={s} className="flex items-center justify-between text-sm"><Badge status={s} /><span className="font-semibold text-slate-700">{c}</span></li>))}</ul>}
+        <h3 className="mb-3 font-display text-base font-bold text-ink">Estimates by status</h3>
+        {Object.keys(statusCounts).length === 0 ? <p className="text-sm text-ink/40">No estimates yet.</p>
+          : <ul className="space-y-2">{Object.entries(statusCounts).map(([s, c]) => (<li key={s} className="flex items-center justify-between text-sm"><Badge status={s} /><span className="font-semibold text-ink/80">{c}</span></li>))}</ul>}
       </Card>
-      <Card><p className="text-xs font-semibold text-slate-400">Total Customers</p><p className="mt-1 text-xl font-bold text-slate-900">{customers.length}</p></Card>
+      <Card><p className="text-xs font-semibold text-ink/40">Total Customers</p><p className="mt-1 font-display text-xl font-bold text-ink">{customers.length}</p></Card>
 
       {/* Search by name */}
       <Card>
-        <div className="mb-3 flex items-center gap-2"><Search size={16} className="text-blue-500" /><h3 className="text-base font-bold text-slate-900">Search estimates by customer name</h3></div>
+        <div className="mb-3 flex items-center gap-2"><Search size={16} className="text-brand-500" /><h3 className="font-display text-base font-bold text-ink">Search estimates by customer name</h3></div>
         <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input value={nameQuery} onChange={(e) => setNameQuery(e.target.value)} placeholder="Type customer name..." className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
+          <input value={nameQuery} onChange={(e) => setNameQuery(e.target.value)} placeholder="Type customer name..." className="w-full rounded-xl border border-line py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400" />
         </div>
         {trimmedName && (
           <div className="mt-3">
             {nameMatchedInvoices.length === 0
-              ? <p className="text-sm text-slate-400">{nameMatchedCustomers.length === 0 ? `No customer matching "${nameQuery}".` : "Customer found but no estimates yet."}</p>
-              : <ul className="divide-y divide-slate-100">
+              ? <p className="text-sm text-ink/40">{nameMatchedCustomers.length === 0 ? `No customer matching "${nameQuery}".` : "Customer found but no estimates yet."}</p>
+              : <ul className="divide-y divide-line">
                 {nameMatchedInvoices.map((inv: any) => {
                   const c = customers.find((cu: any) => cu.id === inv.customerId);
-                  return (<li key={inv.id} className="py-3"><div className="flex items-start justify-between"><div><p className="font-semibold text-slate-900">{inv.number}</p><p className="text-xs text-slate-500">{c?.name} · {fmtDate(inv.date)}</p>{c?.location && <p className="flex items-center gap-1 text-xs text-slate-400"><MapPin size={10} /> {c.location}</p>}</div><div className="text-right"><p className="font-bold text-slate-800">{fmtMoney(inv.total, currency)}</p><Badge status={inv.status} /></div></div></li>);
+                  return (<li key={inv.id} className="py-3"><div className="flex items-start justify-between"><div><p className="font-semibold text-ink">{inv.number}</p><p className="text-xs text-ink/50">{c?.name} · {fmtDate(inv.date)}</p>{c?.location && <p className="flex items-center gap-1 text-xs text-ink/40"><MapPin size={10} /> {c.location}</p>}</div><div className="text-right"><p className="font-bold text-ink">{fmtMoney(inv.total, currency)}</p><Badge status={inv.status} /></div></div></li>);
                 })}
               </ul>
             }
@@ -2911,26 +3007,26 @@ function ReportsView({ data, currency, settings }: any) {
 
       {/* Search by location */}
       <Card>
-        <div className="mb-3 flex items-center gap-2"><MapPin size={16} className="text-violet-500" /><h3 className="text-base font-bold text-slate-900">Search customers by location</h3></div>
+        <div className="mb-3 flex items-center gap-2"><MapPin size={16} className="text-advance-500" /><h3 className="font-display text-base font-bold text-ink">Search customers by location</h3></div>
         <div className="relative">
-          <MapPin size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input value={locationQuery} onChange={(e) => setLocationQuery(e.target.value)} placeholder="Type city, area or address..." className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400" />
+          <MapPin size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
+          <input value={locationQuery} onChange={(e) => setLocationQuery(e.target.value)} placeholder="Type city, area or address..." className="w-full rounded-xl border border-line py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-advance-400" />
         </div>
         {trimmedLoc && (
           <div className="mt-3">
             {locationMatchedCustomers.length === 0
-              ? <p className="text-sm text-slate-400">No customers at "{locationQuery}".</p>
-              : <ul className="divide-y divide-slate-100">
+              ? <p className="text-sm text-ink/40">No customers at "{locationQuery}".</p>
+              : <ul className="divide-y divide-line">
                 {locationMatchedCustomers.map((c: any) => {
                   const custInvoices = invoices.filter((inv: any) => inv.customerId === c.id);
                   const custTotal = custInvoices.reduce((s: number, inv: any) => s + inv.total, 0);
                   return (
                     <li key={c.id} className="py-3">
                       <div className="flex items-start justify-between">
-                        <div><p className="font-semibold text-slate-900">{c.name}</p><p className="flex items-center gap-1 text-xs text-slate-400 mt-0.5"><MapPin size={10} /> {c.location}</p>{c.phone && <p className="text-xs text-slate-400">{c.phone}</p>}</div>
-                        <div className="text-right"><p className="text-xs text-slate-400">{custInvoices.length} estimate{custInvoices.length !== 1 ? "s" : ""}</p><p className="font-bold text-slate-800">{fmtMoney(custTotal, currency)}</p></div>
+                        <div><p className="font-semibold text-ink">{c.name}</p><p className="flex items-center gap-1 text-xs text-ink/40 mt-0.5"><MapPin size={10} /> {c.location}</p>{c.phone && <p className="text-xs text-ink/40">{c.phone}</p>}</div>
+                        <div className="text-right"><p className="text-xs text-ink/40">{custInvoices.length} estimate{custInvoices.length !== 1 ? "s" : ""}</p><p className="font-bold text-ink">{fmtMoney(custTotal, currency)}</p></div>
                       </div>
-                      {custInvoices.length > 0 && <ul className="mt-2 space-y-1 pl-2 border-l-2 border-slate-100">{custInvoices.map((inv: any) => (<li key={inv.id} className="flex items-center justify-between text-xs text-slate-500"><span>{inv.number} · {fmtDate(inv.date)}</span><span className="flex items-center gap-2">{fmtMoney(inv.total, currency)}<Badge status={inv.status} /></span></li>))}</ul>}
+                      {custInvoices.length > 0 && <ul className="mt-2 space-y-1 pl-2 border-l-2 border-line">{custInvoices.map((inv: any) => (<li key={inv.id} className="flex items-center justify-between text-xs text-ink/50"><span>{inv.number} · {fmtDate(inv.date)}</span><span className="flex items-center gap-2">{fmtMoney(inv.total, currency)}<Badge status={inv.status} /></span></li>))}</ul>}
                     </li>
                   );
                 })}
@@ -2999,41 +3095,41 @@ function ShareReportView({ invoices, items, customers, currency, settings }: any
     <div className="space-y-4 px-5 pb-28">
       <Card>
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center"><Send size={18} className="text-blue-600" /></div>
+          <div className="w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center"><Send size={18} className="text-brand-600" /></div>
           <div>
-            <h3 className="font-bold text-slate-900">Daily Sales Report</h3>
-            <p className="text-xs text-slate-400">{fmtDate(todayStr)}</p>
+            <h3 className="font-bold text-ink">Daily Sales Report</h3>
+            <p className="text-xs text-ink/40">{fmtDate(todayStr)}</p>
           </div>
         </div>
 
         {rows.length === 0 ? (
-          <div className="rounded-xl bg-slate-50 px-4 py-6 text-center">
-            <p className="text-sm text-slate-400">No estimates created today yet.</p>
-            <p className="text-xs text-slate-300 mt-1">Create an estimate and it will appear here.</p>
+          <div className="rounded-xl bg-paper px-4 py-6 text-center">
+            <p className="text-sm text-ink/40">No estimates created today yet.</p>
+            <p className="text-xs text-ink/30 mt-1">Create an estimate and it will appear here.</p>
           </div>
         ) : (
           <>
             {/* Item breakdown table */}
-            <div className="rounded-xl overflow-hidden border border-slate-100">
-              <div className="grid grid-cols-3 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-500">
+            <div className="rounded-xl overflow-hidden border border-line">
+              <div className="grid grid-cols-3 bg-paper px-4 py-2 text-xs font-semibold text-ink/50">
                 <span>Item</span><span className="text-center">Qty</span><span className="text-right">Amount</span>
               </div>
               {rows.map((r, i) => (
-                <div key={i} className={`grid grid-cols-3 px-4 py-2.5 text-sm ${i % 2 === 0 ? "bg-white" : "bg-slate-50"}`}>
-                  <span className="font-medium text-slate-800 truncate">{r.name}</span>
-                  <span className="text-center text-slate-600">{r.qty}</span>
-                  <span className="text-right font-semibold text-slate-900">{currency}{r.amount.toFixed(2)}</span>
+                <div key={i} className={`grid grid-cols-3 px-4 py-2.5 text-sm ${i % 2 === 0 ? "bg-white" : "bg-paper"}`}>
+                  <span className="font-medium text-ink truncate">{r.name}</span>
+                  <span className="text-center text-ink/70">{r.qty}</span>
+                  <span className="text-right font-semibold text-ink">{currency}{r.amount.toFixed(2)}</span>
                 </div>
               ))}
             </div>
 
             {/* Totals */}
-            <div className="mt-3 flex justify-between items-center rounded-xl bg-blue-600 px-4 py-3">
+            <div className="mt-3 flex justify-between items-center rounded-xl bg-brand-600 px-4 py-3">
               <div>
-                <p className="text-xs text-slate-400">{totalInvoices} invoice{totalInvoices !== 1 ? "s" : ""} today</p>
+                <p className="text-xs text-ink/40">{totalInvoices} invoice{totalInvoices !== 1 ? "s" : ""} today</p>
                 <p className="text-sm font-bold text-white">Total Sales</p>
               </div>
-              <p className="text-xl font-bold text-emerald-400">{currency}{totalSales.toFixed(2)}</p>
+              <p className="font-display text-xl font-bold text-good-400">{currency}{totalSales.toFixed(2)}</p>
             </div>
           </>
         )}
@@ -3041,7 +3137,7 @@ function ShareReportView({ invoices, items, customers, currency, settings }: any
 
       {/* Share buttons */}
       <Card>
-        <h3 className="text-sm font-bold text-slate-700 mb-3">Share this report</h3>
+        <h3 className="text-sm font-bold text-ink/80 mb-3">Share this report</h3>
         <div className="flex flex-col gap-2">
           <button onClick={shareWhatsApp}
             className="flex items-center gap-3 w-full rounded-xl px-4 py-3 text-sm font-semibold text-white active:scale-[0.98] transition"
@@ -3049,12 +3145,12 @@ function ShareReportView({ invoices, items, customers, currency, settings }: any
             <Phone size={18} />Share via WhatsApp
           </button>
           <button onClick={shareSMS}
-            className="flex items-center gap-3 w-full rounded-xl bg-indigo-500 px-4 py-3 text-sm font-semibold text-white active:scale-[0.98] transition">
+            className="flex items-center gap-3 w-full rounded-xl bg-advance-500 px-4 py-3 text-sm font-semibold text-white active:scale-[0.98] transition">
             <MessageSquare size={18} />Share via SMS
           </button>
           <button onClick={copyToClipboard}
-            className="flex items-center gap-3 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 active:scale-[0.98] transition">
-            <CheckCircle2 size={18} className="text-slate-400" />Copy to Clipboard
+            className="flex items-center gap-3 w-full rounded-xl border border-line px-4 py-3 text-sm font-semibold text-ink/80 hover:bg-paper active:scale-[0.98] transition">
+            <CheckCircle2 size={18} className="text-ink/40" />Copy to Clipboard
           </button>
         </div>
       </Card>
@@ -3070,23 +3166,23 @@ function AdvancedBillingView({ autoReminder, setAutoReminder, overdueCount, sett
       <Card>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-base font-bold text-slate-900">WhatsApp payment reminders</h3>
-            <p className="mt-1 text-sm text-slate-400">Show a banner for overdue estimates with one-tap WhatsApp messaging.</p>
+            <h3 className="font-display text-base font-bold text-ink">WhatsApp payment reminders</h3>
+            <p className="mt-1 text-sm text-ink/40">Show a banner for overdue estimates with one-tap WhatsApp messaging.</p>
           </div>
-          <button onClick={() => setAutoReminder((v: boolean) => !v)} className={`h-7 w-12 shrink-0 rounded-full p-0.5 transition ${autoReminder ? "bg-emerald-500" : "bg-slate-200"}`}>
+          <button onClick={() => setAutoReminder((v: boolean) => !v)} className={`h-7 w-12 shrink-0 rounded-full p-0.5 transition ${autoReminder ? "bg-good-500" : "bg-paper"}`}>
             <span className={`block h-6 w-6 rounded-full bg-white transition ${autoReminder ? "translate-x-5" : "translate-x-0"}`} />
           </button>
         </div>
-        {autoReminder && <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">Enabled — {overdueCount} overdue estimate{overdueCount !== 1 ? "s" : ""} will be flagged.</p>}
+        {autoReminder && <p className="mt-3 rounded-xl bg-good-50 px-3 py-2 text-xs font-semibold text-good-700">Enabled — {overdueCount} overdue estimate{overdueCount !== 1 ? "s" : ""} will be flagged.</p>}
       </Card>
       <Card>
-        <h3 className="text-base font-bold text-slate-900">Recurring estimates</h3>
-        <p className="mt-1 text-sm text-slate-400">Set up retainer or subscription billing.</p>
+        <h3 className="font-display text-base font-bold text-ink">Recurring estimates</h3>
+        <p className="mt-1 text-sm text-ink/40">Set up retainer or subscription billing.</p>
         <EmptyState text="No recurring profiles yet." />
       </Card>
       <Card>
-        <h3 className="text-base font-bold text-slate-900">Business WhatsApp number</h3>
-        <p className="mt-1 text-sm text-slate-400">{settings.businessWhatsApp ? `Connected: ${settings.businessWhatsApp}` : "Not set — add one in Settings."}</p>
+        <h3 className="font-display text-base font-bold text-ink">Business WhatsApp number</h3>
+        <p className="mt-1 text-sm text-ink/40">{settings.businessWhatsApp ? `Connected: ${settings.businessWhatsApp}` : "Not set — add one in Settings."}</p>
       </Card>
     </div>
   );
@@ -3102,7 +3198,7 @@ function ChangePinCard() {
   const [saving, setSaving] = useState(false);
   const MAX = 4;
 
-  const inputCls = "w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm tracking-[0.4em] text-center font-bold";
+  const inputCls = "w-full rounded-xl border border-line px-3 py-2.5 text-sm tracking-[0.4em] text-center font-bold";
 
   const handleCurrent = () => {
     if (cur.length < MAX) return;
@@ -3133,43 +3229,43 @@ function ChangePinCard() {
   return (
     <Card className="space-y-3">
       <div className="flex items-center gap-2">
-        <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center"><SettingsIcon size={14} className="text-slate-600" /></div>
-        <h3 className="text-sm font-bold text-slate-900">Change PIN</h3>
+        <div className="w-8 h-8 rounded-lg bg-paper flex items-center justify-center"><SettingsIcon size={14} className="text-ink/70" /></div>
+        <h3 className="text-sm font-bold text-ink">Change PIN</h3>
       </div>
-      {msg && <p className={`rounded-xl px-3 py-2 text-xs font-semibold ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-600"}`}>{msg.text}</p>}
+      {msg && <p className={`rounded-xl px-3 py-2 text-xs font-semibold ${msg.ok ? "bg-good-50 text-good-700" : "bg-bad-50 text-bad-600"}`}>{msg.text}</p>}
 
       {mode === "idle" && (
         <button onClick={() => { setMode("current"); setMsg(null); }}
-          className="w-full rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition">
+          className="w-full rounded-xl border border-line py-2.5 text-sm font-semibold text-ink/80 hover:bg-paper transition">
           Change my PIN
         </button>
       )}
       {mode === "current" && (
         <div className="space-y-2">
-          <label className="block text-xs font-semibold text-slate-500">Enter current PIN</label>
+          <label className="block text-xs font-semibold text-ink/50">Enter current PIN</label>
           <input type="password" inputMode="numeric" maxLength={MAX} value={cur} onChange={(e) => setCur(numOnly(e.target.value))} placeholder="••••" className={inputCls} />
           <div className="flex gap-2">
-            <button onClick={() => setMode("idle")} className="flex-1 rounded-xl border border-slate-200 py-2 text-sm text-slate-500">Cancel</button>
-            <button disabled={cur.length < MAX} onClick={handleCurrent} className="flex-1 rounded-xl bg-blue-600 py-2 text-sm font-semibold text-white disabled:opacity-40">Next</button>
+            <button onClick={() => setMode("idle")} className="flex-1 rounded-xl border border-line py-2 text-sm text-ink/50">Cancel</button>
+            <button disabled={cur.length < MAX} onClick={handleCurrent} className="flex-1 rounded-xl bg-brand-600 py-2 text-sm font-semibold text-white disabled:opacity-40">Next</button>
           </div>
         </div>
       )}
       {mode === "new" && (
         <div className="space-y-2">
-          <label className="block text-xs font-semibold text-slate-500">Enter new PIN</label>
+          <label className="block text-xs font-semibold text-ink/50">Enter new PIN</label>
           <input type="password" inputMode="numeric" maxLength={MAX} value={next} onChange={(e) => setNext(numOnly(e.target.value))} placeholder="••••" className={inputCls} autoFocus />
           <div className="flex gap-2">
-            <button onClick={() => setMode("idle")} className="flex-1 rounded-xl border border-slate-200 py-2 text-sm text-slate-500">Cancel</button>
-            <button disabled={next.length < MAX} onClick={handleNew} className="flex-1 rounded-xl bg-blue-600 py-2 text-sm font-semibold text-white disabled:opacity-40">Next</button>
+            <button onClick={() => setMode("idle")} className="flex-1 rounded-xl border border-line py-2 text-sm text-ink/50">Cancel</button>
+            <button disabled={next.length < MAX} onClick={handleNew} className="flex-1 rounded-xl bg-brand-600 py-2 text-sm font-semibold text-white disabled:opacity-40">Next</button>
           </div>
         </div>
       )}
       {mode === "confirm" && (
         <div className="space-y-2">
-          <label className="block text-xs font-semibold text-slate-500">Confirm new PIN</label>
+          <label className="block text-xs font-semibold text-ink/50">Confirm new PIN</label>
           <input type="password" inputMode="numeric" maxLength={MAX} placeholder="••••" className={inputCls} autoFocus
             onChange={(e) => { const v = numOnly(e.target.value); if (v.length === MAX) handleConfirm(v); }} />
-          <button onClick={() => setMode("idle")} className="w-full rounded-xl border border-slate-200 py-2 text-sm text-slate-500">Cancel</button>
+          <button onClick={() => setMode("idle")} className="w-full rounded-xl border border-line py-2 text-sm text-ink/50">Cancel</button>
         </div>
       )}
     </Card>
@@ -3184,17 +3280,17 @@ function SettingsView({ settings, setSettings }: any) {
     <div className="space-y-4 px-5 pb-28">
       <Card className="space-y-4">
         {[["orgName","Organization name","Acme Ltd."],["ownerName","Your name",""],["email","Address / Email","Address or email"]].map(([k,l,p]) => (
-          <div key={k}><label className="mb-1 block text-xs font-semibold text-slate-500">{l}</label>
-          <input value={(local as any)[k]} onChange={(e) => set(k, e.target.value)} placeholder={p} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" /></div>
+          <div key={k}><label className="mb-1 block text-xs font-semibold text-ink/50">{l}</label>
+          <input value={(local as any)[k]} onChange={(e) => set(k, e.target.value)} placeholder={p} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" /></div>
         ))}
-        <div><label className="mb-1 block text-xs font-semibold text-slate-500">Currency symbol</label>
-        <select value={local.currency} onChange={(e) => set("currency", e.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
+        <div><label className="mb-1 block text-xs font-semibold text-ink/50">Currency symbol</label>
+        <select value={local.currency} onChange={(e) => set("currency", e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm">
           {["₹","$","€","£"].map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
       </Card>
       <Card className="space-y-3">
-        <div className="flex items-center gap-2"><Phone size={16} style={{ color: WHATSAPP_GREEN }} /><h3 className="text-sm font-bold text-slate-900">WhatsApp integration</h3></div>
-        <div><label className="mb-1 block text-xs font-semibold text-slate-500">Business WhatsApp number (with country code)</label>
-        <input value={local.businessWhatsApp} onChange={(e) => set("businessWhatsApp", e.target.value)} placeholder="+91 98765 43210" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" /></div>
+        <div className="flex items-center gap-2"><Phone size={16} style={{ color: WHATSAPP_GREEN }} /><h3 className="text-sm font-bold text-ink">WhatsApp integration</h3></div>
+        <div><label className="mb-1 block text-xs font-semibold text-ink/50">Business WhatsApp number (with country code)</label>
+        <input value={local.businessWhatsApp} onChange={(e) => set("businessWhatsApp", e.target.value)} placeholder="+91 98765 43210" className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" /></div>
       </Card>
       <ChangePinCard />
       <PillButton disabled={!dirty} onClick={() => setSettings(local)} className="w-full justify-center">Save changes</PillButton>
@@ -3267,26 +3363,26 @@ function PinScreen({ onUnlocked }: { onUnlocked: () => void }) {
   const phaseHint  = phase === "setup" ? "You'll enter this every time you open the app." : phase === "confirm" ? "Re-enter the same PIN to confirm." : "";
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-blue-950 select-none">
+    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-brand-900 select-none">
       <div className="flex flex-col items-center gap-8 w-full max-w-xs px-6">
         {/* Icon + title */}
         <div className="flex flex-col items-center gap-3">
-          <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg">
+          <div className="w-16 h-16 rounded-2xl bg-brand-600 flex items-center justify-center shadow-lg">
             <ShoppingBag size={32} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-white">{phaseLabel}</h1>
-          {phaseHint && <p className="text-sm text-slate-400 text-center">{phaseHint}</p>}
+          {phaseHint && <p className="text-sm text-ink/40 text-center">{phaseHint}</p>}
         </div>
 
         {/* PIN dots */}
         <div className={`flex gap-4 transition-transform ${shake ? "animate-[shake_0.4s_ease]" : ""}`}>
           {dots.map((filled, i) => (
-            <div key={i} className={`w-4 h-4 rounded-full border-2 transition-all duration-150 ${filled ? "bg-blue-400 border-blue-400 scale-110" : "border-slate-500"}`} />
+            <div key={i} className={`w-4 h-4 rounded-full border-2 transition-all duration-150 ${filled ? "bg-brand-400 border-brand-400 scale-110" : "border-ink/30"}`} />
           ))}
         </div>
 
         {/* Error */}
-        {error && <p className="text-sm font-semibold text-rose-400 -mt-4 text-center">{error}</p>}
+        {error && <p className="text-sm font-semibold text-bad-400 -mt-4 text-center">{error}</p>}
 
         {/* Numpad */}
         <div className="grid grid-cols-3 gap-3 w-full">
@@ -3299,8 +3395,8 @@ function PinScreen({ onUnlocked }: { onUnlocked: () => void }) {
                 onClick={() => isDelete ? handleDelete() : handleDigit(k)}
                 className={`h-16 rounded-2xl text-xl font-semibold transition active:scale-95 ${
                   isDelete
-                    ? "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                    : "bg-slate-800 text-white hover:bg-slate-700"
+                    ? "bg-ink/20 text-ink/30 hover:bg-ink/20"
+                    : "bg-ink/20 text-white hover:bg-ink/20"
                 }`}
               >
                 {k}
@@ -3313,7 +3409,7 @@ function PinScreen({ onUnlocked }: { onUnlocked: () => void }) {
         {phase === "enter" && (
           <button
             onClick={() => { localStorage.removeItem(PIN_KEY); setPhase("setup"); setPin(""); setError(""); }}
-            className="text-xs text-slate-500 hover:text-slate-300 transition mt-2"
+            className="text-xs text-ink/50 hover:text-ink/30 transition mt-2"
           >
             Forgot PIN? Reset
           </button>
@@ -3706,10 +3802,10 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       case "challans":  return <DocumentList type="challan" docs={challans} customers={customers} currency={settings.currency} openModal={openModal} removeDoc={removeDoc("challan")} updateStatus={updateDocStatus("challan")} />;
       case "estimates":  return (
         <div className="px-5 pt-1">
-          {autoReminder && overdueCount > 0 && <div className="mb-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700 flex items-center gap-2"><AlertCircle size={16} /> {overdueCount} estimate{overdueCount !== 1 ? "s" : ""} overdue.</div>}
-          <div className="mb-3 flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-2.5 text-xs text-slate-500">
-            <span>Next print → <b className="text-slate-700">top-{printSide}</b> corner</span>
-            <button onClick={togglePrintSide} className="font-semibold text-blue-600">Switch side ⇄</button>
+          {autoReminder && overdueCount > 0 && <div className="mb-3 rounded-2xl bg-warn-50 px-4 py-3 text-sm font-semibold text-warn-700 flex items-center gap-2"><AlertCircle size={16} /> {overdueCount} estimate{overdueCount !== 1 ? "s" : ""} overdue.</div>}
+          <div className="mb-3 flex items-center justify-between rounded-2xl bg-paper px-4 py-2.5 text-xs text-ink/50">
+            <span>Next print → <b className="text-ink/80">top-{printSide}</b> corner</span>
+            <button onClick={togglePrintSide} className="font-semibold text-brand-600">Switch side ⇄</button>
           </div>
           <div className="-mx-5">
             <DocumentList type="estimate" docs={estimates} customers={customers} items={items} currency={settings.currency} openModal={openModal}
@@ -3808,8 +3904,8 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 
   if (loading) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-slate-50 text-slate-500">
-        <Loader2 size={28} className="animate-spin" />
+      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-paper text-ink/50">
+        <Loader2 size={28} className="animate-spin text-brand-500" />
         <p className="text-sm font-medium">Loading your data…</p>
       </div>
     );
@@ -3817,29 +3913,36 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 
   if (loadError) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-slate-50 px-6 text-center">
-        <AlertCircle size={28} className="text-rose-500" />
-        <p className="text-sm font-medium text-slate-700">{loadError}</p>
-        <button onClick={() => window.location.reload()} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white">
+      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-paper px-6 text-center">
+        <AlertCircle size={28} className="text-bad-500" />
+        <p className="text-sm font-medium text-ink/70">{loadError}</p>
+        <button onClick={() => window.location.reload()} className="rounded-pill bg-brand-500 px-4 py-2 text-sm font-semibold text-white">
           Try again
         </button>
-        <button onClick={onSignOut} className="text-xs font-medium text-slate-500">Sign out</button>
+        <button onClick={onSignOut} className="text-xs font-medium text-ink/50">Sign out</button>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-800">
+    <div className="flex h-screen bg-paper font-sans text-ink">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} active={view} onNav={setView} settings={settings} onSignOut={onSignOut} />
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pb-24 md:pb-0">
         <Topbar onMenu={() => setSidebarOpen(true)} settings={settings} view={view} onOpenSearch={() => setGlobalSearchOpen(true)} />
         {renderView()}
       </div>
 
+      <BottomNav
+        active={view}
+        onNav={setView}
+        onMore={() => setSidebarOpen(true)}
+        onQuickAction={(key: string) => openModal(key === "customer" ? "customer" : key === "expense" ? "expense" : "estimate")}
+      />
+
       <a href={businessWa ? waLink(businessWa, "Hi, I have a question about my account.") : "#settings"}
         onClick={(e) => { if (!businessWa) { e.preventDefault(); setView("settings"); showToast("Add a WhatsApp number in Settings first"); } }}
         target={businessWa ? "_blank" : undefined} rel="noreferrer"
-        className="fixed bottom-5 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg active:scale-95 transition"
+        className="fixed bottom-24 md:bottom-5 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-card active:scale-95 transition"
         style={{ backgroundColor: businessWa ? WHATSAPP_GREEN : "#94a3b8" }}>
         <Phone size={24} />
       </a>
@@ -3860,7 +3963,7 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       )}
 
       {toast && (
-        <div className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg max-w-sm text-center">
+        <div className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-lg max-w-sm text-center">
           {toast}
         </div>
       )}
@@ -3895,23 +3998,26 @@ function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
   };
 
   return (
-    <div className="flex h-screen items-center justify-center bg-slate-50 px-4">
-      <form onSubmit={submit} className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-lg">
-        <h1 className="mb-1 text-xl font-bold text-slate-800">
-          {mode === "login" ? "Sign in" : "Create your account"}
-        </h1>
-        <p className="mb-5 text-sm text-slate-500">Shree Balaji Traders</p>
+    <div className="flex h-screen items-center justify-center bg-paper px-4">
+      <form onSubmit={submit} className="w-full max-w-sm rounded-card bg-white p-7 shadow-card border border-line/70">
+        <div className="mb-5 flex flex-col items-center text-center">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-500 font-display text-lg font-semibold text-white">SBT</div>
+          <h1 className="font-display text-xl font-semibold text-ink">
+            {mode === "login" ? "Sign in" : "Create your account"}
+          </h1>
+          <p className="text-sm text-ink/40">Shree Balaji Traders</p>
+        </div>
 
         {mode === "register" && (
           <input
-            className="mb-3 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-400"
+            className="mb-3 w-full rounded-xl border border-line bg-paper/60 px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition-all"
             placeholder="Your name"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
         )}
         <input
-          className="mb-3 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-400"
+          className="mb-3 w-full rounded-xl border border-line bg-paper/60 px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition-all"
           placeholder="Email"
           type="email"
           autoComplete="username"
@@ -3919,7 +4025,7 @@ function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
           onChange={(e) => setEmail(e.target.value)}
         />
         <input
-          className="mb-4 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-400"
+          className="mb-4 w-full rounded-xl border border-line bg-paper/60 px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition-all"
           placeholder="PIN (4+ digits)"
           type="password"
           inputMode="numeric"
@@ -3928,12 +4034,12 @@ function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
           onChange={(e) => setPin(e.target.value)}
         />
 
-        {error && <p className="mb-3 text-sm font-medium text-rose-600">{error}</p>}
+        {error && <p className="mb-3 text-sm font-medium text-bad-500">{error}</p>}
 
         <button
           type="submit"
           disabled={busy}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-pill bg-brand-500 py-3 text-sm font-semibold text-white shadow-sm hover:bg-brand-600 active:scale-[0.98] transition-all duration-150 disabled:opacity-50"
         >
           {busy && <Loader2 size={16} className="animate-spin" />}
           {busy ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
@@ -3941,7 +4047,7 @@ function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
 
         <button
           type="button"
-          className="mt-4 w-full text-center text-xs font-medium text-slate-500"
+          className="mt-4 w-full text-center text-xs font-medium text-ink/50 hover:text-brand-500 transition-colors"
           onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); }}
         >
           {mode === "login" ? "First time here? Create an account" : "Already have an account? Sign in"}

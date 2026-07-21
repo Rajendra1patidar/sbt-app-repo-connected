@@ -2688,8 +2688,11 @@ function ContractorScorecardView({ estimates, items, currency, contractors, onSa
       if (!byContractor[name].itemMap[itemName]) byContractor[name].itemMap[itemName] = { name: itemName, qty: 0, amount: 0 };
       byContractor[name].itemMap[itemName].qty += qty;
       byContractor[name].itemMap[itemName].amount += amount;
-      if (isCementItemName(itemName)) byContractor[name].cementQty += qty;
-      if (isSariaItemName(itemName)) byContractor[name].sariaQty += qty;
+      const category = it?.category || "";
+      const isCement = category ? category === "Cement" : isCementItemName(itemName);
+      const isSaria = category ? category === "Saria" : isSariaItemName(itemName);
+      if (isCement) byContractor[name].cementQty += qty;
+      if (isSaria) byContractor[name].sariaQty += qty;
     });
     const estPts = estimatePoints(est, items);
     byContractor[name].estimatesList.push({
@@ -4447,3 +4450,4 @@ export default function App() {
   if (!authed) return <AuthScreen onAuthed={() => setAuthed(true)} />;
   return <InvoiceApp onSignOut={() => { api.setToken(null); setAuthed(false); }} />;
 }
+

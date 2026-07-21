@@ -6,3 +6,5 @@
 [build]
   command = "npm run build"
   publish = "dist"
+[build.environment]
+  NPM_FLAGS = "--force"

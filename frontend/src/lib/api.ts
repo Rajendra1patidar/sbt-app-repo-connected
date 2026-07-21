@@ -118,6 +118,7 @@ export const api = {
   orders: { ...crud("/api/orders"), receive: (id: string) => request(`/api/orders/${id}/receive`, { method: "PATCH" }) },
   expenses: crud("/api/expenses"),
   payments: crud("/api/payments"),
+  contractors: crud("/api/contractors"),
   labourSessions: {
     list: (from?: string, to?: string) => request(`/api/labour-sessions${from && to ? `?from=${from}&to=${to}` : ""}`),
     create: (v: any) => request("/api/labour-sessions", { method: "POST", body: JSON.stringify(v) }),

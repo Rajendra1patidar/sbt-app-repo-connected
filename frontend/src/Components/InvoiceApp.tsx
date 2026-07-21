@@ -2657,7 +2657,7 @@ function ContractorScorecardView({ estimates, items, currency, contractors, onSa
   });
 
   const q = search.trim().toLowerCase();
-  const contractors = Object.keys(byContractor)
+  const contractorNames = Object.keys(byContractor)
     .filter((name) => !q || name.toLowerCase().includes(q))
     .sort((a, b) => byContractor[b].total - byContractor[a].total);
 
@@ -2682,9 +2682,9 @@ function ContractorScorecardView({ estimates, items, currency, contractors, onSa
       }
     } else {
       if (channel === "whatsapp") {
-        window.open(waLink("", capForWhatsApp(buildContractorListMessage(contractors, byContractor, currency, range.label, mode))), "_blank");
+        window.open(waLink("", capForWhatsApp(buildContractorListMessage(contractorNames, byContractor, currency, range.label, mode))), "_blank");
       } else {
-        printContractorReport(contractors.map((name) => ({ name, c: byContractor[name] })), range.label, mode, currency, "Contractor Points Report");
+        printContractorReport(contractorNames.map((name) => ({ name, c: byContractor[name] })), range.label, mode, currency, "Contractor Points Report");
       }
     }
     setSharePopup(null);
@@ -2747,9 +2747,9 @@ function ContractorScorecardView({ estimates, items, currency, contractors, onSa
         </>
       )}
 
-      {contractors.length === 0 ? (
+      {contractorNames.length === 0 ? (
         <Card><p className="text-sm text-ink/40">{q ? "No contractors match your search." : "No estimates with a contractor name fall in this period."}</p></Card>
-      ) : contractors.map((name) => {
+      ) : contractorNames.map((name) => {
         const c = byContractor[name];
         const itemRows = Object.values(c.itemMap).sort((a, b) => b.amount - a.amount);
         const points = c.cementQty + sariaToPoints(c.sariaQty);
@@ -2779,7 +2779,7 @@ function ContractorScorecardView({ estimates, items, currency, contractors, onSa
                   </span>
                   <span className="text-xs font-semibold text-brand-600">{phoneFor(name) ? "Edit" : "Add"}</span>
                 </button>
-                {(c.cementQty > 0 || c.sariaQty > 0) && (
+                {(c.cementQty > 0 || c.sariaQty > 0) ? (
                   <div className="mb-3 space-y-1.5 rounded-xl bg-brand-50/60 px-3 py-2.5">
                     {c.cementQty > 0 && (
                       <div className="flex items-center justify-between text-sm">
@@ -2793,15 +2793,14 @@ function ContractorScorecardView({ estimates, items, currency, contractors, onSa
                         <span className="font-semibold text-ink">{fmtNum(sariaToPoints(c.sariaQty))} pts</span>
                       </div>
                     )}
+                    <div className="flex items-center justify-between border-t border-brand-200 pt-1.5 text-sm">
+                      <span className="font-bold text-brand-700">Total points</span>
+                      <span className="font-bold text-brand-700">{fmtNum(points)} pts</span>
+                    </div>
                   </div>
+                ) : (
+                  <p className="mb-3 text-sm text-ink/40">No cement or saria on this contractor's estimates in this period.</p>
                 )}
-                {itemRows.map((r) => (
-                  <div key={r.name} className="flex items-center justify-between gap-2 py-1.5 text-sm">
-                    <span className="min-w-0 truncate text-ink/70">{r.name}</span>
-                    <span className="shrink-0 text-ink/50">{fmtNum(r.qty)} units</span>
-                    <span className="shrink-0 font-semibold text-ink">{fmtMoney(r.amount, currency)}</span>
-                  </div>
-                ))}
                 <div className="mt-3 border-t border-line pt-3">
                   <GhostButton className="w-full justify-center" onClick={() => setSharePopup({ scope: "single", name })}><Send size={14} /> Share or print</GhostButton>
                 </div>
@@ -2823,7 +2822,7 @@ function ContractorScorecardView({ estimates, items, currency, contractors, onSa
 
       {sharePopup && (
         <ContractorSharePopup
-          title={sharePopup.scope === "single" ? sharePopup.name : `${contractors.length} contractors`}
+          title={sharePopup.scope === "single" ? sharePopup.name : `${contractorNames.length} contractors`}
           onFormat={handleShareChoice}
           onCancel={() => setSharePopup(null)}
         />
@@ -3797,6 +3796,7 @@ function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         setSettings((prev) => ({ ...prev, ...st }));
       } catch (err: any) {
         if (!cancelled) {
+          
           if (err?.status === 401) { onSignOut(); return; }
           setLoadError(err.message || "Failed to load your data");
         }

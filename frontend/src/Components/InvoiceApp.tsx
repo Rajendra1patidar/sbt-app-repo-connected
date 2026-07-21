@@ -714,6 +714,7 @@ function ViewEstimateModal({ doc, customers, items, currency, onClose }: any) {
   const customer = customers.find((c: any) => c.id === doc.customerId);
   const itemById = (id: string) => items.find((it: any) => it.id === id);
   const itemsSubtotal = (doc.lines || []).reduce((s: number, ln: any) => s + Number(ln.qty || 0) * Number(ln.rate || 0), 0);
+  const pts = estimatePoints(doc, items);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
@@ -739,6 +740,17 @@ function ViewEstimateModal({ doc, customers, items, currency, onClose }: any) {
             <div className="grid grid-cols-2 gap-3 text-sm">
               {doc.contractorName && <div><p className="text-xs font-semibold text-ink/40">Contractor</p><p className="text-ink/80">{doc.contractorName}</p></div>}
               {doc.destination && <div><p className="text-xs font-semibold text-ink/40">Destination</p><p className="text-ink/80">{doc.destination}</p></div>}
+            </div>
+          )}
+
+          {doc.contractorName && pts.points > 0 && (
+            <div className="flex items-center justify-between rounded-xl bg-brand-50/60 px-3 py-2 text-sm">
+              <span className="text-ink/70">
+                {pts.cementQty > 0 && `Cement ${fmtNum(pts.cementQty)}`}
+                {pts.cementQty > 0 && pts.sariaQty > 0 && " · "}
+                {pts.sariaQty > 0 && `Saria ${fmtNum(pts.sariaQty)}kg`}
+              </span>
+              <span className="font-bold text-brand-700">{fmtNum(pts.points)} pts</span>
             </div>
           )}
 
@@ -2456,11 +2468,26 @@ function ExpensesView({ expenses, currency, openModal, removeExpense }: any) {
   );
 }
 
-/* ---- Points helpers (1 cement bag = 1 pt, 100kg saria = 5 pts) ---- */
+/* ---- Points helpers (1 cement bag = 1 pt, 1kg saria = 0.1 pt i.e. 10kg saria = 1 pt) ---- */
 
 const isCementItemName = (name: string) => /cement/i.test(name || "");
 const isSariaItemName = (name: string) => /saria/i.test(name || "");
-const sariaToPoints = (qty: number) => (qty / 100) * 5;
+const sariaToPoints = (qty: number) => qty * 0.1;
+
+// Points for a single estimate only (cement + saria lines on that one doc).
+// Any other item on the estimate (CPVC, UPVC, Kasta, etc.) is ignored.
+function estimatePoints(doc: any, items: any[]) {
+  let cementQty = 0;
+  let sariaQty = 0;
+  (doc?.lines || []).forEach((ln: any) => {
+    const it = items.find((i: any) => i.id === ln.itemId);
+    const itemName = it?.name || ln.name || "";
+    const qty = Number(ln.qty || 0);
+    if (isCementItemName(itemName)) cementQty += qty;
+    if (isSariaItemName(itemName)) sariaQty += qty;
+  });
+  return { cementQty, sariaQty, points: cementQty + sariaToPoints(sariaQty) };
+}
 
 /* ---- Period-range helpers (week/month/year navigation for the contractor filter) ---- */
 
@@ -2628,7 +2655,11 @@ function ContractorScorecardView({ estimates, items, currency, contractors, onSa
     return d >= range.from && d <= range.to;
   });
 
-  const byContractor: Record<string, { total: number; count: number; cementQty: number; sariaQty: number; itemMap: Record<string, { name: string; qty: number; amount: number }> }> = {};
+  const byContractor: Record<string, {
+    total: number; count: number; cementQty: number; sariaQty: number;
+    itemMap: Record<string, { name: string; qty: number; amount: number }>;
+    estimatesList: { id: string; number: string; date: string; total: number; cementQty: number; sariaQty: number; points: number }[];
+  }> = {};
   // Maps lowercased name -> the canonical (first-seen) display casing, so
   // "Ramesh" and "ramesh" typed on different estimates land in the same
   // bucket instead of fragmenting into two contractors with split points —
@@ -2640,7 +2671,7 @@ function ContractorScorecardView({ estimates, items, currency, contractors, onSa
     const lower = raw.toLowerCase();
     if (!canonicalCaseByLower[lower]) canonicalCaseByLower[lower] = raw;
     const name = canonicalCaseByLower[lower];
-    if (!byContractor[name]) byContractor[name] = { total: 0, count: 0, cementQty: 0, sariaQty: 0, itemMap: {} };
+    if (!byContractor[name]) byContractor[name] = { total: 0, count: 0, cementQty: 0, sariaQty: 0, itemMap: {}, estimatesList: [] };
     byContractor[name].total += Number(est.total || 0);
     byContractor[name].count += 1;
     (est.lines || []).forEach((ln: any) => {
@@ -2654,7 +2685,13 @@ function ContractorScorecardView({ estimates, items, currency, contractors, onSa
       if (isCementItemName(itemName)) byContractor[name].cementQty += qty;
       if (isSariaItemName(itemName)) byContractor[name].sariaQty += qty;
     });
+    const estPts = estimatePoints(est, items);
+    byContractor[name].estimatesList.push({
+      id: est.id, number: est.number || "", date: est.date || "",
+      total: Number(est.total || 0), cementQty: estPts.cementQty, sariaQty: estPts.sariaQty, points: estPts.points,
+    });
   });
+  Object.values(byContractor).forEach((c) => c.estimatesList.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
 
   const q = search.trim().toLowerCase();
   const contractorNames = Object.keys(byContractor)
@@ -2723,7 +2760,7 @@ function ContractorScorecardView({ estimates, items, currency, contractors, onSa
           <div className="relative">
             <p className="text-xs font-semibold text-white/70">Total contractor points · {range.label}</p>
             <p className="mt-1 font-display text-3xl font-semibold">{fmtNum(overallPoints)}</p>
-            <p className="mt-1 text-xs font-semibold text-white/70">1 cement bag = 1 point · 100kg saria = 5 points</p>
+            <p className="mt-1 text-xs font-semibold text-white/70">1 cement bag = 1 point · 10kg saria = 1 point</p>
             <div className="mt-4 grid grid-cols-2 gap-3">
               <div><p className="text-[11px] text-white/60">Cement</p><p className="font-mono text-sm font-semibold">{fmtNum(overallCementQty)} bags</p></div>
               <div><p className="text-[11px] text-white/60">Saria</p><p className="font-mono text-sm font-semibold">{fmtNum(overallSariaQty)} kg</p></div>
@@ -2801,6 +2838,22 @@ function ContractorScorecardView({ estimates, items, currency, contractors, onSa
                 ) : (
                   <p className="mb-3 text-sm text-ink/40">No cement or saria on this contractor's estimates in this period.</p>
                 )}
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold text-ink/40">Estimates in this period</p>
+                  {c.estimatesList.map((e) => (
+                    <div key={e.id} className="flex items-center justify-between rounded-xl border border-line bg-paper/60 px-3 py-2 text-sm">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-ink truncate">{e.number || "Estimate"}</p>
+                        <p className="text-xs text-ink/40">{fmtDate(e.date)} · {fmtMoney(e.total, currency)}</p>
+                      </div>
+                      {e.points > 0 ? (
+                        <span className="shrink-0 text-xs font-bold text-brand-700">{fmtNum(e.points)} pts</span>
+                      ) : (
+                        <span className="shrink-0 text-xs text-ink/30">0 pts</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
                 <div className="mt-3 border-t border-line pt-3">
                   <GhostButton className="w-full justify-center" onClick={() => setSharePopup({ scope: "single", name })}><Send size={14} /> Share or print</GhostButton>
                 </div>

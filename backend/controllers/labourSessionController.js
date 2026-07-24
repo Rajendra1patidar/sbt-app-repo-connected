@@ -39,6 +39,7 @@ module.exports = {
         otherIncluded: !!v.otherIncluded,
         otherAmount: v.otherIncluded ? Number(v.otherAmount || 0) : 0,
         total,
+        note: (v.note || "").trim(),
       });
       res.status(201).json(session);
     } catch (err) {

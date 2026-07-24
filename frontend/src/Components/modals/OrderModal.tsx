@@ -11,6 +11,10 @@ export function OrderModal({ items, onClose, onSave, prefill }: any) {
   const [date, setDate] = useState(today());
   const [notes, setNotes] = useState("");
   const canSave = itemId && Number(qty) > 0;
+
+  const selectedItem = items.find((it: any) => it.id === itemId);
+  const showBoxReminder = selectedItem && selectedItem.trackingMode === "box" && selectedItem.piecesPerBox > 0;
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
       <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-6 shadow-xl">
@@ -29,6 +33,11 @@ export function OrderModal({ items, onClose, onSave, prefill }: any) {
                 placeholder="Select item"
               />
             </div>
+            {showBoxReminder && (
+              <div className="rounded-xl bg-brand-50 px-4 py-3 border border-brand-200">
+                <p className="text-xs font-semibold text-brand-700">This item comes in a box of {selectedItem.piecesPerBox} pieces</p>
+              </div>
+            )}
             <div>
               <label className="mb-1 block text-xs font-semibold text-ink/50">Qty to order *</label>
               <input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />

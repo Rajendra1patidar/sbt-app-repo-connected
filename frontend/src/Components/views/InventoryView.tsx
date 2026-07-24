@@ -1,12 +1,60 @@
 import React, { useState } from "react";
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Pencil, Printer, ShoppingBag } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Info, Pencil, Printer, ShoppingBag, X } from "lucide-react";
 import { Card } from "../common/UIPrimitives";
 import { ITEM_CATEGORIES, LOW_STOCK_DEFAULT } from "../../lib/constants";
 import { fmtNum } from "../../lib/format";
 
-export function ToDoTrackingView({ items, settings, openModal }: any) {
+function ItemInfoModal({ item, orders, onClose }: any) {
+  const stockBreakdown = (it: any): string => {
+    if (it.trackingMode === "box" && it.piecesPerBox > 0) {
+      const boxes = Math.floor((it.stock ?? 0) / it.piecesPerBox);
+      const loose = (it.stock ?? 0) % it.piecesPerBox;
+      return `${boxes} boxes + ${loose} pcs`;
+    }
+    return `${fmtNum(it.stock ?? 0)} ${it.unit || "unit"}`;
+  };
+
+  const lastOrder = orders
+    .filter((o: any) => o.itemId === item.id)
+    .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
+      <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl bg-white p-6 shadow-xl">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display text-lg font-bold text-ink">{item.name}</h3>
+          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
+        </div>
+
+        <div className="space-y-4">
+          <div className="rounded-xl bg-paper px-4 py-3">
+            <p className="text-xs font-semibold text-ink/50 mb-1">Stock on hand</p>
+            <p className="font-display text-lg font-bold text-ink">{stockBreakdown(item)}</p>
+            {item.trackingMode === "box" && item.piecesPerBox > 0 && (
+              <p className="text-xs text-ink/40 mt-1">Box size: {item.piecesPerBox} pieces</p>
+            )}
+          </div>
+
+          {lastOrder && (
+            <div className="rounded-xl bg-paper px-4 py-3">
+              <p className="text-xs font-semibold text-ink/50 mb-1">Last order</p>
+              <p className="text-sm font-semibold text-ink">{fmtNum(lastOrder.qty)} pieces</p>
+              <p className="text-xs text-ink/40 mt-1">{new Date(lastOrder.date).toLocaleDateString()}</p>
+              {lastOrder.notes && <p className="text-xs text-ink/50 mt-1 italic">{lastOrder.notes}</p>}
+            </div>
+          )}
+        </div>
+
+        <button onClick={onClose} className="mt-6 w-full rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Close</button>
+      </div>
+    </div>
+  );
+}
+
+export function ToDoTrackingView({ items, settings, orders, openModal }: any) {
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [category, setCategory] = useState("All");
+  const [infoFor, setInfoFor] = useState<string | null>(null);
 
   const lowItems = items.filter((it: any) => (it.stock ?? 0) <= (it.lowStock ?? LOW_STOCK_DEFAULT));
   const categoryFiltered = category === "All" ? items : items.filter((it: any) => (it.category || "Others") === category);
@@ -20,9 +68,18 @@ export function ToDoTrackingView({ items, settings, openModal }: any) {
     return "text-good-600";
   };
 
+  const stockBreakdown = (it: any): string => {
+    if (it.trackingMode === "box" && it.piecesPerBox > 0) {
+      const boxes = Math.floor((it.stock ?? 0) / it.piecesPerBox);
+      const loose = (it.stock ?? 0) % it.piecesPerBox;
+      return `${boxes} boxes + ${loose} pcs`;
+    }
+    return fmtNum(it.stock ?? 0);
+  };
+
   const printInventory = () => {
     const rowsHtml = allItems.map((it: any) =>
-      `<tr><td>${it.name}</td><td>${it.unit || "unit"}</td><td style="text-align:right;">${fmtNum(it.stock ?? 0)}</td><td style="text-align:right;">${fmtNum(it.lowStock ?? LOW_STOCK_DEFAULT)}</td></tr>`
+      `<tr><td>${it.name}</td><td>${it.unit || "unit"}</td><td style="text-align:right;">${stockBreakdown(it)}</td><td style="text-align:right;">${fmtNum(it.lowStock ?? LOW_STOCK_DEFAULT)}</td></tr>`
     ).join("");
     const w = window.open("", "_blank", "width=560,height=760");
     if (!w) return;
@@ -41,6 +98,8 @@ export function ToDoTrackingView({ items, settings, openModal }: any) {
     w.document.close();
     w.onload = () => { w.focus(); w.print(); };
   };
+
+  const selectedItem = infoFor ? items.find((it: any) => it.id === infoFor) : null;
 
   return (
     <div className="space-y-4 px-5 pb-28">
@@ -72,6 +131,7 @@ export function ToDoTrackingView({ items, settings, openModal }: any) {
                     <p className={`font-display text-xl font-bold ${(it.stock ?? 0) === 0 ? "text-bad-600" : "text-warn-600"}`}>{fmtNum(it.stock ?? 0)}</p>
                     <p className="text-xs text-ink/40">in stock</p>
                   </div>
+                  <button onClick={() => setInfoFor(it.id)} className="rounded-full p-2 text-ink/40 hover:bg-white"><Info size={15} /></button>
                   <button onClick={() => openModal("item", { editingItem: it })} className="rounded-full p-2 text-ink/40 hover:bg-white"><Pencil size={15} /></button>
                 </div>
               </li>
@@ -118,9 +178,10 @@ export function ToDoTrackingView({ items, settings, openModal }: any) {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="text-right">
-                        <p className={`font-display text-base font-bold ${stockColor(it)}`}>{fmtNum(it.stock ?? 0)}</p>
+                        <p className={`font-display text-base font-bold ${stockColor(it)}`}>{stockBreakdown(it)}</p>
                         <p className="text-xs text-ink/40">/ alert ≤{fmtNum(it.lowStock ?? LOW_STOCK_DEFAULT)}</p>
                       </div>
+                      <button onClick={() => setInfoFor(it.id)} className="rounded-full p-2 text-ink/40 hover:bg-paper"><Info size={15} /></button>
                       <button onClick={() => openModal("item", { editingItem: it })} className="rounded-full p-2 text-ink/40 hover:bg-paper"><Pencil size={15} /></button>
                     </div>
                   </li>
@@ -130,6 +191,10 @@ export function ToDoTrackingView({ items, settings, openModal }: any) {
           </div>
         )}
       </Card>
+
+      {selectedItem && (
+        <ItemInfoModal item={selectedItem} orders={orders || []} onClose={() => setInfoFor(null)} />
+      )}
     </div>
   );
 }

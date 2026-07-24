@@ -11,6 +11,8 @@ const itemSchema = new mongoose.Schema(
     stock: { type: Number, default: 0 },
     lowStock: { type: Number, default: 5 },
     category: { type: String, trim: true, default: "Others" },
+    trackingMode: { type: String, enum: ["unit", "box"], default: "unit" },
+    piecesPerBox: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

@@ -8,7 +8,10 @@ export function FieldModal({ title, fields, initial, onClose, onSave, danger }: 
   const [values, setValues] = useState<any>(() => initial || {});
   const [pickerFor, setPickerFor] = useState<string | null>(null);
   const set = (k: string, v: any) => setValues((s: any) => ({ ...s, [k]: v }));
-  const canSave = fields.every((f: any) => !f.required || (values[f.key] !== undefined && values[f.key] !== ""));
+  
+  const visibleFields = fields.filter((f: any) => !f.showIf || f.showIf(values));
+  const canSave = visibleFields.every((f: any) => !f.required || (values[f.key] !== undefined && values[f.key] !== ""));
+  
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
       <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-6 shadow-xl">
@@ -17,7 +20,7 @@ export function FieldModal({ title, fields, initial, onClose, onSave, danger }: 
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
         <div className="space-y-4">
-          {fields.map((f: any) => (
+          {visibleFields.map((f: any) => (
             <div key={f.key}>
               <label className="mb-1 block text-xs font-semibold text-ink/50">{f.label}{f.required && <span className="text-bad-500"> *</span>}</label>
               {f.type === "select" ? (
@@ -26,6 +29,23 @@ export function FieldModal({ title, fields, initial, onClose, onSave, danger }: 
                   <option value="" disabled>Choose...</option>
                   {f.options.map((o: any) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
+              ) : f.type === "toggle" ? (
+                <div className="flex gap-2 rounded-full border border-line p-1 bg-paper">
+                  {f.options.map((o: any) => (
+                    <button
+                      key={o.value}
+                      type="button"
+                      onClick={() => set(f.key, o.value)}
+                      className={`flex-1 rounded-full px-3 py-2 text-xs font-semibold transition ${
+                        values[f.key] === o.value
+                          ? "bg-white text-brand-600 shadow-sm"
+                          : "bg-paper text-ink/70 hover:text-ink"
+                      }`}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
               ) : f.type === "textarea" ? (
                 <textarea value={values[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)}
                   rows={3} placeholder={f.placeholder}

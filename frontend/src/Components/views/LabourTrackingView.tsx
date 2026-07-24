@@ -13,6 +13,7 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
   const [baluQty, setBaluQty] = useState("");
   const [otherIncluded, setOtherIncluded] = useState(false);
   const [otherAmount, setOtherAmount] = useState("");
+  const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
 
   const [fromDate, setFromDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().slice(0, 10); });
@@ -45,8 +46,9 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
         cementQty: Number(cementQty || 0), sariaQty: Number(sariaQty || 0), baluQty: Number(baluQty || 0),
         otherIncluded, otherAmount: otherIncluded ? Number(otherAmount || 0) : 0,
         total: sessionTotal,
+        note: note.trim(),
       });
-      setNames((prev) => prev.map(() => "")); setCementQty(""); setSariaQty(""); setBaluQty(""); setOtherIncluded(false); setOtherAmount("");
+      setNames((prev) => prev.map(() => "")); setCementQty(""); setSariaQty(""); setBaluQty(""); setOtherIncluded(false); setOtherAmount(""); setNote("");
     } finally { setSaving(false); }
   };
 
@@ -115,6 +117,9 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
           </div>
         )}
 
+        <label className="mb-1 block text-xs font-semibold text-ink/50">Note (optional)</label>
+        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="Add any notes about this session..." className="mb-3 w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400" />
+
         <div className="mt-2 flex items-center justify-between rounded-xl bg-brand-50 px-4 py-3">
           <span className="text-sm font-semibold text-brand-700">This session</span>
           <span className="font-display text-lg font-bold text-brand-700">{fmtMoney(sessionTotal, currency)}</span>
@@ -139,6 +144,7 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
                   <span className="w-16 shrink-0 text-xs font-bold text-ink/40">{new Date(s.time).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}</span>
                   <div>
                     <p className="text-sm font-semibold text-ink">{(s.workers || []).join(", ") || "—"}</p>
+                    {s.note && <p className="text-xs italic text-ink/60">{s.note}</p>}
                     <div className="mt-1 flex flex-wrap gap-1">
                       {s.cementQty > 0 && <span className="rounded-full bg-paper px-2 py-0.5 text-[10px] text-ink/50">Cement {fmtMoney(s.cementQty * LABOUR_RATES.cement, currency)}</span>}
                       {s.sariaQty > 0 && <span className="rounded-full bg-paper px-2 py-0.5 text-[10px] text-ink/50">Saria {fmtMoney(s.sariaQty * LABOUR_RATES.saria, currency)}</span>}

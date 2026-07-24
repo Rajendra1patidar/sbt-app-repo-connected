@@ -478,7 +478,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       );
       case "payments":  return <PaymentsView payments={payments} customers={customers} currency={settings.currency} openModal={openModal} removePayment={removePayment} estimates={estimates} />;
       case "expenses":  return <ExpensesView expenses={expenses} currency={settings.currency} openModal={openModal} removeExpense={removeExpense} />;
-      case "todo":      return <ToDoTrackingView items={items} settings={settings} openModal={openModal} />;
+      case "todo":      return <ToDoTrackingView items={items} settings={settings} orders={orders} openModal={openModal} />;
       case "labour":    return <LabourTrackingView sessions={labourSessions} knownWorkers={labourWorkers} onSave={saveLabourSession} onRemove={removeLabourSession} currency={settings.currency} />;
       case "contractors": return <ContractorScorecardView estimates={estimates} items={items} currency={settings.currency} contractors={contractors} onSavePhone={saveContractorPhone} showToast={showToast} />;
       case "reports":      return <ReportsView data={data} currency={settings.currency} settings={settings} />;
@@ -514,11 +514,14 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         { key: "unit",          label: "Unit",                placeholder: "hr / pc / job" },
         { key: "stock",         label: editingItem ? "Stock (qty)" : "Opening stock (qty)", type: "number", placeholder: "0" },
         { key: "lowStock",      label: "Low stock alert at",  type: "number", placeholder: `${LOW_STOCK_DEFAULT}` },
+        { key: "trackingMode",  label: "Track by",            type: "toggle", options: [{ value: "unit", label: "Units" }, { value: "box", label: "Box" }] },
+        { key: "piecesPerBox",  label: "Pieces per box",      type: "number", placeholder: "e.g. 30", required: true, showIf: (v: any) => v.trackingMode === "box" },
       ]} initial={editingItem ? {
         id: editingItem.id, name: editingItem.name, category: editingItem.category || "Others",
         sellingPrice: editingItem.sellingPrice ?? editingItem.price, purchasePrice: editingItem.purchasePrice,
         unit: editingItem.unit, stock: editingItem.stock, lowStock: editingItem.lowStock ?? LOW_STOCK_DEFAULT,
-      } : { category: "Others" }} onClose={closeModal} onSave={saveItem} />;
+        trackingMode: editingItem.trackingMode || "unit", piecesPerBox: editingItem.piecesPerBox || 0,
+      } : { category: "Others", trackingMode: "unit", piecesPerBox: 0 }} onClose={closeModal} onSave={saveItem} />;
     }
 
     if (type === "expense") return <FieldModal title="Record Expense" fields={[

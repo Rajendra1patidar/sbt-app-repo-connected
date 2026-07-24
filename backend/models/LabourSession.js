@@ -12,6 +12,7 @@ const labourSessionSchema = new mongoose.Schema(
     otherIncluded: { type: Boolean, default: false },
     otherAmount: { type: Number, default: 0 },
     total: { type: Number, default: 0 },
+    note: { type: String, trim: true, default: "" },
   },
   { timestamps: true }
 );

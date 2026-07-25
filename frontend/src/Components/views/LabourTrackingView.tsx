@@ -23,12 +23,9 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
 
   const itemById = (id: string) => (items || []).find((it: any) => it.id === id);
 
-  // estimate numbers that already have a labour session logged against them
-  // (detected from the "From estimate ..." note stamped in on import), so they
-  // don't clutter the picker a second time.
   const importedEstimateNumbers = new Set(
     (sessions || [])
-      .map((s: any) => (s.note || "").match(/From estimate (\S+)/)?.[[1])
+      .map((s: any) => (s.note || "").match(/From estimate (\S+)/)?.[1])
       .filter(Boolean)
   );
 

@@ -142,7 +142,7 @@ export function ReportsView({ data, currency, settings }: any) {
               <div key={it.itemId} className="flex items-center justify-between border-b border-line pb-2 last:border-0 last:pb-0">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-ink">{it.name}</p>
-                  <p className="text-xs text-ink/40">{it.qtySold} sold · Revenue {fmtMoney(it.revenue, currency)}</p>
+                  <p className="text-xs text-ink/40">{Number(it.qtySold).toFixed(2)} sold · Revenue {fmtMoney(it.revenue, currency)}</p>
                 </div>
                 <p className={`text-sm font-bold ${it.margin >= 0 ? "text-good-600" : "text-bad-600"}`}>{fmtMoney(it.margin, currency)}</p>
               </div>

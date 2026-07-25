@@ -34,9 +34,9 @@ exports.summary = async (req, res, next) => {
     const bump = (itemId, name, qty, revenue, cost) => {
       const key = String(itemId || "unknown");
       const cur = itemStats.get(key) || { itemId: key, name: name || "Unknown item", qtySold: 0, revenue: 0, cost: 0 };
-      cur.qtySold += qty;
-      cur.revenue += revenue;
-      cur.cost += cost;
+      cur.qtySold = Math.round((cur.qtySold + qty) * 100) / 100;
+      cur.revenue = Math.round((cur.revenue + revenue) * 100) / 100;
+      cur.cost = Math.round((cur.cost + cost) * 100) / 100;
       if (name) cur.name = name;
       itemStats.set(key, cur);
     };
@@ -60,13 +60,17 @@ exports.summary = async (req, res, next) => {
     }
 
     const itemProfitability = Array.from(itemStats.values())
-      .map((s) => ({ ...s, margin: s.revenue - s.cost, marginPercent: s.revenue ? ((s.revenue - s.cost) / s.revenue) * 100 : 0 }))
+      .map((s) => {
+        const margin = Math.round((s.revenue - s.cost) * 100) / 100;
+        const marginPercent = s.revenue ? Math.round(((s.revenue - s.cost) / s.revenue) * 10000) / 100 : 0;
+        return { ...s, margin, marginPercent };
+      })
       .sort((a, b) => b.margin - a.margin);
 
-    const costOfGoodsSold = itemProfitability.reduce((s, i) => s + i.cost, 0);
-    const itemRevenue = itemProfitability.reduce((s, i) => s + i.revenue, 0);
-    const grossProfit = itemRevenue - costOfGoodsSold;
-    const grossMarginPercent = itemRevenue ? (grossProfit / itemRevenue) * 100 : 0;
+    const costOfGoodsSold = Math.round(itemProfitability.reduce((s, i) => s + i.cost, 0) * 100) / 100;
+    const itemRevenue = Math.round(itemProfitability.reduce((s, i) => s + i.revenue, 0) * 100) / 100;
+    const grossProfit = Math.round((itemRevenue - costOfGoodsSold) * 100) / 100;
+    const grossMarginPercent = itemRevenue ? Math.round((grossProfit / itemRevenue) * 10000) / 100 : 0;
 
     res.json({
       counts: {

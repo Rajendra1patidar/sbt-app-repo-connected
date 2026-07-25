@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { Card } from "../common/UIPrimitives";
-import { LABOUR_RATES } from "../../lib/constants";
+import { SearchableSelect } from "../common/SearchableSelect";
+import { LABOUR_RATES, SARIA_KG_PER_BUNDLE } from "../../lib/constants";
 import { fmtDate, fmtMoney, today } from "../../lib/format";
 
-export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, currency }: any) {
+export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, currency, estimates, items }: any) {
   const todayStr = today();
   const [workerCount, setWorkerCount] = useState(1);
   const [names, setNames] = useState<string[]>([""]);
@@ -15,9 +16,48 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
   const [otherAmount, setOtherAmount] = useState("");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [importEstimateId, setImportEstimateId] = useState("");
 
   const [fromDate, setFromDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().slice(0, 10); });
   const [toDate, setToDate] = useState(todayStr);
+
+  const itemById = (id: string) => (items || []).find((it: any) => it.id === id);
+
+  // only estimates that actually carry cement or saria lines are worth offering here
+  const estimateOptions = (estimates || [])
+    .filter((doc: any) => (doc.lines || []).some((ln: any) => {
+      const cat = itemById(ln.itemId)?.category;
+      return cat === "Cement" || cat === "Saria";
+    }))
+    .sort((a: any, b: any) => (b.date || "").localeCompare(a.date || ""))
+    .slice(0, 60)
+    .map((doc: any) => ({
+      value: doc.id,
+      label: `${doc.number}${doc.contractorName ? " · " + doc.contractorName : ""} · ${fmtDate(doc.date)}`,
+    }));
+
+  // pulls cement/saria quantities off the picked estimate's lines (matched by item
+  // category) into this form. Saria is entered in kg on estimates but paid per bundle
+  // here, so it's converted (~81kg/bundle). Balu isn't a tracked item category, so it's
+  // left for manual entry either way.
+  const importFromEstimate = (estimateId: string) => {
+    setImportEstimateId(estimateId);
+    const doc = (estimates || []).find((d: any) => d.id === estimateId);
+    if (!doc) return;
+    let cementSum = 0;
+    let sariaKg = 0;
+    (doc.lines || []).forEach((ln: any) => {
+      const cat = itemById(ln.itemId)?.category;
+      if (cat === "Cement") cementSum += Number(ln.qty || 0);
+      if (cat === "Saria") sariaKg += Number(ln.qty || 0);
+    });
+    const sariaBundles = sariaKg ? Math.round((sariaKg / SARIA_KG_PER_BUNDLE) * 100) / 100 : 0;
+    if (cementSum) setCementQty(String(cementSum));
+    if (sariaBundles) setSariaQty(String(sariaBundles));
+    const noteParts = [`From estimate ${doc.number}`];
+    if (sariaKg) noteParts.push(`Saria ${sariaKg}kg ≈ ${sariaBundles} bundles`);
+    setNote(noteParts.join(" · "));
+  };
 
   const setWorkerCountSafe = (n: number) => {
     const clamped = Math.max(1, Math.min(20, n));
@@ -48,7 +88,7 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
         total: sessionTotal,
         note: note.trim(),
       });
-      setNames((prev) => prev.map(() => "")); setCementQty(""); setSariaQty(""); setBaluQty(""); setOtherIncluded(false); setOtherAmount(""); setNote("");
+      setNames((prev) => prev.map(() => "")); setCementQty(""); setSariaQty(""); setBaluQty(""); setOtherIncluded(false); setOtherAmount(""); setNote(""); setImportEstimateId("");
     } finally { setSaving(false); }
   };
 
@@ -64,6 +104,23 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
     <div className="space-y-4 px-5 pb-28">
       <Card>
         <h3 className="mb-3 font-display text-base font-bold text-ink">Log a work session</h3>
+
+        {estimateOptions.length > 0 && (
+          <div className="mb-4">
+            <label className="mb-1 block text-xs font-semibold text-ink/50">Pull materials from an estimate (optional)</label>
+            <SearchableSelect
+              options={estimateOptions}
+              value={importEstimateId}
+              onChange={importFromEstimate}
+              placeholder="Select an estimate…"
+            />
+            {importEstimateId && (
+              <button type="button" onClick={() => setImportEstimateId("")} className="mt-1 text-xs font-semibold text-ink/40">
+                Clear selection
+              </button>
+            )}
+          </div>
+        )}
 
         <label className="mb-1 block text-xs font-semibold text-ink/50">Number of workers</label>
         <div className="mb-3 flex items-center gap-3">
@@ -91,10 +148,11 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
         </div>
         <div className="mb-2 flex items-center gap-2">
           <span className="w-16 text-sm font-semibold text-ink/80">Saria</span>
-          <span className="w-16 text-xs text-ink/40">₹{LABOUR_RATES.saria}/unit</span>
+          <span className="w-16 text-xs text-ink/40">₹{LABOUR_RATES.saria}/bundle</span>
           <input type="number" min="0" value={sariaQty} onChange={(e) => setSariaQty(e.target.value)} className="w-20 rounded-xl border border-line px-2 py-2 text-center text-sm" />
           <span className="ml-auto text-sm font-bold text-brand-600">{fmtMoney(sariaAmt, currency)}</span>
         </div>
+        <p className="-mt-1.5 mb-3 pl-[4.75rem] text-[10px] text-ink/35">Bundles, not kg — 1 bundle ≈ {SARIA_KG_PER_BUNDLE}kg</p>
         <div className="mb-3 flex items-center gap-2">
           <span className="w-16 text-sm font-semibold text-ink/80">Balu</span>
           <span className="w-16 text-xs text-ink/40">₹{LABOUR_RATES.balu}/unit</span>

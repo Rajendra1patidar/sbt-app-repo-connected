@@ -479,7 +479,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       case "payments":  return <PaymentsView payments={payments} customers={customers} currency={settings.currency} openModal={openModal} removePayment={removePayment} estimates={estimates} />;
       case "expenses":  return <ExpensesView expenses={expenses} currency={settings.currency} openModal={openModal} removeExpense={removeExpense} />;
       case "todo":      return <ToDoTrackingView items={items} settings={settings} orders={orders} openModal={openModal} />;
-      case "labour":    return <LabourTrackingView sessions={labourSessions} knownWorkers={labourWorkers} onSave={saveLabourSession} onRemove={removeLabourSession} currency={settings.currency} />;
+      case "labour":    return <LabourTrackingView sessions={labourSessions} knownWorkers={labourWorkers} onSave={saveLabourSession} onRemove={removeLabourSession} currency={settings.currency} estimates={estimates} items={items} />;
       case "contractors": return <ContractorScorecardView estimates={estimates} items={items} currency={settings.currency} contractors={contractors} onSavePhone={saveContractorPhone} showToast={showToast} />;
       case "reports":      return <ReportsView data={data} currency={settings.currency} settings={settings} />;
       case "sharereport":  return <ShareReportView invoices={estimates} items={items} customers={customers} currency={settings.currency} settings={settings} />;

@@ -48,3 +48,8 @@ export const BOTTOM_NAV_IDS = ["dashboard", "estimates", "customers"];
 export const MAX_ENTRY_ROWS = 10;
 
 export const LABOUR_RATES = { cement: 4, saria: 20, balu: 5 };
+
+// saria is entered in kg on estimates, but Labour Tracking pays per bundle —
+// this is the approximate kg-to-bundle conversion used when pulling estimate
+// data into a labour session.
+export const SARIA_KG_PER_BUNDLE = 81;

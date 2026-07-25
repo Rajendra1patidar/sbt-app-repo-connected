@@ -23,8 +23,22 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
 
   const itemById = (id: string) => (items || []).find((it: any) => it.id === id);
 
-  // only estimates that actually carry cement or saria lines are worth offering here
+  // estimate numbers that already have a labour session logged against them
+  // (detected from the "From estimate ..." note stamped in on import), so they
+  // don't clutter the picker a second time.
+  const importedEstimateNumbers = new Set(
+    (sessions || [])
+      .map((s: any) => (s.note || "").match(/From estimate (\S+)/)?.[[1])
+      .filter(Boolean)
+  );
+
+  const sixtyDaysAgo = (() => { const d = new Date(); d.setDate(d.getDate() - 60); return d.toISOString().slice(0, 10); })();
+
+  // only recent (last 60 days) estimates that carry cement/saria lines and haven't
+  // already been pulled into a session are worth offering here
   const estimateOptions = (estimates || [])
+    .filter((doc: any) => (doc.date || "") >= sixtyDaysAgo)
+    .filter((doc: any) => !importedEstimateNumbers.has(doc.number))
     .filter((doc: any) => (doc.lines || []).some((ln: any) => {
       const cat = itemById(ln.itemId)?.category;
       return cat === "Cement" || cat === "Saria";
@@ -107,7 +121,7 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
 
         {estimateOptions.length > 0 && (
           <div className="mb-4">
-            <label className="mb-1 block text-xs font-semibold text-ink/50">Pull materials from an estimate (optional)</label>
+            <label className="mb-1 block text-xs font-semibold text-ink/50">Pull materials from a recent estimate (optional)</label>
             <SearchableSelect
               options={estimateOptions}
               value={importEstimateId}

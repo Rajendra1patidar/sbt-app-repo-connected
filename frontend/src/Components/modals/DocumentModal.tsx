@@ -3,7 +3,7 @@ import { AlertTriangle, Pencil, Plus, Trash2, X } from "lucide-react";
 import { SearchableSelect } from "../common/SearchableSelect";
 import { RateEditPopup } from "./RateEditPopup";
 import { StatusChoicePopup } from "./StatusChoicePopup";
-import { fmtMoney, today } from "../../lib/format";
+import { fmtMoney, today, round2 } from "../../lib/format";
 import { InvoiceLine } from "../../types/index";
 
 export function DocumentModal({ type, customers, items, estimates, editingDoc, onClose, onSave }: any) {
@@ -42,14 +42,14 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, o
   };
   const removeLine = (i: number) => setLines((l) => l.filter((_, idx) => idx !== i));
   const itemById = (id: string) => items.find((it: any) => it.id === id);
-  const itemsSubtotal = lines.reduce((sum, ln) => sum + Number(ln.qty || 0) * Number(ln.rate || 0), 0);
+  const itemsSubtotal = round2(lines.reduce((sum, ln) => sum + Number(ln.qty || 0) * Number(ln.rate || 0), 0));
 
   // when editing, exclude the estimate being edited itself from its own "previous due" calculation
   const previousDueEstimates = type === "estimate" && !isEditing ? (estimates || []).filter((e: any) => e.customerId === customerId && e.status !== "Paid") : [];
-  const previousDueAmount = previousDueEstimates.reduce((s: number, e: any) => s + (Number(e.total || 0) - Number(e.amountPaid || 0)), 0);
+  const previousDueAmount = round2(previousDueEstimates.reduce((s: number, e: any) => s + (Number(e.total || 0) - Number(e.amountPaid || 0)), 0));
   const previousDue = includePreviousDue ? previousDueAmount : 0;
 
-  const total = itemsSubtotal + Number(freightCost || 0) + Number(labourCost || 0) + previousDue;
+  const total = round2(itemsSubtotal + Number(freightCost || 0) + Number(labourCost || 0) + previousDue);
 
   const titleMap: any = {
     estimate: isEditing ? "Edit Estimate" : "New Estimate",

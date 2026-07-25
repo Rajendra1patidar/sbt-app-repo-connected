@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { MapPin, Printer, Search } from "lucide-react";
 import { Badge, Card } from "../common/UIPrimitives";
 import { EstimatesMapCard } from "./EstimatesMapCard";
-import { fmtDate, fmtMoney, today } from "../../lib/format";
+import { fmtDate, fmtMoney, today, round2 } from "../../lib/format";
 
 export function ReportsView({ data, currency, settings }: any) {
   const { invoices, payments, expenses, customers, labourSessions, items } = data;
@@ -10,12 +10,12 @@ export function ReportsView({ data, currency, settings }: any) {
   const [locationQuery, setLocationQuery] = useState("");
   const [fromDate, setFromDate] = useState(() => { const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10); });
   const [toDate, setToDate] = useState(today());
-  const totalInvoiced = invoices.reduce((s: number, i: any) => s + i.total, 0);
-  const totalReceived = payments.reduce((s: number, p: any) => s + Number(p.amount), 0);
-  const totalExpenses = expenses.reduce((s: number, e: any) => s + Number(e.amount), 0);
-  const outstanding = invoices.filter((i: any) => i.status !== "Paid").reduce((s: number, i: any) => s + (Number(i.total || 0) - Number(i.amountPaid || 0)), 0);
+  const totalInvoiced = round2(invoices.reduce((s: number, i: any) => s + i.total, 0));
+  const totalReceived = round2(payments.reduce((s: number, p: any) => s + Number(p.amount), 0));
+  const totalExpenses = round2(expenses.reduce((s: number, e: any) => s + Number(e.amount), 0));
+  const outstanding = round2(invoices.filter((i: any) => i.status !== "Paid").reduce((s: number, i: any) => s + (Number(i.total || 0) - Number(i.amountPaid || 0)), 0));
   const rangeLabour = (labourSessions || []).filter((s: any) => s.date >= fromDate && s.date <= toDate);
-  const rangeLabourTotal = rangeLabour.reduce((s: number, x: any) => s + Number(x.total || 0), 0);
+  const rangeLabourTotal = round2(rangeLabour.reduce((s: number, x: any) => s + Number(x.total || 0), 0));
   const statusCounts: Record<string, number> = {};
   invoices.forEach((i: any) => { statusCounts[i.status] = (statusCounts[i.status] || 0) + 1; });
 
@@ -27,7 +27,7 @@ export function ReportsView({ data, currency, settings }: any) {
   const bumpItem = (itemId: string, name: string, qty: number, revenue: number, cost: number) => {
     const key = itemId || "unknown";
     const cur = itemStats.get(key) || { name: name || "Unknown item", qtySold: 0, revenue: 0, cost: 0 };
-    cur.qtySold += qty; cur.revenue += revenue; cur.cost += cost;
+    cur.qtySold = round2(cur.qtySold + qty); cur.revenue = round2(cur.revenue + revenue); cur.cost = round2(cur.cost + cost);
     if (name) cur.name = name;
     itemStats.set(key, cur);
   };
@@ -44,10 +44,10 @@ export function ReportsView({ data, currency, settings }: any) {
     }
   }
   const itemProfitability = Array.from(itemStats.entries())
-    .map(([itemId, s]) => ({ itemId, ...s, margin: s.revenue - s.cost }))
+    .map(([itemId, s]) => ({ itemId, ...s, margin: round2(s.revenue - s.cost) }))
     .sort((a, b) => b.margin - a.margin);
-  const costOfGoodsSold = itemProfitability.reduce((s, i) => s + i.cost, 0);
-  const itemRevenue = itemProfitability.reduce((s, i) => s + i.revenue, 0);
+  const costOfGoodsSold = round2(itemProfitability.reduce((s, i) => s + i.cost, 0));
+  const itemRevenue = round2(itemProfitability.reduce((s, i) => s + i.revenue, 0));
   const grossProfit = itemRevenue - costOfGoodsSold;
   const grossMarginPercent = itemRevenue ? (grossProfit / itemRevenue) * 100 : 0;
 

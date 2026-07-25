@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { AlertTriangle, Check, Trash2, X } from "lucide-react";
 import { MAX_ENTRY_ROWS } from "../../lib/constants";
-import { today } from "../../lib/format";
+import { today, round2 } from "../../lib/format";
 
 export function ChallanModal({ onClose, onSave }: any) {
   const [route, setRoute] = useState("");
@@ -24,8 +24,8 @@ export function ChallanModal({ onClose, onSave }: any) {
     if (list.length > 1) setter(list.filter((_, i) => i !== idx));
   };
 
-  const totalExpenses = expenses.reduce((s, r) => s + (Number(r.amount) || 0), 0);
-  const totalIncomes = incomes.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const totalExpenses = round2(expenses.reduce((s, r) => s + (Number(r.amount) || 0), 0));
+  const totalIncomes = round2(incomes.reduce((s, r) => s + (Number(r.amount) || 0), 0));
   const canSave = route.trim().length > 0;
 
   const inputCls = "w-full rounded-xl border border-line px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300";

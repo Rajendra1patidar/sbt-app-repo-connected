@@ -2,20 +2,20 @@ import React, { useState } from "react";
 import { AlertCircle, AlertTriangle, ArrowDownToLine, BarChart3, Receipt, RotateCcw, ShoppingCart, Users, Wallet } from "lucide-react";
 import { Badge, Card, EmptyState, PillButton } from "../common/UIPrimitives";
 import { CATEGORY_COLORS, LOW_STOCK_DEFAULT } from "../../lib/constants";
-import { fmtDate, fmtMoney, fmtNum, today } from "../../lib/format";
+import { fmtDate, fmtMoney, fmtNum, today, round2 } from "../../lib/format";
 
 /* ---- Dashboard ---- */
 
 export function Dashboard({ data, settings, openModal, go }: any) {
   const { customers, estimates, expenses, items, payments } = data;
   const [tab, setTab] = useState("estimates");
-  const outstanding = estimates.filter((i: any) => i.status !== "Paid").reduce((s: number, i: any) => s + (Number(i.total || 0) - Number(i.amountPaid || 0)), 0);
+  const outstanding = round2(estimates.filter((i: any) => i.status !== "Paid").reduce((s: number, i: any) => s + (Number(i.total || 0) - Number(i.amountPaid || 0)), 0));
   const overdueEstimates = estimates.filter((i: any) => i.status !== "Paid" && i.dueDate && new Date(i.dueDate) < new Date());
-  const overdueAmount = overdueEstimates.reduce((s: number, i: any) => s + (Number(i.total || 0) - Number(i.amountPaid || 0)), 0);
+  const overdueAmount = round2(overdueEstimates.reduce((s: number, i: any) => s + (Number(i.total || 0) - Number(i.amountPaid || 0)), 0));
   const byCategory: any = {};
-  expenses.forEach((e: any) => { byCategory[e.category] = (byCategory[e.category] || 0) + Number(e.amount); });
+  expenses.forEach((e: any) => { byCategory[e.category] = round2((byCategory[e.category] || 0) + Number(e.amount)); });
   const catEntries = Object.entries(byCategory) as [string, number][];
-  const catTotal = catEntries.reduce((s, [, v]) => s + v, 0);
+  const catTotal = round2(catEntries.reduce((s, [, v]) => s + v, 0));
   const lowStockItems = items.filter((it: any) => (it.stock ?? 0) <= (it.lowStock ?? LOW_STOCK_DEFAULT));
 
   const quickActions = [
@@ -25,7 +25,7 @@ export function Dashboard({ data, settings, openModal, go }: any) {
     { label: "New Order", icon: ShoppingCart, bg: "bg-warn-50", fg: "text-warn-500", action: () => openModal("order") },
   ];
   const [segment, setSegment] = useState<"receivable" | "collected">("receivable");
-  const collectedThisMonth = estimates.reduce((s: number, e: any) => s + Number(e.amountPaid || 0), 0);
+  const collectedThisMonth = round2(estimates.reduce((s: number, e: any) => s + Number(e.amountPaid || 0), 0));
 
   const refundPayments = (payments || []).filter((p: any) => Number(p.amount) < 0);
   const returnsForList = refundPayments.map((p: any) => ({

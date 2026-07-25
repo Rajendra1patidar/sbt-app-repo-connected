@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { X } from "lucide-react";
-import { fmtMoney } from "../../lib/format";
+import { fmtMoney, round2 } from "../../lib/format";
 
 export function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
   const alreadyReturned: Record<string, number> = {};
@@ -22,7 +22,7 @@ export function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
   const lines = returnableLines
     .map((l: any) => ({ ...l, returnQty: Math.min(Number(qtyMap[l.itemId] || 0), l.qty - l.returned) }))
     .filter((l: any) => l.returnQty > 0);
-  const refundTotal = lines.reduce((s: number, l: any) => s + l.returnQty * l.rate, 0);
+  const refundTotal = round2(lines.reduce((s: number, l: any) => s + l.returnQty * l.rate, 0));
   const canSave = lines.length > 0;
 
   return (

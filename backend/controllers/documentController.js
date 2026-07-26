@@ -3,6 +3,9 @@ const Document = require("../models/Document");
 const Item = require("../models/Item");
 const Payment = require("../models/Payment");
 const Counter = require("../models/Counter");
+const ledgerService = require("../services/ledgerService");
+const stockService = require("../services/stockService");
+const paymentController = require("./paymentController");
 
 const PREFIX = { estimate: "EST", challan: "DC" };
 const DEFAULT_STATUS = { estimate: "Due", challan: "Pending" };
@@ -91,23 +94,61 @@ exports.create = (type) => async (req, res, next) => {
     }
 
     let lowStock = [];
-    // deduct stock from items when an estimate is created, exactly like the frontend used to do client-side
+    // deduct stock from items when an estimate is created, exactly like the frontend used to do client-side —
+    // now routed through stockService so it also logs a StockMovement and tells us the COGS cost basis
+    let totalCogs = 0;
     if (type === "estimate" && Array.isArray(v.lines) && v.lines.length) {
       for (const line of v.lines) {
         if (!line.itemId) continue;
-        const item = await Item.findOneAndUpdate(
-          { _id: line.itemId, owner: req.userId },
-          { $inc: { stock: -Number(line.qty || 0) } },
-          { new: true }
-        );
-        if (item) {
-          if (item.stock < 0) {
-            item.stock = 0;
-            await item.save();
-          }
-          const threshold = item.lowStock ?? 5;
-          if (item.stock <= threshold) lowStock.push({ name: item.name, stock: item.stock });
+        const qty = Number(line.qty || 0);
+        if (qty <= 0) continue;
+        const result = await stockService.recordStockOut({
+          owner: req.userId,
+          itemId: line.itemId,
+          qty,
+          sourceType: "Estimate",
+          sourceId: doc._id,
+          date: v.date || new Date().toISOString().slice(0, 10),
+        });
+        if (result) {
+          totalCogs += result.cogsAmount;
+          const threshold = result.item.lowStock ?? 5;
+          if (result.item.stock <= threshold) lowStock.push({ name: result.item.name, stock: result.item.stock });
         }
+      }
+    }
+
+    // ledger: every estimate is a sale — Dr AccountsReceivable / Cr Sales — plus the
+    // matching cost side, Dr COGS / Cr Stock, using each item's weighted-average cost.
+    if (type === "estimate" && Number(doc.total) > 0) {
+      await ledgerService.postEntries(
+        [
+          { account: "AccountsReceivable", type: "debit", amount: doc.total, customerId: doc.customerId },
+          { account: "Sales", type: "credit", amount: doc.total, customerId: doc.customerId },
+        ],
+        { owner: req.userId, sourceType: "Estimate", sourceId: doc._id, date: doc.date, narration: `Estimate ${doc.number}` }
+      );
+
+      if (totalCogs > 0) {
+        await ledgerService.postEntries(
+          [
+            { account: "COGS", type: "debit", amount: totalCogs },
+            { account: "Stock", type: "credit", amount: totalCogs },
+          ],
+          { owner: req.userId, sourceType: "Estimate", sourceId: doc._id, date: doc.date, narration: `COGS for ${doc.number}` }
+        );
+      }
+
+      // if the estimate was saved as already Paid up front (no separate Payment row),
+      // immediately settle the receivable: Dr Funds / Cr AccountsReceivable
+      if (doc.status === "Paid" && Number(doc.amountPaid) > 0) {
+        await ledgerService.postEntries(
+          [
+            { account: "Funds", type: "debit", amount: doc.amountPaid, customerId: doc.customerId },
+            { account: "AccountsReceivable", type: "credit", amount: doc.amountPaid, customerId: doc.customerId },
+          ],
+          { owner: req.userId, sourceType: "Estimate", sourceId: doc._id, date: doc.date, narration: `Paid in full · ${doc.number}` }
+        );
       }
     }
 
@@ -184,6 +225,7 @@ exports.addReturn = (type) => async (req, res, next) => {
 
     const newReturns = [];
     let refundTotal = 0;
+    let totalCogsReversal = 0;
     const date = req.body.date || new Date().toISOString().slice(0, 10);
 
     for (const reqLine of requestedLines) {
@@ -211,8 +253,18 @@ exports.addReturn = (type) => async (req, res, next) => {
       refundTotal += amount;
       alreadyReturned[String(reqLine.itemId)] = returnedSoFar + finalQty;
 
-      // put the returned stock back
-      await Item.findOneAndUpdate({ _id: reqLine.itemId, owner: req.userId }, { $inc: { stock: finalQty } });
+      // put the returned stock back — routed through stockService so it logs a
+      // StockMovement and tells us the cost basis to reverse out of COGS
+      const stockResult = await stockService.recordReturnIn({
+        owner: req.userId,
+        itemId: reqLine.itemId,
+        qty: finalQty,
+        rate: item?.purchasePrice || 0,
+        sourceType: "Return",
+        sourceId: doc._id,
+        date,
+      });
+      if (stockResult) totalCogsReversal += stockResult.cogsReversal;
     }
 
     if (!newReturns.length) return res.status(400).json({ message: "Nothing valid to return" });
@@ -232,8 +284,48 @@ exports.addReturn = (type) => async (req, res, next) => {
       invoiceNumber: doc.number,
     });
 
+    // known bug fix: addReturn used to create this refund Payment without ever
+    // recalculating the invoice's amountPaid/status, so ledger balances could drift
+    // out of sync with what the estimate showed. Recalc it here, same as a normal payment.
+    const invoice = await paymentController.recalcInvoice(req.userId, doc._id, {
+      action: "Refund issued",
+      date,
+      note: `Return · ${refundTotal}`,
+    });
+
+    // ledger: reverse the revenue for the returned amount and pay the cash back out —
+    // Dr Sales / Cr AccountsReceivable, then Dr AccountsReceivable / Cr Funds, which nets
+    // to Dr Sales / Cr Funds when the estimate had already been paid in full.
+    if (refundTotal > 0) {
+      await ledgerService.postEntries(
+        [
+          { account: "Sales", type: "debit", amount: refundTotal, customerId: doc.customerId },
+          { account: "AccountsReceivable", type: "credit", amount: refundTotal, customerId: doc.customerId },
+        ],
+        { owner: req.userId, sourceType: "Return", sourceId: doc._id, date, narration: `Return against ${doc.number}` }
+      );
+      await ledgerService.postEntries(
+        [
+          { account: "AccountsReceivable", type: "debit", amount: refundTotal, customerId: doc.customerId },
+          { account: "Funds", type: "credit", amount: refundTotal, customerId: doc.customerId },
+        ],
+        { owner: req.userId, sourceType: "Return", sourceId: doc._id, date, narration: `Refund paid · ${doc.number}` }
+      );
+    }
+    // and reverse the cost side — Dr Stock / Cr COGS — for whatever the goods were
+    // actually costed at when they were originally sold
+    if (totalCogsReversal > 0) {
+      await ledgerService.postEntries(
+        [
+          { account: "Stock", type: "debit", amount: totalCogsReversal },
+          { account: "COGS", type: "credit", amount: totalCogsReversal },
+        ],
+        { owner: req.userId, sourceType: "Return", sourceId: doc._id, date, narration: `COGS reversal · ${doc.number}` }
+      );
+    }
+
     const freshItems = await Item.find({ owner: req.userId });
-    res.json({ doc, payment, items: freshItems });
+    res.json({ doc, payment, invoice, items: freshItems });
   } catch (err) {
     next(err);
   }

@@ -1,6 +1,7 @@
 const Payment = require("../models/Payment");
 const Document = require("../models/Document");
 const crudController = require("./crudController");
+const ledgerService = require("../services/ledgerService");
 
 const base = crudController(Payment);
 
@@ -63,6 +64,31 @@ base.create = async (req, res, next) => {
       }
     }
 
+    // ledger: a normal receipt is Dr Funds / Cr AccountsReceivable (cash in, customer owes
+    // less); a refund (negative amount) is the mirror image — Dr AccountsReceivable /
+    // Cr Funds — cash going back out to the customer.
+    if (v.customerId) {
+      const amt = Math.abs(Number(v.amount));
+      if (amt > 0) {
+        const lines = isRefund
+          ? [
+              { account: "AccountsReceivable", type: "debit", amount: amt, customerId: v.customerId },
+              { account: "Funds", type: "credit", amount: amt, customerId: v.customerId },
+            ]
+          : [
+              { account: "Funds", type: "debit", amount: amt, customerId: v.customerId },
+              { account: "AccountsReceivable", type: "credit", amount: amt, customerId: v.customerId },
+            ];
+        await ledgerService.postEntries(lines, {
+          owner: req.userId,
+          sourceType: "Payment",
+          sourceId: payment._id,
+          date: payment.date,
+          narration: isRefund ? `Refund${invoiceNumber ? " · " + invoiceNumber : ""}` : `Payment received${invoiceNumber ? " · " + invoiceNumber : ""}`,
+        });
+      }
+    }
+
     res.status(201).json({ payment, invoice });
   } catch (err) {
     next(err);
@@ -85,10 +111,16 @@ base.remove = async (req, res, next) => {
       });
     }
 
+    await ledgerService.reverseSource(req.userId, "Payment", payment._id, "Payment entry removed");
+
     res.json({ message: "Deleted", id: req.params.id, invoice });
   } catch (err) {
     next(err);
   }
 };
+
+// exported so documentController's return flow can reuse the same
+// paid-amount/status recompute logic instead of duplicating it
+base.recalcInvoice = recalcInvoice;
 
 module.exports = base;

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { CheckCircle2, Landmark, Loader2, Scale, XCircle } from "lucide-react";
+import { BookOpen, CheckCircle2, Landmark, Loader2, Scale, XCircle } from "lucide-react";
 import { Card } from "../common/UIPrimitives";
 import { fmtMoney, today } from "../../lib/format";
 import { api } from "../../lib/api";
@@ -20,21 +20,24 @@ export function LedgerReportsView({ currency }: any) {
   const [profitAndLoss, setProfitAndLoss] = useState<any>(null);
   const [balanceSheet, setBalanceSheet] = useState<any>(null);
   const [stockValuation, setStockValuation] = useState<any>(null);
+  const [dayBook, setDayBook] = useState<any[]>([]);
 
   const load = async () => {
     setLoading(true);
     setError("");
     try {
-      const [tb, pnl, bs, sv] = await Promise.all([
+      const [tb, pnl, bs, sv, db] = await Promise.all([
         api.ledger.trialBalance(fromDate, toDate),
         api.ledger.profitAndLoss(fromDate, toDate),
         api.ledger.balanceSheet(toDate),
         api.ledger.stockValuation(),
+        api.ledger.dayBook(fromDate, toDate),
       ]);
       setTrialBalance(tb);
       setProfitAndLoss(pnl);
       setBalanceSheet(bs);
       setStockValuation(sv);
+      setDayBook(db || []);
     } catch (err: any) {
       setError(err?.message || "Failed to load ledger reports");
     } finally {
@@ -64,7 +67,7 @@ export function LedgerReportsView({ currency }: any) {
           </button>
         </div>
         <p className="mt-2 text-xs text-ink/40">
-          Profit & Loss covers this date range. Balance Sheet and Stock Valuation are as of the "To" date — a snapshot, not a range.
+          Profit & Loss and Day Book cover this date range. Balance Sheet and Stock Valuation are as of the "To" date — a snapshot, not a range.
         </p>
       </Card>
 
@@ -161,6 +164,32 @@ export function LedgerReportsView({ currency }: any) {
                   <div key={r.itemId} className="flex items-center justify-between text-sm">
                     <span className="text-ink/70 truncate">{r.name}</span>
                     <span className="text-xs text-ink/50">{r.stock} @ {fmtMoney(r.avgCost, currency)} = <b className="text-ink">{fmtMoney(r.value, currency)}</b></span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* Day Book */}
+          <Card>
+            <div className="flex items-center gap-2">
+              <BookOpen size={16} className="text-brand-600" />
+              <h3 className="font-display text-base font-bold text-ink">Day Book</h3>
+              <span className="ml-auto text-xs text-ink/40">{dayBook.length} entries</span>
+            </div>
+            {dayBook.length === 0 ? (
+              <p className="mt-3 text-sm text-ink/40">No ledger activity in this date range.</p>
+            ) : (
+              <div className="mt-3 max-h-96 space-y-1 overflow-y-auto">
+                {dayBook.map((e: any) => (
+                  <div key={e._id} className="flex items-center justify-between border-b border-line/60 py-1.5 text-sm last:border-0">
+                    <div className="min-w-0">
+                      <p className="truncate text-ink/80">{e.narration}</p>
+                      <p className="text-xs text-ink/40">{e.date} · {e.account}</p>
+                    </div>
+                    <span className={`shrink-0 font-mono text-xs font-semibold ${e.type === "debit" ? "text-ink" : "text-good-700"}`}>
+                      {e.type === "debit" ? "Dr" : "Cr"} {fmtMoney(e.amount, currency)}
+                    </span>
                   </div>
                 ))}
               </div>

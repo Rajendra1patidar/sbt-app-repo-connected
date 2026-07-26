@@ -1,10 +1,24 @@
-import { ChevronLeft, MapPin } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronLeft, MapPin, Receipt } from "lucide-react";
 import { Badge, Card, EmptyState, SmsButton, WhatsAppButton } from "../common/UIPrimitives";
 import { fmtDate, fmtMoney } from "../../lib/format";
+import { api } from "../../lib/api";
 
 /* ---- Customer Ledger / Detail ---- */
 
-export function CustomerDetailView({ customer, estimates, payments, items, currency, openModal, onBack }: any) {
+export function CustomerDetailView({ customer, estimates, payments, items, currency, openModal, onBack }: any){
+  const [statement, setStatement] = useState<any>(null);
+  const [statementLoading, setStatementLoading] = useState(false);
+
+  useEffect(() => {
+    if (!customer?.id) return;
+    setStatementLoading(true);
+    api.ledger.customerStatement(customer.id)
+      .then((s: any) => setStatement(s))
+      .catch(() => setStatement(null))
+      .finally(() => setStatementLoading(false));
+  }, [customer?.id]);
+
   if (!customer) {
     return (
       <div className="px-5 pb-28 pt-1">
@@ -99,6 +113,43 @@ export function CustomerDetailView({ customer, estimates, payments, items, curre
               </Card>
             ))}
           </div>
+        )}
+      </div>
+
+      <div>
+        <div className="mb-2 flex items-center gap-1.5">
+          <Receipt size={14} className="text-brand-600" />
+          <h3 className="text-sm font-bold text-ink/80">Ledger Statement</h3>
+        </div>
+        {statementLoading ? (
+          <Card><p className="text-center text-sm text-ink/40">Loading statement...</p></Card>
+        ) : !statement || statement.rows.length === 0 ? (
+          <Card><EmptyState text="No ledger activity yet." /></Card>
+        ) : (
+          <Card>
+            <div className="max-h-96 space-y-1 overflow-y-auto">
+              {statement.rows.map((r: any, i: number) => (
+                <div key={i} className="flex items-center justify-between border-b border-line/60 py-1.5 text-sm last:border-0">
+                  <div className="min-w-0">
+                    <p className="truncate text-ink/80">{r.narration}</p>
+                    <p className="text-xs text-ink/40">{fmtDate(r.date)} · {r.account}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className={`font-mono text-xs font-semibold ${r.type === "debit" ? "text-ink" : "text-good-700"}`}>
+                      {r.type === "debit" ? "Dr" : "Cr"} {fmtMoney(r.amount, currency)}
+                    </p>
+                    <p className="text-xs text-ink/40">Bal: {fmtMoney(r.balance, currency)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center justify-between border-t border-line pt-2">
+              <span className="text-sm font-bold text-ink">Closing Balance</span>
+              <span className={`text-lg font-bold ${statement.closingBalance > 0 ? "text-bad-600" : "text-good-600"}`}>
+                {fmtMoney(statement.closingBalance, currency)}
+              </span>
+            </div>
+          </Card>
         )}
       </div>
     </div>

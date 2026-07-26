@@ -271,3 +271,4 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
     </div>
   );
 }
+

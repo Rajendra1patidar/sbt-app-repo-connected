@@ -17,7 +17,7 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions }:
   const catEntries = Object.entries(byCategory) as [string, number][];
   const catTotal = round2(catEntries.reduce((s, [, v]) => s + v, 0));
   const lowStockItems = items.filter((it: any) => (it.stock ?? 0) <= (it.lowStock ?? LOW_STOCK_DEFAULT));
-  const paceSuggestionByItem = new Map((reorderSuggestions || []).filter((s: any) => s.mode === "pace").map((s: any) => [s.itemId, s]));
+  const paceSuggestionByItem = new Map<string, any>((reorderSuggestions || []).filter((s: any) => s.mode === "pace").map((s: any) => [s.itemId, s]));
 
   const quickActions = [
     { label: "New Estimate", icon: Receipt, bg: "bg-brand-50", fg: "text-brand-500", action: () => openModal("estimate") },

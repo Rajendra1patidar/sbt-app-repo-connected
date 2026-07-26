@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { PackagePlus, Plus, Search, Trash2 } from "lucide-react";
+import { IndianRupee, PackagePlus, Plus, Search, Trash2 } from "lucide-react";
 import { Card, EmptyState, PillButton, Badge } from "../common/UIPrimitives";
 import { fmtDate, fmtMoney, fmtNum } from "../../lib/format";
 
@@ -17,6 +17,7 @@ export function PurchasesView({ purchases, vendors, items, currency, openModal, 
     : purchases.filter((p: any) => vendorName(p.vendorId).toLowerCase().includes(q) || itemName(p.itemId).toLowerCase().includes(q));
 
   const statusBadge = (status: string) => (status === "paid" ? "Paid" : status === "partial" ? "Partially Paid" : "Due");
+  const round2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
 
   return (
     <div className="space-y-3 px-5 pb-28">
@@ -60,6 +61,14 @@ export function PurchasesView({ purchases, vendors, items, currency, openModal, 
                 <p className="font-bold text-ink">{fmtMoney(p.amount, currency)}</p>
                 <Badge status={statusBadge(p.paymentStatus)} />
               </div>
+              {p.paymentStatus !== "paid" && (
+                <button
+                  onClick={() => openModal("purchasePayment", { purchaseId: p.id, vendorName: vendorName(p.vendorId), remaining: round2(p.amount - p.amountPaid) })}
+                  className="inline-flex items-center gap-1 rounded-full bg-brand-500 px-2.5 py-1.5 text-xs font-semibold text-white"
+                >
+                  <IndianRupee size={12} /> Pay
+                </button>
+              )}
               <button onClick={() => removePurchase(p.id)} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
             </div>
           </Card>

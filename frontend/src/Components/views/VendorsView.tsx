@@ -22,6 +22,9 @@ export function VendorsView({ vendors, purchases, currency, openModal, removeVen
       .filter((p: any) => String(p.vendorId) === String(vendorId))
       .reduce((s: number, p: any) => s + (Number(p.amount || 0) - Number(p.amountPaid || 0)), 0);
 
+  const unpaidPurchasesFor = (vendorId: string) =>
+    (purchases || []).filter((p: any) => String(p.vendorId) === String(vendorId) && p.paymentStatus !== "paid");
+
   const toggleExpand = async (id: string) => {
     if (expandedId === id) {
       setExpandedId(null);
@@ -87,14 +90,38 @@ export function VendorsView({ vendors, purchases, currency, openModal, removeVen
               </div>
               {isOpen && (
                 <div className="border-t border-line bg-paper/60 p-4">
+                  {unpaidPurchasesFor(v.id).length > 0 && (
+                    <div className="mb-4">
+                      <p className="mb-2 text-xs font-semibold text-ink/50">Outstanding purchases</p>
+                      <ul className="space-y-2">
+                        {unpaidPurchasesFor(v.id).map((p: any) => {
+                          const remaining = Math.round((Number(p.amount) - Number(p.amountPaid)) * 100) / 100;
+                          return (
+                            <li key={p.id} className="flex items-center justify-between rounded-xl border border-line bg-white px-3 py-2">
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-ink truncate">{fmtDate(p.date)}</p>
+                                <p className="text-xs text-ink/40">{fmtMoney(p.amount, currency)} total · {fmtMoney(remaining, currency)} remaining</p>
+                              </div>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); openModal("purchasePayment", { purchaseId: p.id, vendorName: v.name, remaining }); }}
+                                className="inline-flex items-center gap-1 rounded-full bg-brand-500 px-2.5 py-1.5 text-xs font-semibold text-white shrink-0"
+                              >
+                                <IndianRupee size={12} /> Pay
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
                   <div className="mb-3 flex items-center justify-between">
                     <p className="text-xs font-semibold text-ink/50">Vendor statement</p>
                     <div className="flex gap-2">
                       <button
                         onClick={(e) => { e.stopPropagation(); openModal("vendorPayment", { vendorId: v.id, vendorName: v.name, amount: owed > 0 ? owed : undefined }); }}
-                        className="inline-flex items-center gap-1 rounded-full bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white"
+                        className="inline-flex items-center gap-1 rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-ink/70"
                       >
-                        <IndianRupee size={12} /> Record Payment
+                        <IndianRupee size={12} /> Unallocated Payment
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); removeVendor(v.id); }}

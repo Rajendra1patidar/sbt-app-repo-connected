@@ -128,7 +128,7 @@ export const api = {
     recordPayment: (id: string, v: any) => request(`/api/vendors/${id}/payments`, { method: "POST", body: JSON.stringify(v) }),
   },
 
-  purchases: crud("/api/purchases"),
+  purchases: { ...crud("/api/purchases"), recordPayment: (id: string, v: any) => request(`/api/purchases/${id}/payments`, { method: "POST", body: JSON.stringify(v) }) },
 
   ledger: {
     trialBalance: (from?: string, to?: string) =>

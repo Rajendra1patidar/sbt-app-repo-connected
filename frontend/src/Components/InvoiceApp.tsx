@@ -269,6 +269,17 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     } catch (err) { onApiError(err, "Failed to record vendor payment"); }
   };
 
+  const savePurchasePayment = async (v: any) => {
+    try {
+      const { purchase } = await api.purchases.recordPayment(v.purchaseId, {
+        amount: Number(v.amount), date: v.date || today(), method: v.method, notes: v.notes,
+      });
+      setPurchases((c) => c.map((x) => (x.id === purchase.id ? purchase : x)));
+      showToast("Payment recorded");
+      closeModal();
+    } catch (err) { onApiError(err, "Failed to record payment"); }
+  };
+
   const docSetter = (type: string) => (type === "estimate" ? setEstimates : setChallans);
 
   const saveDocument = async (type: string, v: any) => {
@@ -613,13 +624,23 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     }
 
     if (type === "vendorPayment") {
-      return <FieldModal title={`Pay ${payload?.vendorName || "Vendor"}`} fields={[
+      return <FieldModal title={`Pay ${payload?.vendorName || "Vendor"} (unallocated)`} fields={[
         { key: "amount", label: "Amount",  type: "number", required: true, placeholder: "0.00" },
         { key: "method", label: "Method",  type: "select", options: [{ value: "Cash", label: "Cash" }, { value: "Bank Transfer", label: "Bank Transfer" }, { value: "UPI", label: "UPI" }, { value: "Card", label: "Card" }] },
         { key: "date",   label: "Date",    type: "date" },
         { key: "notes",  label: "Notes",   placeholder: "Optional" },
       ]} initial={{ date: today(), vendorId: payload?.vendorId, amount: payload?.amount || "" }} onClose={closeModal}
         onSave={(v: any) => saveVendorPayment({ ...v, vendorId: payload?.vendorId })} />;
+    }
+
+    if (type === "purchasePayment") {
+      return <FieldModal title={`Pay ${payload?.vendorName || "Purchase"}`} fields={[
+        { key: "amount", label: `Amount (${fmtMoney(payload?.remaining || 0, settings.currency)} remaining)`, type: "number", required: true, placeholder: "0.00" },
+        { key: "method", label: "Method",  type: "select", options: [{ value: "Cash", label: "Cash" }, { value: "Bank Transfer", label: "Bank Transfer" }, { value: "UPI", label: "UPI" }, { value: "Card", label: "Card" }] },
+        { key: "date",   label: "Date",    type: "date" },
+        { key: "notes",  label: "Notes",   placeholder: "Optional" },
+      ]} initial={{ date: today(), amount: payload?.remaining || "" }} onClose={closeModal}
+        onSave={(v: any) => savePurchasePayment({ ...v, purchaseId: payload?.purchaseId })} />;
     }
 
     if (type === "order") return <OrderModal items={items} onClose={closeModal} onSave={saveOrder} prefill={payload} />;

@@ -103,6 +103,52 @@ exports.create = async (req, res, next) => {
   }
 };
 
+const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
+// POST /api/purchases/:id/payments   { amount, date, method, notes }
+// Settles part or all of ONE specific purchase — unlike Vendor.recordPayment
+// (a lump-sum, unallocated payment against the vendor as a whole), this updates
+// that purchase's amountPaid/paymentStatus directly, so the "amount owed" shown
+// anywhere that reads from Purchase records stays accurate after payment.
+exports.recordPayment = async (req, res, next) => {
+  try {
+    const { amount, date, method, notes } = req.body;
+    const amt = Number(amount);
+    if (!(amt > 0)) return res.status(400).json({ message: "Amount must be greater than zero" });
+
+    const purchase = await Purchase.findOne({ _id: req.params.id, owner: req.userId });
+    if (!purchase) return res.status(404).json({ message: "Purchase not found" });
+
+    const remaining = round2(purchase.amount - purchase.amountPaid);
+    if (amt > remaining + 0.01) {
+      return res.status(400).json({ message: `Amount exceeds remaining due (${remaining})` });
+    }
+
+    purchase.amountPaid = round2(purchase.amountPaid + amt);
+    purchase.paymentStatus = purchase.amountPaid >= purchase.amount - 0.01 ? "paid" : purchase.amountPaid > 0 ? "partial" : "unpaid";
+    await purchase.save();
+
+    const postDate = date || new Date().toISOString().slice(0, 10);
+    await ledgerService.postEntries(
+      [
+        { account: "VendorPayable", type: "debit", amount: amt, vendorId: purchase.vendorId },
+        { account: "Funds", type: "credit", amount: amt },
+      ],
+      {
+        owner: req.userId,
+        sourceType: "Purchase",
+        sourceId: purchase._id,
+        date: postDate,
+        narration: notes || `Payment on purchase (${method || "Cash"})`,
+      }
+    );
+
+    res.status(201).json({ purchase });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // DELETE /api/purchases/:id
 // Reverses every ledger entry this purchase posted. Does NOT undo the stock
 // quantity or weighted-average cost change (unwinding a weighted average

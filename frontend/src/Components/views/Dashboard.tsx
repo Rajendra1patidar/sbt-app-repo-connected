@@ -26,7 +26,8 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions }:
     { label: "New Order", icon: ShoppingCart, bg: "bg-warn-50", fg: "text-warn-500", action: () => openModal("order") },
   ];
   const [segment, setSegment] = useState<"receivable" | "collected">("receivable");
-  const collectedThisMonth = round2(estimates.reduce((s: number, e: any) => s + Number(e.amountPaid || 0), 0));
+  // all-time sum, not month-scoped — matches the "Total collected" / "Across all estimates" labels below
+  const totalCollected = round2(estimates.reduce((s: number, e: any) => s + Number(e.amountPaid || 0), 0));
 
   const refundPayments = (payments || []).filter((p: any) => Number(p.amount) < 0);
   const returnsForList = refundPayments.map((p: any) => ({
@@ -74,8 +75,8 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions }:
       <div className="relative overflow-hidden rounded-card bg-brand-700 p-6 text-white">
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-brand-500/40" />
         <div className="relative">
-          <p className="text-xs font-semibold text-white/70">{segment === "receivable" ? "Total receivable" : "Collected this month"}</p>
-          <p className="mt-1 font-display text-3xl font-semibold">{fmtMoney(segment === "receivable" ? outstanding : collectedThisMonth, settings.currency)}</p>
+          <p className="text-xs font-semibold text-white/70">{segment === "receivable" ? "Total receivable" : "Total collected"}</p>
+          <p className="mt-1 font-display text-3xl font-semibold">{fmtMoney(segment === "receivable" ? outstanding : totalCollected, settings.currency)}</p>
           <p className={`mt-1 text-xs font-semibold ${segment === "receivable" && overdueEstimates.length > 0 ? "text-bad-200" : "text-good-200"}`}>
             {segment === "receivable"
               ? overdueEstimates.length > 0 ? `${overdueEstimates.length} overdue estimate${overdueEstimates.length !== 1 ? "s" : ""}` : "Nothing overdue"

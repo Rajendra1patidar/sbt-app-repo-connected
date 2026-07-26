@@ -20,6 +20,7 @@ import { CustomersView } from "./views/CustomersView";
 import { Dashboard } from "./views/Dashboard";
 import { DocumentList } from "./views/DocumentList";
 import { ExpensesView } from "./views/ExpensesView";
+import { FinancialYearView } from "./views/FinancialYearView";
 import { ToDoTrackingView } from "./views/InventoryView";
 import { ItemsView } from "./views/ItemsView";
 import { LabourTrackingView } from "./views/LabourTrackingView";
@@ -528,6 +529,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       case "vendors":   return <VendorsView vendors={vendors} purchases={purchases} currency={settings.currency} openModal={openModal} removeVendor={removeVendor} />;
       case "purchases": return <PurchasesView purchases={purchases} vendors={vendors} items={items} currency={settings.currency} openModal={openModal} removePurchase={removePurchase} />;
       case "ledger":    return <LedgerReportsView currency={settings.currency} />;
+      case "financialYears": return <FinancialYearView currency={settings.currency} />;
       case "challans":  return <DocumentList type="challan" docs={challans} customers={customers} currency={settings.currency} openModal={openModal} removeDoc={removeDoc("challan")} updateStatus={updateDocStatus("challan")} />;
       case "estimates":  return (
         <div className="px-5 pt-1">

@@ -5,8 +5,9 @@ import { today } from "../../lib/format";
 
 /* ---- OrderModal ---- */
 
-export function OrderModal({ items, onClose, onSave, prefill }: any) {
+export function OrderModal({ items, vendors, onClose, onSave, prefill }: any) {
   const [itemId, setItemId] = useState(prefill?.itemId || items[0]?.id || "");
+  const [vendorId, setVendorId] = useState(prefill?.vendorId || "");
   const [qty, setQty] = useState(String(prefill?.qty || "1"));
   const [date, setDate] = useState(today());
   const [notes, setNotes] = useState("");
@@ -39,6 +40,15 @@ export function OrderModal({ items, onClose, onSave, prefill }: any) {
               </div>
             )}
             <div>
+              <label className="mb-1 block text-xs font-semibold text-ink/50">Vendor (optional)</label>
+              <SearchableSelect
+                options={vendors.map((v: any) => ({ value: v.id, label: v.name }))}
+                value={vendorId}
+                onChange={setVendorId}
+                placeholder="Select vendor, if known"
+              />
+            </div>
+            <div>
               <label className="mb-1 block text-xs font-semibold text-ink/50">Qty to order *</label>
               <input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
             </div>
@@ -47,14 +57,14 @@ export function OrderModal({ items, onClose, onSave, prefill }: any) {
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-ink/50">Notes / Supplier</label>
-              <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Supplier name" className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
+              <label className="mb-1 block text-xs font-semibold text-ink/50">Notes</label>
+              <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
             </div>
           </div>
         )}
         <div className="mt-6 flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
-          <button disabled={!canSave} onClick={() => canSave && onSave({ itemId, qty: Number(qty), date, notes })}
+          <button disabled={!canSave} onClick={() => canSave && onSave({ itemId, vendorId: vendorId || undefined, qty: Number(qty), date, notes })}
             className="flex-1 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40">Place Order</button>
         </div>
       </div>

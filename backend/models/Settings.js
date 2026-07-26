@@ -8,6 +8,12 @@ const settingsSchema = new mongoose.Schema(
     email: { type: String, default: "SARANGPUR SANDAWTA ROAD PADLYA MATAJI" },
     currency: { type: String, default: "₹" },
     businessWhatsApp: { type: String, default: "" },
+    // Item categories are now user-editable from Settings instead of hardcoded —
+    // this seeds new accounts with the same defaults the app used to hardcode.
+    itemCategories: {
+      type: [String],
+      default: ["Saria", "Cement", "CPVC", "UPVC", "Kasta", "Wall fit", "Roof fit", "Power Tool", "IOCL", "Sand", "Sanitary", "Others"],
+    },
   },
   { timestamps: true }
 );

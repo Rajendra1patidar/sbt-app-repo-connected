@@ -1,13 +1,24 @@
 import React, { useState } from "react";
-import { Phone } from "lucide-react";
+import { Phone, Plus, X } from "lucide-react";
 import { Card, PillButton } from "../common/UIPrimitives";
 import { ChangePinCard } from "./ChangePinCard";
-import { WHATSAPP_GREEN } from "../../lib/constants";
+import { WHATSAPP_GREEN, ITEM_CATEGORIES } from "../../lib/constants";
 
 export function SettingsView({ settings, setSettings }: any) {
-  const [local, setLocal] = useState(settings);
+  const [local, setLocal] = useState({ itemCategories: ITEM_CATEGORIES, ...settings });
+  const [newCategory, setNewCategory] = useState("");
   const set = (k: string, v: any) => setLocal((s: any) => ({ ...s, [k]: v }));
   const dirty = JSON.stringify(local) !== JSON.stringify(settings);
+
+  const categories: string[] = local.itemCategories?.length ? local.itemCategories : ITEM_CATEGORIES;
+  const addCategory = () => {
+    const name = newCategory.trim();
+    if (!name || categories.some((c) => c.toLowerCase() === name.toLowerCase())) return;
+    set("itemCategories", [...categories, name]);
+    setNewCategory("");
+  };
+  const removeCategory = (name: string) => set("itemCategories", categories.filter((c) => c !== name));
+
   return (
     <div className="space-y-4 px-5 pb-28">
       <Card className="space-y-4">
@@ -18,6 +29,31 @@ export function SettingsView({ settings, setSettings }: any) {
         <div><label className="mb-1 block text-xs font-semibold text-ink/50">Currency symbol</label>
         <select value={local.currency} onChange={(e) => set("currency", e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm">
           {["₹","$","€","£"].map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
+      </Card>
+      <Card className="space-y-3">
+        <h3 className="text-sm font-bold text-ink">Item categories</h3>
+        <p className="text-xs text-ink/40">Used across Items, Orders and Inventory. Removing a category here won't change items already tagged with it.</p>
+        <div className="flex flex-wrap gap-2">
+          {categories.map((c) => (
+            <span key={c} className="inline-flex items-center gap-1.5 rounded-full bg-paper px-3 py-1.5 text-xs font-semibold text-ink/70">
+              {c}
+              <button type="button" onClick={() => removeCategory(c)} className="text-ink/30 hover:text-bad-500"><X size={12} /></button>
+            </span>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input
+            value={newCategory}
+            onChange={(e) => setNewCategory(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCategory(); } }}
+            placeholder="New category name"
+            className="flex-1 rounded-xl border border-line px-3 py-2.5 text-sm"
+          />
+          <button type="button" onClick={addCategory} disabled={!newCategory.trim()}
+            className="inline-flex items-center gap-1 rounded-xl bg-brand-500 px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-40">
+            <Plus size={14} /> Add
+          </button>
+        </div>
       </Card>
       <Card className="space-y-3">
         <div className="flex items-center gap-2"><Phone size={16} style={{ color: WHATSAPP_GREEN }} /><h3 className="text-sm font-bold text-ink">WhatsApp integration</h3></div>

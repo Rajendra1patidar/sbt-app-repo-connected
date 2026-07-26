@@ -17,7 +17,7 @@ base.findDuplicate = async (req, res, next) => {
   }
 };
 
-// override create to mirror frontend's price normalization logic
+// override create to enforce per-owner name uniqueness
 base.create = async (req, res, next) => {
   try {
     const v = req.body;
@@ -30,7 +30,6 @@ base.create = async (req, res, next) => {
       owner: req.userId,
       vendorId: v.vendorId || undefined,
       name: v.name,
-      price: Number(v.sellingPrice || v.price || 0),
       sellingPrice: Number(v.sellingPrice || 0),
       purchasePrice: Number(v.purchasePrice || 0),
       unit: v.unit,

@@ -5,7 +5,6 @@ const itemSchema = new mongoose.Schema(
     owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "Vendor" }, // preferred/usual supplier, used by reorder suggestions
     name: { type: String, required: true, trim: true },
-    price: { type: Number, default: 0 },
     sellingPrice: { type: Number, default: 0 },
     purchasePrice: { type: Number, default: 0 },
     unit: { type: String, trim: true },

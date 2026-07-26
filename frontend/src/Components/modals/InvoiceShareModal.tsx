@@ -79,7 +79,7 @@ export function InvoiceShareModal({ invoice, customer, items, settings, payment,
     };
     lines.forEach((ln: any) => {
       const it = items.find((i: any) => i.id === ln.itemId);
-      const name = it?.name || "Item"; const qty = Number(ln.qty || 0); const price = ln.rate ?? it?.price ?? 0;
+      const name = it?.name || "Item"; const qty = Number(ln.qty || 0); const price = ln.rate ?? it?.sellingPrice ?? 0;
       drawRow(`${name} × ${fmtNum(qty)}`, qty * price);
     });
     extras.forEach(([label, val]) => drawRow(label, val));

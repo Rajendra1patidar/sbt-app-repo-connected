@@ -1,16 +1,18 @@
 import React, { useState } from "react";
-import { PackageCheck, Plus, Search, Trash2 } from "lucide-react";
+import { ArrowRightLeft, PackageCheck, Plus, Search, Trash2 } from "lucide-react";
 import { Badge, Card, EmptyState, PillButton } from "../common/UIPrimitives";
 import { ITEM_CATEGORIES } from "../../lib/constants";
 import { fmtDate, fmtNum } from "../../lib/format";
 
 /* ---- Orders ---- */
 
-export function OrdersView({ orders, items, openModal, markOrderReceived, removeOrder }: any) {
+export function OrdersView({ orders, items, vendors, categories, openModal, markOrderReceived, removeOrder, convertOrderToPurchase }: any) {
   const [category, setCategory] = useState("All");
   const [search, setSearch] = useState("");
+  const cats = categories?.length ? categories : ITEM_CATEGORIES;
   const itemName = (id: string) => items.find((it: any) => it.id === id)?.name || "Unknown item";
   const itemCategory = (id: string) => items.find((it: any) => it.id === id)?.category || "Others";
+  const vendorName = (id?: string) => (id ? vendors.find((v: any) => v.id === id)?.name : null);
   const q = search.trim().toLowerCase();
   const categoryFiltered = orders
     .filter((o: any) => category === "All" || itemCategory(o.itemId) === category)
@@ -36,7 +38,7 @@ export function OrdersView({ orders, items, openModal, markOrderReceived, remove
         </div>
       )}
       <div className="flex flex-wrap gap-2">
-        {["All", ...ITEM_CATEGORIES].map((c) => (
+        {["All", ...cats].map((c) => (
           <button key={c} onClick={() => setCategory(c)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${category === c ? "bg-brand-500 text-white" : "bg-paper text-ink/70"}`}>{c}</button>
         ))}
       </div>
@@ -55,14 +57,19 @@ export function OrdersView({ orders, items, openModal, markOrderReceived, remove
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="font-semibold text-ink truncate">{itemName(o.itemId)}</p>
-                        <p className="text-xs text-ink/40 truncate">Qty: {fmtNum(o.qty)} · {fmtDate(o.date)}{o.notes ? ` · ${o.notes}` : ""}</p>
+                        <p className="text-xs text-ink/40 truncate">Qty: {fmtNum(o.qty)} · {fmtDate(o.date)}{vendorName(o.vendorId) ? ` · ${vendorName(o.vendorId)}` : ""}{o.notes ? ` · ${o.notes}` : ""}</p>
                       </div>
                       <Badge status="Pending" />
                     </div>
-                    <div className="mt-3 flex gap-2">
+                    <div className="mt-3 flex flex-wrap gap-2">
                       <button onClick={() => markOrderReceived(o.id)}
                         className="inline-flex items-center gap-1.5 rounded-full bg-good-500 px-3 py-1.5 text-xs font-semibold text-white active:scale-[0.98]">
                         <PackageCheck size={13} /> Mark Received
+                      </button>
+                      <button onClick={() => convertOrderToPurchase(o)}
+                        title="Log this as a Purchase (with vendor, rate & payment) once it arrives"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 active:scale-[0.98]">
+                        <ArrowRightLeft size={13} /> Convert to Purchase
                       </button>
                       <button onClick={() => removeOrder(o.id)} className="rounded-full p-1.5 text-bad-400 hover:bg-bad-50"><Trash2 size={14} /></button>
                     </div>
@@ -77,7 +84,7 @@ export function OrdersView({ orders, items, openModal, markOrderReceived, remove
                   <Card key={o.id} className="mb-2 flex items-center justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-semibold text-ink truncate">{itemName(o.itemId)}</p>
-                      <p className="text-xs text-ink/40 truncate">Qty: {fmtNum(o.qty)} · {fmtDate(o.date)}{o.notes ? ` · ${o.notes}` : ""}</p>
+                      <p className="text-xs text-ink/40 truncate">Qty: {fmtNum(o.qty)} · {fmtDate(o.date)}{vendorName(o.vendorId) ? ` · ${vendorName(o.vendorId)}` : ""}{o.notes ? ` · ${o.notes}` : ""}</p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <Badge status="Received" />

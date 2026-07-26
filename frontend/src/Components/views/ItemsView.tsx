@@ -6,9 +6,10 @@ import { fmtMoney, fmtNum } from "../../lib/format";
 
 /* ---- Items (with stock display) ---- */
 
-export function ItemsView({ items, openModal, removeItem, currency }: any) {
+export function ItemsView({ items, categories, openModal, removeItem, currency }: any) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
+  const cats = categories?.length ? categories : ITEM_CATEGORIES;
 
   const filtered = items.filter((it: any) => {
     const matchesSearch = !search.trim() || it.name.toLowerCase().includes(search.trim().toLowerCase());
@@ -32,7 +33,7 @@ export function ItemsView({ items, openModal, removeItem, currency }: any) {
         />
       </div>
       <div className="flex flex-wrap gap-2">
-        {["All", ...ITEM_CATEGORIES].map((c) => (
+        {["All", ...cats].map((c) => (
           <button key={c} onClick={() => setCategory(c)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${category === c ? "bg-brand-500 text-white" : "bg-paper text-ink/70"}`}>{c}</button>
         ))}
       </div>

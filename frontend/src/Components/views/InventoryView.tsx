@@ -90,10 +90,11 @@ function ReorderSuggestionsCard({ suggestions }: any) {
   );
 }
 
-export function ToDoTrackingView({ items, settings, orders, openModal, reorderSuggestions }: any) {
+export function ToDoTrackingView({ items, settings, categories, orders, openModal, reorderSuggestions }: any) {
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [category, setCategory] = useState("All");
   const [infoFor, setInfoFor] = useState<string | null>(null);
+  const cats = categories?.length ? categories : ITEM_CATEGORIES;
 
   const lowItems = items.filter((it: any) => (it.stock ?? 0) <= (it.lowStock ?? LOW_STOCK_DEFAULT));
   const categoryFiltered = category === "All" ? items : items.filter((it: any) => (it.category || "Others") === category);
@@ -201,7 +202,7 @@ export function ToDoTrackingView({ items, settings, orders, openModal, reorderSu
         {inventoryOpen && (
           <div className="mt-4">
             <div className="mb-3 flex flex-wrap gap-2">
-              {["All", ...ITEM_CATEGORIES].map((c) => (
+              {["All", ...cats].map((c) => (
                 <button key={c} onClick={() => setCategory(c)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${category === c ? "bg-brand-500 text-white" : "bg-paper text-ink/70"}`}>{c}</button>
               ))}
             </div>

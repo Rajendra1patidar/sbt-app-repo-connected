@@ -11,7 +11,7 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, o
   const [customerId, setCustomerId] = useState(editingDoc?.customerId || customers[0]?.id || "");
   const [date, setDate] = useState(editingDoc?.date ? String(editingDoc.date).slice(0, 10) : today());
   const [dueDate, setDueDate] = useState(editingDoc?.dueDate ? String(editingDoc.dueDate).slice(0, 10) : today());
-  const [lines, setLines] = useState<InvoiceLine[]>(editingDoc?.lines?.length ? editingDoc.lines.map((ln: InvoiceLine) => ({ ...ln })) : [{ itemId: items[0]?.id || "", qty: 1, rate: items[0]?.price || 0 }]);
+  const [lines, setLines] = useState<InvoiceLine[]>(editingDoc?.lines?.length ? editingDoc.lines.map((ln: InvoiceLine) => ({ ...ln })) : [{ itemId: items[0]?.id || "", qty: 1, rate: items[0]?.sellingPrice || 0 }]);
   const [notes, setNotes] = useState(editingDoc?.notes || "");
   const [rateEditIndex, setRateEditIndex] = useState<number | null>(null);
   const [freightCost, setFreightCost] = useState(editingDoc?.freightCost ? String(editingDoc.freightCost) : "");
@@ -34,11 +34,11 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, o
   const knownContractors = Array.from(new Set((estimates || []).map((e: any) => e.contractorName).filter(Boolean))) as string[];
   const knownDestinations = Array.from(new Set((estimates || []).map((e: any) => e.destination).filter(Boolean))) as string[];
 
-  const addLine = () => setLines((l) => [...l, { itemId: items[0]?.id || "", qty: 1, rate: items[0]?.price || 0 }]);
+  const addLine = () => setLines((l) => [...l, { itemId: items[0]?.id || "", qty: 1, rate: items[0]?.sellingPrice || 0 }]);
   const updateLine = (i: number, patch: any) => setLines((l) => l.map((ln, idx) => idx === i ? { ...ln, ...patch } : ln));
   const setLineItem = (i: number, itemId: string) => {
     const it = items.find((it: any) => it.id === itemId);
-    updateLine(i, { itemId, rate: it?.price || 0 }); // fresh rate every time the item on this line changes
+    updateLine(i, { itemId, rate: it?.sellingPrice || 0 }); // fresh rate every time the item on this line changes
   };
   const removeLine = (i: number) => setLines((l) => l.filter((_, idx) => idx !== i));
   const itemById = (id: string) => items.find((it: any) => it.id === id);
@@ -109,7 +109,7 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, o
               <div className="space-y-3">
                 {lines.map((ln, i) => {
                   const it = itemById(ln.itemId);
-                  const isOverridden = type === "estimate" && it && Number(ln.rate) !== Number(it.price);
+                  const isOverridden = type === "estimate" && it && Number(ln.rate) !== Number(it.sellingPrice);
                   const lineSubtotal = Number(ln.qty || 0) * Number(ln.rate || 0);
                   return (
                     <div key={i} className="rounded-xl border border-line bg-paper/60 p-2">
@@ -222,10 +222,10 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, o
         return (
           <RateEditPopup
             itemName={it?.name || "Item"}
-            listPrice={it?.price || 0}
+            listPrice={it?.sellingPrice || 0}
             rate={ln.rate}
             onCancel={() => setRateEditIndex(null)}
-            onReset={() => { updateLine(rateEditIndex, { rate: it?.price || 0 }); setRateEditIndex(null); }}
+            onReset={() => { updateLine(rateEditIndex, { rate: it?.sellingPrice || 0 }); setRateEditIndex(null); }}
             onSave={(newRate: number) => { updateLine(rateEditIndex, { rate: newRate }); setRateEditIndex(null); }}
           />
         );

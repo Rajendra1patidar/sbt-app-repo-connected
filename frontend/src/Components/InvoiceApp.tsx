@@ -53,6 +53,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 
   const [settings, setSettings] = useState({
     orgName: "SHREE BALAJI TRADERS", ownerName: "SBT", email: "SARANGPUR SANDAWTA ROAD PADLYA MATAJI", currency: "₹", businessWhatsApp: "",
+    itemCategories: ITEM_CATEGORIES,
   });
 
   const [customers, setCustomers] = useState<any[]>([]);
@@ -268,11 +269,21 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       });
       setPurchases((c) => [purchase, ...c]);
       if (item) setItems((c) => c.map((x) => (x.id === item.id ? item : x)));
+      // Purchase already adds this qty to stock, so if this purchase was created
+      // by converting a pending Order, that order is now redundant — remove it
+      // quietly (no undo toast) rather than risk double-counting stock later.
+      if (v.fromOrderId) {
+        setOrders((c) => c.filter((o) => o.id !== v.fromOrderId));
+        api.orders.remove(v.fromOrderId).catch(() => {});
+      }
       showToast("Purchase recorded");
       closeModal();
       refreshReorderSuggestions();
     } catch (err) { onApiError(err, "Failed to record purchase"); }
   };
+
+  const convertOrderToPurchase = (order: any) =>
+    openModal("purchase", { itemId: order.itemId, vendorId: order.vendorId, qty: order.qty, fromOrderId: order.id });
 
   const removePurchase = (id: string) => {
     scheduleDelete("Purchase", purchases, setPurchases, id, () => api.purchases.remove(id));
@@ -410,7 +421,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 
   const saveOrder = async (v: any) => {
     try {
-      const doc = await api.orders.create({ itemId: v.itemId, qty: v.qty, date: v.date, notes: v.notes });
+      const doc = await api.orders.create({ itemId: v.itemId, vendorId: v.vendorId, qty: v.qty, date: v.date, notes: v.notes });
       setOrders((o) => [doc, ...o]);
       showToast("Order placed");
       closeModal();
@@ -470,7 +481,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       const it = items.find((i) => i.id === ln.itemId);
       const name = it?.name || "Item";
       const qty = Number(ln.qty || 0);
-      const rate = ln.rate ?? it?.price ?? 0;
+      const rate = ln.rate ?? it?.sellingPrice ?? 0;
       const amount = qty * rate;
       return `<div class="ln"><span class="ln-name">${name} × ${qty} @ ${fmtMoney(rate, settings.currency)}</span><span class="ln-amt">${fmtMoney(amount, settings.currency)}</span></div>`;
     }).join("");
@@ -539,6 +550,10 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   const data = { customers, items, orders, estimates, invoices: estimates, challans, expenses, payments, labourSessions };
 
   /* ---- view renderer ---- */
+  // Categories are user-editable from Settings now — fall back to the built-in
+  // defaults for accounts that haven't saved a custom list yet.
+  const itemCategories = settings.itemCategories?.length ? settings.itemCategories : ITEM_CATEGORIES;
+
   const renderView = () => {
     switch (view) {
       case "dashboard": return <Dashboard data={data} settings={settings} openModal={openModal} go={setView} reorderSuggestions={reorderSuggestions} />;
@@ -548,8 +563,8 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         customer={customers.find((c: any) => c.id === selectedCustomerId)}
         estimates={estimates} payments={payments} items={items} openModal={openModal} currency={settings.currency}
         onBack={() => setView("customers")} />;
-      case "items":     return <ItemsView items={items} openModal={openModal} currency={settings.currency} removeItem={removeItem} />;
-      case "orders":    return <OrdersView orders={orders} items={items} openModal={openModal} markOrderReceived={markOrderReceived} removeOrder={removeOrder} />;
+      case "items":     return <ItemsView items={items} categories={itemCategories} openModal={openModal} currency={settings.currency} removeItem={removeItem} />;
+      case "orders":    return <OrdersView orders={orders} items={items} vendors={vendors} categories={itemCategories} openModal={openModal} markOrderReceived={markOrderReceived} removeOrder={removeOrder} convertOrderToPurchase={convertOrderToPurchase} />;
       case "vendors":   return <VendorsView vendors={vendors} purchases={purchases} currency={settings.currency} openModal={openModal} removeVendor={removeVendor} />;
       case "purchases": return <PurchasesView purchases={purchases} vendors={vendors} items={items} currency={settings.currency} openModal={openModal} removePurchase={removePurchase} />;
       case "ledger":    return <LedgerReportsView currency={settings.currency} />;
@@ -574,7 +589,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       );
       case "payments":  return <PaymentsView payments={payments} customers={customers} currency={settings.currency} openModal={openModal} removePayment={removePayment} estimates={estimates} />;
       case "expenses":  return <ExpensesView expenses={expenses} currency={settings.currency} openModal={openModal} removeExpense={removeExpense} />;
-      case "todo":      return <ToDoTrackingView items={items} settings={settings} orders={orders} openModal={openModal} reorderSuggestions={reorderSuggestions} />;
+      case "todo":      return <ToDoTrackingView items={items} settings={settings} categories={itemCategories} orders={orders} openModal={openModal} reorderSuggestions={reorderSuggestions} />;
       case "labour":    return <LabourTrackingView sessions={labourSessions} knownWorkers={labourWorkers} onSave={saveLabourSession} onRemove={removeLabourSession} currency={settings.currency} estimates={estimates} items={items} customers={customers} />;
       case "contractors": return <ContractorScorecardView estimates={estimates} items={items} currency={settings.currency} contractors={contractors} onSavePhone={saveContractorPhone} showToast={showToast} />;
       case "reports":      return <ReportsView data={data} currency={settings.currency} settings={settings} />;
@@ -605,9 +620,11 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       const vendorOptions = vendors.map((v: any) => ({ value: v.id, label: v.name }));
       return <FieldModal title={editingItem ? "Edit Item" : "New Item"} fields={[
         { key: "name",          label: "Item name",           required: true, placeholder: "Web design service" },
-        { key: "category",      label: "Category",            type: "select", options: ITEM_CATEGORIES.map((c) => ({ value: c, label: c })), required: true },
+        { key: "category",      label: "Category",            type: "select", options: itemCategories.map((c: string) => ({ value: c, label: c })), required: true },
         { key: "sellingPrice",  label: "Selling price",       type: "number", required: true, placeholder: "0.00" },
-        { key: "purchasePrice", label: "Purchase price",      type: "number", placeholder: "0.00" },
+        editingItem
+          ? { key: "purchasePrice", label: "Avg. purchase cost", type: "number", readOnly: true, helpText: "Auto-calculated from your Purchases — record a Purchase to update it." }
+          : { key: "purchasePrice", label: "Opening purchase price", type: "number", placeholder: "0.00", helpText: "Starting cost estimate — future Purchases will roll this forward automatically." },
         { key: "unit",          label: "Unit",                placeholder: "hr / pc / job" },
         { key: "stock",         label: editingItem ? "Stock (qty)" : "Opening stock (qty)", type: "number", placeholder: "0" },
         { key: "lowStock",      label: "Low stock alert at",  type: "number", placeholder: `${LOW_STOCK_DEFAULT}` },
@@ -616,7 +633,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         { key: "vendorId",      label: "Preferred vendor (for reorder suggestions)", type: "select", options: vendorOptions },
       ]} initial={editingItem ? {
         id: editingItem.id, name: editingItem.name, category: editingItem.category || "Others",
-        sellingPrice: editingItem.sellingPrice ?? editingItem.price, purchasePrice: editingItem.purchasePrice,
+        sellingPrice: editingItem.sellingPrice ?? editingItem.price ?? 0, purchasePrice: editingItem.purchasePrice,
         unit: editingItem.unit, stock: editingItem.stock, lowStock: editingItem.lowStock ?? LOW_STOCK_DEFAULT,
         trackingMode: editingItem.trackingMode || "unit", piecesPerBox: editingItem.piecesPerBox || 0,
         vendorId: editingItem.vendorId || "",
@@ -640,7 +657,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     if (type === "purchase") {
       const vendorOptions = vendors.map((v: any) => ({ value: v.id, label: v.name }));
       const itemOptions = items.map((i: any) => ({ value: i.id, label: i.name }));
-      return <FieldModal title="New Purchase" fields={[
+      return <FieldModal title={payload?.fromOrderId ? "Convert Order to Purchase" : "New Purchase"} fields={[
         { key: "vendorId",      label: "Vendor",              type: "select", options: vendorOptions, required: true },
         { key: "itemId",        label: "Item",                type: "select", options: itemOptions, required: true },
         { key: "qty",           label: "Quantity",            type: "number", required: true, placeholder: "0" },
@@ -649,7 +666,8 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         { key: "paymentStatus", label: "Payment status",      type: "toggle", options: [{ value: "unpaid", label: "Unpaid" }, { value: "partial", label: "Partial" }, { value: "paid", label: "Paid" }] },
         { key: "amountPaid",    label: "Amount paid now",     type: "number", placeholder: "0.00", showIf: (v: any) => v.paymentStatus === "partial" },
         { key: "notes",         label: "Notes",               type: "textarea", placeholder: "Optional" },
-      ]} initial={{ date: today(), paymentStatus: "unpaid" }} onClose={closeModal} onSave={savePurchase} />;
+      ]} initial={{ date: today(), paymentStatus: "unpaid", itemId: payload?.itemId, vendorId: payload?.vendorId, qty: payload?.qty }} onClose={closeModal}
+        onSave={(v: any) => savePurchase({ ...v, fromOrderId: payload?.fromOrderId })} />;
     }
 
     if (type === "vendorPayment") {
@@ -672,7 +690,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         onSave={(v: any) => savePurchasePayment({ ...v, purchaseId: payload?.purchaseId })} />;
     }
 
-    if (type === "order") return <OrderModal items={items} onClose={closeModal} onSave={saveOrder} prefill={payload} />;
+    if (type === "order") return <OrderModal items={items} vendors={vendors} onClose={closeModal} onSave={saveOrder} prefill={payload} />;
 
     if (type === "challan")
       return <ChallanModal onClose={closeModal} onSave={saveChallan} />;

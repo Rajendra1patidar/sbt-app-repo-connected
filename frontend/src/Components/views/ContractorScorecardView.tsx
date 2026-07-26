@@ -66,7 +66,7 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
       const it = items.find((i: any) => i.id === ln.itemId);
       const itemName = it?.name || "Unknown item";
       const qty = Number(ln.qty || 0);
-      const amount = qty * Number(ln.rate ?? it?.price ?? 0);
+      const amount = qty * Number(ln.rate ?? it?.sellingPrice ?? 0);
       if (!byContractor[name].itemMap[itemName]) byContractor[name].itemMap[itemName] = { name: itemName, qty: 0, amount: 0 };
       byContractor[name].itemMap[itemName].qty += qty;
       byContractor[name].itemMap[itemName].amount += amount;

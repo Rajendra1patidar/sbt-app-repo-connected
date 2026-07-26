@@ -63,8 +63,10 @@ export function FieldModal({ title, fields, initial, onClose, onSave, danger }: 
               ) : (
                 <input type={f.type || "text"} value={values[f.key] ?? ""}
                   onChange={(e) => set(f.key, e.target.value)} placeholder={f.placeholder}
-                  className="w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400" />
+                  readOnly={f.readOnly} disabled={f.readOnly}
+                  className={`w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 ${f.readOnly ? "bg-paper text-ink/50" : ""}`} />
               )}
+              {f.helpText && <p className="mt-1 text-xs text-ink/40">{f.helpText}</p>}
             </div>
           ))}
         </div>

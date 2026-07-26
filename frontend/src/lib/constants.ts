@@ -4,7 +4,7 @@ export const WHATSAPP_GREEN = "#25D366";
 
 export const LOW_STOCK_DEFAULT = 5;
 
-export const ITEM_CATEGORIES = ["Saria", "Cement", "CPVC", "UPVC", "Kasta", "Others"];
+export const ITEM_CATEGORIES = ["Saria", "Cement", "CPVC", "UPVC", "Kasta", "Wall fit", "Roof fit", "Power Tool", "IOCL", "Sand", "Sanitary", "Others"];
 
 export const STATUS_STYLES: Record<string, string> = {
   Accepted: "bg-advance-50 text-advance-700",

@@ -119,6 +119,35 @@ export const api = {
   expenses: crud("/api/expenses"),
   payments: crud("/api/payments"),
   contractors: crud("/api/contractors"),
+
+  vendors: {
+    ...crud("/api/vendors"),
+    findDuplicate: (name: string, phone: string) =>
+      request(`/api/vendors/meta/find-duplicate?name=${encodeURIComponent(name)}&phone=${encodeURIComponent(phone)}`),
+    statement: (id: string) => request(`/api/vendors/${id}/statement`),
+    recordPayment: (id: string, v: any) => request(`/api/vendors/${id}/payments`, { method: "POST", body: JSON.stringify(v) }),
+  },
+
+  purchases: crud("/api/purchases"),
+
+  ledger: {
+    trialBalance: (from?: string, to?: string) =>
+      request(`/api/ledger/trial-balance${from && to ? `?startDate=${from}&endDate=${to}` : ""}`),
+    profitAndLoss: (from?: string, to?: string) =>
+      request(`/api/ledger/profit-loss${from && to ? `?startDate=${from}&endDate=${to}` : ""}`),
+    balanceSheet: (asOfDate?: string) => request(`/api/ledger/balance-sheet${asOfDate ? `?asOfDate=${asOfDate}` : ""}`),
+    dayBook: (from?: string, to?: string) =>
+      request(`/api/ledger/day-book${from && to ? `?startDate=${from}&endDate=${to}` : ""}`),
+    stockValuation: () => request("/api/ledger/stock-valuation"),
+    customerStatement: (id: string) => request(`/api/ledger/customers/${id}/statement`),
+  },
+
+  financialYears: {
+    list: () => request("/api/financial-years"),
+    create: (v: any) => request("/api/financial-years", { method: "POST", body: JSON.stringify(v) }),
+    close: (id: string) => request(`/api/financial-years/${id}/close`, { method: "POST" }),
+  },
+
   labourSessions: {
     list: (from?: string, to?: string) => request(`/api/labour-sessions${from && to ? `?from=${from}&to=${to}` : ""}`),
     create: (v: any) => request("/api/labour-sessions", { method: "POST", body: JSON.stringify(v) }),

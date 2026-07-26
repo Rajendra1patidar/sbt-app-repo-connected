@@ -23,11 +23,14 @@ import { ExpensesView } from "./views/ExpensesView";
 import { ToDoTrackingView } from "./views/InventoryView";
 import { ItemsView } from "./views/ItemsView";
 import { LabourTrackingView } from "./views/LabourTrackingView";
+import { LedgerReportsView } from "./views/LedgerReportsView";
 import { OrdersView } from "./views/OrdersView";
 import { PaymentsView } from "./views/PaymentsView";
+import { PurchasesView } from "./views/PurchasesView";
 import { ReportsView } from "./views/ReportsView";
 import { SettingsView } from "./views/SettingsView";
 import { ShareReportView } from "./views/ShareReportView";
+import { VendorsView } from "./views/VendorsView";
 import { ITEM_CATEGORIES, LOW_STOCK_DEFAULT, WHATSAPP_GREEN } from "../lib/constants";
 import { waLink } from "../lib/contactLinks";
 import { fmtDate, fmtMoney, fmtNum, today } from "../lib/format";
@@ -62,6 +65,8 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   const [labourSessions, setLabourSessions] = useState<any[]>([]);
   const [labourWorkers, setLabourWorkers] = useState<string[]>([]);
   const [contractors, setContractors] = useState<any[]>([]);
+  const [vendors, setVendors] = useState<any[]>([]);
+  const [purchases, setPurchases] = useState<any[]>([]);
 
   const pendingDeletes = useRef<Record<string, () => void>>({});
 
@@ -109,7 +114,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     let cancelled = false;
     (async () => {
       try {
-        const [c, it, o, est, ch, ex, pay, st, ls, lw, ct] = await Promise.all([
+        const [c, it, o, est, ch, ex, pay, st, ls, lw, ct, vd, pu] = await Promise.all([
           api.customers.list(),
           api.items.list(),
           api.orders.list(),
@@ -121,12 +126,15 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
           api.labourSessions.list(),
           api.labourSessions.workers(),
           api.contractors.list(),
+          api.vendors.list(),
+          api.purchases.list(),
         ]);
         if (cancelled) return;
         setCustomers(c); setItems(it); setOrders(o); setEstimates(est);
         setChallans(ch); setExpenses(ex); setPayments(pay);
         setLabourSessions(ls); setLabourWorkers(lw);
         setContractors(ct);
+        setVendors(vd); setPurchases(pu);
         setSettings((prev) => ({ ...prev, ...st }));
       } catch (err: any) {
         if (!cancelled) {
@@ -211,6 +219,54 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 
   const removeExpense = (id: string) => {
     scheduleDelete("Expense", expenses, setExpenses, id, () => api.expenses.remove(id));
+  };
+
+  const saveVendor = async (v: any) => {
+    try {
+      const doc = await api.vendors.create(v);
+      setVendors((c) => [doc, ...c]);
+      showToast("Vendor added");
+      closeModal();
+    } catch (err) { onApiError(err, "Failed to add vendor"); }
+  };
+
+  const removeVendor = (id: string) => {
+    scheduleDelete("Vendor", vendors, setVendors, id, () => api.vendors.remove(id));
+  };
+
+  const savePurchase = async (v: any) => {
+    try {
+      const { purchase, item } = await api.purchases.create({
+        vendorId: v.vendorId,
+        itemId: v.itemId,
+        qty: Number(v.qty),
+        rate: Number(v.rate),
+        date: v.date || today(),
+        paymentStatus: v.paymentStatus || "unpaid",
+        amountPaid: v.amountPaid ? Number(v.amountPaid) : undefined,
+        notes: v.notes,
+      });
+      setPurchases((c) => [purchase, ...c]);
+      if (item) setItems((c) => c.map((x) => (x.id === item.id ? item : x)));
+      showToast("Purchase recorded");
+      closeModal();
+    } catch (err) { onApiError(err, "Failed to record purchase"); }
+  };
+
+  const removePurchase = (id: string) => {
+    scheduleDelete("Purchase", purchases, setPurchases, id, () => api.purchases.remove(id));
+  };
+
+  const saveVendorPayment = async (v: any) => {
+    try {
+      await api.vendors.recordPayment(v.vendorId, { amount: Number(v.amount), date: v.date || today(), method: v.method, notes: v.notes });
+      // amountPaid on the underlying purchases isn't tracked per-payment here, so just
+      // refresh the purchase list to reflect any state the backend may have changed
+      const pu = await api.purchases.list();
+      setPurchases(pu);
+      showToast("Payment recorded");
+      closeModal();
+    } catch (err) { onApiError(err, "Failed to record vendor payment"); }
   };
 
   const docSetter = (type: string) => (type === "estimate" ? setEstimates : setChallans);
@@ -458,6 +514,9 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         onBack={() => setView("customers")} />;
       case "items":     return <ItemsView items={items} openModal={openModal} currency={settings.currency} removeItem={removeItem} />;
       case "orders":    return <OrdersView orders={orders} items={items} openModal={openModal} markOrderReceived={markOrderReceived} removeOrder={removeOrder} />;
+      case "vendors":   return <VendorsView vendors={vendors} purchases={purchases} currency={settings.currency} openModal={openModal} removeVendor={removeVendor} />;
+      case "purchases": return <PurchasesView purchases={purchases} vendors={vendors} items={items} currency={settings.currency} openModal={openModal} removePurchase={removePurchase} />;
+      case "ledger":    return <LedgerReportsView currency={settings.currency} />;
       case "challans":  return <DocumentList type="challan" docs={challans} customers={customers} currency={settings.currency} openModal={openModal} removeDoc={removeDoc("challan")} updateStatus={updateDocStatus("challan")} />;
       case "estimates":  return (
         <div className="px-5 pt-1">
@@ -530,6 +589,38 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       { key: "amount",   label: "Amount",   type: "number", required: true, placeholder: "0.00" },
       { key: "date",     label: "Date",     type: "date" },
     ]} initial={{ date: today() }} onClose={closeModal} onSave={saveExpense} />;
+
+    if (type === "vendor") return <FieldModal title="New Vendor" fields={[
+      { key: "name",     label: "Vendor name",        required: true, placeholder: "Ambuja Cement Distributor" },
+      { key: "phone",    label: "Phone",               placeholder: "+91 98765 43210" },
+      { key: "location", label: "Location / Address",  type: "location", placeholder: "City, area or full address" },
+      { key: "notes",    label: "Notes",               type: "textarea", placeholder: "Optional" },
+    ]} onClose={closeModal} onSave={saveVendor} />;
+
+    if (type === "purchase") {
+      const vendorOptions = vendors.map((v: any) => ({ value: v.id, label: v.name }));
+      const itemOptions = items.map((i: any) => ({ value: i.id, label: i.name }));
+      return <FieldModal title="New Purchase" fields={[
+        { key: "vendorId",      label: "Vendor",              type: "select", options: vendorOptions, required: true },
+        { key: "itemId",        label: "Item",                type: "select", options: itemOptions, required: true },
+        { key: "qty",           label: "Quantity",            type: "number", required: true, placeholder: "0" },
+        { key: "rate",          label: "Rate per unit",       type: "number", required: true, placeholder: "0.00" },
+        { key: "date",          label: "Date",                type: "date" },
+        { key: "paymentStatus", label: "Payment status",      type: "toggle", options: [{ value: "unpaid", label: "Unpaid" }, { value: "partial", label: "Partial" }, { value: "paid", label: "Paid" }] },
+        { key: "amountPaid",    label: "Amount paid now",     type: "number", placeholder: "0.00", showIf: (v: any) => v.paymentStatus === "partial" },
+        { key: "notes",         label: "Notes",               type: "textarea", placeholder: "Optional" },
+      ]} initial={{ date: today(), paymentStatus: "unpaid" }} onClose={closeModal} onSave={savePurchase} />;
+    }
+
+    if (type === "vendorPayment") {
+      return <FieldModal title={`Pay ${payload?.vendorName || "Vendor"}`} fields={[
+        { key: "amount", label: "Amount",  type: "number", required: true, placeholder: "0.00" },
+        { key: "method", label: "Method",  type: "select", options: [{ value: "Cash", label: "Cash" }, { value: "Bank Transfer", label: "Bank Transfer" }, { value: "UPI", label: "UPI" }, { value: "Card", label: "Card" }] },
+        { key: "date",   label: "Date",    type: "date" },
+        { key: "notes",  label: "Notes",   placeholder: "Optional" },
+      ]} initial={{ date: today(), vendorId: payload?.vendorId, amount: payload?.amount || "" }} onClose={closeModal}
+        onSave={(v: any) => saveVendorPayment({ ...v, vendorId: payload?.vendorId })} />;
+    }
 
     if (type === "order") return <OrderModal items={items} onClose={closeModal} onSave={saveOrder} prefill={payload} />;
 

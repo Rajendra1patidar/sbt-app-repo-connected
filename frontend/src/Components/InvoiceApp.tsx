@@ -6,6 +6,7 @@ import { GlobalSearchOverlay } from "./layout/GlobalSearchOverlay";
 import { Sidebar } from "./layout/Sidebar";
 import { Topbar } from "./layout/Topbar";
 import { ChallanModal } from "./modals/ChallanModal";
+import { ConfirmDeletePopup } from "./modals/ConfirmDeletePopup";
 import { DeliveryModal } from "./modals/DeliveryModal";
 import { DocumentModal } from "./modals/DocumentModal";
 import { FieldModal } from "./modals/FieldModal";
@@ -68,6 +69,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   const [contractors, setContractors] = useState<any[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
   const [purchases, setPurchases] = useState<any[]>([]);
+  const [reorderSuggestions, setReorderSuggestions] = useState<any[]>([]);
 
   const pendingDeletes = useRef<Record<string, () => void>>({});
 
@@ -77,6 +79,14 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   };
 
   const closeModal = () => setModal(null);
+  const refreshReorderSuggestions = () => { api.reports.reorderSuggestions().then(setReorderSuggestions).catch(() => {}); };
+
+  // Gate for higher-stakes deletes (Items, Customers, Payments) — everything else
+  // keeps the fast optimistic delete + undo-toast flow via scheduleDelete directly.
+  const [confirmDeleteFor, setConfirmDeleteFor] = useState<{ label: string; description?: string; onConfirm: () => void } | null>(null);
+  const confirmThenDelete = (label: string, description: string | undefined, doDelete: () => void) => {
+    setConfirmDeleteFor({ label, description, onConfirm: () => { doDelete(); setConfirmDeleteFor(null); } });
+  };
   const nextNumber = (list: any[], prefix: string) => `${prefix}-${String(list.length + 1).padStart(4, "0")}`;
 
   /**
@@ -115,7 +125,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     let cancelled = false;
     (async () => {
       try {
-        const [c, it, o, est, ch, ex, pay, st, ls, lw, ct, vd, pu] = await Promise.all([
+        const [c, it, o, est, ch, ex, pay, st, ls, lw, ct, vd, pu, rs] = await Promise.all([
           api.customers.list(),
           api.items.list(),
           api.orders.list(),
@@ -129,6 +139,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
           api.contractors.list(),
           api.vendors.list(),
           api.purchases.list(),
+          api.reports.reorderSuggestions().catch(() => []),
         ]);
         if (cancelled) return;
         setCustomers(c); setItems(it); setOrders(o); setEstimates(est);
@@ -136,6 +147,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         setLabourSessions(ls); setLabourWorkers(lw);
         setContractors(ct);
         setVendors(vd); setPurchases(pu);
+        setReorderSuggestions(rs || []);
         setSettings((prev) => ({ ...prev, ...st }));
       } catch (err: any) {
         if (!cancelled) {
@@ -174,7 +186,10 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   };
 
   const removeCustomer = (id: string) => {
-    scheduleDelete("Customer", customers, setCustomers, id, () => api.customers.remove(id));
+    const c = customers.find((x) => x.id === id);
+    confirmThenDelete(c?.name || "this customer", "This removes the customer and their ledger history.", () => {
+      scheduleDelete("Customer", customers, setCustomers, id, () => api.customers.remove(id));
+    });
   };
 
   const saveChallan = async (v: any) => {
@@ -202,11 +217,15 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         showToast("Item added");
       }
       closeModal();
+      refreshReorderSuggestions();
     } catch (err) { onApiError(err, "Failed to save item"); }
   };
 
   const removeItem = (id: string) => {
-    scheduleDelete("Item", items, setItems, id, () => api.items.remove(id));
+    const it = items.find((x) => x.id === id);
+    confirmThenDelete(it?.name || "this item", "This removes the item and its stock history.", () => {
+      scheduleDelete("Item", items, setItems, id, () => api.items.remove(id));
+    });
   };
 
   const saveExpense = async (v: any) => {
@@ -251,6 +270,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       if (item) setItems((c) => c.map((x) => (x.id === item.id ? item : x)));
       showToast("Purchase recorded");
       closeModal();
+      refreshReorderSuggestions();
     } catch (err) { onApiError(err, "Failed to record purchase"); }
   };
 
@@ -379,9 +399,12 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   };
 
   const removePayment = (id: string) => {
-    scheduleDelete("Payment", payments, setPayments, id, async () => {
-      const { invoice } = await api.payments.remove(id);
-      if (invoice) setEstimates((list) => list.map((i) => (i.id === invoice.id ? invoice : i)));
+    const p = payments.find((x) => x.id === id);
+    confirmThenDelete("this payment", p ? `This removes the recorded payment of ${fmtMoney(Math.abs(Number(p.amount || 0)), settings.currency)} and reopens the linked invoice's due amount.` : undefined, () => {
+      scheduleDelete("Payment", payments, setPayments, id, async () => {
+        const { invoice } = await api.payments.remove(id);
+        if (invoice) setEstimates((list) => list.map((i) => (i.id === invoice.id ? invoice : i)));
+      });
     });
   };
 
@@ -404,6 +427,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       setOrders((list) => list.map((o) => (o.id === orderId ? order : o)));
       setItems((list) => list.map((it) => (it.id === item.id ? item : it)));
       showToast(`Stock updated: +${fmtNum(order.qty)} added`);
+      refreshReorderSuggestions();
     } catch (err) { onApiError(err, "Failed to update order"); }
   };
 
@@ -517,7 +541,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   /* ---- view renderer ---- */
   const renderView = () => {
     switch (view) {
-      case "dashboard": return <Dashboard data={data} settings={settings} openModal={openModal} go={setView} />;
+      case "dashboard": return <Dashboard data={data} settings={settings} openModal={openModal} go={setView} reorderSuggestions={reorderSuggestions} />;
       case "customers": return <CustomersView customers={customers} estimates={estimates} openModal={openModal} removeCustomer={removeCustomer}
         onSelectCustomer={(id: string) => { setSelectedCustomerId(id); setView("customerDetail"); }} />;
       case "customerDetail": return <CustomerDetailView
@@ -550,8 +574,8 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       );
       case "payments":  return <PaymentsView payments={payments} customers={customers} currency={settings.currency} openModal={openModal} removePayment={removePayment} estimates={estimates} />;
       case "expenses":  return <ExpensesView expenses={expenses} currency={settings.currency} openModal={openModal} removeExpense={removeExpense} />;
-      case "todo":      return <ToDoTrackingView items={items} settings={settings} orders={orders} openModal={openModal} />;
-      case "labour":    return <LabourTrackingView sessions={labourSessions} knownWorkers={labourWorkers} onSave={saveLabourSession} onRemove={removeLabourSession} currency={settings.currency} estimates={estimates} items={items} />;
+      case "todo":      return <ToDoTrackingView items={items} settings={settings} orders={orders} openModal={openModal} reorderSuggestions={reorderSuggestions} />;
+      case "labour":    return <LabourTrackingView sessions={labourSessions} knownWorkers={labourWorkers} onSave={saveLabourSession} onRemove={removeLabourSession} currency={settings.currency} estimates={estimates} items={items} customers={customers} />;
       case "contractors": return <ContractorScorecardView estimates={estimates} items={items} currency={settings.currency} contractors={contractors} onSavePhone={saveContractorPhone} showToast={showToast} />;
       case "reports":      return <ReportsView data={data} currency={settings.currency} settings={settings} />;
       case "sharereport":  return <ShareReportView invoices={estimates} items={items} customers={customers} currency={settings.currency} settings={settings} />;
@@ -578,6 +602,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 
     if (type === "item") {
       const editingItem = payload?.editingItem;
+      const vendorOptions = vendors.map((v: any) => ({ value: v.id, label: v.name }));
       return <FieldModal title={editingItem ? "Edit Item" : "New Item"} fields={[
         { key: "name",          label: "Item name",           required: true, placeholder: "Web design service" },
         { key: "category",      label: "Category",            type: "select", options: ITEM_CATEGORIES.map((c) => ({ value: c, label: c })), required: true },
@@ -588,11 +613,13 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         { key: "lowStock",      label: "Low stock alert at",  type: "number", placeholder: `${LOW_STOCK_DEFAULT}` },
         { key: "trackingMode",  label: "Track by",            type: "toggle", options: [{ value: "unit", label: "Units" }, { value: "box", label: "Box" }] },
         { key: "piecesPerBox",  label: "Pieces per box",      type: "number", placeholder: "e.g. 30", required: true, showIf: (v: any) => v.trackingMode === "box" },
+        { key: "vendorId",      label: "Preferred vendor (for reorder suggestions)", type: "select", options: vendorOptions },
       ]} initial={editingItem ? {
         id: editingItem.id, name: editingItem.name, category: editingItem.category || "Others",
         sellingPrice: editingItem.sellingPrice ?? editingItem.price, purchasePrice: editingItem.purchasePrice,
         unit: editingItem.unit, stock: editingItem.stock, lowStock: editingItem.lowStock ?? LOW_STOCK_DEFAULT,
         trackingMode: editingItem.trackingMode || "unit", piecesPerBox: editingItem.piecesPerBox || 0,
+        vendorId: editingItem.vendorId || "",
       } : { category: "Others", trackingMode: "unit", piecesPerBox: 0 }} onClose={closeModal} onSave={saveItem} />;
     }
 
@@ -726,6 +753,14 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       </a>
 
       {renderModal()}
+      {confirmDeleteFor && (
+        <ConfirmDeletePopup
+          label={confirmDeleteFor.label}
+          description={confirmDeleteFor.description}
+          onConfirm={confirmDeleteFor.onConfirm}
+          onCancel={() => setConfirmDeleteFor(null)}
+        />
+      )}
       {globalSearchOpen && (
         <GlobalSearchOverlay
           customers={customers} items={items} estimates={estimates} currency={settings.currency}

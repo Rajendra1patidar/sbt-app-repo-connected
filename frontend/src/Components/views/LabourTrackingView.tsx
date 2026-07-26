@@ -5,10 +5,11 @@ import { SearchableSelect } from "../common/SearchableSelect";
 import { LABOUR_RATES, SARIA_KG_PER_BUNDLE } from "../../lib/constants";
 import { fmtDate, fmtMoney, today } from "../../lib/format";
 
-export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, currency, estimates, items }: any) {
+export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, currency, estimates, items, customers }: any) {
   const todayStr = today();
   const [workerCount, setWorkerCount] = useState(1);
   const [names, setNames] = useState<string[]>([""]);
+  const [customerId, setCustomerId] = useState("");
   const [cementQty, setCementQty] = useState("");
   const [sariaQty, setSariaQty] = useState("");
   const [baluQty, setBaluQty] = useState("");
@@ -22,6 +23,8 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
   const [toDate, setToDate] = useState(todayStr);
 
   const itemById = (id: string) => (items || []).find((it: any) => it.id === id);
+  const customerById = (id: string) => (customers || []).find((c: any) => c.id === id);
+  const customerOptions = (customers || []).map((c: any) => ({ value: c.id, label: c.name }));
 
   const importedEstimateNumbers = new Set(
     (sessions || [])
@@ -55,6 +58,7 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
     setImportEstimateId(estimateId);
     const doc = (estimates || []).find((d: any) => d.id === estimateId);
     if (!doc) return;
+    if (doc.customerId) setCustomerId(doc.customerId);
     let cementSum = 0;
     let sariaKg = 0;
     (doc.lines || []).forEach((ln: any) => {
@@ -93,13 +97,14 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
     try {
       await onSave({
         date: todayStr, time: new Date().toISOString(),
+        customerId: customerId || undefined,
         workers: names.map((n) => n.trim()).filter(Boolean),
         cementQty: Number(cementQty || 0), sariaQty: Number(sariaQty || 0), baluQty: Number(baluQty || 0),
         otherIncluded, otherAmount: otherIncluded ? Number(otherAmount || 0) : 0,
         total: sessionTotal,
         note: note.trim(),
       });
-      setNames((prev) => prev.map(() => "")); setCementQty(""); setSariaQty(""); setBaluQty(""); setOtherIncluded(false); setOtherAmount(""); setNote(""); setImportEstimateId("");
+      setNames((prev) => prev.map(() => "")); setCustomerId(""); setCementQty(""); setSariaQty(""); setBaluQty(""); setOtherIncluded(false); setOtherAmount(""); setNote(""); setImportEstimateId("");
     } finally { setSaving(false); }
   };
 
@@ -132,6 +137,16 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
             )}
           </div>
         )}
+
+        <label className="mb-1 block text-xs font-semibold text-ink/50">Customer (optional)</label>
+        <div className="mb-4">
+          <SearchableSelect
+            options={customerOptions}
+            value={customerId}
+            onChange={setCustomerId}
+            placeholder="Which customer's job is this for…"
+          />
+        </div>
 
         <label className="mb-1 block text-xs font-semibold text-ink/50">Number of workers</label>
         <div className="mb-3 flex items-center gap-3">
@@ -213,6 +228,7 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
                   <span className="w-16 shrink-0 text-xs font-bold text-ink/40">{new Date(s.time).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}</span>
                   <div>
                     <p className="text-sm font-semibold text-ink">{(s.workers || []).join(", ") || "—"}</p>
+                    {s.customerId && <p className="text-xs font-semibold text-brand-600">{customerById(s.customerId)?.name || "Unknown customer"}</p>}
                     {s.note && <p className="text-xs italic text-ink/60">{s.note}</p>}
                     <div className="mt-1 flex flex-wrap gap-1">
                       {s.cementQty > 0 && <span className="rounded-full bg-paper px-2 py-0.5 text-[10px] text-ink/50">Cement {fmtMoney(s.cementQty * LABOUR_RATES.cement, currency)}</span>}

@@ -6,7 +6,7 @@ import { fmtDate, fmtMoney, fmtNum, today, round2 } from "../../lib/format";
 
 /* ---- Dashboard ---- */
 
-export function Dashboard({ data, settings, openModal, go }: any) {
+export function Dashboard({ data, settings, openModal, go, reorderSuggestions }: any) {
   const { customers, estimates, expenses, items, payments } = data;
   const [tab, setTab] = useState("estimates");
   const outstanding = round2(estimates.filter((i: any) => i.status !== "Paid").reduce((s: number, i: any) => s + (Number(i.total || 0) - Number(i.amountPaid || 0)), 0));
@@ -17,6 +17,7 @@ export function Dashboard({ data, settings, openModal, go }: any) {
   const catEntries = Object.entries(byCategory) as [string, number][];
   const catTotal = round2(catEntries.reduce((s, [, v]) => s + v, 0));
   const lowStockItems = items.filter((it: any) => (it.stock ?? 0) <= (it.lowStock ?? LOW_STOCK_DEFAULT));
+  const paceSuggestionByItem = new Map((reorderSuggestions || []).filter((s: any) => s.mode === "pace").map((s: any) => [s.itemId, s]));
 
   const quickActions = [
     { label: "New Estimate", icon: Receipt, bg: "bg-brand-50", fg: "text-brand-500", action: () => openModal("estimate") },
@@ -101,10 +102,13 @@ export function Dashboard({ data, settings, openModal, go }: any) {
             <div className="mt-2 space-y-1.5">
               {lowStockItems.map((it: any) => {
                 const threshold = it.lowStock ?? LOW_STOCK_DEFAULT;
-                const suggestedQty = Math.max(1, threshold * 2 - (it.stock ?? 0));
+                const paceSuggestion = paceSuggestionByItem.get(it.id);
+                const suggestedQty = paceSuggestion ? Math.max(1, paceSuggestion.suggestedQty) : Math.max(1, threshold * 2 - (it.stock ?? 0));
                 return (
                   <div key={it.id} className="flex items-center justify-between rounded-xl bg-white/70 px-3 py-2">
-                    <p className="text-xs font-semibold text-warn-700">{it.name} ({fmtNum(it.stock ?? 0)} left)</p>
+                    <p className="text-xs font-semibold text-warn-700">
+                      {it.name} ({fmtNum(it.stock ?? 0)} left{paceSuggestion?.daysLeft != null ? ` · ~${paceSuggestion.daysLeft}d left` : ""})
+                    </p>
                     <button
                       onClick={() => openModal("order", { itemId: it.id, qty: suggestedQty })}
                       className="rounded-pill bg-warn-500 px-3 py-1 text-[11px] font-semibold text-white"

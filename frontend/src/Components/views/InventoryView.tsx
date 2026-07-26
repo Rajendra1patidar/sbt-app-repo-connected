@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Info, Pencil, Printer, ShoppingBag, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Info, Pencil, Printer, ShoppingBag, TrendingDown, X } from "lucide-react";
 import { Card } from "../common/UIPrimitives";
 import { ITEM_CATEGORIES, LOW_STOCK_DEFAULT } from "../../lib/constants";
 import { fmtNum } from "../../lib/format";
+import { waLink } from "../../lib/contactLinks";
 
 function ItemInfoModal({ item, orders, onClose }: any) {
   const stockBreakdown = (it: any): string => {
@@ -51,7 +52,45 @@ function ItemInfoModal({ item, orders, onClose }: any) {
   );
 }
 
-export function ToDoTrackingView({ items, settings, orders, openModal }: any) {
+function ReorderSuggestionsCard({ suggestions }: any) {
+  const paceRows = (suggestions || []).filter((s: any) => s.mode === "pace");
+  if (paceRows.length === 0) return null;
+
+  return (
+    <Card>
+      <div className="mb-3 flex items-center gap-2">
+        <TrendingDown size={18} className="text-brand-500" />
+        <h3 className="font-display text-base font-bold text-ink">Reorder Suggestions</h3>
+        <span className="ml-auto rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-bold text-brand-700">{paceRows.length}</span>
+      </div>
+      <p className="mb-3 text-xs text-ink/40">Based on actual sales pace over the last 30 days — nothing is sent automatically.</p>
+      <ul className="space-y-2">
+        {paceRows.map((s: any) => (
+          <li key={s.itemId} className="rounded-xl bg-brand-50/60 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <p className="font-semibold text-ink">{s.name}</p>
+              <p className="font-display text-base font-bold text-brand-700">+{fmtNum(s.suggestedQty)} {s.unit || "unit"}</p>
+            </div>
+            <p className="text-xs text-ink/50">
+              {fmtNum(s.stock)} left · {s.daysLeft != null ? `~${s.daysLeft} days of cover at current pace` : "pace unavailable"}
+            </p>
+            {s.vendor && (
+              <a
+                href={waLink(s.vendor.phone, `Hi ${s.vendor.name}, I'd like to order ${fmtNum(s.suggestedQty)} ${s.unit || "unit"} of ${s.name}.`)}
+                target="_blank" rel="noreferrer"
+                className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink/80"
+              >
+                Message {s.vendor.name} on WhatsApp
+              </a>
+            )}
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+export function ToDoTrackingView({ items, settings, orders, openModal, reorderSuggestions }: any) {
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [category, setCategory] = useState("All");
   const [infoFor, setInfoFor] = useState<string | null>(null);
@@ -103,6 +142,8 @@ export function ToDoTrackingView({ items, settings, orders, openModal }: any) {
 
   return (
     <div className="space-y-4 px-5 pb-28">
+
+      <ReorderSuggestionsCard suggestions={reorderSuggestions} />
 
       {/* Low inventory alerts */}
       <Card>

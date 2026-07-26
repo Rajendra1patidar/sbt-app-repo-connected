@@ -28,6 +28,7 @@ base.create = async (req, res, next) => {
     }
     const doc = await Item.create({
       owner: req.userId,
+      vendorId: v.vendorId || undefined,
       name: v.name,
       price: Number(v.sellingPrice || v.price || 0),
       sellingPrice: Number(v.sellingPrice || 0),

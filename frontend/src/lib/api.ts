@@ -164,6 +164,7 @@ export const api = {
 
   reports: {
     summary: () => request("/api/reports/summary"),
+    reorderSuggestions: () => request("/api/reports/reorder-suggestions"),
   },
 };
 

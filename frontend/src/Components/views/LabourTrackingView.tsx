@@ -32,19 +32,16 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
       .filter(Boolean)
   );
 
-  const sixtyDaysAgo = (() => { const d = new Date(); d.setDate(d.getDate() - 60); return d.toISOString().slice(0, 10); })();
-
-  // only recent (last 60 days) estimates that carry cement/saria lines and haven't
-  // already been pulled into a session are worth offering here
+  // Labour is logged per day, so only today's estimates that carry cement/saria
+  // lines and haven't already been pulled into a saved session are worth offering here
   const estimateOptions = (estimates || [])
-    .filter((doc: any) => (doc.date || "") >= sixtyDaysAgo)
+    .filter((doc: any) => (doc.date || "") === todayStr)
     .filter((doc: any) => !importedEstimateNumbers.has(doc.number))
     .filter((doc: any) => (doc.lines || []).some((ln: any) => {
       const cat = itemById(ln.itemId)?.category;
       return cat === "Cement" || cat === "Saria";
     }))
     .sort((a: any, b: any) => (b.date || "").localeCompare(a.date || ""))
-    .slice(0, 60)
     .map((doc: any) => ({
       value: doc.id,
       label: `${doc.number}${doc.contractorName ? " · " + doc.contractorName : ""} · ${fmtDate(doc.date)}`,
@@ -123,7 +120,7 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
 
         {estimateOptions.length > 0 && (
           <div className="mb-4">
-            <label className="mb-1 block text-xs font-semibold text-ink/50">Pull materials from a recent estimate (optional)</label>
+            <label className="mb-1 block text-xs font-semibold text-ink/50">Pull materials from today's estimate (optional)</label>
             <SearchableSelect
               options={estimateOptions}
               value={importEstimateId}

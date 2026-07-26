@@ -13,4 +13,7 @@ const orderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Speeds up the sorted list query at scale.
+orderSchema.index({ owner: 1, createdAt: -1 });
+
 module.exports = mongoose.model("Order", orderSchema);

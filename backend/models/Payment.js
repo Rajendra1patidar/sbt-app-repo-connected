@@ -14,4 +14,10 @@ const paymentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Speeds up the sorted list query, plus the per-invoice and per-customer lookups
+// used for invoice payment history and customer statements.
+paymentSchema.index({ owner: 1, createdAt: -1 });
+paymentSchema.index({ owner: 1, invoiceId: 1 });
+paymentSchema.index({ owner: 1, customerId: 1 });
+
 module.exports = mongoose.model("Payment", paymentSchema);

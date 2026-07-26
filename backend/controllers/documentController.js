@@ -23,9 +23,22 @@ async function nextNumber(owner, type) {
 }
 
 // GET /api/:type   (type = quotes | invoices | challans)
+// Same optional ?page=&limit= pagination as crudController — omit both and
+// you get the full list exactly as before.
 exports.list = (type) => async (req, res, next) => {
   try {
-    const docs = await Document.find({ owner: req.userId, type }).sort({ createdAt: -1 });
+    const query = Document.find({ owner: req.userId, type }).sort({ createdAt: -1 });
+    const page = parseInt(req.query.page, 10);
+    const limit = parseInt(req.query.limit, 10);
+    if (page > 0 && limit > 0) {
+      const [docs, total] = await Promise.all([
+        query.skip((page - 1) * limit).limit(limit),
+        Document.countDocuments({ owner: req.userId, type }),
+      ]);
+      res.set("X-Total-Count", String(total));
+      return res.json(docs);
+    }
+    const docs = await query;
     res.json(docs);
   } catch (err) {
     next(err);

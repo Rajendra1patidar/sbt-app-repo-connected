@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Eye, Phone, Plus, Printer, RotateCcw, Search, Trash2, Truck } from "lucide-react";
 import { Badge, Card, EmptyState, GhostButton, PillButton, WhatsAppButton } from "../common/UIPrimitives";
+import { Pagination } from "../common/Pagination";
+import { usePagination } from "../../hooks/usePagination";
 import { bookingLineProgress, isFullyCollected } from "../../lib/bookingLogic";
-import { WHATSAPP_GREEN } from "../../lib/constants";
+import { PAGE_SIZE, WHATSAPP_GREEN } from "../../lib/constants";
 import { fmtDate, fmtMoney } from "../../lib/format";
 
 /* ---- DocumentList ---- */
@@ -62,6 +64,10 @@ export function DocumentList({ type, docs, customers, items, currency, openModal
       map[k].push(d);
     });
   }
+
+  // Only challans use this flat path (estimates render via monthGroups above, which
+  // already caps visible rows via the collapsed-by-default month sections).
+  const { pageItems: pageDocs, page, setPage, totalPages, total, pageSize } = usePagination(visibleDocs, PAGE_SIZE);
 
   const renderCard = (d: any) => {
     const isOverdue = type === "estimate" && d.status === "Due" && d.dueDate && new Date(d.dueDate) < new Date();
@@ -218,8 +224,9 @@ export function DocumentList({ type, docs, customers, items, currency, openModal
               </div>
             );
           }))
-        : visibleDocs.map(renderCard)
+        : pageDocs.map(renderCard)
       }
+      {type === "challan" && <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} />}
     </div>
   );
 }

@@ -81,4 +81,9 @@ const documentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Speeds up the common list query (owner + type, sorted newest-first) and
+// per-customer lookups (e.g. customer statements, balance calculations).
+documentSchema.index({ owner: 1, type: 1, createdAt: -1 });
+documentSchema.index({ owner: 1, customerId: 1 });
+
 module.exports = mongoose.model("Document", documentSchema);

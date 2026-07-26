@@ -2,6 +2,9 @@ import React, { useState } from "react";
 import { MapPin, MessageSquare, Plus, Search, Trash2 } from "lucide-react";
 import { Card, EmptyState, PillButton, WhatsAppButton } from "../common/UIPrimitives";
 import { RowActionMenu } from "../common/RowActionMenu";
+import { Pagination } from "../common/Pagination";
+import { usePagination } from "../../hooks/usePagination";
+import { PAGE_SIZE } from "../../lib/constants";
 import { smsLink } from "../../lib/contactLinks";
 import { fmtMoney } from "../../lib/format";
 
@@ -21,6 +24,7 @@ export function CustomersView({ customers, openModal, removeCustomer, estimates,
     (c.email || "").toLowerCase().includes(q) ||
     (c.location || "").toLowerCase().includes(q)
   );
+  const { pageItems, page, setPage, totalPages, total, pageSize } = usePagination(filteredCustomers, PAGE_SIZE);
 
   return (
     <div className="space-y-3 px-5 pb-28">
@@ -41,9 +45,10 @@ export function CustomersView({ customers, openModal, removeCustomer, estimates,
       )}
       {customers.length === 0
         ? <Card><EmptyState text="Add your first customer." cta="New Customer" onCta={() => openModal("customer")} /></Card>
-        : filteredCustomers.length === 0
+        : pageItems.length === 0
         ? <Card><p className="text-center text-sm text-ink/40">No customers match your search.</p></Card>
-        : filteredCustomers.map((c: any, idx: number) => {
+        : <>
+          {pageItems.map((c: any, idx: number) => {
           const balance = balanceFor(c.id);
           const initials = (c.name || "?").trim().split(/\s+/).slice(0, 2).map((w: string) => w[0]).join("").toUpperCase();
           return (
@@ -77,7 +82,9 @@ export function CustomersView({ customers, openModal, removeCustomer, estimates,
               </div>
             </Card>
           );
-        })
+          })}
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} />
+        </>
       }
     </div>
   );

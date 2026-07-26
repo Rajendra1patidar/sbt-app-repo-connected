@@ -17,4 +17,7 @@ const itemSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Speeds up the sorted list query and the per-owner duplicate-name scan in findDuplicate.
+itemSchema.index({ owner: 1, createdAt: -1 });
+
 module.exports = mongoose.model("Item", itemSchema);

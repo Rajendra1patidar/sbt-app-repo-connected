@@ -11,4 +11,7 @@ const expenseSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Speeds up the sorted list query at scale.
+expenseSchema.index({ owner: 1, createdAt: -1 });
+
 module.exports = mongoose.model("Expense", expenseSchema);

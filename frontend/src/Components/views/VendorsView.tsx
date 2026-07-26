@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { Building2, ChevronDown, IndianRupee, Plus, Search, Trash2 } from "lucide-react";
 import { Card, EmptyState, PillButton } from "../common/UIPrimitives";
+import { Pagination } from "../common/Pagination";
+import { usePagination } from "../../hooks/usePagination";
+import { PAGE_SIZE } from "../../lib/constants";
 import { fmtDate, fmtMoney } from "../../lib/format";
 import { api } from "../../lib/api";
 
@@ -16,6 +19,7 @@ export function VendorsView({ vendors, purchases, currency, openModal, removeVen
   const filtered = !q
     ? vendors
     : vendors.filter((v: any) => (v.name || "").toLowerCase().includes(q) || (v.phone || "").toLowerCase().includes(q));
+  const { pageItems, page, setPage, totalPages, total, pageSize } = usePagination(filtered, PAGE_SIZE);
 
   const owedTo = (vendorId: string) =>
     (purchases || [])
@@ -66,7 +70,7 @@ export function VendorsView({ vendors, purchases, currency, openModal, removeVen
       ) : filtered.length === 0 ? (
         <Card><p className="text-center text-sm text-ink/40">No vendors match your search.</p></Card>
       ) : (
-        filtered.map((v: any) => {
+        pageItems.map((v: any) => {
           const owed = owedTo(v.id);
           const isOpen = expandedId === v.id;
           const statement = statements[v.id];
@@ -159,6 +163,7 @@ export function VendorsView({ vendors, purchases, currency, openModal, removeVen
           );
         })
       )}
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} />
     </div>
   );
 }

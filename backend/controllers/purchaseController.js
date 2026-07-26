@@ -7,7 +7,18 @@ const stockService = require("../services/stockService");
 // GET /api/purchases
 exports.list = async (req, res, next) => {
   try {
-    const docs = await Purchase.find({ owner: req.userId }).sort({ createdAt: -1 });
+    const query = Purchase.find({ owner: req.userId }).sort({ createdAt: -1 });
+    const page = parseInt(req.query.page, 10);
+    const limit = parseInt(req.query.limit, 10);
+    if (page > 0 && limit > 0) {
+      const [docs, total] = await Promise.all([
+        query.skip((page - 1) * limit).limit(limit),
+        Purchase.countDocuments({ owner: req.userId }),
+      ]);
+      res.set("X-Total-Count", String(total));
+      return res.json(docs);
+    }
+    const docs = await query;
     res.json(docs);
   } catch (err) {
     next(err);

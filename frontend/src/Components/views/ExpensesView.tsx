@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { Plus, Search, Trash2 } from "lucide-react";
 import { Card, EmptyState, PillButton } from "../common/UIPrimitives";
+import { Pagination } from "../common/Pagination";
+import { usePagination } from "../../hooks/usePagination";
+import { PAGE_SIZE } from "../../lib/constants";
 import { fmtDate, fmtMoney } from "../../lib/format";
 
 /* ---- Expenses ---- */
@@ -11,6 +14,7 @@ export function ExpensesView({ expenses, currency, openModal, removeExpense }: a
   const filtered = !q ? expenses : expenses.filter((e: any) =>
     (e.category || "").toLowerCase().includes(q) || (e.vendor || "").toLowerCase().includes(q)
   );
+  const { pageItems, page, setPage, totalPages, total, pageSize } = usePagination(filtered, PAGE_SIZE);
   return (
     <div className="space-y-3 px-5 pb-28">
       <div className="flex items-center justify-between pt-1">
@@ -32,15 +36,18 @@ export function ExpensesView({ expenses, currency, openModal, removeExpense }: a
         ? <Card><EmptyState text="Record your expenses." cta="Record Expense" onCta={() => openModal("expense")} /></Card>
         : filtered.length === 0
         ? <Card><p className="text-center text-sm text-ink/40">No expenses match your search.</p></Card>
-        : filtered.map((e: any) => (
-          <Card key={e.id} className="flex items-center justify-between gap-2">
-            <div className="min-w-0"><p className="font-semibold text-ink truncate">{e.category}</p><p className="text-xs text-ink/40 truncate">{e.vendor || "No vendor"} · {fmtDate(e.date)}</p></div>
-            <div className="flex items-center gap-3 shrink-0">
-              <span className="font-bold text-bad-600">-{fmtMoney(e.amount, currency)}</span>
-              <button onClick={() => removeExpense(e.id)} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
-            </div>
-          </Card>
-        ))
+        : <>
+          {pageItems.map((e: any) => (
+            <Card key={e.id} className="flex items-center justify-between gap-2">
+              <div className="min-w-0"><p className="font-semibold text-ink truncate">{e.category}</p><p className="text-xs text-ink/40 truncate">{e.vendor || "No vendor"} · {fmtDate(e.date)}</p></div>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="font-bold text-bad-600">-{fmtMoney(e.amount, currency)}</span>
+                <button onClick={() => removeExpense(e.id)} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
+              </div>
+            </Card>
+          ))}
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} />
+        </>
       }
     </div>
   );

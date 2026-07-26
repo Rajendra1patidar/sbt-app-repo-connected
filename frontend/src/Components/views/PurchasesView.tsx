@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { IndianRupee, PackagePlus, Plus, Search, Trash2 } from "lucide-react";
 import { Card, EmptyState, PillButton, Badge } from "../common/UIPrimitives";
+import { Pagination } from "../common/Pagination";
+import { usePagination } from "../../hooks/usePagination";
+import { PAGE_SIZE } from "../../lib/constants";
 import { fmtDate, fmtMoney, fmtNum } from "../../lib/format";
 
 /* ---- Purchases ---- */
@@ -15,6 +18,7 @@ export function PurchasesView({ purchases, vendors, items, currency, openModal, 
   const filtered = !q
     ? purchases
     : purchases.filter((p: any) => vendorName(p.vendorId).toLowerCase().includes(q) || itemName(p.itemId).toLowerCase().includes(q));
+  const { pageItems, page, setPage, totalPages, total, pageSize } = usePagination(filtered, PAGE_SIZE);
 
   const statusBadge = (status: string) => (status === "paid" ? "Paid" : status === "partial" ? "Partially Paid" : "Due");
   const round2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
@@ -47,32 +51,35 @@ export function PurchasesView({ purchases, vendors, items, currency, openModal, 
       ) : filtered.length === 0 ? (
         <Card><p className="text-center text-sm text-ink/40">No purchases match your search.</p></Card>
       ) : (
-        filtered.map((p: any) => (
-          <Card key={p.id} className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600"><PackagePlus size={18} /></div>
-              <div className="min-w-0">
-                <p className="font-semibold text-ink truncate">{itemName(p.itemId)}</p>
-                <p className="text-xs text-ink/40 truncate">{vendorName(p.vendorId)} · {fmtNum(p.qty)} @ {fmtMoney(p.rate, currency)} · {fmtDate(p.date)}</p>
+        <>
+          {pageItems.map((p: any) => (
+            <Card key={p.id} className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600"><PackagePlus size={18} /></div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-ink truncate">{itemName(p.itemId)}</p>
+                  <p className="text-xs text-ink/40 truncate">{vendorName(p.vendorId)} · {fmtNum(p.qty)} @ {fmtMoney(p.rate, currency)} · {fmtDate(p.date)}</p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <div className="text-right">
-                <p className="font-bold text-ink">{fmtMoney(p.amount, currency)}</p>
-                <Badge status={statusBadge(p.paymentStatus)} />
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="text-right">
+                  <p className="font-bold text-ink">{fmtMoney(p.amount, currency)}</p>
+                  <Badge status={statusBadge(p.paymentStatus)} />
+                </div>
+                {p.paymentStatus !== "paid" && (
+                  <button
+                    onClick={() => openModal("purchasePayment", { purchaseId: p.id, vendorName: vendorName(p.vendorId), remaining: round2(p.amount - p.amountPaid) })}
+                    className="inline-flex items-center gap-1 rounded-full bg-brand-500 px-2.5 py-1.5 text-xs font-semibold text-white"
+                  >
+                    <IndianRupee size={12} /> Pay
+                  </button>
+                )}
+                <button onClick={() => removePurchase(p.id)} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
               </div>
-              {p.paymentStatus !== "paid" && (
-                <button
-                  onClick={() => openModal("purchasePayment", { purchaseId: p.id, vendorName: vendorName(p.vendorId), remaining: round2(p.amount - p.amountPaid) })}
-                  className="inline-flex items-center gap-1 rounded-full bg-brand-500 px-2.5 py-1.5 text-xs font-semibold text-white"
-                >
-                  <IndianRupee size={12} /> Pay
-                </button>
-              )}
-              <button onClick={() => removePurchase(p.id)} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
-            </div>
-          </Card>
-        ))
+            </Card>
+          ))}
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} />
+        </>
       )}
     </div>
   );

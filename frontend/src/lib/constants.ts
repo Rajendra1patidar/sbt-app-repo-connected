@@ -3,6 +3,7 @@ import { ArrowDownToLine, Award, BarChart3, Building2, CalendarClock, ClipboardL
 export const WHATSAPP_GREEN = "#25D366";
 
 export const LOW_STOCK_DEFAULT = 5;
+export const PAGE_SIZE = 20;
 
 export const ITEM_CATEGORIES = ["Saria", "Cement", "CPVC", "UPVC", "Kasta", "Wall fit", "Roof fit", "Power Tool", "IOCL", "Sand", "Sanitary", "Others"];
 

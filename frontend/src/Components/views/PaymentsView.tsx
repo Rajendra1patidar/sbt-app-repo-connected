@@ -1,6 +1,9 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Search, Trash2 } from "lucide-react";
 import { Card, EmptyState, PillButton } from "../common/UIPrimitives";
+import { Pagination } from "../common/Pagination";
+import { usePagination } from "../../hooks/usePagination";
+import { PAGE_SIZE } from "../../lib/constants";
 import { fmtDate, fmtMoney } from "../../lib/format";
 
 /* ---- Payments ---- */
@@ -51,6 +54,7 @@ export function PaymentsView({ payments, customers, currency, openModal, removeP
   const filtered = q
     ? activeList.filter((p: any) => customerName(p.customerId).toLowerCase().includes(q) || (p.invoiceNumber || "").toLowerCase().includes(q))
     : activeList;
+  const { pageItems, page, setPage, totalPages, total, pageSize } = usePagination(filtered, PAGE_SIZE);
 
   const emptyStateText: Record<TabKey, string> = {
     advance: "Advance bookings and deposits will show up here.",
@@ -93,23 +97,26 @@ export function PaymentsView({ payments, customers, currency, openModal, removeP
         ? <Card><EmptyState text={emptyStateText[tab]} cta={tab === "refund" ? undefined : "Record Payment"} onCta={() => openModal("payment")} /></Card>
         : filtered.length === 0
         ? <Card><p className="text-center text-sm text-ink/40">No matches for "{search}".</p></Card>
-        : filtered.map((p: any) => (
-          <Card key={p.id} className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <p className="font-semibold text-ink truncate">{customerName(p.customerId)}</p>
-              <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                <span className="text-xs text-ink/40">{fmtDate(p.date)}{p.method ? ` · ${p.method}` : ""}</span>
-                {p.invoiceNumber
-                  ? <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-600">{p.invoiceNumber}</span>
-                  : <span className="rounded-full bg-paper px-2 py-0.5 text-xs font-semibold text-ink/40">No estimate linked</span>}
+        : <>
+          {pageItems.map((p: any) => (
+            <Card key={p.id} className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-semibold text-ink truncate">{customerName(p.customerId)}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs text-ink/40">{fmtDate(p.date)}{p.method ? ` · ${p.method}` : ""}</span>
+                  {p.invoiceNumber
+                    ? <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-600">{p.invoiceNumber}</span>
+                    : <span className="rounded-full bg-paper px-2 py-0.5 text-xs font-semibold text-ink/40">No estimate linked</span>}
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className={`font-bold ${Number(p.amount) < 0 ? "text-bad-600" : "text-good-600"}`}>{Number(p.amount) < 0 ? "−" : "+"}{fmtMoney(Math.abs(p.amount), currency)}</span>
-              <button onClick={() => removePayment(p.id)} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
-            </div>
-          </Card>
-        ))
+              <div className="flex items-center gap-3">
+                <span className={`font-bold ${Number(p.amount) < 0 ? "text-bad-600" : "text-good-600"}`}>{Number(p.amount) < 0 ? "−" : "+"}{fmtMoney(Math.abs(p.amount), currency)}</span>
+                <button onClick={() => removePayment(p.id)} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
+              </div>
+            </Card>
+          ))}
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} />
+        </>
       }
     </div>
   );

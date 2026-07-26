@@ -42,6 +42,7 @@ app.use(
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
+    exposedHeaders: ["X-Total-Count"],
   })
 );
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 300 });

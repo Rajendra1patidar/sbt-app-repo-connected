@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { AlertTriangle, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { Card, EmptyState, PillButton } from "../common/UIPrimitives";
-import { ITEM_CATEGORIES, LOW_STOCK_DEFAULT } from "../../lib/constants";
+import { Pagination } from "../common/Pagination";
+import { usePagination } from "../../hooks/usePagination";
+import { ITEM_CATEGORIES, LOW_STOCK_DEFAULT, PAGE_SIZE } from "../../lib/constants";
 import { fmtMoney, fmtNum } from "../../lib/format";
 
 /* ---- Items (with stock display) ---- */
@@ -16,6 +18,7 @@ export function ItemsView({ items, categories, openModal, removeItem, currency }
     const matchesCategory = category === "All" || (it.category || "Others") === category;
     return matchesSearch && matchesCategory;
   });
+  const { pageItems, page, setPage, totalPages, total, pageSize } = usePagination(filtered, PAGE_SIZE);
 
   return (
     <div className="space-y-3 px-5 pb-28">
@@ -41,7 +44,8 @@ export function ItemsView({ items, categories, openModal, removeItem, currency }
         ? <Card><EmptyState text="Add items you sell." cta="New Item" onCta={() => openModal("item")} /></Card>
         : filtered.length === 0
         ? <Card><p className="text-center text-sm text-ink/40">No items match your search/filter.</p></Card>
-        : filtered.map((it: any) => {
+        : <>
+          {pageItems.map((it: any) => {
           const threshold = it.lowStock ?? LOW_STOCK_DEFAULT;
           const isLow = (it.stock ?? 0) <= threshold;
           return (
@@ -64,7 +68,9 @@ export function ItemsView({ items, categories, openModal, removeItem, currency }
               </div>
             </Card>
           );
-        })
+          })}
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} />
+        </>
       }
     </div>
   );

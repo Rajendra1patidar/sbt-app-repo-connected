@@ -1,6 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
+import { Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { AlertCircle, Loader2, Phone } from "lucide-react";
-import { api } from "../lib/api";
+import { useAppStore } from "../store/useAppStore";
+import { pathForView, viewForPath } from "../lib/routes";
 import { BottomNav } from "./layout/BottomNav";
 import { GlobalSearchOverlay } from "./layout/GlobalSearchOverlay";
 import { Sidebar } from "./layout/Sidebar";
@@ -35,440 +37,38 @@ import { ShareReportView } from "./views/ShareReportView";
 import { VendorsView } from "./views/VendorsView";
 import { ITEM_CATEGORIES, LOW_STOCK_DEFAULT, WHATSAPP_GREEN } from "../lib/constants";
 import { waLink } from "../lib/contactLinks";
-import { fmtDate, fmtMoney, fmtNum, today } from "../lib/format";
+import { fmtDate, fmtMoney, today } from "../lib/format";
 
-/* ---- Main App ---- */
+/* ---- Main App shell: layout + router. All domain data/handlers live in useAppStore now. ---- */
 
 export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
-  const [view, setView] = useState("dashboard");
+  const navigate = useNavigate();
+  const location = useLocation();
+  const view = viewForPath(location.pathname);
+  const goToView = (id: string) => navigate(pathForView(id));
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [modal, setModal] = useState<any>(null);
-  const [shareInvoice, setShareInvoice] = useState<any>(null);
-  const [printSide, setPrintSide] = useState<"left" | "right">(() => (localStorage.getItem("sbt_print_side") === "right" ? "right" : "left"));
-  const togglePrintSide = () => setPrintSide((s) => { const next = s === "left" ? "right" : "left"; localStorage.setItem("sbt_print_side", next); return next; });
-  const [toast, setToast] = useState<{ message: string; undo?: () => void } | null>(null);
-  const [autoReminder, setAutoReminder] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-
-  const [settings, setSettings] = useState({
-    orgName: "SHREE BALAJI TRADERS", ownerName: "SBT", email: "SARANGPUR SANDAWTA ROAD PADLYA MATAJI", currency: "₹", businessWhatsApp: "",
-    itemCategories: ITEM_CATEGORIES,
-  });
-
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
-  const [items, setItems] = useState<any[]>([]);
-  const [orders, setOrders] = useState<any[]>([]);
-  const [estimates, setEstimates] = useState<any[]>([]);
-  const [challans, setChallans] = useState<any[]>([]);
-  const [expenses, setExpenses] = useState<any[]>([]);
-  const [payments, setPayments] = useState<any[]>([]);
-  const [labourSessions, setLabourSessions] = useState<any[]>([]);
-  const [labourWorkers, setLabourWorkers] = useState<string[]>([]);
-  const [contractors, setContractors] = useState<any[]>([]);
-  const [vendors, setVendors] = useState<any[]>([]);
-  const [purchases, setPurchases] = useState<any[]>([]);
-  const [reorderSuggestions, setReorderSuggestions] = useState<any[]>([]);
 
-  const pendingDeletes = useRef<Record<string, () => void>>({});
+  const {
+    loading, loadError, settings, customers, items, orders, estimates, challans,
+    expenses, payments, labourSessions, labourWorkers, contractors, vendors, purchases,
+    reorderSuggestions, toast, modal, confirmDeleteFor, shareInvoice, autoReminder, printSide,
+    fetchAll, setOnSignOut, showToast, openModal, closeModal, cancelConfirmDelete,
+    togglePrintSide, setAutoReminder, setShareInvoice,
+    saveCustomer, removeCustomer, saveItem, removeItem, saveExpense, removeExpense,
+    saveVendor, removeVendor, savePurchase, convertOrderToPurchase, removePurchase,
+    saveVendorPayment, savePurchasePayment, saveDocument, removeDoc, updateDocStatus,
+    savePayment, saveReturn, saveDelivery, removePayment, saveOrder, removeOrder,
+    markOrderReceived, saveLabourSession, removeLabourSession, saveContractorPhone,
+    saveSettings, saveChallan, recordPaymentFor,
+  } = useAppStore();
 
-  const showToast = (msg: string, opts?: { undo?: () => void; duration?: number }) => {
-    setToast({ message: msg, undo: opts?.undo });
-    setTimeout(() => setToast((t) => (t && t.message === msg ? null : t)), opts?.duration ?? 3000);
-  };
-
-  const closeModal = () => setModal(null);
-  const refreshReorderSuggestions = () => { api.reports.reorderSuggestions().then(setReorderSuggestions).catch(() => {}); };
-
-  // Gate for higher-stakes deletes (Items, Customers, Payments) — everything else
-  // keeps the fast optimistic delete + undo-toast flow via scheduleDelete directly.
-  const [confirmDeleteFor, setConfirmDeleteFor] = useState<{ label: string; description?: string; onConfirm: () => void } | null>(null);
-  const confirmThenDelete = (label: string, description: string | undefined, doDelete: () => void) => {
-    setConfirmDeleteFor({ label, description, onConfirm: () => { doDelete(); setConfirmDeleteFor(null); } });
-  };
-  const nextNumber = (list: any[], prefix: string) => `${prefix}-${String(list.length + 1).padStart(4, "0")}`;
-
-  /**
-   * Generic optimistic delete with a 5s undo window, used by every "trash can" button in the app.
-   * Removes the item from local state immediately; the actual API call only fires after the window
-   * elapses, unless the user taps Undo (which restores the item to its original position and cancels
-   * the pending API call).
-   */
-  const scheduleDelete = <T extends { id: string }>(
-    label: string,
-    list: T[],
-    setList: React.Dispatch<React.SetStateAction<T[]>>,
-    id: string,
-    commit: () => Promise<void>
-  ) => {
-    const index = list.findIndex((x) => x.id === id);
-    if (index === -1) return;
-    const item = list[index];
-    const key = `${label}-${id}-${Date.now()}`;
-    const restore = () => setList((c) => { const copy = [...c]; copy.splice(Math.min(index, copy.length), 0, item); return copy; });
-
-    setList((c) => c.filter((x) => x.id !== id));
-
-    const timer = setTimeout(async () => {
-      delete pendingDeletes.current[key];
-      try { await commit(); }
-      catch (err: any) { restore(); onApiError(err, `Failed to delete ${label}`); }
-    }, 5000);
-
-    pendingDeletes.current[key] = () => { clearTimeout(timer); restore(); };
-    showToast(`${label} deleted`, { duration: 5000, undo: () => { pendingDeletes.current[key]?.(); delete pendingDeletes.current[key]; } });
-  };
-
-  /* ---- initial load from backend ---- */
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [c, it, o, est, ch, ex, pay, st, ls, lw, ct, vd, pu, rs] = await Promise.all([
-          api.customers.list(),
-          api.items.list(),
-          api.orders.list(),
-          api.documents("estimate").list(),
-          api.documents("challan").list(),
-          api.expenses.list(),
-          api.payments.list(),
-          api.settings.get(),
-          api.labourSessions.list(),
-          api.labourSessions.workers(),
-          api.contractors.list(),
-          api.vendors.list(),
-          api.purchases.list(),
-          api.reports.reorderSuggestions().catch(() => []),
-        ]);
-        if (cancelled) return;
-        setCustomers(c); setItems(it); setOrders(o); setEstimates(est);
-        setChallans(ch); setExpenses(ex); setPayments(pay);
-        setLabourSessions(ls); setLabourWorkers(lw);
-        setContractors(ct);
-        setVendors(vd); setPurchases(pu);
-        setReorderSuggestions(rs || []);
-        setSettings((prev) => ({ ...prev, ...st }));
-      } catch (err: any) {
-        if (!cancelled) {
-          
-          if (err?.status === 401) { onSignOut(); return; }
-          setLoadError(err.message || "Failed to load your data");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
+    setOnSignOut(onSignOut);
+    fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  /* ---- handlers (all persist to the backend, then sync local state from the response) ---- */
-
-  const onApiError = (err: any, fallback: string) => {
-    if (err?.status === 401) { onSignOut(); return; }
-    showToast(err?.message || fallback);
-  };
-
-  const saveCustomer = async (v: any) => {
-    const normName = (s: string) => (s || "").trim().toLowerCase();
-    const normPhone = (s: string) => (s || "").replace(/\D/g, "");
-    const isDuplicate = customers.some((c) => normName(c.name) === normName(v.name) && normPhone(c.phone) === normPhone(v.phone));
-    if (isDuplicate) { showToast("A customer with this name and phone number already exists"); return; }
-    try {
-      const { locationLat, locationLng, ...rest } = v;
-      const payload = { ...rest, ...(locationLat != null ? { lat: locationLat } : {}), ...(locationLng != null ? { lng: locationLng } : {}) };
-      const doc = await api.customers.create(payload);
-      setCustomers((c) => [doc, ...c]);
-      showToast("Customer added");
-      closeModal();
-    } catch (err) { onApiError(err, "Failed to add customer"); }
-  };
-
-  const removeCustomer = (id: string) => {
-    const c = customers.find((x) => x.id === id);
-    confirmThenDelete(c?.name || "this customer", "This removes the customer and their ledger history.", () => {
-      scheduleDelete("Customer", customers, setCustomers, id, () => api.customers.remove(id));
-    });
-  };
-
-  const saveChallan = async (v: any) => {
-    try {
-      const { doc } = await api.documents("challan").create(v);
-      setChallans((c) => [doc, ...c]);
-      showToast("Challan saved");
-      closeModal();
-    } catch (err) { onApiError(err, "Failed to save challan"); }
-  };
-
-  const saveItem = async (v: any) => {
-    const normName = (s: string) => (s || "").trim().toLowerCase();
-    const isDuplicate = items.some((it) => it.id !== v.id && normName(it.name) === normName(v.name));
-    if (isDuplicate) { showToast("An item with this name already exists"); return; }
-    try {
-      if (v.id) {
-        const { id, ...rest } = v;
-        const doc = await api.items.update(id, rest);
-        setItems((c) => c.map((x) => (x.id === id ? doc : x)));
-        showToast("Item updated");
-      } else {
-        const doc = await api.items.create(v);
-        setItems((c) => [doc, ...c]);
-        showToast("Item added");
-      }
-      closeModal();
-      refreshReorderSuggestions();
-    } catch (err) { onApiError(err, "Failed to save item"); }
-  };
-
-  const removeItem = (id: string) => {
-    const it = items.find((x) => x.id === id);
-    confirmThenDelete(it?.name || "this item", "This removes the item and its stock history.", () => {
-      scheduleDelete("Item", items, setItems, id, () => api.items.remove(id));
-    });
-  };
-
-  const saveExpense = async (v: any) => {
-    try {
-      const doc = await api.expenses.create({ category: v.category, vendor: v.vendor, amount: Number(v.amount), date: v.date || today() });
-      setExpenses((c) => [doc, ...c]);
-      showToast("Expense recorded");
-      closeModal();
-    } catch (err) { onApiError(err, "Failed to record expense"); }
-  };
-
-  const removeExpense = (id: string) => {
-    scheduleDelete("Expense", expenses, setExpenses, id, () => api.expenses.remove(id));
-  };
-
-  const saveVendor = async (v: any) => {
-    try {
-      const doc = await api.vendors.create(v);
-      setVendors((c) => [doc, ...c]);
-      showToast("Vendor added");
-      closeModal();
-    } catch (err) { onApiError(err, "Failed to add vendor"); }
-  };
-
-  const removeVendor = (id: string) => {
-    scheduleDelete("Vendor", vendors, setVendors, id, () => api.vendors.remove(id));
-  };
-
-  const savePurchase = async (v: any) => {
-    try {
-      const { purchase, item } = await api.purchases.create({
-        vendorId: v.vendorId,
-        itemId: v.itemId,
-        qty: Number(v.qty),
-        rate: Number(v.rate),
-        date: v.date || today(),
-        paymentStatus: v.paymentStatus || "unpaid",
-        amountPaid: v.amountPaid ? Number(v.amountPaid) : undefined,
-        notes: v.notes,
-      });
-      setPurchases((c) => [purchase, ...c]);
-      if (item) setItems((c) => c.map((x) => (x.id === item.id ? item : x)));
-      // Purchase already adds this qty to stock, so if this purchase was created
-      // by converting a pending Order, that order is now redundant — remove it
-      // quietly (no undo toast) rather than risk double-counting stock later.
-      if (v.fromOrderId) {
-        setOrders((c) => c.filter((o) => o.id !== v.fromOrderId));
-        api.orders.remove(v.fromOrderId).catch(() => {});
-      }
-      showToast("Purchase recorded");
-      closeModal();
-      refreshReorderSuggestions();
-    } catch (err) { onApiError(err, "Failed to record purchase"); }
-  };
-
-  const convertOrderToPurchase = (order: any) =>
-    openModal("purchase", { itemId: order.itemId, vendorId: order.vendorId, qty: order.qty, fromOrderId: order.id });
-
-  const removePurchase = (id: string) => {
-    scheduleDelete("Purchase", purchases, setPurchases, id, () => api.purchases.remove(id));
-  };
-
-  const saveVendorPayment = async (v: any) => {
-    try {
-      await api.vendors.recordPayment(v.vendorId, { amount: Number(v.amount), date: v.date || today(), method: v.method, notes: v.notes });
-      // amountPaid on the underlying purchases isn't tracked per-payment here, so just
-      // refresh the purchase list to reflect any state the backend may have changed
-      const pu = await api.purchases.list();
-      setPurchases(pu);
-      showToast("Payment recorded");
-      closeModal();
-    } catch (err) { onApiError(err, "Failed to record vendor payment"); }
-  };
-
-  const savePurchasePayment = async (v: any) => {
-    try {
-      const { purchase } = await api.purchases.recordPayment(v.purchaseId, {
-        amount: Number(v.amount), date: v.date || today(), method: v.method, notes: v.notes,
-      });
-      setPurchases((c) => c.map((x) => (x.id === purchase.id ? purchase : x)));
-      showToast("Payment recorded");
-      closeModal();
-    } catch (err) { onApiError(err, "Failed to record payment"); }
-  };
-
-  const docSetter = (type: string) => (type === "estimate" ? setEstimates : setChallans);
-
-  const saveDocument = async (type: string, v: any) => {
-    try {
-      const payload: any = { customerId: v.customerId, date: v.date, dueDate: v.dueDate, lines: v.lines, notes: v.notes, total: v.total };
-      if (type === "estimate") {
-        payload.freightCost = v.freightCost || 0;
-        payload.labourCost = v.labourCost || 0;
-        payload.previousDue = v.previousDue || 0;
-        payload.rolledEstimateIds = v.rolledEstimateIds || [];
-        payload.contractorName = v.contractorName || "";
-        payload.destination = v.destination || "";
-        if (v.status) payload.status = v.status; // Due/Paid choice from the confirmation popup, create-only
-        if (v.isAdvanceBooking) payload.isAdvanceBooking = true; // only true when "Advance Booking" was picked in that popup
-      }
-
-      if (v.id) {
-        // editing an existing document — update in place, don't touch stock or status
-        const doc = await api.documents(type as any).update(v.id, payload);
-        docSetter(type)((l: any[]) => l.map((x: any) => (x.id === v.id ? doc : x)));
-        showToast(`${doc.number} updated`);
-        closeModal();
-        return;
-      }
-
-      const { doc, lowStock } = await api.documents(type as any).create(payload);
-      docSetter(type)((l: any[]) => [doc, ...l]);
-
-      if (type === "estimate") {
-        if (v.rolledEstimateIds && v.rolledEstimateIds.length) {
-          setEstimates((l) => l.map((e) => (v.rolledEstimateIds.includes(e.id) ? { ...e, status: "Paid" } : e)));
-        }
-        /* stock was deducted server-side — pull the fresh numbers */
-        const freshItems = await api.items.list();
-        setItems(freshItems);
-        if (lowStock && lowStock.length > 0) {
-          showToast(`⚠️ Low stock: ${lowStock.map((i: any) => `${i.name} (${fmtNum(i.stock)} left)`).join(", ")}`);
-        } else {
-          showToast(`${doc.number} created`);
-        }
-      } else {
-        showToast(`${doc.number} created`);
-      }
-      closeModal();
-    } catch (err) { onApiError(err, "Failed to save document"); }
-  };
-
-  const removeDoc = (type: string) => (id: string) => {
-    const list = type === "estimate" ? estimates : challans;
-    scheduleDelete(type === "estimate" ? "Estimate" : "Challan", list, docSetter(type), id, () => api.documents(type as any).remove(id));
-  };
-
-  const updateDocStatus = (type: string) => async (id: string, s: string) => {
-    try {
-      const doc = await api.documents(type as any).updateStatus(id, s);
-      docSetter(type)((list: any[]) => list.map((x) => (x.id === id ? doc : x)));
-    } catch (err) { onApiError(err, "Failed to update status"); }
-  };
-
-  const savePayment = async (v: any) => {
-    try {
-      const { payment, invoice } = await api.payments.create(v);
-      setPayments((p) => [payment, ...p]);
-      if (invoice) setEstimates((list) => list.map((i) => (i.id === invoice.id ? invoice : i)));
-      const toastMessage = v.invoiceId
-        ? invoice?.status === "Paid"
-          ? "Payment recorded — estimate fully paid"
-          : invoice?.status === "Partially Paid"
-            ? "Partial payment recorded"
-            : "Payment recorded"
-        : "Advance payment recorded";
-      showToast(toastMessage);
-      closeModal();
-    } catch (err) { onApiError(err, "Failed to record payment"); }
-  };
-
-  const saveReturn = async (docId: string, lines: { itemId: string; qty: number }[]) => {
-    try {
-      const { doc, payment, items: freshItems } = await api.documents("estimate").addReturn(docId, lines);
-      setEstimates((list) => list.map((e) => (e.id === docId ? doc : e)));
-      setItems(freshItems);
-      setPayments((p) => [payment, ...p]);
-      showToast(`Refund of ${fmtMoney(Math.abs(payment.amount), settings.currency)} recorded, stock updated`);
-      closeModal();
-    } catch (err) { onApiError(err, "Failed to record return"); }
-  };
-
-  const saveDelivery = async (docId: string, lines: { itemId: string; qty: number }[]) => {
-    try {
-      const { doc } = await api.documents("estimate").addDelivery(docId, lines);
-      setEstimates((list) => list.map((e) => (e.id === docId ? doc : e)));
-      const totalQty = lines.reduce((s, l) => s + Number(l.qty || 0), 0);
-      showToast(`Collection recorded: ${fmtNum(totalQty)} item${totalQty !== 1 ? "s" : ""} taken`);
-      closeModal();
-    } catch (err) { onApiError(err, "Failed to record collection"); }
-  };
-
-  const removePayment = (id: string) => {
-    const p = payments.find((x) => x.id === id);
-    confirmThenDelete("this payment", p ? `This removes the recorded payment of ${fmtMoney(Math.abs(Number(p.amount || 0)), settings.currency)} and reopens the linked invoice's due amount.` : undefined, () => {
-      scheduleDelete("Payment", payments, setPayments, id, async () => {
-        const { invoice } = await api.payments.remove(id);
-        if (invoice) setEstimates((list) => list.map((i) => (i.id === invoice.id ? invoice : i)));
-      });
-    });
-  };
-
-  const saveOrder = async (v: any) => {
-    try {
-      const doc = await api.orders.create({ itemId: v.itemId, vendorId: v.vendorId, qty: v.qty, date: v.date, notes: v.notes });
-      setOrders((o) => [doc, ...o]);
-      showToast("Order placed");
-      closeModal();
-    } catch (err) { onApiError(err, "Failed to place order"); }
-  };
-
-  const removeOrder = (id: string) => {
-    scheduleDelete("Order", orders, setOrders, id, () => api.orders.remove(id));
-  };
-
-  const markOrderReceived = async (orderId: string) => {
-    try {
-      const { order, item } = await api.orders.receive(orderId);
-      setOrders((list) => list.map((o) => (o.id === orderId ? order : o)));
-      setItems((list) => list.map((it) => (it.id === item.id ? item : it)));
-      showToast(`Stock updated: +${fmtNum(order.qty)} added`);
-      refreshReorderSuggestions();
-    } catch (err) { onApiError(err, "Failed to update order"); }
-  };
-
-  const openModal = (type: string, payload?: any) => setModal({ type, payload });
-  const recordPaymentFor = (invoice: any) => openModal("payment", { invoiceId: invoice.id, customerId: invoice.customerId, amount: Number(invoice.total || 0) - Number(invoice.amountPaid || 0) });
-
-  const saveLabourSession = async (v: any) => {
-    try {
-      const session = await api.labourSessions.create(v);
-      setLabourSessions((l) => [session, ...l]);
-      const newNames = (v.workers || []).filter((n: string) => !labourWorkers.includes(n));
-      if (newNames.length) setLabourWorkers((w) => [...w, ...newNames].sort());
-      showToast("Session saved");
-    } catch (err) { onApiError(err, "Failed to save session"); }
-  };
-  const removeLabourSession = (id: string) => {
-    scheduleDelete("Session", labourSessions, setLabourSessions, id, () => api.labourSessions.remove(id));
-  };
-
-  const saveContractorPhone = async (name: string, phone: string) => {
-    try {
-      const doc = await api.contractors.create({ name, phone });
-      setContractors((c) => {
-        const idx = c.findIndex((x) => x.name.trim().toLowerCase() === name.trim().toLowerCase());
-        if (idx === -1) return [doc, ...c];
-        const copy = [...c]; copy[idx] = doc; return copy;
-      });
-      showToast("Contractor number saved");
-    } catch (err) { onApiError(err, "Failed to save contractor number"); }
-  };
 
   const printEstimate = (invoice: any) => {
     const customer = customers.find((c) => c.id === invoice.customerId);
@@ -538,39 +138,27 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     if (compact) togglePrintSide();
   };
 
-  const saveSettings = async (s: any) => {
-    try {
-      const doc = await api.settings.update(s);
-      setSettings((prev) => ({ ...prev, ...doc }));
-      showToast("Settings saved");
-    } catch (err) { onApiError(err, "Failed to save settings"); }
-  };
-
-  const overdueCount = estimates.filter((i) => i.status === "Due" && i.dueDate && new Date(i.dueDate) < new Date()).length;
+  const overdueCount = estimates.filter((i: any) => i.status === "Due" && i.dueDate && new Date(i.dueDate) < new Date()).length;
   const data = { customers, items, orders, estimates, invoices: estimates, challans, expenses, payments, labourSessions };
-
-  /* ---- view renderer ---- */
-  // Categories are user-editable from Settings now — fall back to the built-in
-  // defaults for accounts that haven't saved a custom list yet.
   const itemCategories = settings.itemCategories?.length ? settings.itemCategories : ITEM_CATEGORIES;
 
-  const renderView = () => {
-    switch (view) {
-      case "dashboard": return <Dashboard data={data} settings={settings} openModal={openModal} go={setView} reorderSuggestions={reorderSuggestions} />;
-      case "customers": return <CustomersView customers={customers} estimates={estimates} openModal={openModal} removeCustomer={removeCustomer}
-        onSelectCustomer={(id: string) => { setSelectedCustomerId(id); setView("customerDetail"); }} />;
-      case "customerDetail": return <CustomerDetailView
-        customer={customers.find((c: any) => c.id === selectedCustomerId)}
-        estimates={estimates} payments={payments} items={items} openModal={openModal} currency={settings.currency}
-        onBack={() => setView("customers")} />;
-      case "items":     return <ItemsView items={items} categories={itemCategories} openModal={openModal} currency={settings.currency} removeItem={removeItem} />;
-      case "orders":    return <OrdersView orders={orders} items={items} vendors={vendors} categories={itemCategories} openModal={openModal} markOrderReceived={markOrderReceived} removeOrder={removeOrder} convertOrderToPurchase={convertOrderToPurchase} />;
-      case "vendors":   return <VendorsView vendors={vendors} purchases={purchases} currency={settings.currency} openModal={openModal} removeVendor={removeVendor} />;
-      case "purchases": return <PurchasesView purchases={purchases} vendors={vendors} items={items} currency={settings.currency} openModal={openModal} removePurchase={removePurchase} />;
-      case "ledger":    return <LedgerReportsView currency={settings.currency} />;
-      case "financialYears": return <FinancialYearView currency={settings.currency} />;
-      case "challans":  return <DocumentList type="challan" docs={challans} customers={customers} currency={settings.currency} openModal={openModal} removeDoc={removeDoc("challan")} updateStatus={updateDocStatus("challan")} />;
-      case "estimates":  return (
+  /* ---- route table (replaces the old `switch (view)` in renderView) ---- */
+  const routes = (
+    <Routes>
+      <Route path="/" element={<Dashboard data={data} settings={settings} openModal={openModal} go={goToView} reorderSuggestions={reorderSuggestions} />} />
+      <Route path="/customers" element={
+        <CustomersView customers={customers} estimates={estimates} openModal={openModal} removeCustomer={removeCustomer}
+          onSelectCustomer={(id: string) => navigate(`/customers/${id}`)} />
+      } />
+      <Route path="/customers/:customerId" element={<CustomerDetailRoute />} />
+      <Route path="/items" element={<ItemsView items={items} categories={itemCategories} openModal={openModal} currency={settings.currency} removeItem={removeItem} />} />
+      <Route path="/orders" element={<OrdersView orders={orders} items={items} vendors={vendors} categories={itemCategories} openModal={openModal} markOrderReceived={markOrderReceived} removeOrder={removeOrder} convertOrderToPurchase={convertOrderToPurchase} />} />
+      <Route path="/vendors" element={<VendorsView vendors={vendors} purchases={purchases} currency={settings.currency} openModal={openModal} removeVendor={removeVendor} />} />
+      <Route path="/purchases" element={<PurchasesView purchases={purchases} vendors={vendors} items={items} currency={settings.currency} openModal={openModal} removePurchase={removePurchase} />} />
+      <Route path="/ledger" element={<LedgerReportsView currency={settings.currency} />} />
+      <Route path="/financial-years" element={<FinancialYearView currency={settings.currency} />} />
+      <Route path="/challans" element={<DocumentList type="challan" docs={challans} customers={customers} currency={settings.currency} openModal={openModal} removeDoc={(id: string) => removeDoc("challan", id)} updateStatus={(id: string, s: string) => updateDocStatus("challan", id, s)} />} />
+      <Route path="/estimates" element={
         <div className="px-5 pt-1">
           {autoReminder && overdueCount > 0 && <div className="mb-3 rounded-2xl bg-warn-50 px-4 py-3 text-sm font-semibold text-warn-700 flex items-center gap-2"><AlertCircle size={16} /> {overdueCount} estimate{overdueCount !== 1 ? "s" : ""} overdue.</div>}
           <div className="mb-3 flex items-center justify-between rounded-2xl bg-paper px-4 py-2.5 text-xs text-ink/50">
@@ -579,33 +167,33 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
           </div>
           <div className="-mx-5">
             <DocumentList type="estimate" docs={estimates} customers={customers} items={items} currency={settings.currency} openModal={openModal}
-              removeDoc={removeDoc("estimate")}
-              updateStatus={updateDocStatus("estimate")}
+              removeDoc={(id: string) => removeDoc("estimate", id)}
+              updateStatus={(id: string, s: string) => updateDocStatus("estimate", id, s)}
               recordPayment={recordPaymentFor} onReturn={(doc: any) => openModal("return", { doc })} onDeliver={(doc: any) => openModal("delivery", { doc })} onShareInvoice={(inv: any) => setShareInvoice(inv)}
               onPrint={printEstimate}
               onView={(doc: any) => openModal("viewEstimate", { doc })} />
           </div>
         </div>
-      );
-      case "payments":  return <PaymentsView payments={payments} customers={customers} currency={settings.currency} openModal={openModal} removePayment={removePayment} estimates={estimates} />;
-      case "expenses":  return <ExpensesView expenses={expenses} currency={settings.currency} openModal={openModal} removeExpense={removeExpense} />;
-      case "todo":      return <ToDoTrackingView items={items} settings={settings} categories={itemCategories} orders={orders} openModal={openModal} reorderSuggestions={reorderSuggestions} />;
-      case "labour":    return <LabourTrackingView sessions={labourSessions} knownWorkers={labourWorkers} onSave={saveLabourSession} onRemove={removeLabourSession} currency={settings.currency} estimates={estimates} items={items} customers={customers} />;
-      case "contractors": return <ContractorScorecardView estimates={estimates} items={items} currency={settings.currency} contractors={contractors} onSavePhone={saveContractorPhone} showToast={showToast} />;
-      case "reports":      return <ReportsView data={data} currency={settings.currency} settings={settings} />;
-      case "sharereport":  return <ShareReportView invoices={estimates} items={items} customers={customers} currency={settings.currency} settings={settings} />;
-      case "billing":      return <AdvancedBillingView autoReminder={autoReminder} setAutoReminder={setAutoReminder} overdueCount={overdueCount} settings={settings} />;
-      case "settings":  return <SettingsView settings={settings} setSettings={saveSettings} />;
-      default: return null;
-    }
-  };
+      } />
+      <Route path="/payments" element={<PaymentsView payments={payments} customers={customers} currency={settings.currency} openModal={openModal} removePayment={removePayment} estimates={estimates} />} />
+      <Route path="/expenses" element={<ExpensesView expenses={expenses} currency={settings.currency} openModal={openModal} removeExpense={removeExpense} />} />
+      <Route path="/inventory" element={<ToDoTrackingView items={items} settings={settings} categories={itemCategories} orders={orders} openModal={openModal} reorderSuggestions={reorderSuggestions} />} />
+      <Route path="/labour" element={<LabourTrackingView sessions={labourSessions} knownWorkers={labourWorkers} onSave={saveLabourSession} onRemove={removeLabourSession} currency={settings.currency} estimates={estimates} items={items} customers={customers} />} />
+      <Route path="/contractors" element={<ContractorScorecardView estimates={estimates} items={items} currency={settings.currency} contractors={contractors} onSavePhone={saveContractorPhone} showToast={showToast} />} />
+      <Route path="/reports" element={<ReportsView data={data} currency={settings.currency} settings={settings} />} />
+      <Route path="/share-report" element={<ShareReportView invoices={estimates} items={items} customers={customers} currency={settings.currency} settings={settings} />} />
+      <Route path="/billing" element={<AdvancedBillingView autoReminder={autoReminder} setAutoReminder={setAutoReminder} overdueCount={overdueCount} settings={settings} />} />
+      <Route path="/settings" element={<SettingsView settings={settings} setSettings={saveSettings} />} />
+      <Route path="*" element={<Dashboard data={data} settings={settings} openModal={openModal} go={goToView} reorderSuggestions={reorderSuggestions} />} />
+    </Routes>
+  );
 
-  /* ---- modal renderer ---- */
+  /* ---- modal renderer (unchanged from before, just sourced from the store) ---- */
   const renderModal = () => {
     if (!modal) return null;
     const { type, payload } = modal;
     if (type === "viewEstimate") return <ViewEstimateModal doc={payload?.doc} customers={customers} items={items} currency={settings.currency} onClose={closeModal}
-      onMarkPaid={(doc: any) => { updateDocStatus("estimate")(doc.id, "Paid"); closeModal(); }}
+      onMarkPaid={(doc: any) => { updateDocStatus("estimate", doc.id, "Paid"); closeModal(); }}
       onShareInvoice={(doc: any) => { closeModal(); setShareInvoice(doc); }} />;
 
     if (type === "customer") return <FieldModal title="New Customer" fields={[
@@ -699,8 +287,8 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       return <DocumentModal type={type} customers={customers} items={items} estimates={estimates} editingDoc={payload?.editingDoc} onClose={closeModal} onSave={(v: any) => saveDocument(type, v)} />;
 
     if (type === "payment") {
-      const invoiceOptions = estimates.filter((i) => i.status !== "Paid").map((i) => ({ value: i.id, label: `${i.number} — ${fmtMoney(Number(i.total || 0) - Number(i.amountPaid || 0), settings.currency)} due` }));
-      const customerOptions = customers.map((c) => ({ value: c.id, label: c.name }));
+      const invoiceOptions = estimates.filter((i: any) => i.status !== "Paid").map((i: any) => ({ value: i.id, label: `${i.number} — ${fmtMoney(Number(i.total || 0) - Number(i.amountPaid || 0), settings.currency)} due` }));
+      const customerOptions = customers.map((c: any) => ({ value: c.id, label: c.name }));
       return <FieldModal title="Record Payment" fields={[
         { key: "customerId", label: "Customer", type: "select", options: customerOptions, required: true },
         { key: "invoiceId",  label: "Against estimate", type: "select", options: [{ value: "", label: "No specific estimate" }, ...invoiceOptions] },
@@ -722,8 +310,8 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   };
 
   const businessWa = settings.businessWhatsApp;
-  const shareCustomer = shareInvoice ? customers.find((c) => c.id === shareInvoice.customerId) : null;
-  const sharePayment = shareInvoice ? payments.find((p) => p.invoiceId === shareInvoice.id) : null;
+  const shareCustomer = shareInvoice ? customers.find((c: any) => c.id === shareInvoice.customerId) : null;
+  const sharePayment = shareInvoice ? payments.find((p: any) => p.invoiceId === shareInvoice.id) : null;
 
   if (loading) {
     return (
@@ -749,21 +337,21 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 
   return (
     <div className="flex h-screen bg-paper font-sans text-ink">
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} active={view} onNav={setView} settings={settings} onSignOut={onSignOut} />
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} active={view} onNav={goToView} settings={settings} onSignOut={onSignOut} />
       <div className="flex-1 overflow-y-auto pb-24 md:pb-0">
         <Topbar onMenu={() => setSidebarOpen(true)} settings={settings} view={view} onOpenSearch={() => setGlobalSearchOpen(true)} />
-        {renderView()}
+        {routes}
       </div>
 
       <BottomNav
         active={view}
-        onNav={setView}
+        onNav={goToView}
         onMore={() => setSidebarOpen(true)}
         onQuickAction={(key: string) => openModal(key === "customer" ? "customer" : key === "expense" ? "expense" : "estimate")}
       />
 
       <a href={businessWa ? waLink(businessWa, "Hi, I have a question about my account.") : "#settings"}
-        onClick={(e) => { if (!businessWa) { e.preventDefault(); setView("settings"); showToast("Add a WhatsApp number in Settings first"); } }}
+        onClick={(e) => { if (!businessWa) { e.preventDefault(); goToView("settings"); showToast("Add a WhatsApp number in Settings first"); } }}
         target={businessWa ? "_blank" : undefined} rel="noreferrer"
         className="fixed bottom-24 md:bottom-5 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-card active:scale-95 transition"
         style={{ backgroundColor: businessWa ? WHATSAPP_GREEN : "#94a3b8" }}>
@@ -776,15 +364,15 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
           label={confirmDeleteFor.label}
           description={confirmDeleteFor.description}
           onConfirm={confirmDeleteFor.onConfirm}
-          onCancel={() => setConfirmDeleteFor(null)}
+          onCancel={cancelConfirmDelete}
         />
       )}
       {globalSearchOpen && (
         <GlobalSearchOverlay
           customers={customers} items={items} estimates={estimates} currency={settings.currency}
           onClose={() => setGlobalSearchOpen(false)}
-          onSelectCustomer={(id: string) => { setSelectedCustomerId(id); setView("customerDetail"); setGlobalSearchOpen(false); }}
-          onSelectItem={() => { setView("items"); setGlobalSearchOpen(false); }}
+          onSelectCustomer={(id: string) => { navigate(`/customers/${id}`); setGlobalSearchOpen(false); }}
+          onSelectItem={() => { goToView("items"); setGlobalSearchOpen(false); }}
           onSelectEstimate={(doc: any) => { openModal("viewEstimate", { doc }); setGlobalSearchOpen(false); }}
         />
       )}
@@ -798,7 +386,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
           <span className="text-center">{toast.message}</span>
           {toast.undo && (
             <button
-              onClick={() => { toast.undo?.(); setToast(null); }}
+              onClick={() => { toast.undo?.(); useAppStore.getState().clearToast(); }}
               className="shrink-0 rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold hover:bg-white/25"
             >
               Undo
@@ -807,5 +395,20 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         </div>
       )}
     </div>
+  );
+}
+
+/** Wraps CustomerDetailView so /customers/:customerId can drive it directly from the URL. */
+function CustomerDetailRoute() {
+  const { customerId } = useParams();
+  const navigate = useNavigate();
+  const { customers, estimates, payments, items, openModal, settings } = useAppStore();
+  const customer = customers.find((c: any) => c.id === customerId);
+  return (
+    <CustomerDetailView
+      customer={customer}
+      estimates={estimates} payments={payments} items={items} openModal={openModal} currency={settings.currency}
+      onBack={() => navigate("/customers")}
+    />
   );
 }

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Loader2, Search, X } from "lucide-react";
-import { GOOGLE_MAPS_API_KEY, loadGoogleMaps } from "../../lib/googleMaps";
+import { MAPBOX_TOKEN, loadMapbox, reverseGeocode, suggestPlaces } from "../../lib/mapbox";
 
 export function LocationPickerModal({ initialAddress, initialLat, initialLng, onClose, onPick }: any) {
   const mapDivRef = useRef<HTMLDivElement>(null);
@@ -8,6 +8,8 @@ export function LocationPickerModal({ initialAddress, initialLat, initialLng, on
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
   const [address, setAddress] = useState(initialAddress || "");
+  const [query, setQuery] = useState(initialAddress || "");
+  const [suggestions, setSuggestions] = useState<Array<{ lat: number; lng: number; place_name: string }>>([]);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
     initialLat && initialLng ? { lat: Number(initialLat), lng: Number(initialLng) } : null
   );
@@ -16,50 +18,39 @@ export function LocationPickerModal({ initialAddress, initialLat, initialLng, on
   useEffect(() => {
     let cancelled = false;
 
-    const updateFromLatLng = (lat: number, lng: number) => {
+    const updateFromLatLng = async (lat: number, lng: number) => {
       setCoords({ lat, lng });
-      const g = (window as any).google;
-      const geocoder = new g.maps.Geocoder();
-      geocoder.geocode({ location: { lat, lng } }, (results: any, geoStatus: string) => {
-        if (!cancelled && geoStatus === "OK" && results?.[0]) setAddress(results[0].formatted_address);
-      });
+      const placeName = await reverseGeocode(lat, lng);
+      if (!cancelled && placeName) {
+        setAddress(placeName);
+        setQuery(placeName);
+      }
     };
 
-    loadGoogleMaps()
-      .then(() => {
+    loadMapbox()
+      .then((mapboxgl) => {
         if (cancelled || !mapDivRef.current) return;
         try {
-          const g = (window as any).google;
           const start = coords || { lat: 22.9734, lng: 78.6569 }; // roughly central India as a default
-          const map = new g.maps.Map(mapDivRef.current, { center: start, zoom: coords ? 16 : 5 });
-          const marker = new g.maps.Marker({ position: start, map, draggable: true });
+          const map = new mapboxgl.Map({
+            container: mapDivRef.current,
+            style: "mapbox://styles/mapbox/streets-v12",
+            center: [start.lng, start.lat],
+            zoom: coords ? 15 : 4,
+          });
+          const marker = new mapboxgl.Marker({ draggable: true }).setLngLat([start.lng, start.lat]).addTo(map);
           mapRef.current = map;
           markerRef.current = marker;
 
-          marker.addListener("dragend", () => {
-            const pos = marker.getPosition();
-            updateFromLatLng(pos.lat(), pos.lng());
+          marker.on("dragend", () => {
+            const pos = marker.getLngLat();
+            updateFromLatLng(pos.lat, pos.lng);
           });
-          map.addListener("click", (e: any) => {
-            marker.setPosition(e.latLng);
-            updateFromLatLng(e.latLng.lat(), e.latLng.lng());
+          map.on("click", (e: any) => {
+            marker.setLngLat(e.lngLat);
+            updateFromLatLng(e.lngLat.lat, e.lngLat.lng);
           });
 
-          if (searchInputRef.current) {
-            const autocomplete = new g.maps.places.Autocomplete(searchInputRef.current, { fields: ["geometry", "formatted_address", "name"] });
-            autocomplete.bindTo("bounds", map);
-            autocomplete.addListener("place_changed", () => {
-              const place = autocomplete.getPlace();
-              if (!place.geometry?.location) return;
-              const lat = place.geometry.location.lat();
-              const lng = place.geometry.location.lng();
-              map.setCenter({ lat, lng });
-              map.setZoom(16);
-              marker.setPosition({ lat, lng });
-              setCoords({ lat, lng });
-              setAddress(place.formatted_address || place.name || "");
-            });
-          }
           if (!cancelled) setStatus("ready");
         } catch (e) {
           if (!cancelled) setStatus("error");
@@ -71,6 +62,28 @@ export function LocationPickerModal({ initialAddress, initialLat, initialLng, on
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!query.trim() || query === address) { setSuggestions([]); return; }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      const results = await suggestPlaces(query);
+      if (!cancelled) setSuggestions(results);
+    }, 300);
+    return () => { cancelled = true; clearTimeout(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+
+  const pickSuggestion = (s: { lat: number; lng: number; place_name: string }) => {
+    setCoords({ lat: s.lat, lng: s.lng });
+    setAddress(s.place_name);
+    setQuery(s.place_name);
+    setSuggestions([]);
+    if (mapRef.current && markerRef.current) {
+      mapRef.current.flyTo({ center: [s.lng, s.lat], zoom: 15 });
+      markerRef.current.setLngLat([s.lng, s.lat]);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-ink/50 p-0 sm:p-4">
       <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-6 shadow-xl">
@@ -81,9 +94,9 @@ export function LocationPickerModal({ initialAddress, initialLat, initialLng, on
 
         {status === "error" ? (
           <div className="rounded-xl bg-warn-50 border border-warn-200 px-4 py-3 text-sm text-warn-800">
-            {!GOOGLE_MAPS_API_KEY
-              ? "No Google Maps API key is configured. Add VITE_GOOGLE_MAPS_API_KEY to your environment variables (Netlify site settings) to enable the map picker."
-              : "Couldn't load Google Maps. Check your API key and enabled APIs (Maps JavaScript API, Places API, Geocoding API)."}
+            {!MAPBOX_TOKEN
+              ? "No Mapbox access token is configured. Add VITE_MAPBOX_TOKEN to your environment variables (Netlify site settings) to enable the map picker."
+              : "Couldn't load the map. Check your Mapbox token."}
           </div>
         ) : (
           <>
@@ -91,9 +104,24 @@ export function LocationPickerModal({ initialAddress, initialLat, initialLng, on
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
               <input
                 ref={searchInputRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search for an address or place..."
                 className="w-full rounded-xl border border-line bg-white py-2.5 pl-9 pr-3 text-sm"
               />
+              {suggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 z-10 rounded-xl border border-line bg-white shadow-lg overflow-hidden">
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      onClick={() => pickSuggestion(s)}
+                      className="block w-full text-left px-3 py-2 text-sm hover:bg-paper"
+                    >
+                      {s.place_name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="relative w-full rounded-xl bg-paper" style={{ height: 320 }}>
               <div ref={mapDivRef} className="absolute inset-0 rounded-xl overflow-hidden" />

@@ -14,6 +14,7 @@ export function LocationPickerModal({ initialAddress, initialLat, initialLng, on
     initialLat && initialLng ? { lat: Number(initialLat), lng: Number(initialLng) } : null
   );
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [errorDetail, setErrorDetail] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -42,6 +43,25 @@ export function LocationPickerModal({ initialAddress, initialLat, initialLng, on
           mapRef.current = map;
           markerRef.current = marker;
 
+          // Guard against the container being measured before the modal's
+          // layout/animation has fully settled, which can leave Mapbox with
+          // a 0-size canvas and no visible tiles or pin.
+          map.once("load", () => map.resize());
+          requestAnimationFrame(() => map.resize());
+          setTimeout(() => map.resize(), 250);
+
+          // Style/tile requests fail asynchronously over the network and do
+          // NOT throw — Mapbox only reports them via this event. Without
+          // this listener a bad token/restriction just leaves a blank map
+          // with no visible error at all.
+          map.on("error", (e: any) => {
+            if (cancelled) return;
+            const msg = e?.error?.message || "Unknown map error";
+            console.error("Mapbox error:", msg);
+            setErrorDetail(msg);
+            setStatus("error");
+          });
+
           marker.on("dragend", () => {
             const pos = marker.getLngLat();
             updateFromLatLng(pos.lat, pos.lng);
@@ -58,7 +78,11 @@ export function LocationPickerModal({ initialAddress, initialLat, initialLng, on
       })
       .catch(() => { if (!cancelled) setStatus("error"); });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      mapRef.current?.remove?.();
+      mapRef.current = null;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -96,7 +120,7 @@ export function LocationPickerModal({ initialAddress, initialLat, initialLng, on
           <div className="rounded-xl bg-warn-50 border border-warn-200 px-4 py-3 text-sm text-warn-800">
             {!MAPBOX_TOKEN
               ? "No Mapbox access token is configured. Add VITE_MAPBOX_TOKEN to your environment variables (Netlify site settings) to enable the map picker."
-              : "Couldn't load the map. Check your Mapbox token."}
+              : errorDetail || "Couldn't load the map. Check your Mapbox token."}
           </div>
         ) : (
           <>
@@ -124,7 +148,10 @@ export function LocationPickerModal({ initialAddress, initialLat, initialLng, on
               )}
             </div>
             <div className="relative w-full rounded-xl bg-paper" style={{ height: 320 }}>
-              <div ref={mapDivRef} className="absolute inset-0 rounded-xl overflow-hidden" />
+              <div
+                ref={mapDivRef}
+                style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%", borderRadius: 12, overflow: "hidden" }}
+              />
               {status === "loading" && (
                 <div className="absolute inset-0 flex items-center justify-center text-sm text-ink/40 gap-2 pointer-events-none">
                   <Loader2 size={16} className="animate-spin" /> Loading map…

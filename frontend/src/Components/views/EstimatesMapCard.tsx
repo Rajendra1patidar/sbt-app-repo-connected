@@ -36,10 +36,26 @@ export function EstimatesMapCard({ invoices, currency }: any) {
       });
       mapInstanceRef.current = map;
 
+      // Guard against the container being measured before layout has
+      // settled (e.g. right after the Reports page mounts), which can
+      // leave Mapbox with a mis-sized canvas and cause NaN coordinate
+      // errors on hover/click.
+      map.once("load", () => map.resize());
+      requestAnimationFrame(() => map.resize());
+      setTimeout(() => map.resize(), 250);
+
+      map.on("error", (e: any) => {
+        if (cancelled) return;
+        const msg = e?.error?.message || "Unknown map error";
+        console.error("Mapbox error:", msg);
+        setMapError(msg);
+      });
+
       const bounds = new mapboxgl.LngLatBounds();
       let hasBounds = false;
 
       const placeMarker = (dest: string, lat: number, lng: number) => {
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
         const popupHtml = `<div style="font-size:13px;"><b>${dest}</b><br/>${byDestination[dest].count} estimate${byDestination[dest].count !== 1 ? "s" : ""}<br/><b>${fmtMoney(byDestination[dest].total, currency)}</b></div>`;
         const popup = new mapboxgl.Popup({ offset: 24 }).setHTML(popupHtml);
         new mapboxgl.Marker().setLngLat([lng, lat]).setPopup(popup).addTo(map);

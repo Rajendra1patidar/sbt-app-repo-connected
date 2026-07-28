@@ -6,6 +6,6 @@ expenses, payments, and reports.
 
 ## Status
 
-Item returns are now supported: from any estimate, use "Return items" to record
-returned quantities, which books a refund for the customer and restocks inventory
-automatically.
+need to be sure abour estimate delete situation.
+new ledger account added.
+printing from laserjet is a bug will work on that in coming days

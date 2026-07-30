@@ -55,7 +55,11 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
     setImportEstimateId(estimateId);
     const doc = (estimates || []).find((d: any) => d.id === estimateId);
     if (!doc) return;
-    if (doc.customerId) setCustomerId(doc.customerId);
+    // Always reset customer + quantities before applying the newly picked estimate's
+    // data — otherwise switching from one estimate to another (or to one that has no
+    // cement/saria lines) leaves the previous pick's numbers sitting in the fields,
+    // making it look like both estimates got added together.
+    setCustomerId(doc.customerId || "");
     let cementSum = 0;
     let sariaKg = 0;
     (doc.lines || []).forEach((ln: any) => {
@@ -64,8 +68,8 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
       if (cat === "Saria") sariaKg += Number(ln.qty || 0);
     });
     const sariaBundles = sariaKg ? Math.round((sariaKg / SARIA_KG_PER_BUNDLE) * 100) / 100 : 0;
-    if (cementSum) setCementQty(String(cementSum));
-    if (sariaBundles) setSariaQty(String(sariaBundles));
+    setCementQty(cementSum ? String(cementSum) : "");
+    setSariaQty(sariaBundles ? String(sariaBundles) : "");
     const noteParts = [`From estimate ${doc.number}`];
     if (sariaKg) noteParts.push(`Saria ${sariaKg}kg ≈ ${sariaBundles} bundles`);
     setNote(noteParts.join(" · "));
@@ -128,7 +132,11 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
               placeholder="Select an estimate…"
             />
             {importEstimateId && (
-              <button type="button" onClick={() => setImportEstimateId("")} className="mt-1 text-xs font-semibold text-ink/40">
+              <button
+                type="button"
+                onClick={() => { setImportEstimateId(""); setCementQty(""); setSariaQty(""); setNote(""); }}
+                className="mt-1 text-xs font-semibold text-ink/40"
+              >
                 Clear selection
               </button>
             )}

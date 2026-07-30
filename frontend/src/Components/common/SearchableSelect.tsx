@@ -1,13 +1,104 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Search } from "lucide-react";
+
+// How many rows we actually render at once. With ~500 items, rendering all of
+// them on every keystroke is what makes the list feel sluggish — capping the
+// render (and telling the user there's more) keeps it instant regardless of
+// list size, while a query almost always narrows well below this anyway.
+const MAX_RESULTS = 40;
+
+function normalize(s: string) {
+  return (s || "").toLowerCase();
+}
+
+// Ranks a match so "cement" typed for "White Cement 50kg" beats a coincidental
+// substring hit buried in the middle of an unrelated label: exact match first,
+// then "starts with", then "a word inside the label starts with it", then any
+// substring match. Ties keep the original list order.
+function matchRank(label: string, q: string): number {
+  const l = normalize(label);
+  if (l === q) return 0;
+  if (l.startsWith(q)) return 1;
+  if (l.split(/[\s,()-]+/).some((word) => word.startsWith(q))) return 2;
+  if (l.includes(q)) return 3;
+  return -1;
+}
+
+function highlight(label: string, q: string) {
+  if (!q) return label;
+  const idx = normalize(label).indexOf(q);
+  if (idx === -1) return label;
+  return (
+    <>
+      {label.slice(0, idx)}
+      <mark className="rounded-sm bg-brand-100 text-brand-800">{label.slice(idx, idx + q.length)}</mark>
+      {label.slice(idx + q.length)}
+    </>
+  );
+}
 
 export function SearchableSelect({ options, value, onChange, placeholder }: any) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
   const selected = options.find((o: any) => o.value === value);
-  const filtered = query
-    ? options.filter((o: any) => o.label.toLowerCase().includes(query.toLowerCase()))
-    : options;
+
+  const filtered = useMemo(() => {
+    const q = normalize(query.trim());
+    if (!q) return options;
+    return options
+      .map((o: any) => ({ o, rank: matchRank(o.label, q) }))
+      .filter((x: any) => x.rank !== -1)
+      .sort((a: any, b: any) => a.rank - b.rank)
+      .map((x: any) => x.o);
+  }, [options, query]);
+
+  const visible = filtered.slice(0, MAX_RESULTS);
+  const q = normalize(query.trim());
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [query, open]);
+
+  useEffect(() => {
+    if (open) {
+      // Focus the search box the moment the dropdown opens so typing starts
+      // immediately — no extra click needed.
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  }, [open]);
+
+  useEffect(() => {
+    // keep the highlighted row visible while navigating with arrow keys
+    const el = listRef.current?.querySelector(`[data-idx="${activeIndex}"]`) as HTMLElement | null;
+    el?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex]);
+
+  const choose = (val: string) => {
+    onChange(val);
+    setOpen(false);
+    setQuery("");
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((i) => Math.min(i + 1, visible.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (visible[activeIndex]) choose(visible[activeIndex].value);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+      setQuery("");
+    }
+  };
 
   return (
     <div
@@ -25,30 +116,43 @@ export function SearchableSelect({ options, value, onChange, placeholder }: any)
         <ChevronDown size={15} className="ml-2 shrink-0 text-ink/40" />
       </button>
       {open && (
-        <div className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-line bg-white shadow-lg">
+        <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-xl border border-line bg-white shadow-lg">
           <div className="sticky top-0 flex items-center gap-2 border-b border-line bg-white p-2">
             <Search size={14} className="shrink-0 text-ink/40" />
             <input
-              autoFocus
+              ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={onKeyDown}
               placeholder="Search..."
               className="w-full text-sm outline-none"
             />
           </div>
-          {filtered.length === 0
-            ? <p className="px-3 py-2 text-xs text-ink/40">No matches</p>
-            : filtered.map((o: any) => (
-              <button
-                type="button"
-                key={o.value}
-                onClick={() => { onChange(o.value); setOpen(false); setQuery(""); }}
-                className={`block w-full truncate px-3 py-2 text-left text-sm hover:bg-paper ${o.value === value ? "bg-brand-50 font-semibold text-brand-700" : "text-ink/80"}`}
-              >
-                {o.label}
-              </button>
-            ))
-          }
+          <div ref={listRef} className="max-h-56 overflow-y-auto">
+            {visible.length === 0 ? (
+              <p className="px-3 py-2 text-xs text-ink/40">No matches</p>
+            ) : (
+              visible.map((o: any, i: number) => (
+                <button
+                  type="button"
+                  key={o.value}
+                  data-idx={i}
+                  onClick={() => choose(o.value)}
+                  onMouseEnter={() => setActiveIndex(i)}
+                  className={`block w-full truncate px-3 py-2 text-left text-sm ${
+                    o.value === value ? "bg-brand-50 font-semibold text-brand-700" : "text-ink/80"
+                  } ${i === activeIndex ? "bg-paper" : ""}`}
+                >
+                  {highlight(o.label, q)}
+                </button>
+              ))
+            )}
+          </div>
+          {filtered.length > MAX_RESULTS && (
+            <p className="border-t border-line px-3 py-1.5 text-[11px] text-ink/40">
+              {filtered.length - MAX_RESULTS} more match{filtered.length - MAX_RESULTS !== 1 ? "es" : ""} — keep typing to narrow it down
+            </p>
+          )}
         </div>
       )}
     </div>

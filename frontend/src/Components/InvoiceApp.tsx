@@ -14,6 +14,7 @@ import { DocumentModal } from "./modals/DocumentModal";
 import { FieldModal } from "./modals/FieldModal";
 import { InvoiceShareModal } from "./modals/InvoiceShareModal";
 import { OrderModal } from "./modals/OrderModal";
+import { PaymentAllocationModal } from "./modals/PaymentAllocationModal";
 import { ReturnModal } from "./modals/ReturnModal";
 import { ViewEstimateModal } from "./modals/ViewEstimateModal";
 import { AdvancedBillingView } from "./views/AdvancedBillingView";
@@ -59,7 +60,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     saveCustomer, removeCustomer, saveItem, removeItem, saveExpense, removeExpense,
     saveVendor, removeVendor, savePurchase, convertOrderToPurchase, removePurchase,
     saveVendorPayment, savePurchasePayment, saveDocument, removeDoc, updateDocStatus,
-    savePayment, saveReturn, saveDelivery, removePayment, saveOrder, removeOrder,
+    savePayment, savePaymentSplit, saveReturn, saveDelivery, removePayment, saveOrder, removeOrder,
     markOrderReceived, saveLabourSession, removeLabourSession, saveContractorPhone,
     saveSettings, saveChallan, recordPaymentFor,
   } = useAppStore();
@@ -287,15 +288,15 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       return <DocumentModal type={type} customers={customers} items={items} estimates={estimates} editingDoc={payload?.editingDoc} onClose={closeModal} onSave={(v: any) => saveDocument(type, v)} />;
 
     if (type === "payment") {
-      const invoiceOptions = estimates.filter((i: any) => i.status !== "Paid").map((i: any) => ({ value: i.id, label: `${i.number} — ${fmtMoney(Number(i.total || 0) - Number(i.amountPaid || 0), settings.currency)} due` }));
-      const customerOptions = customers.map((c: any) => ({ value: c.id, label: c.name }));
-      return <FieldModal title="Record Payment" fields={[
-        { key: "customerId", label: "Customer", type: "select", options: customerOptions, required: true },
-        { key: "invoiceId",  label: "Against estimate", type: "select", options: [{ value: "", label: "No specific estimate" }, ...invoiceOptions] },
-        { key: "amount",     label: "Amount",  type: "number", required: true },
-        { key: "method",     label: "Method",  type: "select", options: [{ value: "Cash", label: "Cash" }, { value: "Bank Transfer", label: "Bank Transfer" }, { value: "UPI", label: "UPI" }, { value: "Card", label: "Card" }] },
-        { key: "date",       label: "Date",    type: "date" },
-      ]} initial={{ date: today(), customerId: payload?.customerId || "", invoiceId: payload?.invoiceId || "", amount: payload?.amount || "" }} onClose={closeModal} onSave={savePayment} />;
+      return <PaymentAllocationModal
+        customers={customers}
+        estimates={estimates}
+        currency={settings.currency}
+        initialCustomerId={payload?.customerId || ""}
+        initialInvoiceId={payload?.invoiceId || ""}
+        onClose={closeModal}
+        onSave={savePaymentSplit}
+      />;
     }
 
     if (type === "return") {

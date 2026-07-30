@@ -17,7 +17,7 @@ async function recordStockIn({ owner, itemId, qty, rate, sourceType, sourceId, d
   const oldCost = Number(item.purchasePrice) || 0;
   const oldValue = oldStock * oldCost;
   const addedValue = Number(qty) * Number(rate);
-  const newStock = oldStock + Number(qty);
+  const newStock = round2(oldStock + Number(qty));
   const newAvgCost = newStock > 0 ? (oldValue + addedValue) / newStock : Number(rate);
 
   item.stock = newStock;
@@ -51,7 +51,7 @@ async function recordStockOut({ owner, itemId, qty, sourceType, sourceId, date }
   if (!item) return null;
 
   const costRate = Number(item.purchasePrice) || 0;
-  const newStock = Math.max(0, (Number(item.stock) || 0) - Number(qty));
+  const newStock = round2(Math.max(0, (Number(item.stock) || 0) - Number(qty)));
   item.stock = newStock;
   await item.save();
 
@@ -81,7 +81,7 @@ async function recordReturnIn({ owner, itemId, qty, rate, sourceType, sourceId, 
   const item = await Item.findOne({ _id: itemId, owner });
   if (!item) return null;
 
-  const newStock = (Number(item.stock) || 0) + Number(qty);
+  const newStock = round2((Number(item.stock) || 0) + Number(qty));
   item.stock = newStock;
   await item.save();
 
@@ -107,8 +107,8 @@ async function stockValuation(owner) {
   const rows = items.map((it) => ({
     itemId: it._id,
     name: it.name,
-    stock: it.stock || 0,
-    avgCost: it.purchasePrice || 0,
+    stock: round2(it.stock || 0),
+    avgCost: round2(it.purchasePrice || 0),
     value: round2((it.stock || 0) * (it.purchasePrice || 0)),
   }));
   const totalValue = round2(rows.reduce((s, r) => s + r.value, 0));

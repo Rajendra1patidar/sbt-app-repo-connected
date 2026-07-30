@@ -84,6 +84,7 @@ interface AppState {
   removeDoc: (type: string, id: string) => void;
   updateDocStatus: (type: string, id: string, s: string) => Promise<void>;
   savePayment: (v: any) => Promise<void>;
+  savePaymentSplit: (v: { customerId: string; date?: string; method?: string; allocations: { invoiceId: string; amount: number }[]; advanceAmount?: number }) => Promise<void>;
   saveReturn: (docId: string, lines: { itemId: string; qty: number }[]) => Promise<void>;
   saveDelivery: (docId: string, lines: { itemId: string; qty: number }[]) => Promise<void>;
   removePayment: (id: string) => void;
@@ -449,6 +450,59 @@ export const useAppStore = create<AppState>()((set, get) => ({
             : "Payment recorded"
         : "Advance payment recorded";
       showToast(toastMessage);
+      closeModal();
+    } catch (err) { onApiError(get, err, "Failed to record payment"); }
+  },
+
+  // Records a single amount received against several due estimates at once (plus
+  // an optional leftover as a general advance) by posting one Payment per estimate —
+  // the backend/ledger already handle a single-invoice payment correctly, so this
+  // just sequences that call once per allocation instead of needing a new API shape.
+  savePaymentSplit: async (v) => {
+    const { showToast, closeModal } = get();
+    const allocations = (v.allocations || []).filter((a) => Number(a.amount) > 0);
+    const advanceAmount = Number(v.advanceAmount || 0);
+    if (!allocations.length && advanceAmount <= 0) return;
+
+    try {
+      const results: any[] = [];
+      for (const a of allocations) {
+        const { payment, invoice } = await api.payments.create({
+          customerId: v.customerId,
+          invoiceId: a.invoiceId,
+          amount: Number(a.amount),
+          date: v.date,
+          method: v.method,
+        });
+        results.push({ payment, invoice });
+      }
+      if (advanceAmount > 0) {
+        const { payment } = await api.payments.create({
+          customerId: v.customerId,
+          amount: advanceAmount,
+          date: v.date,
+          method: v.method,
+        });
+        results.push({ payment, invoice: null });
+      }
+
+      set((state) => {
+        const invoiceById: Record<string, any> = {};
+        for (const r of results) if (r.invoice) invoiceById[r.invoice.id] = r.invoice;
+        return {
+          payments: [...results.map((r) => r.payment), ...state.payments],
+          estimates: state.estimates.map((e) => invoiceById[e.id] || e),
+        };
+      });
+
+      const settledCount = results.filter((r) => r.invoice?.status === "Paid").length;
+      showToast(
+        allocations.length > 1
+          ? `Payment recorded across ${allocations.length} estimates${settledCount ? ` — ${settledCount} settled` : ""}`
+          : allocations.length === 1
+            ? (results[0].invoice?.status === "Paid" ? "Payment recorded — estimate fully paid" : "Partial payment recorded")
+            : "Advance payment recorded"
+      );
       closeModal();
     } catch (err) { onApiError(get, err, "Failed to record payment"); }
   },

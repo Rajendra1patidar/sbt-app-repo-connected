@@ -5,6 +5,7 @@ import { RateEditPopup } from "./RateEditPopup";
 import { StatusChoicePopup } from "./StatusChoicePopup";
 import { fmtMoney, today, round2 } from "../../lib/format";
 import { InvoiceLine } from "../../types/index";
+import { api } from "../../lib/api";
 
 export function DocumentModal({ type, customers, items, estimates, editingDoc, onClose, onSave }: any) {
   const isEditing = !!editingDoc;
@@ -15,7 +16,7 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, o
   const [customerId, setCustomerId] = useState(editingDoc?.customerId || customers[0]?.id || "");
   const [date, setDate] = useState(editingDoc?.date ? String(editingDoc.date).slice(0, 10) : today());
   const [dueDate, setDueDate] = useState(editingDoc?.dueDate ? String(editingDoc.dueDate).slice(0, 10) : today());
-  const [lines, setLines] = useState<InvoiceLine[]>(editingDoc?.lines?.length ? editingDoc.lines.map((ln: InvoiceLine) => ({ ...ln })) : [{ itemId: activeItems[0]?.id || "", qty: 1, rate: activeItems[0]?.sellingPrice || 0 }]);
+  const [lines, setLines] = useState<InvoiceLine[]>(editingDoc?.lines?.length ? editingDoc.lines.map((ln: InvoiceLine) => ({ ...ln })) : [{ itemId: activeItems[0]?.id || "", qty: 1, rate: activeItems[0]?.sellingPrice || 0, discountAmount: 0 }]);
   const [notes, setNotes] = useState(editingDoc?.notes || "");
   const [rateEditIndex, setRateEditIndex] = useState<number | null>(null);
   const [freightCost, setFreightCost] = useState(editingDoc?.freightCost ? String(editingDoc.freightCost) : "");
@@ -28,6 +29,9 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, o
   const [destinationTouched, setDestinationTouched] = useState(!!editingDoc?.destination);
   const [pendingSave, setPendingSave] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+  // soft credit-limit warning: only checked for brand-new estimates (not edits), and
+  // only surfaces if the customer has a creditLimit set at all
+  const [customerOutstanding, setCustomerOutstanding] = useState<number | null>(null);
 
   useEffect(() => {
     if (type !== "estimate" || destinationTouched) return;
@@ -36,10 +40,24 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, o
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customerId]);
 
+  // soft credit-limit check: only meaningful for brand-new estimates against a
+  // customer, and only if that customer has a creditLimit set — fetch their
+  // current outstanding balance whenever the customer selection changes.
+  useEffect(() => {
+    if (type !== "estimate" || isEditing || !customerId) { setCustomerOutstanding(null); return; }
+    const customer = customers.find((c: any) => c.id === customerId);
+    if (customer?.creditLimit == null) { setCustomerOutstanding(null); return; }
+    let cancelled = false;
+    api.ledger.customerStatement(customerId)
+      .then((s: any) => { if (!cancelled) setCustomerOutstanding(Number(s?.closingBalance || 0)); })
+      .catch(() => { if (!cancelled) setCustomerOutstanding(null); });
+    return () => { cancelled = true; };
+  }, [type, isEditing, customerId, customers]);
+
   const knownContractors = Array.from(new Set((estimates || []).map((e: any) => e.contractorName).filter(Boolean))) as string[];
   const knownDestinations = Array.from(new Set((estimates || []).map((e: any) => e.destination).filter(Boolean))) as string[];
 
-  const addLine = () => setLines((l) => [...l, { itemId: activeItems[0]?.id || "", qty: 1, rate: activeItems[0]?.sellingPrice || 0 }]);
+  const addLine = () => setLines((l) => [...l, { itemId: activeItems[0]?.id || "", qty: 1, rate: activeItems[0]?.sellingPrice || 0, discountAmount: 0 }]);
   const updateLine = (i: number, patch: any) => setLines((l) => l.map((ln, idx) => idx === i ? { ...ln, ...patch } : ln));
   const setLineItem = (i: number, itemId: string) => {
     const it = activeItems.find((it: any) => it.id === itemId);
@@ -47,7 +65,9 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, o
   };
   const removeLine = (i: number) => setLines((l) => l.filter((_, idx) => idx !== i));
   const itemById = (id: string) => items.find((it: any) => it.id === id);
-  const itemsSubtotal = round2(lines.reduce((sum, ln) => sum + Number(ln.qty || 0) * Number(ln.rate || 0), 0));
+  const itemsGrossSubtotal = round2(lines.reduce((sum, ln) => sum + Number(ln.qty || 0) * Number(ln.rate || 0), 0));
+  const itemsDiscountTotal = round2(lines.reduce((sum, ln) => sum + Number(ln.discountAmount || 0), 0));
+  const itemsSubtotal = round2(itemsGrossSubtotal - itemsDiscountTotal);
 
   // when editing, exclude the estimate being edited itself from its own "previous due" calculation
   const previousDueEstimates = type === "estimate" && !isEditing ? (estimates || []).filter((e: any) => e.customerId === customerId && e.status !== "Paid") : [];
@@ -55,6 +75,15 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, o
   const previousDue = includePreviousDue ? previousDueAmount : 0;
 
   const total = round2(itemsSubtotal + Number(freightCost || 0) + Number(labourCost || 0) + previousDue);
+
+  // soft warning only — never blocks save. previousDue is subtracted back out because
+  // those older estimates get marked Paid (folded into this one) the moment it's saved,
+  // so they shouldn't be double-counted against the customer's current outstanding balance.
+  const selectedCustomer = customers.find((c: any) => c.id === customerId);
+  const creditLimit = selectedCustomer?.creditLimit;
+  const projectedOutstanding = customerOutstanding != null ? round2(customerOutstanding + total - previousDue) : null;
+  const overCreditLimit =
+    type === "estimate" && !isEditing && customerOutstanding != null && creditLimit != null && projectedOutstanding !== null && projectedOutstanding > Number(creditLimit);
 
   const titleMap: any = {
     estimate: isEditing ? "Edit Estimate" : "New Estimate",
@@ -116,7 +145,9 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, o
                 {lines.map((ln, i) => {
                   const it = itemById(ln.itemId);
                   const isOverridden = type === "estimate" && it && Number(ln.rate) !== Number(it.sellingPrice);
-                  const lineSubtotal = Number(ln.qty || 0) * Number(ln.rate || 0);
+                  const lineGross = Number(ln.qty || 0) * Number(ln.rate || 0);
+                  const lineDiscount = Number(ln.discountAmount || 0);
+                  const lineSubtotal = lineGross - lineDiscount;
                   return (
                     <div key={i} className="rounded-xl border border-line bg-paper/60 p-2">
                       <div className="flex items-center gap-2">
@@ -140,7 +171,23 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, o
                         {it && Number(ln.qty) > (it.stock ?? 0) && <span title="Exceeds stock"><AlertTriangle size={14} className="text-warn-500 shrink-0" /></span>}
                         {lines.length > 1 && <button onClick={() => removeLine(i)} className="rounded-full p-1.5 text-bad-500 hover:bg-bad-50"><Trash2 size={15} /></button>}
                       </div>
-                      <p className="mt-1.5 px-1 text-xs font-semibold text-ink/50">Subtotal: {fmtMoney(lineSubtotal, "")}</p>
+                      {type === "estimate" && (
+                        <div className="mt-1.5 flex items-center gap-1.5 px-1">
+                          <span className="text-xs font-semibold text-ink/50">Discount</span>
+                          <input
+                            type="number" min="0" max={lineGross || undefined} value={ln.discountAmount || ""}
+                            onChange={(e) => updateLine(i, { discountAmount: e.target.value })}
+                            placeholder="0" className="w-20 rounded-lg border border-line px-2 py-1 text-xs"
+                          />
+                        </div>
+                      )}
+                      <p className="mt-1.5 px-1 text-xs font-semibold text-ink/50">
+                        {lineDiscount > 0 ? (
+                          <>Subtotal: <span className="line-through opacity-60">{fmtMoney(lineGross, "")}</span> {fmtMoney(lineSubtotal, "")}</>
+                        ) : (
+                          <>Subtotal: {fmtMoney(lineSubtotal, "")}</>
+                        )}
+                      </p>
                     </div>
                   );
                 })}
@@ -198,9 +245,25 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, o
                 {includePreviousDue && <p className="mt-2 text-[11px] text-warn-700">Included in this estimate's total. Those {previousDueEstimates.length} earlier estimate{previousDueEstimates.length !== 1 ? "s" : ""} will be marked Paid once this one is saved.</p>}
               </div>
             )}
+            {overCreditLimit && (
+              <div className="rounded-xl border border-bad-200 bg-bad-50 px-4 py-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle size={15} className="mt-0.5 shrink-0 text-bad-500" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-bad-800">Over {selectedCustomer?.name}'s credit limit</p>
+                    <p className="mt-0.5 text-xs text-bad-700">
+                      Outstanding would be {fmtMoney(projectedOutstanding, "")} against a limit of {fmtMoney(creditLimit, "")}. You can still save this estimate — this is just a heads up.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="space-y-1 rounded-xl bg-paper px-4 py-3">
               {type === "estimate" && (
-                <div className="flex items-center justify-between text-xs font-semibold text-ink/50"><span>Items subtotal</span><span>{itemsSubtotal.toFixed(2)}</span></div>
+                <div className="flex items-center justify-between text-xs font-semibold text-ink/50"><span>Items subtotal</span><span>{itemsGrossSubtotal.toFixed(2)}</span></div>
+              )}
+              {type === "estimate" && itemsDiscountTotal > 0 && (
+                <div className="flex items-center justify-between text-xs text-bad-600"><span>Discount</span><span>-{itemsDiscountTotal.toFixed(2)}</span></div>
               )}
               {type === "estimate" && (Number(freightCost || 0) > 0 || Number(labourCost || 0) > 0 || previousDue > 0) && (
                 <>

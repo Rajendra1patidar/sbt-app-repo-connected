@@ -8,7 +8,8 @@ export function ViewEstimateModal({ doc, customers, items, currency, onClose, on
   if (!doc) return null;
   const customer = customers.find((c: any) => c.id === doc.customerId);
   const itemById = (id: string) => items.find((it: any) => it.id === id);
-  const itemsSubtotal = (doc.lines || []).reduce((s: number, ln: any) => s + Number(ln.qty || 0) * Number(ln.rate || 0), 0);
+  const itemsGrossSubtotal = (doc.lines || []).reduce((s: number, ln: any) => s + Number(ln.qty || 0) * Number(ln.rate || 0), 0);
+  const itemsDiscountTotal = (doc.lines || []).reduce((s: number, ln: any) => s + Number(ln.discountAmount || 0), 0);
   const pts = estimatePoints(doc, items);
   const balance = Number(doc.total || 0) - Number(doc.amountPaid || 0);
   const isPaid = doc.status === "Paid";
@@ -77,13 +78,15 @@ export function ViewEstimateModal({ doc, customers, items, currency, onClose, on
             <div className="space-y-2">
               {(doc.lines || []).map((ln: any, i: number) => {
                 const it = itemById(ln.itemId);
+                const gross = Number(ln.qty || 0) * Number(ln.rate || 0);
+                const discount = Number(ln.discountAmount || 0);
                 return (
                   <div key={i} className="flex items-center justify-between rounded-xl border border-line bg-paper/60 px-3 py-2 text-sm">
                     <div className="min-w-0">
                       <p className="font-semibold text-ink">{it?.name || ln.name || "Item"}</p>
-                      <p className="text-xs text-ink/40">{fmtNum(ln.qty)} × {fmtMoney(ln.rate, currency)}</p>
+                      <p className="text-xs text-ink/40">{fmtNum(ln.qty)} × {fmtMoney(ln.rate, currency)}{discount > 0 ? ` · Discount ${fmtMoney(discount, currency)}` : ""}</p>
                     </div>
-                    <p className="font-semibold text-ink">{fmtMoney(Number(ln.qty || 0) * Number(ln.rate || 0), currency)}</p>
+                    <p className="font-semibold text-ink">{fmtMoney(gross - discount, currency)}</p>
                   </div>
                 );
               })}
@@ -98,7 +101,8 @@ export function ViewEstimateModal({ doc, customers, items, currency, onClose, on
           )}
 
           <div className="space-y-1 rounded-xl bg-paper px-4 py-3">
-            <div className="flex items-center justify-between text-xs font-semibold text-ink/50"><span>Items subtotal</span><span>{fmtMoney(itemsSubtotal, currency)}</span></div>
+            <div className="flex items-center justify-between text-xs font-semibold text-ink/50"><span>Items subtotal</span><span>{fmtMoney(itemsGrossSubtotal, currency)}</span></div>
+            {itemsDiscountTotal > 0 && <div className="flex items-center justify-between text-xs text-bad-600"><span>Discount</span><span>-{fmtMoney(itemsDiscountTotal, currency)}</span></div>}
             {Number(doc.freightCost || 0) > 0 && <div className="flex items-center justify-between text-xs text-ink/50"><span>Freight</span><span>{fmtMoney(doc.freightCost, currency)}</span></div>}
             {Number(doc.labourCost || 0) > 0 && <div className="flex items-center justify-between text-xs text-ink/50"><span>Labour</span><span>{fmtMoney(doc.labourCost, currency)}</span></div>}
             {Number(doc.previousDue || 0) > 0 && <div className="flex items-center justify-between text-xs text-ink/50"><span>Previous due</span><span>{fmtMoney(doc.previousDue, currency)}</span></div>}

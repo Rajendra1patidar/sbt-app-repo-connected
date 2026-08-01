@@ -57,6 +57,20 @@ function assertLinesValid(lines) {
       err.status = 400;
       throw err;
     }
+    if (line.discountAmount !== undefined && line.discountAmount !== null) {
+      const discount = Number(line.discountAmount);
+      if (!(discount >= 0)) {
+        const err = new Error(`Line discount can't be negative (got ${line.discountAmount})`);
+        err.status = 400;
+        throw err;
+      }
+      const lineSubtotal = qty * rate;
+      if (discount > lineSubtotal) {
+        const err = new Error(`Line discount (${discount}) can't exceed the line's own subtotal (${lineSubtotal})`);
+        err.status = 400;
+        throw err;
+      }
+    }
   }
 }
 

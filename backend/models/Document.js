@@ -5,6 +5,9 @@ const lineSchema = new mongoose.Schema(
     itemId: { type: mongoose.Schema.Types.ObjectId, ref: "Item" },
     qty: { type: Number, default: 1, min: [0.001, "Line quantity must be greater than 0"] },
     rate: { type: Number, min: [0, "Line rate can't be negative"] },
+    // flat ₹ discount off this line's subtotal (qty * rate). Shown as its own
+    // line on the printed estimate rather than netted silently into the rate.
+    discountAmount: { type: Number, default: 0, min: [0, "Line discount can't be negative"] },
   },
   { _id: false }
 );

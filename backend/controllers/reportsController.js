@@ -194,8 +194,9 @@ exports.summary = async (req, res, next) => {
         const item = itemMap.get(String(line.itemId));
         const qty = Number(line.qty || 0);
         const rate = Number(line.rate || 0);
+        const discount = Number(line.discountAmount || 0);
         const purchasePrice = Number(item?.purchasePrice || 0);
-        bump(line.itemId, item?.name, qty, qty * rate, qty * purchasePrice);
+        bump(line.itemId, item?.name, qty, qty * rate - discount, qty * purchasePrice);
       }
       for (const ret of doc.returns || []) {
         const item = itemMap.get(String(ret.itemId));

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, MapPin, Receipt } from "lucide-react";
+import { ChevronLeft, MapPin, Pencil, Receipt } from "lucide-react";
 import { Badge, Card, EmptyState, SmsButton, WhatsAppButton } from "../common/UIPrimitives";
 import { fmtDate, fmtMoney } from "../../lib/format";
 import { api } from "../../lib/api";
@@ -56,8 +56,17 @@ export function CustomerDetailView({ customer, estimates, payments, items, curre
                 <MapPin size={11} /> {customer.location}
               </a>
             )}
+            <p className="mt-1.5 text-xs text-ink/40">
+              Credit limit: {customer.creditLimit != null ? fmtMoney(customer.creditLimit, currency) : "None set"}
+            </p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={() => openModal("customer", { editingCustomer: customer })}
+              className="flex items-center gap-1 rounded-full border border-line px-2.5 py-1.5 text-xs font-semibold text-ink/70 hover:bg-paper"
+            >
+              <Pencil size={12} /> Edit
+            </button>
             <WhatsAppButton compact phone={customer.phone} message={`Hi ${customer.name}, reaching out from ${customer.name}'s account.`} />
             <SmsButton compact phone={customer.phone} message={`Hi ${customer.name}, reaching out from ${customer.name}'s account.`} />
           </div>

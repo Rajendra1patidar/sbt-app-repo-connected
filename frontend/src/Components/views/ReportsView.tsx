@@ -34,8 +34,8 @@ export function ReportsView({ data, currency, settings }: any) {
   for (const inv of invoices) {
     for (const ln of inv.lines || []) {
       const it = itemById(ln.itemId);
-      const qty = Number(ln.qty || 0), rate = Number(ln.rate || 0), pp = Number(it?.purchasePrice || 0);
-      bumpItem(ln.itemId, it?.name, qty, qty * rate, qty * pp);
+      const qty = Number(ln.qty || 0), rate = Number(ln.rate || 0), discount = Number(ln.discountAmount || 0), pp = Number(it?.purchasePrice || 0);
+      bumpItem(ln.itemId, it?.name, qty, qty * rate - discount, qty * pp);
     }
     for (const ret of inv.returns || []) {
       const it = itemById(ret.itemId);

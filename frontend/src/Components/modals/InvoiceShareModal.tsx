@@ -28,6 +28,7 @@ export function InvoiceShareModal({ invoice, customer, items, settings, payment,
     const PAD = 22;
 
     const lines = invoice.lines || [];
+    const discountRowCount = lines.filter((ln: any) => Number(ln.discountAmount || 0) > 0).length;
     const itemFont = lines.length <= 4 ? 26 : lines.length <= 8 ? 23 : 20;
     const rowH = itemFont + 22;
 
@@ -41,7 +42,7 @@ export function InvoiceShareModal({ invoice, customer, items, settings, payment,
     const TOTAL_H = 78;
     const NOTES_H = invoice.notes ? 34 : 0;
     const STAT_H = 40;
-    const H = HEADER_H + (lines.length + extras.length) * rowH + TOTAL_H + NOTES_H + STAT_H + PAD * 2;
+    const H = HEADER_H + (lines.length + discountRowCount + extras.length) * rowH + TOTAL_H + NOTES_H + STAT_H + PAD * 2;
 
     canvas.width = CARD_W; canvas.height = H;
 
@@ -81,6 +82,8 @@ export function InvoiceShareModal({ invoice, customer, items, settings, payment,
       const it = items.find((i: any) => i.id === ln.itemId);
       const name = it?.name || "Item"; const qty = Number(ln.qty || 0); const price = ln.rate ?? it?.sellingPrice ?? 0;
       drawRow(`${name} × ${fmtNum(qty)}`, qty * price);
+      const discount = Number(ln.discountAmount || 0);
+      if (discount > 0) drawRow("  Discount", -discount);
     });
     extras.forEach(([label, val]) => drawRow(label, val));
 

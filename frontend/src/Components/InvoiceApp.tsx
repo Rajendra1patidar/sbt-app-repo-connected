@@ -83,8 +83,9 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       const name = it?.name || "Item";
       const qty = Number(ln.qty || 0);
       const rate = ln.rate ?? it?.sellingPrice ?? 0;
-      const amount = qty * rate;
-      return `<div class="ln"><span class="ln-name">${name} × ${qty} @ ${fmtMoney(rate, settings.currency)}</span><span class="ln-amt">${fmtMoney(amount, settings.currency)}</span></div>`;
+      const discount = Number(ln.discountAmount || 0);
+      const discountHtml = discount > 0 ? `<div class="ln" style="opacity:.65"><span class="ln-name">Discount</span><span class="ln-amt">-${fmtMoney(discount, settings.currency)}</span></div>` : "";
+      return `<div class="ln"><span class="ln-name">${name} × ${qty} @ ${fmtMoney(rate, settings.currency)}</span><span class="ln-amt">${fmtMoney(qty * rate, settings.currency)}</span></div>${discountHtml}`;
     }).join("");
 
     const extrasHtml = [
@@ -202,12 +203,21 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       onMarkPaid={(doc: any) => { updateDocStatus("estimate", doc.id, "Paid"); closeModal(); }}
       onShareInvoice={(doc: any) => { closeModal(); setShareInvoice(doc); }} />;
 
-    if (type === "customer") return <FieldModal title="New Customer" fields={[
-      { key: "name",     label: "Customer name",                     required: true, placeholder: "Acme Co." },
-      { key: "email",    label: "Email",                             placeholder: "name@example.com" },
-      { key: "phone",    label: "Phone (with country code)",         placeholder: "+91 98765 43210" },
-      { key: "location", label: "Location / Address",                type: "location", placeholder: "City, area or full address" },
-    ]} onClose={closeModal} onSave={saveCustomer} />;
+    if (type === "customer") {
+      const editingCustomer = payload?.editingCustomer;
+      return <FieldModal title={editingCustomer ? "Edit Customer" : "New Customer"} fields={[
+        { key: "name",         label: "Customer name",                     required: true, placeholder: "Acme Co." },
+        { key: "email",        label: "Email",                             placeholder: "name@example.com" },
+        { key: "phone",        label: "Phone (with country code)",         placeholder: "+91 98765 43210" },
+        { key: "location",     label: "Location / Address",                type: "location", placeholder: "City, area or full address" },
+        { key: "creditLimit",  label: "Credit limit",                      type: "number", placeholder: "No limit", helpText: "Optional. Warns (doesn't block) when a new estimate would push this customer's outstanding balance past it." },
+      ]} initial={editingCustomer ? {
+        id: editingCustomer.id, name: editingCustomer.name, email: editingCustomer.email,
+        phone: editingCustomer.phone, location: editingCustomer.location,
+        locationLat: editingCustomer.lat, locationLng: editingCustomer.lng,
+        creditLimit: editingCustomer.creditLimit,
+      } : undefined} onClose={closeModal} onSave={saveCustomer} />;
+    }
 
     if (type === "item") {
       const editingItem = payload?.editingItem;

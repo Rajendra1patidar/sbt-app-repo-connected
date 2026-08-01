@@ -18,7 +18,7 @@ export function ShareReportView({ invoices, items, customers, currency, settings
       if (!itemMap[it.id]) itemMap[it.id] = { name: it.name, qty: 0, amount: 0 };
       const qty = Number(ln.qty) || 0;
       itemMap[it.id].qty += qty;
-      itemMap[it.id].amount += qty * (ln.rate ?? it.sellingPrice ?? it.price ?? 0);
+      itemMap[it.id].amount += qty * (ln.rate ?? it.sellingPrice ?? it.price ?? 0) - Number(ln.discountAmount || 0);
     });
   });
 

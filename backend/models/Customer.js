@@ -9,6 +9,10 @@ const customerSchema = new mongoose.Schema(
     location: { type: String, trim: true },
     lat: { type: Number },
     lng: { type: Number },
+    // optional soft credit limit — checked client-side before a new estimate is
+    // submitted (outstanding + new total vs this) and shown as a warning, never
+    // a hard block. Left unset (no limit) for most customers.
+    creditLimit: { type: Number, min: [0, "Credit limit can't be negative"] },
   },
   { timestamps: true }
 );

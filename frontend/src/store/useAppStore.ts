@@ -224,16 +224,30 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const { customers, showToast, closeModal } = get();
     const normName = (s: string) => (s || "").trim().toLowerCase();
     const normPhone = (s: string) => (s || "").replace(/\D/g, "");
-    const isDuplicate = customers.some((c) => normName(c.name) === normName(v.name) && normPhone(c.phone) === normPhone(v.phone));
+    const isDuplicate = customers.some((c) => c.id !== v.id && normName(c.name) === normName(v.name) && normPhone(c.phone) === normPhone(v.phone));
     if (isDuplicate) { showToast("A customer with this name and phone number already exists"); return; }
     try {
       const { locationLat, locationLng, ...rest } = v;
-      const payload = { ...rest, ...(locationLat != null ? { lat: locationLat } : {}), ...(locationLng != null ? { lng: locationLng } : {}) };
-      const doc = await api.customers.create(payload);
-      set((state) => ({ customers: [doc, ...state.customers] }));
-      showToast("Customer added");
+      const payload = {
+        ...rest,
+        ...(locationLat != null ? { lat: locationLat } : {}),
+        ...(locationLng != null ? { lng: locationLng } : {}),
+        // an empty field means "no limit", not a limit of 0 — Mongoose would
+        // otherwise cast "" to 0 and every future estimate would warn
+        ...("creditLimit" in v ? { creditLimit: v.creditLimit === "" || v.creditLimit == null ? null : Number(v.creditLimit) } : {}),
+      };
+      if (v.id) {
+        const { id, ...updateFields } = payload;
+        const doc = await api.customers.update(id, updateFields);
+        set((state) => ({ customers: state.customers.map((x) => (x.id === id ? doc : x)) }));
+        showToast("Customer updated");
+      } else {
+        const doc = await api.customers.create(payload);
+        set((state) => ({ customers: [doc, ...state.customers] }));
+        showToast("Customer added");
+      }
       closeModal();
-    } catch (err) { onApiError(get, err, "Failed to add customer"); }
+    } catch (err) { onApiError(get, err, "Failed to save customer"); }
   },
 
   removeCustomer: (id) => {

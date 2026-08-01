@@ -23,6 +23,11 @@ const purchaseRoutes = require("./routes/purchaseRoutes");
 const ledgerRoutes = require("./routes/ledgerRoutes");
 const financialYearRoutes = require("./routes/financialYearRoutes");
 const app = express();
+// Render (and most PaaS hosts) sit the app behind one reverse proxy that sets
+// X-Forwarded-For. Trusting exactly 1 hop lets express-rate-limit/req.ip read
+// the real client IP safely — trusting `true` (the whole chain) would let a
+// client spoof its own IP via that header instead.
+app.set("trust proxy", 1);
 connectDB();
 // ---- core middleware ----
 app.use(helmet());

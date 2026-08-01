@@ -45,7 +45,10 @@ app.use(
     exposedHeaders: ["X-Total-Count"],
   })
 );
-const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 300 });
+// 600/15min — comfortably covers a full app reload (~14 requests from fetchAll)
+// plus repeated Ledger-view refreshes (5 requests each) in one sitting, including
+// two devices sharing an IP/NAT, without opening the door much wider than before.
+const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 600 });
 app.use("/api", limiter);
 // Auth endpoints get a much tighter per-IP limit than the rest of the API —
 // a 4-6 digit PIN is guessable quickly at 300 requests/15min, so this closes

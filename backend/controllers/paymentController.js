@@ -147,6 +147,15 @@ base.remove = async (req, res, next) => {
   }
 };
 
+// The generic crudController.update() (plain findOneAndUpdate) is intentionally
+// NOT used here: it would silently change a payment's amount without recomputing
+// the linked invoice's amountPaid/status or reversing+reposting the ledger entries
+// create() posted, leaving stale numbers on both sides. Block edits at the API
+// level and force delete + recreate instead until reverse-and-repost is built.
+base.update = async (req, res) => {
+  res.status(405).json({ message: "Editing a payment isn't supported yet — delete it and record a new one instead, so the ledger and invoice stay in sync." });
+};
+
 // exported so documentController's return flow can reuse the same
 // paid-amount/status recompute logic instead of duplicating it
 base.recalcInvoice = recalcInvoice;

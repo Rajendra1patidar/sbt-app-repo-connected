@@ -345,7 +345,16 @@ export const useAppStore = create<AppState>()((set, get) => ({
     get().openModal("purchase", { itemId: order.itemId, vendorId: order.vendorId, qty: order.qty, fromOrderId: order.id }),
 
   removePurchase: (id) => {
-    scheduleDelete(set, get, "Purchase", "purchases", id, () => api.purchases.remove(id));
+    const { purchases, items } = get();
+    const p = purchases.find((x: any) => x.id === id);
+    const itemName = p ? items.find((i: any) => i.id === p.itemId)?.name : undefined;
+    get().confirmThenDelete(
+      itemName ? `purchase of ${itemName}` : "this purchase",
+      "This reverses the ledger entries but does NOT adjust the item's stock quantity — adjust it manually afterward if needed.",
+      () => {
+        scheduleDelete(set, get, "Purchase", "purchases", id, () => api.purchases.remove(id));
+      }
+    );
   },
 
   saveVendorPayment: async (v) => {

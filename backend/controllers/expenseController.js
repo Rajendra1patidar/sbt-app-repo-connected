@@ -56,4 +56,13 @@ base.remove = async (req, res, next) => {
   }
 };
 
+// The generic crudController.update() (plain findOneAndUpdate) is intentionally
+// NOT used here: it would silently change amount/category without touching the
+// ledger entries this expense already posted, leaving the old amount posted
+// forever. There's no reverse-and-repost logic for expenses yet, so block edits
+// at the API level and force delete + recreate instead until that's built.
+base.update = async (req, res) => {
+  res.status(405).json({ message: "Editing an expense isn't supported yet — delete it and record a new one instead, so the ledger stays in sync." });
+};
+
 module.exports = base;

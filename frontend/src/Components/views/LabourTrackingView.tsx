@@ -133,6 +133,30 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const dayEarningsByWorker = expandedDay ? earningsByWorker(rangeSessions.filter((s: any) => s.date === expandedDay)) : {};
 
+  const toggleWorkerChip = (name: string) => {
+    setNames((prev) => {
+      const trimmedPrev = prev.map((n) => n.trim());
+      let next: string[];
+      if (trimmedPrev.includes(name)) {
+        next = prev.filter((n) => n.trim() !== name);
+        if (!next.length) next = [""];
+      } else {
+        const emptyIdx = prev.findIndex((n) => !n.trim());
+        next = emptyIdx >= 0 ? prev.map((n, i) => (i === emptyIdx ? name : n)) : [...prev, name];
+      }
+      setWorkerCount(Math.max(1, Math.min(20, next.length)));
+      return next;
+    });
+  };
+
+  const lastSession = [...(sessions || [])].sort((a: any, b: any) => new Date(b.time).getTime() - new Date(a.time).getTime())[0];
+
+  const useLastSessionWorkers = () => {
+    if (!lastSession || !(lastSession.workers || []).length) return;
+    setNames([...lastSession.workers]);
+    setWorkerCount(lastSession.workers.length);
+  };
+
   return (
     <div className="space-y-4 px-5 pb-28">
       <Card>
@@ -168,6 +192,33 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
             placeholder="Which customer's job is this for…"
           />
         </div>
+
+        <div className="mb-1 flex items-center justify-between">
+          <label className="block text-xs font-semibold text-ink/50">Workers</label>
+          {lastSession && (lastSession.workers || []).length > 0 && (
+            <button type="button" onClick={useLastSessionWorkers} className="text-xs font-semibold text-brand-600">
+              Same as last session ({lastSession.workers.join(", ")})
+            </button>
+          )}
+        </div>
+
+        {(knownWorkers || []).length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {knownWorkers.map((n: string) => {
+              const active = names.map((x) => x.trim()).includes(n);
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => toggleWorkerChip(n)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${active ? "border-brand-600 bg-brand-600 text-white" : "border-line bg-paper text-ink/70"}`}
+                >
+                  {n}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <label className="mb-1 block text-xs font-semibold text-ink/50">Number of workers</label>
         <div className="mb-3 flex items-center gap-3">

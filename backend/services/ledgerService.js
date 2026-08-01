@@ -1,5 +1,15 @@
 const { randomUUID } = require("crypto");
+const mongoose = require("mongoose");
 const LedgerEntry = require("../models/LedgerEntry");
+
+// req.userId comes from the JWT as a plain string. Mongoose auto-casts that
+// to ObjectId for query-builder calls like .find(), but NOT for .aggregate()
+// — aggregation pipelines go straight to the MongoDB driver with no schema
+// casting. Without this, every aggregate() below silently matches zero
+// documents (string !== ObjectId), while .find()-based queries (dayBook,
+// partyStatement) work fine on the exact same data.
+const toOwnerId = (owner) =>
+  mongoose.Types.ObjectId.isValid(owner) ? new mongoose.Types.ObjectId(owner) : owner;
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
@@ -101,7 +111,7 @@ async function reverseSource(owner, sourceType, sourceId, narration, session) {
 
 /** Net balance of one account, optionally scoped to a date range (inclusive). */
 async function accountBalance(owner, account, { startDate, endDate } = {}) {
-  const match = { owner, account };
+  const match = { owner: toOwnerId(owner), account };
   if (startDate || endDate) {
     match.date = {};
     if (startDate) match.date.$gte = startDate;
@@ -124,7 +134,7 @@ async function accountBalance(owner, account, { startDate, endDate } = {}) {
 
 /** Trial Balance: every account's debit/credit totals, and whether they balance overall. */
 async function trialBalance(owner, { startDate, endDate } = {}) {
-  const match = { owner };
+  const match = { owner: toOwnerId(owner) };
   if (startDate || endDate) {
     match.date = {};
     if (startDate) match.date.$gte = startDate;

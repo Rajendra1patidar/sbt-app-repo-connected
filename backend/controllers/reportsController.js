@@ -85,6 +85,73 @@ exports.reorderSuggestions = async (req, res, next) => {
   }
 };
 
+const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
+// GET /api/reports/ar-aging?asOfDate=
+// Buckets every outstanding estimate's remaining balance (total - amountPaid)
+// by how many days past its dueDate it is, per customer — the standard
+// 0-30 / 31-60 / 61-90 / 90+ split. Only pulls estimates that aren't fully
+// paid, so this stays cheap regardless of how much paid history has piled up.
+exports.arAging = async (req, res, next) => {
+  try {
+    const owner = req.userId;
+    const asOfDate = req.query.asOfDate || new Date().toISOString().slice(0, 10);
+    const asOf = new Date(asOfDate);
+
+    const [estimates, customers] = await Promise.all([
+      Document.find({ owner, type: "estimate", deleted: { $ne: true }, status: { $ne: "Paid" } }).select(
+        "customerId total amountPaid dueDate number date"
+      ),
+      Customer.find({ owner }).select("name phone"),
+    ]);
+    const customerMap = new Map(customers.map((c) => [String(c._id), c]));
+
+    const emptyBuckets = () => ({ current: 0, d1_30: 0, d31_60: 0, d61_90: 0, d90plus: 0, noDueDate: 0 });
+    const bucketFor = (daysPastDue) => {
+      if (daysPastDue <= 0) return "current";
+      if (daysPastDue <= 30) return "d1_30";
+      if (daysPastDue <= 60) return "d31_60";
+      if (daysPastDue <= 90) return "d61_90";
+      return "d90plus";
+    };
+
+    const byCustomer = new Map(); // customerId -> { customerId, name, phone, buckets, total }
+    for (const doc of estimates) {
+      const outstanding = round2(Number(doc.total || 0) - Number(doc.amountPaid || 0));
+      if (outstanding <= 0.009) continue; // rounding dust, not a real balance
+
+      const key = String(doc.customerId || "unknown");
+      const entry =
+        byCustomer.get(key) ||
+        {
+          customerId: key === "unknown" ? null : key,
+          name: customerMap.get(key)?.name || "Unknown customer",
+          phone: customerMap.get(key)?.phone || "",
+          buckets: emptyBuckets(),
+          total: 0,
+        };
+
+      const bucket = doc.dueDate
+        ? bucketFor(Math.floor((asOf - new Date(doc.dueDate)) / (1000 * 60 * 60 * 24)))
+        : "noDueDate";
+      entry.buckets[bucket] = round2(entry.buckets[bucket] + outstanding);
+      entry.total = round2(entry.total + outstanding);
+      byCustomer.set(key, entry);
+    }
+
+    const customersOut = Array.from(byCustomer.values()).sort((a, b) => b.total - a.total);
+    const totals = customersOut.reduce((acc, c) => {
+      for (const k of Object.keys(acc)) acc[k] = round2(acc[k] + c.buckets[k]);
+      return acc;
+    }, emptyBuckets());
+    const grandTotal = round2(customersOut.reduce((s, c) => s + c.total, 0));
+
+    res.json({ asOfDate, customers: customersOut, totals, grandTotal });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // GET /api/reports/summary
 exports.summary = async (req, res, next) => {
   try {

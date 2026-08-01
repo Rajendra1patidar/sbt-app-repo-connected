@@ -173,6 +173,7 @@ export const api = {
   reports: {
     summary: () => request("/api/reports/summary"),
     reorderSuggestions: () => request("/api/reports/reorder-suggestions"),
+    arAging: (asOfDate?: string) => request(`/api/reports/ar-aging${asOfDate ? `?asOfDate=${asOfDate}` : ""}`),
   },
 };
 

@@ -23,7 +23,6 @@ const purchaseRoutes = require("./routes/purchaseRoutes");
 const ledgerRoutes = require("./routes/ledgerRoutes");
 const financialYearRoutes = require("./routes/financialYearRoutes");
 const exportRoutes = require("./routes/exportRoutes");
-const debugRoutes = require("./routes/debugRoutes");
 const app = express();
 // Render (and most PaaS hosts) sit the app behind one reverse proxy that sets
 // X-Forwarded-For. Trusting exactly 1 hop lets express-rate-limit/req.ip read
@@ -88,9 +87,6 @@ app.use("/api/purchases", protect, purchaseRoutes);
 app.use("/api/ledger", protect, ledgerRoutes);
 app.use("/api/financial-years", protect, financialYearRoutes);
 app.use("/api/export", protect, exportRoutes);
-// TEMPORARY — see routes/debugRoutes.js for why. Remove this line + that file
-// once you've confirmed the error-alert webhook works.
-app.use("/api/debug", protect, debugRoutes);
 app.get("/", (req, res) => res.send("SBT backend API is running."));
 app.use(notFound);
 app.use(errorHandler);

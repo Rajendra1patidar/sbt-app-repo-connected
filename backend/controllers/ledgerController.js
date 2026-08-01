@@ -1,5 +1,6 @@
 const ledgerService = require("../services/ledgerService");
 const stockService = require("../services/stockService");
+const reconciliationService = require("../services/reconciliationService");
 
 // GET /api/ledger/trial-balance?startDate=&endDate=
 exports.trialBalance = async (req, res, next) => {
@@ -74,6 +75,21 @@ exports.stockValuation = async (req, res, next) => {
 exports.customerStatement = async (req, res, next) => {
   try {
     const result = await ledgerService.partyStatement(req.userId, { customerId: req.params.id });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/ledger/integrity-check?startDate=&endDate=
+// Diffs Purchase/Estimate/Expense totals against what actually got posted to
+// the ledger for the matching accounts, so a silent drift (like a controller
+// bypassing the ledger) shows up as a non-zero diff instead of a wrong number
+// on a report someone has to notice by eye.
+exports.integrityCheck = async (req, res, next) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const result = await reconciliationService.integrityCheck(req.userId, { startDate, endDate });
     res.json(result);
   } catch (err) {
     next(err);

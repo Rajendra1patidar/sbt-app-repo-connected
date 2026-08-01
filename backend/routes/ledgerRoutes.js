@@ -9,5 +9,6 @@ router.get("/day-book", controller.dayBook);
 router.get("/account-balance", controller.accountBalance);
 router.get("/stock-valuation", controller.stockValuation);
 router.get("/customers/:id/statement", controller.customerStatement);
+router.get("/integrity-check", controller.integrityCheck);
 
 module.exports = router;

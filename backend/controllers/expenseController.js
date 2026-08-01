@@ -65,4 +65,8 @@ base.update = async (req, res) => {
   res.status(405).json({ message: "Editing an expense isn't supported yet — delete it and record a new one instead, so the ledger stays in sync." });
 };
 
+// exported so reconciliationService checks expenses against the same account
+// each one was actually posted to, instead of guessing the mapping again
+base.mapExpenseAccount = mapExpenseAccount;
+
 module.exports = base;

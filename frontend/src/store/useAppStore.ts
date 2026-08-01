@@ -464,18 +464,26 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
     if (type === "estimate") {
       // estimates are soft-deleted server-side and stay in the list (flagged +
-      // greyed out) with a Restore button — no optimistic remove/undo-toast here,
-      // Restore already covers that job.
-      (async () => {
-        try {
-          const result = await api.documents("estimate").remove(id);
-          set((state) => ({
-            estimates: state.estimates.map((x: any) => (x.id === id ? result.doc : x)),
-            items: result.items || state.items,
-          }));
-          get().showToast("Estimate deleted");
-        } catch (err) { onApiError(get, err, "Failed to delete estimate"); }
-      })();
+      // greyed out) with a Restore button available afterward — but deleting one
+      // is still high-stakes (it can affect stock and payment history), so it
+      // goes through the same confirm-first gate as Customers/Items/Payments.
+      const estimate = get().estimates.find((x: any) => x.id === id);
+      get().confirmThenDelete(
+        estimate?.number || "this estimate",
+        "This removes the estimate from your active lists. You can restore it afterward from \"Show deleted\".",
+        () => {
+          (async () => {
+            try {
+              const result = await api.documents("estimate").remove(id);
+              set((state) => ({
+                estimates: state.estimates.map((x: any) => (x.id === id ? result.doc : x)),
+                items: result.items || state.items,
+              }));
+              get().showToast("Estimate deleted");
+            } catch (err) { onApiError(get, err, "Failed to delete estimate"); }
+          })();
+        }
+      );
       return;
     }
 

@@ -22,6 +22,7 @@ const vendorRoutes = require("./routes/vendorRoutes");
 const purchaseRoutes = require("./routes/purchaseRoutes");
 const ledgerRoutes = require("./routes/ledgerRoutes");
 const financialYearRoutes = require("./routes/financialYearRoutes");
+const exportRoutes = require("./routes/exportRoutes");
 const app = express();
 // Render (and most PaaS hosts) sit the app behind one reverse proxy that sets
 // X-Forwarded-For. Trusting exactly 1 hop lets express-rate-limit/req.ip read
@@ -85,6 +86,7 @@ app.use("/api/vendors", protect, vendorRoutes);
 app.use("/api/purchases", protect, purchaseRoutes);
 app.use("/api/ledger", protect, ledgerRoutes);
 app.use("/api/financial-years", protect, financialYearRoutes);
+app.use("/api/export", protect, exportRoutes);
 app.get("/", (req, res) => res.send("SBT backend API is running."));
 app.use(notFound);
 app.use(errorHandler);

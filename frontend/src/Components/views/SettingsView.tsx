@@ -1,14 +1,30 @@
 import React, { useState } from "react";
-import { Phone, Plus, X } from "lucide-react";
+import { Phone, Plus, X, Download, Loader2 } from "lucide-react";
 import { Card, PillButton } from "../common/UIPrimitives";
 import { ChangePinCard } from "./ChangePinCard";
 import { WHATSAPP_GREEN, ITEM_CATEGORIES } from "../../lib/constants";
+import { api } from "../../lib/api";
 
 export function SettingsView({ settings, setSettings }: any) {
   const [local, setLocal] = useState({ itemCategories: ITEM_CATEGORIES, ...settings });
   const [newCategory, setNewCategory] = useState("");
+  const [exporting, setExporting] = useState<"json" | "excel" | null>(null);
+  const [exportError, setExportError] = useState("");
   const set = (k: string, v: any) => setLocal((s: any) => ({ ...s, [k]: v }));
   const dirty = JSON.stringify(local) !== JSON.stringify(settings);
+
+  const runExport = async (format: "json" | "excel") => {
+    setExportError("");
+    setExporting(format);
+    try {
+      if (format === "json") await api.dataExport.toJson();
+      else await api.dataExport.toExcel();
+    } catch (err: any) {
+      setExportError(err.message || "Export failed");
+    } finally {
+      setExporting(null);
+    }
+  };
 
   const categories: string[] = local.itemCategories?.length ? local.itemCategories : ITEM_CATEGORIES;
   const addCategory = () => {
@@ -59,6 +75,34 @@ export function SettingsView({ settings, setSettings }: any) {
         <div className="flex items-center gap-2"><Phone size={16} style={{ color: WHATSAPP_GREEN }} /><h3 className="text-sm font-bold text-ink">WhatsApp integration</h3></div>
         <div><label className="mb-1 block text-xs font-semibold text-ink/50">Business WhatsApp number (with country code)</label>
         <input value={local.businessWhatsApp} onChange={(e) => set("businessWhatsApp", e.target.value)} placeholder="+91 98765 43210" className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" /></div>
+      </Card>
+      <Card className="space-y-3">
+        <h3 className="text-sm font-bold text-ink">Export your data</h3>
+        <p className="text-xs text-ink/40">
+          Download everything — customers, items, orders, expenses, payments, purchases, ledger entries and more —
+          as a single file. Useful as a manual backup, or to work with your data in Excel.
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => runExport("excel")}
+            disabled={exporting !== null}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand-500 px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-40"
+          >
+            {exporting === "excel" ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+            Export to Excel
+          </button>
+          <button
+            type="button"
+            onClick={() => runExport("json")}
+            disabled={exporting !== null}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-line px-3 py-2.5 text-xs font-semibold text-ink/70 disabled:opacity-40"
+          >
+            {exporting === "json" ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+            Export to JSON
+          </button>
+        </div>
+        {exportError && <p className="text-xs font-medium text-bad-500">{exportError}</p>}
       </Card>
       <ChangePinCard />
       <PillButton disabled={!dirty} onClick={() => setSettings(local)} className="w-full justify-center">Save changes</PillButton>

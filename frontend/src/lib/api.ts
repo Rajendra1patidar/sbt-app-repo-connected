@@ -74,6 +74,49 @@ async function request(path: string, options: RequestInit = {}) {
   return normalize(body);
 }
 
+/**
+ * Downloads a file from an authenticated endpoint and triggers a browser
+ * "Save As" for it. Separate from `request()` because that helper always
+ * parses the response as JSON — this streams back binary/text and hands
+ * it to the browser as a Blob instead.
+ */
+async function downloadFile(path: string, fallbackFilename: string) {
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, { headers });
+  } catch {
+    throw new ApiError("Can't reach the server. Check your connection and try again.", 0);
+  }
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const body = await res.json();
+      message = body?.message || message;
+    } catch {
+      /* non-JSON error body */
+    }
+    if (res.status === 401) setToken(null);
+    throw new ApiError(message, res.status);
+  }
+
+  const disposition = res.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  const filename = match ? match[1] : fallbackFilename;
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 function crud(base: string) {
   return {
     list: () => request(base),
@@ -113,6 +156,10 @@ export const api = {
     me: () => request("/api/auth/me"),
     changePin: (currentPin: string, newPin: string) =>
       request("/api/auth/change-pin", { method: "POST", body: JSON.stringify({ currentPin, newPin }) }),
+    forgotPin: (email: string) =>
+      request("/api/auth/forgot-pin", { method: "POST", body: JSON.stringify({ email }) }),
+    resetPin: (email: string, token: string, newPin: string) =>
+      request("/api/auth/reset-pin", { method: "POST", body: JSON.stringify({ email, token, newPin }) }),
   },
 
   customers: crud("/api/customers"),
@@ -166,6 +213,11 @@ export const api = {
   settings: {
     get: () => request("/api/settings"),
     update: (v: any) => request("/api/settings", { method: "PUT", body: JSON.stringify(v) }),
+  },
+
+  dataExport: {
+    toJson: () => downloadFile("/api/export/json", "sbt-export.json"),
+    toExcel: () => downloadFile("/api/export/excel", "sbt-export.xlsx"),
   },
 
   documents,

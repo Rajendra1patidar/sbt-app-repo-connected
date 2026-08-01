@@ -4,6 +4,7 @@ const labourSessionSchema = new mongoose.Schema(
   {
     owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     customerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer" }, // optional — which customer's job this labour was for
+    estimateId: { type: mongoose.Schema.Types.ObjectId, ref: "Document" }, // set when materials were pulled from an estimate, so that estimate can be excluded from the picker once it's been used
     date: { type: String, required: true, index: true }, // YYYY-MM-DD — the day this session's total counts toward
     time: { type: Date, required: true, default: Date.now }, // the actual clock time it was logged
     workers: { type: [String], default: [] },

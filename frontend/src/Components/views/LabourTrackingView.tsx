@@ -26,17 +26,15 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
   const customerById = (id: string) => (customers || []).find((c: any) => c.id === id);
   const customerOptions = (customers || []).map((c: any) => ({ value: c.id, label: c.name }));
 
-  const importedEstimateNumbers = new Set(
-    (sessions || [])
-      .map((s: any) => (s.note || "").match(/From estimate (\S+)/)?.[1])
-      .filter(Boolean)
+  const importedEstimateIds = new Set(
+    (sessions || []).map((s: any) => s.estimateId).filter(Boolean)
   );
 
   // Labour is logged per day, so only today's estimates that carry cement/saria
   // lines and haven't already been pulled into a saved session are worth offering here
   const estimateOptions = (estimates || [])
     .filter((doc: any) => (doc.date || "") === todayStr)
-    .filter((doc: any) => !importedEstimateNumbers.has(doc.number))
+    .filter((doc: any) => !importedEstimateIds.has(doc.id))
     .filter((doc: any) => (doc.lines || []).some((ln: any) => {
       const cat = itemById(ln.itemId)?.category;
       return cat === "Cement" || cat === "Saria";
@@ -99,6 +97,7 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
       await onSave({
         date: todayStr, time: new Date().toISOString(),
         customerId: customerId || undefined,
+        estimateId: importEstimateId || undefined,
         workers: names.map((n) => n.trim()).filter(Boolean),
         cementQty: Number(cementQty || 0), sariaQty: Number(sariaQty || 0), baluQty: Number(baluQty || 0),
         otherIncluded, otherAmount: otherIncluded ? Number(otherAmount || 0) : 0,
@@ -109,13 +108,30 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
     } finally { setSaving(false); }
   };
 
+  // Each session's total is shared work — when more than one worker logged it,
+  // split that session's amount evenly across them before adding it to each worker's tally.
+  const earningsByWorker = (list: any[]) => {
+    const totals: Record<string, number> = {};
+    list.forEach((s: any) => {
+      const workers = (s.workers || []).filter(Boolean);
+      if (workers.length === 0) return;
+      const share = Number(s.total || 0) / workers.length;
+      workers.forEach((w: string) => { totals[w] = (totals[w] || 0) + share; });
+    });
+    return totals;
+  };
+
   const todaySessions = sessions.filter((s: any) => s.date === todayStr).sort((a: any, b: any) => new Date(b.time).getTime() - new Date(a.time).getTime());
   const todayTotal = todaySessions.reduce((s: number, x: any) => s + Number(x.total || 0), 0);
+  const todayEarningsByWorker = earningsByWorker(todaySessions);
 
   const rangeSessions = sessions.filter((s: any) => s.date >= fromDate && s.date <= toDate);
   const byDay: Record<string, number> = {};
   rangeSessions.forEach((s: any) => { byDay[s.date] = (byDay[s.date] || 0) + Number(s.total || 0); });
   const dayRows = Object.keys(byDay).sort((a, b) => b.localeCompare(a));
+
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const dayEarningsByWorker = expandedDay ? earningsByWorker(rangeSessions.filter((s: any) => s.date === expandedDay)) : {};
 
   return (
     <div className="space-y-4 px-5 pb-28">
@@ -253,6 +269,19 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
               <span className="text-sm font-semibold text-good-700">Today's total ({todaySessions.length})</span>
               <span className="font-display text-base font-bold text-good-700">{fmtMoney(todayTotal, currency)}</span>
             </div>
+            {Object.keys(todayEarningsByWorker).length > 0 && (
+              <div className="mt-2 rounded-xl border border-line px-4 py-3">
+                <p className="mb-1.5 text-xs font-semibold text-ink/50">Earnings by worker — today</p>
+                {Object.entries(todayEarningsByWorker)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([name, amt]) => (
+                    <div key={name} className="flex items-center justify-between py-0.5">
+                      <span className="text-sm text-ink/80">{name}</span>
+                      <span className="text-sm font-semibold text-ink">{fmtMoney(amt, currency)}</span>
+                    </div>
+                  ))}
+              </div>
+            )}
           </div>
         )}
       </Card>
@@ -268,9 +297,28 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
         {dayRows.length === 0 ? <p className="text-sm text-ink/40">No sessions in this range.</p> : (
           <div>
             {dayRows.map((d) => (
-              <div key={d} className="flex items-center justify-between border-b border-line py-2 last:border-none">
-                <span className="text-sm text-ink/70">{fmtDate(d)}</span>
-                <span className="text-sm font-bold text-ink">{fmtMoney(byDay[d], currency)}</span>
+              <div key={d} className="border-b border-line py-2 last:border-none">
+                <button type="button" onClick={() => setExpandedDay((cur) => (cur === d ? null : d))} className="flex w-full items-center justify-between">
+                  <span className="text-sm text-ink/70">{fmtDate(d)}</span>
+                  <span className="text-sm font-bold text-ink">{fmtMoney(byDay[d], currency)}</span>
+                </button>
+                {expandedDay === d && (
+                  <div className="mt-2 rounded-xl bg-paper px-3 py-2">
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-ink/40">Earnings by worker</p>
+                    {Object.entries(dayEarningsByWorker).length === 0 ? (
+                      <p className="text-xs text-ink/40">No workers recorded for this day.</p>
+                    ) : (
+                      Object.entries(dayEarningsByWorker)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([name, amt]) => (
+                          <div key={name} className="flex items-center justify-between py-0.5">
+                            <span className="text-xs text-ink/70">{name}</span>
+                            <span className="text-xs font-semibold text-ink">{fmtMoney(amt, currency)}</span>
+                          </div>
+                        ))
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>

@@ -31,6 +31,7 @@ module.exports = {
       const session = await LabourSession.create({
         owner: req.userId,
         customerId: v.customerId || undefined,
+        estimateId: v.estimateId || undefined,
         date: v.date || new Date().toISOString().slice(0, 10),
         time: v.time ? new Date(v.time) : new Date(),
         workers: Array.isArray(v.workers) ? v.workers.filter(Boolean) : [],

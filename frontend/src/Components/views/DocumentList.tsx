@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Eye, Phone, Plus, Printer, RotateCcw, Search, Trash2, Truck } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronsDown, ChevronsUp, ChevronUp, Eye, Phone, Plus, Printer, RotateCcw, Search, Trash2, Truck } from "lucide-react";
 import { Badge, Card, EmptyState, GhostButton, PillButton, WhatsAppButton } from "../common/UIPrimitives";
 import { Pagination } from "../common/Pagination";
 import { usePagination } from "../../hooks/usePagination";
@@ -13,7 +13,23 @@ export function DocumentList({ type, docs, customers, items, currency, openModal
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all"); // all | due | paid | returned
   const [showDeleted, setShowDeleted] = useState(false);
-  const [collapsedMonths, setCollapsedMonths] = useState<Record<string, boolean>>({});
+  // Estimates are grouped into calendar-week-style buckets that reset on the
+  // 1st of each month (Jul 1–7, Jul 8–14, ...) so labels stay predictable
+  // and consistent across months, rather than true rolling calendar weeks
+  // that can straddle month boundaries.
+  const WEEK_COLLAPSE_STORAGE_KEY = "sbt_estimate_collapsed_weeks";
+  const [collapsedWeeks, setCollapsedWeeks] = useState<Record<string, boolean>>(() => {
+    try {
+      const raw = localStorage.getItem(WEEK_COLLAPSE_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+  const persistCollapsedWeeks = (next: Record<string, boolean>) => {
+    setCollapsedWeeks(next);
+    try { localStorage.setItem(WEEK_COLLAPSE_STORAGE_KEY, JSON.stringify(next)); } catch { /* storage unavailable, ignore */ }
+  };
   const customerName = (id: string) => customers.find((c: any) => c.id === id)?.name || "Unknown";
   const customerPhone = (id: string) => customers.find((c: any) => c.id === id)?.phone;
   const labelMap: any = { estimate: "Estimate", challan: "Challan" };
@@ -21,13 +37,26 @@ export function DocumentList({ type, docs, customers, items, currency, openModal
     estimate: "Create estimates to send price quotes and invoices to customers.",
     challan: "Create delivery challans to track goods sent.",
   };
-  const monthKey = (d?: string) => (d || "").slice(0, 7) || "unknown";
-  const monthLabel = (key: string) => {
-    if (key === "unknown") return "No date";
-    const [y, m] = key.split("-");
-    return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+  const weekKey = (d?: string) => {
+    const day = Number((d || "").slice(8, 10));
+    const ym = (d || "").slice(0, 7);
+    if (!ym || Number.isNaN(day)) return "unknown";
+    const bucket = Math.floor((day - 1) / 7);
+    return `${ym}-w${bucket}`;
   };
-  const toggleMonth = (k: string) => setCollapsedMonths((s) => ({ ...s, [k]: !s[k] }));
+  const weekLabel = (key: string) => {
+    if (key === "unknown") return "No date";
+    const [y, m, wPart] = key.split("-");
+    const year = Number(y);
+    const month = Number(m) - 1;
+    const bucket = Number(wPart.slice(1));
+    const start = bucket * 7 + 1;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const end = Math.min(start + 6, daysInMonth);
+    const monthShort = new Date(year, month, 1).toLocaleDateString("en-IN", { month: "short" });
+    return `${monthShort} ${start}–${end}, ${year}`;
+  };
+  const toggleWeek = (k: string, currentlyCollapsed: boolean) => persistCollapsedWeeks({ ...collapsedWeeks, [k]: !currentlyCollapsed });
 
   // docs already arrive newest-first from the API (and stay that way as new ones are prepended locally)
   let visibleDocs = docs;
@@ -61,18 +90,19 @@ export function DocumentList({ type, docs, customers, items, currency, openModal
     returned: searchedDocs.filter((d: any) => !d.deleted && (d.returns || []).length > 0).length,
   };
 
-  const monthGroups: { key: string; docs: any[] }[] = [];
+  const weekGroups: { key: string; docs: any[]; total: number }[] = [];
   if (type === "estimate") {
     const map: Record<string, any[]> = {};
     visibleDocs.forEach((d: any) => {
-      const k = monthKey(d.date);
-      if (!map[k]) { map[k] = []; monthGroups.push({ key: k, docs: map[k] }); }
+      const k = weekKey(d.date);
+      if (!map[k]) { map[k] = []; weekGroups.push({ key: k, docs: map[k], total: 0 }); }
       map[k].push(d);
     });
+    weekGroups.forEach((g) => { g.total = g.docs.reduce((s, d) => s + Number(d.total || 0), 0); });
   }
 
-  // Only challans use this flat path (estimates render via monthGroups above, which
-  // already caps visible rows via the collapsed-by-default month sections).
+  // Only challans use this flat path (estimates render via weekGroups above, which
+  // already caps visible rows via the collapsed-by-default week sections).
   const { pageItems: pageDocs, page, setPage, totalPages, total, pageSize } = usePagination(visibleDocs, PAGE_SIZE);
 
   const renderCard = (d: any) => {
@@ -222,11 +252,27 @@ export function DocumentList({ type, docs, customers, items, currency, openModal
             {deletedCount > 0 && (
               <button
                 onClick={() => setShowDeleted((s) => !s)}
-                className={`ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${showDeleted ? "bg-bad-500 text-white" : "bg-paper text-ink/70"}`}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${showDeleted ? "bg-bad-500 text-white" : "bg-paper text-ink/70"}`}
               >
                 <Trash2 size={12} /> {showDeleted ? "Hide" : "Show"} deleted
                 <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-extrabold ${showDeleted ? "bg-white/25" : "bg-ink/10"}`}>{deletedCount}</span>
               </button>
+            )}
+            {weekGroups.length > 1 && (
+              <div className="ml-auto flex items-center gap-1">
+                <button
+                  onClick={() => persistCollapsedWeeks(Object.fromEntries(weekGroups.map((g) => [g.key, false])))}
+                  className="inline-flex items-center gap-1 rounded-full bg-paper px-2.5 py-1.5 text-xs font-semibold text-ink/60"
+                >
+                  <ChevronsDown size={12} /> Expand all
+                </button>
+                <button
+                  onClick={() => persistCollapsedWeeks(Object.fromEntries(weekGroups.map((g) => [g.key, true])))}
+                  className="inline-flex items-center gap-1 rounded-full bg-paper px-2.5 py-1.5 text-xs font-semibold text-ink/60"
+                >
+                  <ChevronsUp size={12} /> Collapse all
+                </button>
+              </div>
             )}
           </div>
         </>
@@ -236,14 +282,15 @@ export function DocumentList({ type, docs, customers, items, currency, openModal
         : type === "estimate"
         ? (visibleDocs.length === 0
           ? <Card><p className="text-center text-sm text-ink/40">No estimates match your search/filter.</p></Card>
-          : monthGroups.map((g, idx) => {
-            const isCollapsed = collapsedMonths[g.key] !== undefined ? collapsedMonths[g.key] : idx !== 0;
+          : weekGroups.map((g, idx) => {
+            const isCollapsed = collapsedWeeks[g.key] !== undefined ? collapsedWeeks[g.key] : idx !== 0;
             return (
               <div key={g.key}>
-                <button onClick={() => toggleMonth(g.key)} className="flex w-full items-center justify-between rounded-xl bg-paper px-4 py-2.5">
-                  <span className="text-sm font-bold text-ink/80">{monthLabel(g.key)}</span>
+                <button onClick={() => toggleWeek(g.key, isCollapsed)} className="flex w-full items-center justify-between rounded-xl bg-paper px-4 py-2.5">
+                  <span className="text-sm font-bold text-ink/80">{weekLabel(g.key)}</span>
                   <span className="flex items-center gap-2 text-xs font-semibold text-ink/50">
                     {g.docs.length} estimate{g.docs.length !== 1 ? "s" : ""}
+                    <span className="text-ink/70">{fmtMoney(g.total, currency)}</span>
                     {isCollapsed ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
                   </span>
                 </button>

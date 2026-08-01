@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { BookOpen, CheckCircle2, Landmark, Loader2, Scale, XCircle } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, ArrowUpDown, BookOpen, CheckCircle2, Landmark, Loader2, Scale, Search, XCircle } from "lucide-react";
 import { Card } from "../common/UIPrimitives";
 import { fmtMoney, today } from "../../lib/format";
 import { api } from "../../lib/api";
@@ -21,6 +21,78 @@ export function LedgerReportsView({ currency }: any) {
   const [balanceSheet, setBalanceSheet] = useState<any>(null);
   const [stockValuation, setStockValuation] = useState<any>(null);
   const [dayBook, setDayBook] = useState<any[]>([]);
+
+  // Day Book controls: account chips, Dr/Cr toggle, narration search, and
+  // click-to-sort column headers (spreadsheet-style rather than a dropdown).
+  const [dbAccount, setDbAccount] = useState<string>("all");
+  const [dbType, setDbType] = useState<"all" | "debit" | "credit">("all");
+  const [dbSearch, setDbSearch] = useState("");
+  const [dbSortKey, setDbSortKey] = useState<"date" | "amount" | "account">("date");
+  const [dbSortDir, setDbSortDir] = useState<"asc" | "desc">("desc");
+  const [openingBalance, setOpeningBalance] = useState<number | null>(null);
+  const [openingBalanceLoading, setOpeningBalanceLoading] = useState(false);
+
+  const dayBefore = (d: string) => {
+    const dt = new Date(`${d}T00:00:00`);
+    dt.setDate(dt.getDate() - 1);
+    return dt.toISOString().slice(0, 10);
+  };
+
+  const handleSort = (key: "date" | "amount" | "account") => {
+    if (dbSortKey === key) setDbSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setDbSortKey(key); setDbSortDir(key === "account" ? "asc" : "desc"); }
+  };
+  const sortIcon = (key: string) =>
+    dbSortKey !== key ? <ArrowUpDown size={12} className="opacity-30" /> : dbSortDir === "asc" ? <ArrowUp size={12} /> : <ArrowDown size={12} />;
+
+  const dbAccounts = useMemo(() => Array.from(new Set(dayBook.map((e: any) => e.account))).sort(), [dayBook]);
+
+  // A "true" running balance only makes sense once you've isolated one
+  // account — it carries forward whatever the account's balance already
+  // was the day before "From", rather than pretending it started at zero.
+  useEffect(() => {
+    if (dbAccount === "all") { setOpeningBalance(null); return; }
+    let cancelled = false;
+    setOpeningBalanceLoading(true);
+    api.ledger.accountBalance(dbAccount, undefined, dayBefore(fromDate))
+      .then((r: any) => { if (!cancelled) setOpeningBalance(r?.net ?? 0); })
+      .catch(() => { if (!cancelled) setOpeningBalance(0); })
+      .finally(() => { if (!cancelled) setOpeningBalanceLoading(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dbAccount, fromDate]);
+
+  // Running balance is computed in true chronological order (the API already
+  // returns entries sorted by date/batchId) BEFORE any display sort/filter is
+  // applied, so the balance column stays a real ledger position even if the
+  // visible list is later re-sorted by amount or account.
+  const dayBookWithBalance = useMemo(() => {
+    if (dbAccount === "all" || openingBalance === null) return dayBook;
+    let running = openingBalance;
+    return dayBook.map((e: any) => {
+      if (e.account !== dbAccount) return e;
+      const delta = e.type === "debit" ? e.amount : -e.amount;
+      running = Math.round((running + delta) * 100) / 100;
+      return { ...e, balance: running };
+    });
+  }, [dayBook, dbAccount, openingBalance]);
+
+  const displayedDayBook = useMemo(() => {
+    let rows = dayBookWithBalance;
+    if (dbAccount !== "all") rows = rows.filter((e: any) => e.account === dbAccount);
+    if (dbType !== "all") rows = rows.filter((e: any) => e.type === dbType);
+    if (dbSearch.trim()) {
+      const q = dbSearch.trim().toLowerCase();
+      rows = rows.filter((e: any) => (e.narration || "").toLowerCase().includes(q));
+    }
+    return [...rows].sort((a: any, b: any) => {
+      let cmp = 0;
+      if (dbSortKey === "date") cmp = String(a.date).localeCompare(String(b.date)) || String(a.batchId || "").localeCompare(String(b.batchId || ""));
+      else if (dbSortKey === "amount") cmp = Number(a.amount) - Number(b.amount);
+      else cmp = String(a.account).localeCompare(String(b.account));
+      return dbSortDir === "asc" ? cmp : -cmp;
+    });
+  }, [dayBookWithBalance, dbAccount, dbType, dbSearch, dbSortKey, dbSortDir]);
 
   const load = async () => {
     setLoading(true);
@@ -175,21 +247,62 @@ export function LedgerReportsView({ currency }: any) {
             <div className="flex items-center gap-2">
               <BookOpen size={16} className="text-brand-600" />
               <h3 className="font-display text-base font-bold text-ink">Day Book</h3>
-              <span className="ml-auto text-xs text-ink/40">{dayBook.length} entries</span>
+              <span className="ml-auto text-xs text-ink/40">{displayedDayBook.length} of {dayBook.length} entries</span>
             </div>
-            {dayBook.length === 0 ? (
-              <p className="mt-3 text-sm text-ink/40">No ledger activity in this date range.</p>
+
+            <div className="relative mt-3">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
+              <input
+                value={dbSearch}
+                onChange={(e) => setDbSearch(e.target.value)}
+                placeholder="Search narration (customer, estimate number...)"
+                className="w-full rounded-xl border border-line bg-white py-2 pl-9 pr-3 text-sm"
+              />
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <button onClick={() => setDbAccount("all")} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${dbAccount === "all" ? "bg-brand-500 text-white" : "bg-paper text-ink/70"}`}>All</button>
+              {dbAccounts.map((a) => (
+                <button key={a} onClick={() => setDbAccount(a)} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${dbAccount === a ? "bg-brand-500 text-white" : "bg-paper text-ink/70"}`}>{a}</button>
+              ))}
+            </div>
+
+            <div className="mt-2 flex items-center gap-1.5">
+              {[["all", "All"], ["debit", "Debit only"], ["credit", "Credit only"]].map(([key, label]) => (
+                <button key={key} onClick={() => setDbType(key as any)} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${dbType === key ? "bg-ink text-white" : "bg-paper text-ink/70"}`}>{label}</button>
+              ))}
+            </div>
+
+            {dbAccount !== "all" && (
+              <p className="mt-2 text-xs text-ink/40">
+                {openingBalanceLoading ? "Loading opening balance..." : `Opening balance before ${fromDate}: ${fmtMoney(openingBalance || 0, currency)}`}
+              </p>
+            )}
+
+            {displayedDayBook.length === 0 ? (
+              <p className="mt-3 text-sm text-ink/40">No ledger activity matches this range/filter.</p>
             ) : (
-              <div className="mt-3 max-h-96 space-y-1 overflow-y-auto">
-                {dayBook.map((e: any) => (
-                  <div key={e._id} className="flex items-center justify-between border-b border-line/60 py-1.5 text-sm last:border-0">
-                    <div className="min-w-0">
-                      <p className="truncate text-ink/80">{e.narration}</p>
-                      <p className="text-xs text-ink/40">{e.date} · {e.account}</p>
-                    </div>
-                    <span className={`shrink-0 font-mono text-xs font-semibold ${e.type === "debit" ? "text-ink" : "text-good-700"}`}>
+              <div className="mt-3 max-h-96 overflow-y-auto">
+                <div className="grid grid-cols-12 gap-2 border-b border-line pb-1.5 text-[10px] font-bold uppercase tracking-wide text-ink/40 sticky top-0 bg-white">
+                  <button onClick={() => handleSort("date")} className="col-span-3 flex items-center gap-1 text-left">Date {sortIcon("date")}</button>
+                  <span className="col-span-4">Narration</span>
+                  <button onClick={() => handleSort("account")} className="col-span-2 flex items-center gap-1 text-left">Account {sortIcon("account")}</button>
+                  <button onClick={() => handleSort("amount")} className={`flex items-center justify-end gap-1 text-right ${dbAccount !== "all" ? "col-span-1" : "col-span-3"}`}>Amount {sortIcon("amount")}</button>
+                  {dbAccount !== "all" && <span className="col-span-2 text-right">Balance</span>}
+                </div>
+                {displayedDayBook.map((e: any) => (
+                  <div key={e._id} className="grid grid-cols-12 items-center gap-2 border-b border-line/60 py-1.5 text-sm last:border-0">
+                    <span className="col-span-3 truncate text-xs text-ink/50">{e.date}</span>
+                    <span className="col-span-4 truncate text-ink/80">{e.narration}</span>
+                    <span className="col-span-2 truncate text-xs text-ink/50">{e.account}</span>
+                    <span className={`${dbAccount !== "all" ? "col-span-1" : "col-span-3"} shrink-0 truncate text-right font-mono text-xs font-semibold ${e.type === "debit" ? "text-ink" : "text-good-700"}`}>
                       {e.type === "debit" ? "Dr" : "Cr"} {fmtMoney(e.amount, currency)}
                     </span>
+                    {dbAccount !== "all" && (
+                      <span className="col-span-2 truncate text-right font-mono text-xs font-semibold text-brand-700">
+                        {e.balance !== undefined ? fmtMoney(e.balance, currency) : "—"}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>

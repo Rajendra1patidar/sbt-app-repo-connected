@@ -140,6 +140,12 @@ export const api = {
     balanceSheet: (asOfDate?: string) => request(`/api/ledger/balance-sheet${asOfDate ? `?asOfDate=${asOfDate}` : ""}`),
     dayBook: (from?: string, to?: string) =>
       request(`/api/ledger/day-book${from && to ? `?startDate=${from}&endDate=${to}` : ""}`),
+    accountBalance: (account: string, from?: string, to?: string) => {
+      const params = new URLSearchParams({ account });
+      if (from) params.set("startDate", from);
+      if (to) params.set("endDate", to);
+      return request(`/api/ledger/account-balance?${params.toString()}`);
+    },
     stockValuation: () => request("/api/ledger/stock-valuation"),
     customerStatement: (id: string) => request(`/api/ledger/customers/${id}/statement`),
   },

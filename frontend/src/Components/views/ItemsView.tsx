@@ -14,6 +14,7 @@ export function ItemsView({ items, categories, openModal, removeItem, currency }
   const cats = categories?.length ? categories : ITEM_CATEGORIES;
 
   const filtered = items.filter((it: any) => {
+    if (it.deleted) return false;
     const matchesSearch = !search.trim() || it.name.toLowerCase().includes(search.trim().toLowerCase());
     const matchesCategory = category === "All" || (it.category || "Others") === category;
     return matchesSearch && matchesCategory;

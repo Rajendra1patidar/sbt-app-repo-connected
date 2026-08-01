@@ -82,6 +82,7 @@ interface AppState {
   savePurchasePayment: (v: any) => Promise<void>;
   saveDocument: (type: string, v: any) => Promise<void>;
   removeDoc: (type: string, id: string) => void;
+  restoreDoc: (id: string) => Promise<void>;
   updateDocStatus: (type: string, id: string, s: string) => Promise<void>;
   savePayment: (v: any) => Promise<void>;
   savePaymentSplit: (v: { customerId: string; date?: string; method?: string; allocations: { invoiceId: string; amount: number }[]; advanceAmount?: number }) => Promise<void>;
@@ -389,14 +390,29 @@ export const useAppStore = create<AppState>()((set, get) => ({
       }
 
       if (v.id) {
-        const doc = await api.documents(type as any).update(v.id, payload);
+        payload.expectedUpdatedAt = v.updatedAt;
+        const { doc, lowStock } = await api.documents(type as any).update(v.id, payload);
         set((state) => ({ [key]: state[key].map((x: any) => (x.id === v.id ? doc : x)) } as any));
-        showToast(`${doc.number} updated`);
+
+        if (type === "estimate") {
+          // editing an estimate can re-deduct/restock items server-side — pull fresh numbers
+          const freshItems = await api.items.list();
+          set({ items: freshItems });
+        }
+
+        if (lowStock && lowStock.length > 0) {
+          showToast(`⚠️ Low stock: ${lowStock.map((i: any) => `${i.name} (${fmtNum(i.stock)} left)`).join(", ")}`);
+        } else {
+          showToast(`${doc.number} updated`);
+        }
         closeModal();
         return;
       }
 
-      const { doc, lowStock } = await api.documents(type as any).create(payload);
+      // guards against the same submit landing twice (double-tap Save, or a retried
+      // request after a slow/dropped response creating a duplicate document)
+      const idempotencyKey = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const { doc, lowStock } = await api.documents(type as any).create(payload, idempotencyKey);
       set((state) => ({ [key]: [doc, ...state[key]] } as any));
 
       if (type === "estimate") {
@@ -422,8 +438,41 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
   removeDoc: (type, id) => {
     const key = docListKey(type);
+
+    if (type === "estimate") {
+      // estimates are soft-deleted server-side and stay in the list (flagged +
+      // greyed out) with a Restore button — no optimistic remove/undo-toast here,
+      // Restore already covers that job.
+      (async () => {
+        try {
+          const result = await api.documents("estimate").remove(id);
+          set((state) => ({
+            estimates: state.estimates.map((x: any) => (x.id === id ? result.doc : x)),
+            items: result.items || state.items,
+          }));
+          get().showToast("Estimate deleted");
+        } catch (err) { onApiError(get, err, "Failed to delete estimate"); }
+      })();
+      return;
+    }
+
     const list = get()[key];
-    scheduleDelete(set, get, type === "estimate" ? "Estimate" : "Challan", key, id, () => api.documents(type as any).remove(id), list);
+    scheduleDelete(set, get, "Challan", key, id, () => api.documents(type as any).remove(id), list);
+  },
+
+  restoreDoc: async (id) => {
+    try {
+      const result = await api.documents("estimate").restore(id);
+      set((state) => ({
+        estimates: state.estimates.map((x: any) => (x.id === id ? result.doc : x)),
+        items: result.items || state.items,
+      }));
+      if (result.lowStock && result.lowStock.length > 0) {
+        get().showToast(`⚠️ Low stock: ${result.lowStock.map((i: any) => `${i.name} (${fmtNum(i.stock)} left)`).join(", ")}`);
+      } else {
+        get().showToast(`${result.doc.number} restored`);
+      }
+    } catch (err) { onApiError(get, err, "Failed to restore estimate"); }
   },
 
   updateDocStatus: async (type, id, s) => {

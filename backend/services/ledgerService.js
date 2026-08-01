@@ -62,7 +62,7 @@ async function postEntries(lines, meta) {
     }));
 
   if (!docs.length) return [];
-  return LedgerEntry.insertMany(docs);
+  return LedgerEntry.insertMany(docs, { session: meta.session || undefined });
 }
 
 /**
@@ -71,8 +71,8 @@ async function postEntries(lines, meta) {
  * Writes the mirror-image entries rather than deleting history, so the
  * ledger stays a complete audit trail.
  */
-async function reverseSource(owner, sourceType, sourceId, narration) {
-  const original = await LedgerEntry.find({ owner, sourceType, sourceId, reversed: { $ne: true } });
+async function reverseSource(owner, sourceType, sourceId, narration, session) {
+  const original = await LedgerEntry.find({ owner, sourceType, sourceId, reversed: { $ne: true } }).session(session || null);
   if (!original.length) return [];
 
   const batchId = randomUUID();
@@ -91,8 +91,12 @@ async function reverseSource(owner, sourceType, sourceId, narration) {
     batchId,
   }));
 
-  await LedgerEntry.updateMany({ _id: { $in: original.map((e) => e._id) } }, { $set: { reversed: true } });
-  return LedgerEntry.insertMany(reversedDocs);
+  await LedgerEntry.updateMany(
+    { _id: { $in: original.map((e) => e._id) } },
+    { $set: { reversed: true } },
+    { session: session || undefined }
+  );
+  return LedgerEntry.insertMany(reversedDocs, { session: session || undefined });
 }
 
 /** Net balance of one account, optionally scoped to a date range (inclusive). */

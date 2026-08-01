@@ -8,10 +8,14 @@ import { InvoiceLine } from "../../types/index";
 
 export function DocumentModal({ type, customers, items, estimates, editingDoc, onClose, onSave }: any) {
   const isEditing = !!editingDoc;
+  // deleted items shouldn't be pickable for a new line, but an existing line that
+  // already references one (from before it was deleted) still needs to resolve
+  // correctly, so `items` (full list) stays available for lookups via itemById.
+  const activeItems = items.filter((it: any) => !it.deleted);
   const [customerId, setCustomerId] = useState(editingDoc?.customerId || customers[0]?.id || "");
   const [date, setDate] = useState(editingDoc?.date ? String(editingDoc.date).slice(0, 10) : today());
   const [dueDate, setDueDate] = useState(editingDoc?.dueDate ? String(editingDoc.dueDate).slice(0, 10) : today());
-  const [lines, setLines] = useState<InvoiceLine[]>(editingDoc?.lines?.length ? editingDoc.lines.map((ln: InvoiceLine) => ({ ...ln })) : [{ itemId: items[0]?.id || "", qty: 1, rate: items[0]?.sellingPrice || 0 }]);
+  const [lines, setLines] = useState<InvoiceLine[]>(editingDoc?.lines?.length ? editingDoc.lines.map((ln: InvoiceLine) => ({ ...ln })) : [{ itemId: activeItems[0]?.id || "", qty: 1, rate: activeItems[0]?.sellingPrice || 0 }]);
   const [notes, setNotes] = useState(editingDoc?.notes || "");
   const [rateEditIndex, setRateEditIndex] = useState<number | null>(null);
   const [freightCost, setFreightCost] = useState(editingDoc?.freightCost ? String(editingDoc.freightCost) : "");
@@ -23,6 +27,7 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, o
   // so switching customers only auto-fills an empty/untouched destination and never overwrites it
   const [destinationTouched, setDestinationTouched] = useState(!!editingDoc?.destination);
   const [pendingSave, setPendingSave] = useState<any>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (type !== "estimate" || destinationTouched) return;
@@ -34,10 +39,10 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, o
   const knownContractors = Array.from(new Set((estimates || []).map((e: any) => e.contractorName).filter(Boolean))) as string[];
   const knownDestinations = Array.from(new Set((estimates || []).map((e: any) => e.destination).filter(Boolean))) as string[];
 
-  const addLine = () => setLines((l) => [...l, { itemId: items[0]?.id || "", qty: 1, rate: items[0]?.sellingPrice || 0 }]);
+  const addLine = () => setLines((l) => [...l, { itemId: activeItems[0]?.id || "", qty: 1, rate: activeItems[0]?.sellingPrice || 0 }]);
   const updateLine = (i: number, patch: any) => setLines((l) => l.map((ln, idx) => idx === i ? { ...ln, ...patch } : ln));
   const setLineItem = (i: number, itemId: string) => {
-    const it = items.find((it: any) => it.id === itemId);
+    const it = activeItems.find((it: any) => it.id === itemId);
     updateLine(i, { itemId, rate: it?.sellingPrice || 0 }); // fresh rate every time the item on this line changes
   };
   const removeLine = (i: number) => setLines((l) => l.filter((_, idx) => idx !== i));
@@ -62,14 +67,15 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, o
     freightCost: Number(freightCost || 0), labourCost: Number(labourCost || 0), previousDue,
     rolledEstimateIds: includePreviousDue ? previousDueEstimates.map((e: any) => e.id) : [],
     contractorName, destination,
-    ...(isEditing ? { id: editingDoc.id } : {}),
+    ...(isEditing ? { id: editingDoc.id, updatedAt: editingDoc.updatedAt } : {}),
   });
 
   const handleSaveClick = () => {
-    if (!canSave) return;
+    if (!canSave || saving) return;
     // new estimates ask Due/Paid before actually saving; edits keep the existing status as-is
     if (type === "estimate" && !isEditing) { setPendingSave(buildPayload()); return; }
-    onSave(buildPayload());
+    setSaving(true);
+    Promise.resolve(onSave(buildPayload())).finally(() => setSaving(false));
   };
 
   return (
@@ -80,7 +86,7 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, o
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
         {customers.length === 0 ? <p className="text-sm text-ink/50">Add a customer first.</p>
-          : items.length === 0 ? <p className="text-sm text-ink/50">Add an item first.</p>
+          : activeItems.length === 0 ? <p className="text-sm text-ink/50">Add an item first.</p>
           : (
           <div className="space-y-4">
             <div>
@@ -116,7 +122,7 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, o
                       <div className="flex items-center gap-2">
                         <div className="flex-1">
                           <SearchableSelect
-                            options={items.map((it: any) => ({ value: it.id, label: `${it.name} (stock: ${it.stock ?? 0})` }))}
+                            options={(it?.deleted ? [...activeItems, it] : activeItems).map((opt: any) => ({ value: opt.id, label: opt.deleted ? `${opt.name} (deleted)` : `${opt.name} (stock: ${opt.stock ?? 0})` }))}
                             value={ln.itemId}
                             onChange={(v: string) => setLineItem(i, v)}
                             placeholder="Select item"
@@ -212,7 +218,7 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, o
         )}
         <div className="mt-6 flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
-          <button disabled={!canSave} onClick={handleSaveClick}
+          <button disabled={!canSave || saving} onClick={handleSaveClick}
             className="flex-1 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40">{isEditing ? "Save changes" : `Save ${type}`}</button>
         </div>
       </div>
@@ -234,7 +240,12 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, o
         <StatusChoicePopup
           total={pendingSave.total}
           currency=""
-          onChoose={(status: string, isAdvanceBooking: boolean) => { onSave({ ...pendingSave, status, isAdvanceBooking }); setPendingSave(null); }}
+          onChoose={(status: string, isAdvanceBooking: boolean) => {
+            if (saving) return;
+            setSaving(true);
+            Promise.resolve(onSave({ ...pendingSave, status, isAdvanceBooking })).finally(() => setSaving(false));
+            setPendingSave(null);
+          }}
           onCancel={() => setPendingSave(null)}
         />
       )}

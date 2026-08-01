@@ -3,9 +3,12 @@ const Document = require("../models/Document");
 const Item = require("../models/Item");
 const Payment = require("../models/Payment");
 const Counter = require("../models/Counter");
+const FinancialYear = require("../models/FinancialYear");
 const ledgerService = require("../services/ledgerService");
 const stockService = require("../services/stockService");
 const paymentController = require("./paymentController");
+const { withTransaction } = require("../utils/withTransaction");
+const idempotency = require("../utils/idempotency");
 
 const PREFIX = { estimate: "EST", challan: "DC" };
 const DEFAULT_STATUS = { estimate: "Due", challan: "Pending" };
@@ -13,13 +16,48 @@ const DEFAULT_STATUS = { estimate: "Due", challan: "Pending" };
 // Atomically increments a persistent per-owner/per-type counter, so numbers never
 // repeat even after documents are deleted (unlike the old countDocuments()+1 scheme,
 // which could reassign an already-used number once something earlier was removed).
-async function nextNumber(owner, type) {
+async function nextNumber(owner, type, session) {
   const counter = await Counter.findOneAndUpdate(
     { owner, type },
     { $inc: { seq: 1 } },
-    { new: true, upsert: true }
+    { new: true, upsert: true, session: session || undefined }
   );
   return `${PREFIX[type]}-${String(counter.seq).padStart(4, "0")}`;
+}
+
+// Throws if `date` falls inside a financial year that's already been closed —
+// closing a year snapshots opening balances for the next one, so editing,
+// deleting, or restoring a document dated inside it after the fact would make
+// that snapshot wrong. No-ops if the document has no date.
+async function assertYearNotLocked(owner, date, session) {
+  if (!date) return;
+  const fy = await FinancialYear.findOne({ owner, closed: true, startDate: { $lte: date }, endDate: { $gte: date } }).session(session || null);
+  if (fy) {
+    const err = new Error(`This falls in the financial year ${fy.startDate} to ${fy.endDate}, which is closed and can't be modified.`);
+    err.status = 400;
+    throw err;
+  }
+}
+
+// Rejects lines with a zero/negative quantity or a negative rate before anything
+// gets written — the schema-level min: also catches this, but failing fast here
+// gives a clear message instead of a raw Mongoose ValidationError, and prevents
+// a partially-invalid batch from reaching stock/ledger posting at all.
+function assertLinesValid(lines) {
+  for (const line of lines || []) {
+    const qty = Number(line.qty);
+    const rate = Number(line.rate);
+    if (!(qty > 0)) {
+      const err = new Error(`Every line needs a quantity greater than 0 (got ${line.qty})`);
+      err.status = 400;
+      throw err;
+    }
+    if (line.rate !== undefined && line.rate !== null && !(rate >= 0)) {
+      const err = new Error(`Line rate can't be negative (got ${line.rate})`);
+      err.status = 400;
+      throw err;
+    }
+  }
 }
 
 // GET /api/:type   (type = quotes | invoices | challans)
@@ -56,132 +94,256 @@ exports.getOne = (type) => async (req, res, next) => {
   }
 };
 
+// Deducts stock for each line (fresh weighted-average cost basis) and posts the
+// ledger entries that make an estimate real: Sales/AR, COGS/Stock, and — if the
+// document is already fully paid up front — the Paid-in-full settlement.
+// Shared by create() and update() so both paths stay in sync.
+async function applyEstimateEffects(owner, doc, lines, session) {
+  let lowStock = [];
+  let totalCogs = 0;
+  if (Array.isArray(lines) && lines.length) {
+    for (const line of lines) {
+      if (!line.itemId) continue;
+      const qty = Number(line.qty || 0);
+      if (qty <= 0) continue;
+      const result = await stockService.recordStockOut({
+        owner,
+        itemId: line.itemId,
+        qty,
+        sourceType: "Estimate",
+        sourceId: doc._id,
+        date: doc.date || new Date().toISOString().slice(0, 10),
+        session,
+      });
+      if (result) {
+        totalCogs += result.cogsAmount;
+        const threshold = result.item.lowStock ?? 5;
+        if (result.item.stock <= threshold) lowStock.push({ name: result.item.name, stock: result.item.stock });
+      }
+    }
+  }
+
+  if (Number(doc.total) > 0) {
+    await ledgerService.postEntries(
+      [
+        { account: "AccountsReceivable", type: "debit", amount: doc.total, customerId: doc.customerId },
+        { account: "Sales", type: "credit", amount: doc.total, customerId: doc.customerId },
+      ],
+      { owner, sourceType: "Estimate", sourceId: doc._id, date: doc.date, narration: `Estimate ${doc.number}`, session }
+    );
+
+    if (totalCogs > 0) {
+      await ledgerService.postEntries(
+        [
+          { account: "COGS", type: "debit", amount: totalCogs },
+          { account: "Stock", type: "credit", amount: totalCogs },
+        ],
+        { owner, sourceType: "Estimate", sourceId: doc._id, date: doc.date, narration: `COGS for ${doc.number}`, session }
+      );
+    }
+
+    if (doc.status === "Paid" && Number(doc.amountPaid) > 0) {
+      await ledgerService.postEntries(
+        [
+          { account: "Funds", type: "debit", amount: doc.amountPaid, customerId: doc.customerId },
+          { account: "AccountsReceivable", type: "credit", amount: doc.amountPaid, customerId: doc.customerId },
+        ],
+        { owner, sourceType: "Estimate", sourceId: doc._id, date: doc.date, narration: `Paid in full · ${doc.number}`, session }
+      );
+    }
+  }
+
+  return lowStock;
+}
+
+// Undoes everything applyEstimateEffects (or the original create) did:
+// restocks items for whatever quantity hasn't already come back via a Return,
+// and reverses every ledger entry ever posted directly against this estimate
+// (Sales/AR, COGS/Stock, Paid-in-full). Used before re-posting on edit, and
+// before deleting the estimate outright. Return-sourced ledger/stock entries
+// are left untouched — they're their own historical event.
+async function reverseEstimateEffects(owner, doc, session) {
+  const returnedByItem = {};
+  for (const r of doc.returns || []) {
+    returnedByItem[String(r.itemId)] = (returnedByItem[String(r.itemId)] || 0) + Number(r.qty || 0);
+  }
+
+  for (const line of doc.lines || []) {
+    if (!line.itemId) continue;
+    const key = String(line.itemId);
+    const toRestock = Number(line.qty || 0) - (returnedByItem[key] || 0);
+    if (toRestock <= 0) continue;
+    const item = await Item.findOne({ _id: line.itemId, owner }).session(session || null);
+    if (!item) continue;
+    // recordReturnIn (not recordStockIn) on purpose — this is stock coming back
+    // from an edit/delete, not a new purchase, so it shouldn't move the item's
+    // weighted-average purchase cost.
+    await stockService.recordReturnIn({
+      owner,
+      itemId: line.itemId,
+      qty: toRestock,
+      rate: item.purchasePrice || 0,
+      sourceType: "Estimate",
+      sourceId: doc._id,
+      date: new Date().toISOString().slice(0, 10),
+      session,
+    });
+  }
+
+  await ledgerService.reverseSource(owner, "Estimate", doc._id, `Estimate ${doc.number} edited/deleted`, session);
+}
+
 // POST /api/:type
+// Wrapped in a transaction: creating a document is really "insert the document +
+// deduct stock for every line + post 1-3 ledger batches", 3-5 separate writes that
+// describe one business event. Without a transaction, a crash or thrown error
+// partway through could leave stock deducted with no matching document, or a
+// document with no ledger entry behind it. An optional Idempotency-Key header
+// also guards against the same submit landing twice (double-click, a retried
+// request after a slow/dropped response) — the second attempt gets back the
+// first attempt's result instead of creating a duplicate document.
 exports.create = (type) => async (req, res, next) => {
   try {
     const v = req.body;
-    const number = await nextNumber(req.userId, type);
+    const idempotencyKey = req.get("Idempotency-Key");
+    const cached = idempotency.getCached(req.userId, idempotencyKey);
+    if (cached) return res.status(201).json(cached);
 
-    const doc = await Document.create({
-      owner: req.userId,
-      type,
-      number,
-      customerId: v.customerId,
-      date: v.date,
-      dueDate: v.dueDate,
-      lines: v.lines || [],
-      notes: v.notes,
-      total: v.total || 0,
-      status: v.status || DEFAULT_STATUS[type],
-      // if created as already Paid (customer paid in full up front, no separate Payment
-      // row), reflect that in amountPaid; otherwise nothing has been paid yet
-      amountPaid: (v.status || DEFAULT_STATUS[type]) === "Paid" ? Number(v.total || 0) : 0,
-      isAdvanceBooking: type === "estimate" ? !!v.isAdvanceBooking : false,
-      freightCost: v.freightCost || 0,
-      labourCost: v.labourCost || 0,
-      previousDue: v.previousDue || 0,
-      contractorName: v.contractorName || "",
-      destination: v.destination || "",
-      route: v.route,
-      fromDate: v.fromDate,
-      toDate: v.toDate,
-      byWhom: v.byWhom,
-      transporter: v.transporter,
-      expenses: v.expenses,
-      incomes: v.incomes,
-      deliveryFee: v.deliveryFee,
-      feeVerified: v.feeVerified,
-      history: [{ action: "Created", date: v.date || new Date().toISOString().slice(0, 10) }],
-    });
+    if (type === "estimate") assertLinesValid(v.lines);
 
-    // the previous-due amount just folded into this estimate's total came from these
-    // older, still-unpaid estimates for the same customer — mark them settled so the
-    // balance isn't counted twice in outstanding totals.
-    if (type === "estimate" && Array.isArray(v.rolledEstimateIds) && v.rolledEstimateIds.length) {
-      const rolled = await Document.find({ _id: { $in: v.rolledEstimateIds }, owner: req.userId, type: "estimate", customerId: v.customerId, status: { $ne: "Paid" } });
-      for (const r of rolled) {
-        r.status = "Paid";
-        r.amountPaid = Number(r.total || 0);
-        await r.save();
-      }
-    }
+    const result = await withTransaction(async (session) => {
+      const number = await nextNumber(req.userId, type, session);
 
-    let lowStock = [];
-    // deduct stock from items when an estimate is created, exactly like the frontend used to do client-side —
-    // now routed through stockService so it also logs a StockMovement and tells us the COGS cost basis
-    let totalCogs = 0;
-    if (type === "estimate" && Array.isArray(v.lines) && v.lines.length) {
-      for (const line of v.lines) {
-        if (!line.itemId) continue;
-        const qty = Number(line.qty || 0);
-        if (qty <= 0) continue;
-        const result = await stockService.recordStockOut({
+      const [doc] = await Document.create(
+        [{
           owner: req.userId,
-          itemId: line.itemId,
-          qty,
-          sourceType: "Estimate",
-          sourceId: doc._id,
-          date: v.date || new Date().toISOString().slice(0, 10),
-        });
-        if (result) {
-          totalCogs += result.cogsAmount;
-          const threshold = result.item.lowStock ?? 5;
-          if (result.item.stock <= threshold) lowStock.push({ name: result.item.name, stock: result.item.stock });
-        }
-      }
-    }
-
-    // ledger: every estimate is a sale — Dr AccountsReceivable / Cr Sales — plus the
-    // matching cost side, Dr COGS / Cr Stock, using each item's weighted-average cost.
-    if (type === "estimate" && Number(doc.total) > 0) {
-      await ledgerService.postEntries(
-        [
-          { account: "AccountsReceivable", type: "debit", amount: doc.total, customerId: doc.customerId },
-          { account: "Sales", type: "credit", amount: doc.total, customerId: doc.customerId },
-        ],
-        { owner: req.userId, sourceType: "Estimate", sourceId: doc._id, date: doc.date, narration: `Estimate ${doc.number}` }
+          type,
+          number,
+          customerId: v.customerId,
+          date: v.date,
+          dueDate: v.dueDate,
+          lines: v.lines || [],
+          notes: v.notes,
+          total: v.total || 0,
+          status: v.status || DEFAULT_STATUS[type],
+          // if created as already Paid (customer paid in full up front, no separate Payment
+          // row), reflect that in amountPaid; otherwise nothing has been paid yet
+          amountPaid: (v.status || DEFAULT_STATUS[type]) === "Paid" ? Number(v.total || 0) : 0,
+          isAdvanceBooking: type === "estimate" ? !!v.isAdvanceBooking : false,
+          freightCost: v.freightCost || 0,
+          labourCost: v.labourCost || 0,
+          previousDue: v.previousDue || 0,
+          contractorName: v.contractorName || "",
+          destination: v.destination || "",
+          route: v.route,
+          fromDate: v.fromDate,
+          toDate: v.toDate,
+          byWhom: v.byWhom,
+          transporter: v.transporter,
+          expenses: v.expenses,
+          incomes: v.incomes,
+          deliveryFee: v.deliveryFee,
+          feeVerified: v.feeVerified,
+          history: [{ action: "Created", date: v.date || new Date().toISOString().slice(0, 10) }],
+        }],
+        { session: session || undefined }
       );
 
-      if (totalCogs > 0) {
-        await ledgerService.postEntries(
-          [
-            { account: "COGS", type: "debit", amount: totalCogs },
-            { account: "Stock", type: "credit", amount: totalCogs },
-          ],
-          { owner: req.userId, sourceType: "Estimate", sourceId: doc._id, date: doc.date, narration: `COGS for ${doc.number}` }
-        );
+      // the previous-due amount just folded into this estimate's total came from these
+      // older, still-unpaid estimates for the same customer — mark them settled so the
+      // balance isn't counted twice in outstanding totals.
+      if (type === "estimate" && Array.isArray(v.rolledEstimateIds) && v.rolledEstimateIds.length) {
+        const rolled = await Document.find({ _id: { $in: v.rolledEstimateIds }, owner: req.userId, type: "estimate", customerId: v.customerId, status: { $ne: "Paid" } }).session(session || null);
+        for (const r of rolled) {
+          r.status = "Paid";
+          r.amountPaid = Number(r.total || 0);
+          await r.save({ session: session || undefined });
+        }
       }
 
-      // if the estimate was saved as already Paid up front (no separate Payment row),
-      // immediately settle the receivable: Dr Funds / Cr AccountsReceivable
-      if (doc.status === "Paid" && Number(doc.amountPaid) > 0) {
-        await ledgerService.postEntries(
-          [
-            { account: "Funds", type: "debit", amount: doc.amountPaid, customerId: doc.customerId },
-            { account: "AccountsReceivable", type: "credit", amount: doc.amountPaid, customerId: doc.customerId },
-          ],
-          { owner: req.userId, sourceType: "Estimate", sourceId: doc._id, date: doc.date, narration: `Paid in full · ${doc.number}` }
-        );
+      // deduct stock + post ledger entries for the new estimate (Sales/AR, COGS/Stock,
+      // Paid-in-full) — routed through stockService/ledgerService so it also logs a
+      // StockMovement and tells us the COGS cost basis
+      let lowStock = [];
+      if (type === "estimate") {
+        lowStock = await applyEstimateEffects(req.userId, doc, v.lines, session);
       }
-    }
 
-    res.status(201).json({ doc, lowStock });
+      return { doc, lowStock };
+    });
+
+    idempotency.remember(req.userId, idempotencyKey, result);
+    res.status(201).json(result);
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message });
     next(err);
   }
 };
 
 // PUT /api/:type/:id
+// `expectedUpdatedAt`, if the client sends it, guards against overwriting a
+// change someone else (or another tab) made after the client loaded this
+// document — see the version check just below.
 exports.update = (type) => async (req, res, next) => {
   try {
-    const doc = await Document.findOneAndUpdate(
-      { _id: req.params.id, owner: req.userId, type },
-      { $set: req.body },
-      { new: true, runValidators: true }
-    );
-    if (!doc) return res.status(404).json({ message: "Not found" });
-    res.json(doc);
+    const existing = await Document.findOne({ _id: req.params.id, owner: req.userId, type });
+    if (!existing) return res.status(404).json({ message: "Not found" });
+    if (existing.deleted) {
+      return res.status(400).json({ message: "This estimate is deleted — restore it before editing." });
+    }
+    if (req.body.expectedUpdatedAt) {
+      const expected = new Date(req.body.expectedUpdatedAt).getTime();
+      const actual = existing.updatedAt ? existing.updatedAt.getTime() : null;
+      if (actual !== null && expected !== actual) {
+        return res.status(409).json({ message: "This estimate was changed elsewhere since you opened it. Reload it and try again." });
+      }
+    }
+    await assertYearNotLocked(req.userId, existing.date);
+    if (req.body.date && req.body.date !== existing.date) {
+      await assertYearNotLocked(req.userId, req.body.date);
+    }
+    if (type === "estimate" && "lines" in req.body) assertLinesValid(req.body.lines);
+
+    const { expectedUpdatedAt, ...updateFields } = req.body;
+
+    // estimates drive stock deductions and ledger postings at creation time — if
+    // anything that affects those (lines, total, paid amount, status) is changing,
+    // undo what the old version posted first, then re-apply with the new numbers.
+    // Otherwise the ledger/reports silently keep showing the pre-edit figures.
+    const isEstimate = type === "estimate";
+    const needsRepost =
+      isEstimate &&
+      (("lines" in updateFields) ||
+        ("total" in updateFields && Number(updateFields.total) !== Number(existing.total)) ||
+        ("amountPaid" in updateFields && Number(updateFields.amountPaid) !== Number(existing.amountPaid)) ||
+        ("status" in updateFields && updateFields.status !== existing.status));
+
+    const result = await withTransaction(async (session) => {
+      if (needsRepost) {
+        await reverseEstimateEffects(req.userId, existing, session);
+      }
+
+      const doc = await Document.findOneAndUpdate(
+        { _id: req.params.id, owner: req.userId, type },
+        {
+          $set: updateFields,
+          $push: { history: { action: "Edited", date: new Date().toISOString().slice(0, 10) } },
+        },
+        { new: true, runValidators: true, session: session || undefined }
+      );
+      if (!doc) { const e = new Error("Not found"); e.status = 404; throw e; }
+
+      let lowStock = [];
+      if (needsRepost) {
+        lowStock = await applyEstimateEffects(req.userId, doc, doc.lines, session);
+      }
+
+      return { doc, lowStock };
+    });
+
+    res.json(result);
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message });
     next(err);
   }
 };
@@ -190,32 +352,160 @@ exports.update = (type) => async (req, res, next) => {
 exports.updateStatus = (type) => async (req, res, next) => {
   try {
     const { status } = req.body;
+    const existing = await Document.findOne({ _id: req.params.id, owner: req.userId, type });
+    if (!existing) return res.status(404).json({ message: "Not found" });
+    if (existing.deleted) {
+      return res.status(400).json({ message: "This estimate is deleted — restore it before editing." });
+    }
+    await assertYearNotLocked(req.userId, existing.date);
+
     const update = { status };
     // manually marking an estimate Paid (e.g. no separate payment logged) should also
     // reflect in amountPaid so the paid/due breakdown shown to the user stays consistent
     if (type === "estimate" && status === "Paid") {
-      const existing = await Document.findOne({ _id: req.params.id, owner: req.userId, type });
-      if (existing) update.amountPaid = Number(existing.total || 0);
+      update.amountPaid = Number(existing.total || 0);
     }
     const doc = await Document.findOneAndUpdate(
       { _id: req.params.id, owner: req.userId, type },
       { $set: update, $push: { history: { action: `Status changed to ${status}`, date: new Date().toISOString().slice(0, 10) } } },
-      { new: true }
+      { new: true, runValidators: true }
     );
     if (!doc) return res.status(404).json({ message: "Not found" });
     res.json(doc);
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message });
     next(err);
   }
 };
 
 // DELETE /api/:type/:id
+// Soft-delete for estimates: the document is NEVER actually removed — it stays
+// in place (same number, same position in the list) but flagged `deleted`, which
+// hides it from the normal list/reports and locks it from further edits until
+// it's explicitly restored. Ledger/stock effects are reversed immediately, same
+// as a real delete would need to; payments tied to it are hidden (not deleted)
+// so they can be reinstated on restore. Challans have no ledger footprint, so
+// they're still removed outright. Wrapped in a transaction for the same reason
+// as create/update — the ledger reversal, stock restock, payment hides, and the
+// `deleted` flag are one event, not several independent ones.
 exports.remove = (type) => async (req, res, next) => {
   try {
-    const doc = await Document.findOneAndDelete({ _id: req.params.id, owner: req.userId, type });
+    const doc = await Document.findOne({ _id: req.params.id, owner: req.userId, type });
     if (!doc) return res.status(404).json({ message: "Not found" });
-    res.json({ message: "Deleted", id: req.params.id });
+
+    if (type !== "estimate") {
+      await Document.findOneAndDelete({ _id: req.params.id, owner: req.userId, type });
+      return res.json({ message: "Deleted", id: req.params.id });
+    }
+
+    if (doc.deleted) return res.status(400).json({ message: "This estimate is already deleted" });
+    await assertYearNotLocked(req.userId, doc.date);
+
+    await withTransaction(async (session) => {
+      // undo the stock deduction and the Sales/AR, COGS/Stock, Paid-in-full ledger
+      // entries this estimate posted, so deleting it doesn't leave the ledger and
+      // stock counts referring to a sale that's now void
+      await reverseEstimateEffects(req.userId, doc, session);
+
+      // any separate payments/refunds logged against this estimate: reverse their
+      // ledger entries and hide them (not delete) so a restore can bring them back
+      const payments = await Payment.find({ owner: req.userId, invoiceId: doc._id, hidden: { $ne: true } }).session(session || null);
+      for (const p of payments) {
+        await ledgerService.reverseSource(req.userId, "Payment", p._id, `Estimate ${doc.number} deleted`, session);
+        p.hidden = true;
+        await p.save({ session: session || undefined });
+      }
+
+      doc.deleted = true;
+      doc.deletedAt = new Date();
+      doc.history = [...(doc.history || []), { action: "Deleted", date: new Date().toISOString().slice(0, 10) }];
+      await doc.save({ session: session || undefined });
+    });
+
+    const freshItems = await Item.find({ owner: req.userId });
+    res.json({ message: "Deleted", id: req.params.id, doc, items: freshItems });
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message });
+    next(err);
+  }
+};
+
+// POST /api/:type/:id/restore
+// Undoes a soft-delete: re-deducts stock and re-posts the ledger entries (using
+// the estimate's original date, so past-period reports stay accurate), then
+// un-hides and re-posts any payments that were hidden when it was deleted.
+exports.restore = (type) => async (req, res, next) => {
+  try {
+    if (type !== "estimate") return res.status(400).json({ message: "Only estimates can be restored" });
+
+    const doc = await Document.findOne({ _id: req.params.id, owner: req.userId, type });
+    if (!doc) return res.status(404).json({ message: "Not found" });
+    if (!doc.deleted) return res.status(400).json({ message: "This estimate isn't deleted" });
+    await assertYearNotLocked(req.userId, doc.date);
+
+    // every item on this estimate must still exist and not itself be deleted, or
+    // we'd be restocking/costing against something that's gone
+    const missing = [];
+    for (const line of doc.lines || []) {
+      if (!line.itemId) continue;
+      const item = await Item.findOne({ _id: line.itemId, owner: req.userId });
+      if (!item || item.deleted) missing.push(String(line.itemId));
+    }
+    if (missing.length) {
+      return res.status(400).json({ message: `Can't restore — ${missing.length} item(s) on this estimate no longer exist.` });
+    }
+
+    const result = await withTransaction(async (session) => {
+      doc.deleted = false;
+      doc.deletedAt = undefined;
+      doc.history = [...(doc.history || []), { action: "Restored", date: new Date().toISOString().slice(0, 10) }];
+      await doc.save({ session: session || undefined });
+
+      const lowStock = await applyEstimateEffects(req.userId, doc, doc.lines, session);
+
+      // bring back whatever payments were hidden when this was deleted
+      const hiddenPayments = await Payment.find({ owner: req.userId, invoiceId: doc._id, hidden: true }).session(session || null);
+      for (const p of hiddenPayments) {
+        const amt = Math.abs(Number(p.amount));
+        if (amt > 0) {
+          const isRefund = Number(p.amount) < 0;
+          const lines = isRefund
+            ? [
+                { account: "AccountsReceivable", type: "debit", amount: amt, customerId: p.customerId },
+                { account: "Funds", type: "credit", amount: amt, customerId: p.customerId },
+              ]
+            : [
+                { account: "Funds", type: "debit", amount: amt, customerId: p.customerId },
+                { account: "AccountsReceivable", type: "credit", amount: amt, customerId: p.customerId },
+              ];
+          await ledgerService.postEntries(lines, {
+            owner: req.userId,
+            sourceType: "Payment",
+            sourceId: p._id,
+            date: p.date,
+            narration: `${isRefund ? "Refund" : "Payment"} restored · ${doc.number}`,
+            session,
+          });
+        }
+        p.hidden = false;
+        await p.save({ session: session || undefined });
+      }
+
+      let finalDoc = doc;
+      if (hiddenPayments.length) {
+        finalDoc = await paymentController.recalcInvoice(req.userId, doc._id, {
+          action: "Payments reinstated",
+          date: new Date().toISOString().slice(0, 10),
+        }, session);
+      }
+
+      return { doc: finalDoc || doc, lowStock };
+    });
+
+    const freshItems = await Item.find({ owner: req.userId });
+    res.json({ ...result, items: freshItems });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message });
     next(err);
   }
 };
@@ -227,119 +517,129 @@ exports.addReturn = (type) => async (req, res, next) => {
   try {
     const doc = await Document.findOne({ _id: req.params.id, owner: req.userId, type });
     if (!doc) return res.status(404).json({ message: "Not found" });
+    if (doc.deleted) return res.status(400).json({ message: "This estimate is deleted — restore it first." });
 
     const requestedLines = Array.isArray(req.body.lines) ? req.body.lines : [];
     if (!requestedLines.length) return res.status(400).json({ message: "No items to return" });
 
-    const alreadyReturned = {};
-    for (const r of doc.returns || []) {
-      alreadyReturned[String(r.itemId)] = (alreadyReturned[String(r.itemId)] || 0) + r.qty;
-    }
+    const result = await withTransaction(async (session) => {
+      const alreadyReturned = {};
+      for (const r of doc.returns || []) {
+        alreadyReturned[String(r.itemId)] = (alreadyReturned[String(r.itemId)] || 0) + r.qty;
+      }
 
-    const newReturns = [];
-    let refundTotal = 0;
-    let totalCogsReversal = 0;
-    const date = req.body.date || new Date().toISOString().slice(0, 10);
+      const newReturns = [];
+      let refundTotal = 0;
+      let totalCogsReversal = 0;
+      const date = req.body.date || new Date().toISOString().slice(0, 10);
 
-    for (const reqLine of requestedLines) {
-      const qty = Number(reqLine.qty || 0);
-      if (qty <= 0) continue;
-      const line = (doc.lines || []).find((l) => String(l.itemId) === String(reqLine.itemId));
-      if (!line) continue;
+      for (const reqLine of requestedLines) {
+        const qty = Number(reqLine.qty || 0);
+        if (qty <= 0) continue;
+        const line = (doc.lines || []).find((l) => String(l.itemId) === String(reqLine.itemId));
+        if (!line) continue;
 
-      const returnedSoFar = alreadyReturned[String(reqLine.itemId)] || 0;
-      const maxReturnable = Number(line.qty || 0) - returnedSoFar;
-      const finalQty = Math.min(qty, maxReturnable);
-      if (finalQty <= 0) continue;
+        const returnedSoFar = alreadyReturned[String(reqLine.itemId)] || 0;
+        const maxReturnable = Number(line.qty || 0) - returnedSoFar;
+        const finalQty = Math.min(qty, maxReturnable);
+        if (finalQty <= 0) continue;
 
-      const item = await Item.findOne({ _id: reqLine.itemId, owner: req.userId });
-      const amount = finalQty * Number(line.rate || 0);
+        const item = await Item.findOne({ _id: reqLine.itemId, owner: req.userId }).session(session || null);
+        const amount = finalQty * Number(line.rate || 0);
 
-      newReturns.push({
-        itemId: reqLine.itemId,
-        name: item?.name || "Item",
-        qty: finalQty,
-        rate: Number(line.rate || 0),
-        amount,
+        newReturns.push({
+          itemId: reqLine.itemId,
+          name: item?.name || "Item",
+          qty: finalQty,
+          rate: Number(line.rate || 0),
+          amount,
+          date,
+        });
+        refundTotal += amount;
+        alreadyReturned[String(reqLine.itemId)] = returnedSoFar + finalQty;
+
+        // put the returned stock back — routed through stockService so it logs a
+        // StockMovement and tells us the cost basis to reverse out of COGS
+        const stockResult = await stockService.recordReturnIn({
+          owner: req.userId,
+          itemId: reqLine.itemId,
+          qty: finalQty,
+          rate: item?.purchasePrice || 0,
+          sourceType: "Return",
+          sourceId: doc._id,
+          date,
+          session,
+        });
+        if (stockResult) totalCogsReversal += stockResult.cogsReversal;
+      }
+
+      if (!newReturns.length) { const e = new Error("Nothing valid to return"); e.status = 400; throw e; }
+
+      doc.returns = [...(doc.returns || []), ...newReturns];
+      doc.history = [...(doc.history || []), { action: "Return recorded", date, note: `Refund ${refundTotal}` }];
+      await doc.save({ session: session || undefined });
+
+      // book the refund as a negative payment so reports/outstanding totals net out automatically
+      const [payment] = await Payment.create(
+        [{
+          owner: req.userId,
+          customerId: doc.customerId,
+          amount: -refundTotal,
+          date,
+          method: "Refund",
+          invoiceId: doc._id,
+          invoiceNumber: doc.number,
+        }],
+        { session: session || undefined }
+      );
+
+      // known bug fix: addReturn used to create this refund Payment without ever
+      // recalculating the invoice's amountPaid/status, so ledger balances could drift
+      // out of sync with what the estimate showed. Recalc it here, same as a normal payment.
+      const invoice = await paymentController.recalcInvoice(req.userId, doc._id, {
+        action: "Refund issued",
         date,
-      });
-      refundTotal += amount;
-      alreadyReturned[String(reqLine.itemId)] = returnedSoFar + finalQty;
+        note: `Return · ${refundTotal}`,
+      }, session);
 
-      // put the returned stock back — routed through stockService so it logs a
-      // StockMovement and tells us the cost basis to reverse out of COGS
-      const stockResult = await stockService.recordReturnIn({
-        owner: req.userId,
-        itemId: reqLine.itemId,
-        qty: finalQty,
-        rate: item?.purchasePrice || 0,
-        sourceType: "Return",
-        sourceId: doc._id,
-        date,
-      });
-      if (stockResult) totalCogsReversal += stockResult.cogsReversal;
-    }
+      // ledger: reverse the revenue for the returned amount and pay the cash back out —
+      // Dr Sales / Cr AccountsReceivable, then Dr AccountsReceivable / Cr Funds, which nets
+      // to Dr Sales / Cr Funds when the estimate had already been paid in full.
+      if (refundTotal > 0) {
+        await ledgerService.postEntries(
+          [
+            { account: "Sales", type: "debit", amount: refundTotal, customerId: doc.customerId },
+            { account: "AccountsReceivable", type: "credit", amount: refundTotal, customerId: doc.customerId },
+          ],
+          { owner: req.userId, sourceType: "Return", sourceId: doc._id, date, narration: `Return against ${doc.number}`, session }
+        );
+        await ledgerService.postEntries(
+          [
+            { account: "AccountsReceivable", type: "debit", amount: refundTotal, customerId: doc.customerId },
+            { account: "Funds", type: "credit", amount: refundTotal, customerId: doc.customerId },
+          ],
+          { owner: req.userId, sourceType: "Return", sourceId: doc._id, date, narration: `Refund paid · ${doc.number}`, session }
+        );
+      }
+      // and reverse the cost side — Dr Stock / Cr COGS — for whatever the goods were
+      // actually costed at when they were originally sold
+      if (totalCogsReversal > 0) {
+        await ledgerService.postEntries(
+          [
+            { account: "Stock", type: "debit", amount: totalCogsReversal },
+            { account: "COGS", type: "credit", amount: totalCogsReversal },
+          ],
+          { owner: req.userId, sourceType: "Return", sourceId: doc._id, date, narration: `COGS reversal · ${doc.number}`, session }
+        );
+      }
 
-    if (!newReturns.length) return res.status(400).json({ message: "Nothing valid to return" });
-
-    doc.returns = [...(doc.returns || []), ...newReturns];
-    doc.history = [...(doc.history || []), { action: "Return recorded", date, note: `Refund ${refundTotal}` }];
-    await doc.save();
-
-    // book the refund as a negative payment so reports/outstanding totals net out automatically
-    const payment = await Payment.create({
-      owner: req.userId,
-      customerId: doc.customerId,
-      amount: -refundTotal,
-      date,
-      method: "Refund",
-      invoiceId: doc._id,
-      invoiceNumber: doc.number,
+      return { doc, payment, invoice };
     });
-
-    // known bug fix: addReturn used to create this refund Payment without ever
-    // recalculating the invoice's amountPaid/status, so ledger balances could drift
-    // out of sync with what the estimate showed. Recalc it here, same as a normal payment.
-    const invoice = await paymentController.recalcInvoice(req.userId, doc._id, {
-      action: "Refund issued",
-      date,
-      note: `Return · ${refundTotal}`,
-    });
-
-    // ledger: reverse the revenue for the returned amount and pay the cash back out —
-    // Dr Sales / Cr AccountsReceivable, then Dr AccountsReceivable / Cr Funds, which nets
-    // to Dr Sales / Cr Funds when the estimate had already been paid in full.
-    if (refundTotal > 0) {
-      await ledgerService.postEntries(
-        [
-          { account: "Sales", type: "debit", amount: refundTotal, customerId: doc.customerId },
-          { account: "AccountsReceivable", type: "credit", amount: refundTotal, customerId: doc.customerId },
-        ],
-        { owner: req.userId, sourceType: "Return", sourceId: doc._id, date, narration: `Return against ${doc.number}` }
-      );
-      await ledgerService.postEntries(
-        [
-          { account: "AccountsReceivable", type: "debit", amount: refundTotal, customerId: doc.customerId },
-          { account: "Funds", type: "credit", amount: refundTotal, customerId: doc.customerId },
-        ],
-        { owner: req.userId, sourceType: "Return", sourceId: doc._id, date, narration: `Refund paid · ${doc.number}` }
-      );
-    }
-    // and reverse the cost side — Dr Stock / Cr COGS — for whatever the goods were
-    // actually costed at when they were originally sold
-    if (totalCogsReversal > 0) {
-      await ledgerService.postEntries(
-        [
-          { account: "Stock", type: "debit", amount: totalCogsReversal },
-          { account: "COGS", type: "credit", amount: totalCogsReversal },
-        ],
-        { owner: req.userId, sourceType: "Return", sourceId: doc._id, date, narration: `COGS reversal · ${doc.number}` }
-      );
-    }
 
     const freshItems = await Item.find({ owner: req.userId });
-    res.json({ doc, payment, invoice, items: freshItems });
+    res.json({ ...result, items: freshItems });
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message });
     next(err);
   }
 };
@@ -354,6 +654,7 @@ exports.addDelivery = (type) => async (req, res, next) => {
   try {
     const doc = await Document.findOne({ _id: req.params.id, owner: req.userId, type });
     if (!doc) return res.status(404).json({ message: "Not found" });
+    if (doc.deleted) return res.status(400).json({ message: "This estimate is deleted — restore it first." });
     if (!doc.isAdvanceBooking) {
       return res.status(400).json({ message: "This estimate isn't marked as an advance booking" });
     }

@@ -9,9 +9,10 @@ import { fmtDate, fmtMoney } from "../../lib/format";
 
 /* ---- DocumentList ---- */
 
-export function DocumentList({ type, docs, customers, items, currency, openModal, removeDoc, updateStatus, recordPayment, onShareInvoice, onPrint, onView, onReturn, onDeliver }: any) {
+export function DocumentList({ type, docs, customers, items, currency, openModal, removeDoc, restoreDoc, updateStatus, recordPayment, onShareInvoice, onPrint, onView, onReturn, onDeliver }: any) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all"); // all | due | paid | returned
+  const [showDeleted, setShowDeleted] = useState(false);
   const [collapsedMonths, setCollapsedMonths] = useState<Record<string, boolean>>({});
   const customerName = (id: string) => customers.find((c: any) => c.id === id)?.name || "Unknown";
   const customerPhone = (id: string) => customers.find((c: any) => c.id === id)?.phone;
@@ -32,6 +33,10 @@ export function DocumentList({ type, docs, customers, items, currency, openModal
   let visibleDocs = docs;
   let searchedDocs = docs;
   if (type === "estimate") {
+    // deleted estimates stay in the array but are hidden from the normal view;
+    // the "Show deleted" toggle brings them back into the All tab only
+    const base = showDeleted ? docs : docs.filter((d: any) => !d.deleted);
+    searchedDocs = base;
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       searchedDocs = searchedDocs.filter((d: any) => {
@@ -43,16 +48,17 @@ export function DocumentList({ type, docs, customers, items, currency, openModal
       });
     }
     visibleDocs = searchedDocs;
-    if (statusFilter === "due") visibleDocs = visibleDocs.filter((d: any) => d.status !== "Paid");
-    else if (statusFilter === "paid") visibleDocs = visibleDocs.filter((d: any) => d.status === "Paid");
-    else if (statusFilter === "returned") visibleDocs = visibleDocs.filter((d: any) => (d.returns || []).length > 0);
+    // deleted estimates are void — they never count toward due/paid/returned, only "All"
+    if (statusFilter === "due") visibleDocs = visibleDocs.filter((d: any) => !d.deleted && d.status !== "Paid");
+    else if (statusFilter === "paid") visibleDocs = visibleDocs.filter((d: any) => !d.deleted && d.status === "Paid");
+    else if (statusFilter === "returned") visibleDocs = visibleDocs.filter((d: any) => !d.deleted && (d.returns || []).length > 0);
   }
 
   const filterCounts: Record<string, number> = {
     all: searchedDocs.length,
-    due: searchedDocs.filter((d: any) => d.status !== "Paid").length,
-    paid: searchedDocs.filter((d: any) => d.status === "Paid").length,
-    returned: searchedDocs.filter((d: any) => (d.returns || []).length > 0).length,
+    due: searchedDocs.filter((d: any) => !d.deleted && d.status !== "Paid").length,
+    paid: searchedDocs.filter((d: any) => !d.deleted && d.status === "Paid").length,
+    returned: searchedDocs.filter((d: any) => !d.deleted && (d.returns || []).length > 0).length,
   };
 
   const monthGroups: { key: string; docs: any[] }[] = [];
@@ -115,28 +121,30 @@ export function DocumentList({ type, docs, customers, items, currency, openModal
     }
 
     return (
-      <Card key={d.id}>
+      <Card key={d.id} className={d.deleted ? "opacity-60 grayscale-[40%]" : ""}>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="font-semibold text-ink truncate">{d.number}</p>
             <p className="text-xs text-ink/40 truncate">{customerName(d.customerId)} · {fmtDate(d.date)}</p>
           </div>
           <div className="flex flex-col items-end gap-1 shrink-0">
-            <Badge status={displayStatus} />
+            {d.deleted
+              ? <span className="rounded-pill bg-bad-100 px-2.5 py-1 text-xs font-bold tracking-tight text-bad-700">Deleted</span>
+              : <Badge status={displayStatus} />}
             {type === "estimate" && d.isAdvanceBooking && (
               <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-semibold text-brand-700">Advance Booking</span>
             )}
           </div>
         </div>
         <p className="mt-3 font-display text-lg font-bold text-ink">{fmtMoney(d.total, currency)}</p>
-        {type === "estimate" && d.status !== "Due" && Number(d.amountPaid || 0) > 0 && (
+        {type === "estimate" && !d.deleted && d.status !== "Due" && Number(d.amountPaid || 0) > 0 && (
           <p className="mt-0.5 text-xs text-ink/50">
             Paid {fmtMoney(d.amountPaid, currency)}
             {d.status !== "Paid" && <span className="text-warn-600 font-semibold"> · {fmtMoney(Number(d.total || 0) - Number(d.amountPaid || 0), currency)} due</span>}
           </p>
         )}
         {type === "estimate" && d.notes && <p className="mt-1 text-xs text-ink/40 line-clamp-2">📝 {d.notes}</p>}
-        {type === "estimate" && d.isAdvanceBooking && (() => {
+        {type === "estimate" && !d.deleted && d.isAdvanceBooking && (() => {
           const rows = bookingLineProgress(d);
           const pending = rows.filter((r: any) => r.remaining > 0);
           if (rows.length === 0) return null;
@@ -156,31 +164,41 @@ export function DocumentList({ type, docs, customers, items, currency, openModal
             </div>
           );
         })()}
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {type !== "challan" && (
-            <select value={d.status} onChange={(e) => updateStatus(d.id, e.target.value)} className="rounded-full border border-line px-2.5 py-1.5 text-xs font-semibold text-ink/70">
-              {["Accepted","Due","Partially Paid","Paid"].map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          )}
-          {type === "estimate" && <GhostButton onClick={() => onView(d)}><Eye size={13} /> View</GhostButton>}
-          {type === "estimate" && d.status !== "Paid" && <GhostButton onClick={() => recordPayment(d)}><CheckCircle2 size={13} /> Record payment</GhostButton>}
-          {type === "estimate" && d.isAdvanceBooking && (d.lines || []).length > 0 && !isFullyCollected(d) && <GhostButton onClick={() => onDeliver(d)}><Truck size={13} /> Record collection</GhostButton>}
-          {type === "estimate" && (d.lines || []).length > 0 && <GhostButton onClick={() => onReturn(d)}><RotateCcw size={13} /> Return items</GhostButton>}
-          {type === "estimate" && <GhostButton onClick={() => onPrint(d)}><Printer size={13} /> Print</GhostButton>}
-          {type === "estimate"
-            ? <button onClick={() => onShareInvoice(d)} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white transition active:scale-[0.98]" style={{ backgroundColor: WHATSAPP_GREEN }}><Phone size={13} /> Share estimate</button>
-            : <WhatsAppButton phone={customerPhone(d.customerId)} message={msg} label="Send" />
-          }
-          <button onClick={() => removeDoc(d.id)} className="ml-auto rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={15} /></button>
-        </div>
+        {type === "estimate" && d.deleted ? (
+          <div className="mt-3 flex items-center gap-2">
+            <GhostButton onClick={() => onView(d)}><Eye size={13} /> View</GhostButton>
+            <button onClick={() => restoreDoc(d.id)} className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-good-500 px-3 py-1.5 text-xs font-semibold text-white transition active:scale-[0.98]"><RotateCcw size={13} /> Restore</button>
+          </div>
+        ) : (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {type !== "challan" && (
+              <select value={d.status} onChange={(e) => updateStatus(d.id, e.target.value)} className="rounded-full border border-line px-2.5 py-1.5 text-xs font-semibold text-ink/70">
+                {["Accepted","Due","Partially Paid","Paid"].map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            )}
+            {type === "estimate" && <GhostButton onClick={() => onView(d)}><Eye size={13} /> View</GhostButton>}
+            {type === "estimate" && d.status !== "Paid" && <GhostButton onClick={() => recordPayment(d)}><CheckCircle2 size={13} /> Record payment</GhostButton>}
+            {type === "estimate" && d.isAdvanceBooking && (d.lines || []).length > 0 && !isFullyCollected(d) && <GhostButton onClick={() => onDeliver(d)}><Truck size={13} /> Record collection</GhostButton>}
+            {type === "estimate" && (d.lines || []).length > 0 && <GhostButton onClick={() => onReturn(d)}><RotateCcw size={13} /> Return items</GhostButton>}
+            {type === "estimate" && <GhostButton onClick={() => onPrint(d)}><Printer size={13} /> Print</GhostButton>}
+            {type === "estimate"
+              ? <button onClick={() => onShareInvoice(d)} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white transition active:scale-[0.98]" style={{ backgroundColor: WHATSAPP_GREEN }}><Phone size={13} /> Share estimate</button>
+              : <WhatsAppButton phone={customerPhone(d.customerId)} message={msg} label="Send" />
+            }
+            <button onClick={() => removeDoc(d.id)} className="ml-auto rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={15} /></button>
+          </div>
+        )}
       </Card>
     );
   };
 
+  const activeCount = type === "estimate" ? docs.filter((d: any) => !d.deleted).length : docs.length;
+  const deletedCount = type === "estimate" ? docs.filter((d: any) => d.deleted).length : 0;
+
   return (
     <div className="space-y-3 px-5 pb-28">
       <div className="flex items-center justify-between pt-1">
-        <p className="text-sm text-ink/40">{docs.length} {labelMap[type].toLowerCase()}{docs.length !== 1 ? "s" : ""}</p>
+        <p className="text-sm text-ink/40">{activeCount} {labelMap[type].toLowerCase()}{activeCount !== 1 ? "s" : ""}</p>
         <PillButton onClick={() => openModal(type)}><Plus size={16} /> New {labelMap[type]}</PillButton>
       </div>
       {type === "estimate" && (
@@ -194,13 +212,22 @@ export function DocumentList({ type, docs, customers, items, currency, openModal
               className="w-full rounded-xl border border-line bg-white py-2.5 pl-9 pr-3 text-sm"
             />
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {[["all", "All"], ["due", "Due"], ["paid", "Paid"], ["returned", "Returned items"]].map(([key, label]) => (
               <button key={key} onClick={() => setStatusFilter(key)} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${statusFilter === key ? "bg-brand-500 text-white" : "bg-paper text-ink/70"}`}>
                 {label}
                 <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-extrabold ${statusFilter === key ? "bg-white/25" : "bg-ink/10"}`}>{filterCounts[key]}</span>
               </button>
             ))}
+            {deletedCount > 0 && (
+              <button
+                onClick={() => setShowDeleted((s) => !s)}
+                className={`ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${showDeleted ? "bg-bad-500 text-white" : "bg-paper text-ink/70"}`}
+              >
+                <Trash2 size={12} /> {showDeleted ? "Hide" : "Show"} deleted
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-extrabold ${showDeleted ? "bg-white/25" : "bg-ink/10"}`}>{deletedCount}</span>
+              </button>
+            )}
           </div>
         </>
       )}

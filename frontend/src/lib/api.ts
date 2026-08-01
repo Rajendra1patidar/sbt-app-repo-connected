@@ -87,7 +87,8 @@ function documents(type: "estimate" | "challan") {
   const base = `/api/${type}s`;
   return {
     list: () => request(base),
-    create: (v: any) => request(base, { method: "POST", body: JSON.stringify(v) }),
+    create: (v: any, idempotencyKey?: string) =>
+      request(base, { method: "POST", body: JSON.stringify(v), headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined }),
     update: (id: string, v: any) => request(`${base}/${id}`, { method: "PUT", body: JSON.stringify(v) }),
     updateStatus: (id: string, status: string) =>
       request(`${base}/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
@@ -96,6 +97,7 @@ function documents(type: "estimate" | "challan") {
     addDelivery: (id: string, lines: { itemId: string; qty: number }[], date?: string) =>
       request(`${base}/${id}/deliveries`, { method: "POST", body: JSON.stringify({ lines, date }) }),
     remove: (id: string) => request(`${base}/${id}`, { method: "DELETE" }),
+    restore: (id: string) => request(`${base}/${id}/restore`, { method: "POST" }),
   };
 }
 

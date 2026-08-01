@@ -3,8 +3,8 @@ const mongoose = require("mongoose");
 const lineSchema = new mongoose.Schema(
   {
     itemId: { type: mongoose.Schema.Types.ObjectId, ref: "Item" },
-    qty: { type: Number, default: 1 },
-    rate: { type: Number },
+    qty: { type: Number, default: 1, min: [0.001, "Line quantity must be greater than 0"] },
+    rate: { type: Number, min: [0, "Line rate can't be negative"] },
   },
   { _id: false }
 );
@@ -19,7 +19,7 @@ const documentSchema = new mongoose.Schema(
     dueDate: { type: String },
     lines: [lineSchema],
     notes: { type: String },
-    total: { type: Number, default: 0 },
+    total: { type: Number, default: 0, min: [0, "Total can't be negative"] },
     status: { type: String, default: "Due" },
     // running total of payments applied against this document (positive payments minus refunds),
     // used to distinguish Due / Partially Paid / Paid instead of a plain binary flag
@@ -28,9 +28,9 @@ const documentSchema = new mongoose.Schema(
     // batch-collection feature so it doesn't show up on ordinary estimates
     isAdvanceBooking: { type: Boolean, default: false },
     // estimate-specific extra charges/carry-forward
-    freightCost: { type: Number, default: 0 },
-    labourCost: { type: Number, default: 0 },
-    previousDue: { type: Number, default: 0 },
+    freightCost: { type: Number, default: 0, min: [0, "Freight cost can't be negative"] },
+    labourCost: { type: Number, default: 0, min: [0, "Labour cost can't be negative"] },
+    previousDue: { type: Number, default: 0, min: [0, "Previous due can't be negative"] },
     contractorName: { type: String },
     destination: { type: String },
     // challan-specific fields (route sheet)
@@ -77,6 +77,12 @@ const documentSchema = new mongoose.Schema(
         _id: false,
       },
     ],
+    // soft-delete: a "deleted" estimate is never actually removed from the DB —
+    // it stays in place (same number, same position) but is flagged so it's
+    // excluded from the normal list/reports and locked from further edits until
+    // it's explicitly restored.
+    deleted: { type: Boolean, default: false },
+    deletedAt: { type: Date },
   },
   { timestamps: true }
 );

@@ -59,7 +59,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     togglePrintSide, setAutoReminder, setShareInvoice,
     saveCustomer, removeCustomer, saveItem, removeItem, saveExpense, removeExpense,
     saveVendor, removeVendor, savePurchase, convertOrderToPurchase, removePurchase,
-    saveVendorPayment, savePurchasePayment, saveDocument, removeDoc, updateDocStatus,
+    saveVendorPayment, savePurchasePayment, saveDocument, removeDoc, restoreDoc, updateDocStatus,
     savePayment, savePaymentSplit, saveReturn, saveDelivery, removePayment, saveOrder, removeOrder,
     markOrderReceived, saveLabourSession, removeLabourSession, saveContractorPhone,
     saveSettings, saveChallan, recordPaymentFor,
@@ -139,8 +139,12 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     if (compact) togglePrintSide();
   };
 
-  const overdueCount = estimates.filter((i: any) => i.status === "Due" && i.dueDate && new Date(i.dueDate) < new Date()).length;
-  const data = { customers, items, orders, estimates, invoices: estimates, challans, expenses, payments, labourSessions };
+  // deleted estimates are soft-deleted and voided — they stay in `estimates` for the
+  // list view (greyed out behind a toggle) but must never feed reports, dashboards,
+  // counts, or any other aggregate/lookup surface
+  const activeEstimates = estimates.filter((i: any) => !i.deleted);
+  const overdueCount = activeEstimates.filter((i: any) => i.status === "Due" && i.dueDate && new Date(i.dueDate) < new Date()).length;
+  const data = { customers, items, orders, estimates: activeEstimates, invoices: activeEstimates, challans, expenses, payments, labourSessions };
   const itemCategories = settings.itemCategories?.length ? settings.itemCategories : ITEM_CATEGORIES;
 
   /* ---- route table (replaces the old `switch (view)` in renderView) ---- */
@@ -148,7 +152,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     <Routes>
       <Route path="/" element={<Dashboard data={data} settings={settings} openModal={openModal} go={goToView} reorderSuggestions={reorderSuggestions} />} />
       <Route path="/customers" element={
-        <CustomersView customers={customers} estimates={estimates} openModal={openModal} removeCustomer={removeCustomer}
+        <CustomersView customers={customers} estimates={activeEstimates} openModal={openModal} removeCustomer={removeCustomer}
           onSelectCustomer={(id: string) => navigate(`/customers/${id}`)} />
       } />
       <Route path="/customers/:customerId" element={<CustomerDetailRoute />} />
@@ -169,6 +173,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
           <div className="-mx-5">
             <DocumentList type="estimate" docs={estimates} customers={customers} items={items} currency={settings.currency} openModal={openModal}
               removeDoc={(id: string) => removeDoc("estimate", id)}
+              restoreDoc={restoreDoc}
               updateStatus={(id: string, s: string) => updateDocStatus("estimate", id, s)}
               recordPayment={recordPaymentFor} onReturn={(doc: any) => openModal("return", { doc })} onDeliver={(doc: any) => openModal("delivery", { doc })} onShareInvoice={(inv: any) => setShareInvoice(inv)}
               onPrint={printEstimate}
@@ -176,13 +181,13 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
           </div>
         </div>
       } />
-      <Route path="/payments" element={<PaymentsView payments={payments} customers={customers} currency={settings.currency} openModal={openModal} removePayment={removePayment} estimates={estimates} />} />
+      <Route path="/payments" element={<PaymentsView payments={payments} customers={customers} currency={settings.currency} openModal={openModal} removePayment={removePayment} estimates={activeEstimates} />} />
       <Route path="/expenses" element={<ExpensesView expenses={expenses} currency={settings.currency} openModal={openModal} removeExpense={removeExpense} />} />
       <Route path="/inventory" element={<ToDoTrackingView items={items} settings={settings} categories={itemCategories} orders={orders} openModal={openModal} reorderSuggestions={reorderSuggestions} />} />
-      <Route path="/labour" element={<LabourTrackingView sessions={labourSessions} knownWorkers={labourWorkers} onSave={saveLabourSession} onRemove={removeLabourSession} currency={settings.currency} estimates={estimates} items={items} customers={customers} />} />
-      <Route path="/contractors" element={<ContractorScorecardView estimates={estimates} items={items} currency={settings.currency} contractors={contractors} onSavePhone={saveContractorPhone} showToast={showToast} />} />
+      <Route path="/labour" element={<LabourTrackingView sessions={labourSessions} knownWorkers={labourWorkers} onSave={saveLabourSession} onRemove={removeLabourSession} currency={settings.currency} estimates={activeEstimates} items={items} customers={customers} />} />
+      <Route path="/contractors" element={<ContractorScorecardView estimates={activeEstimates} items={items} currency={settings.currency} contractors={contractors} onSavePhone={saveContractorPhone} showToast={showToast} />} />
       <Route path="/reports" element={<ReportsView data={data} currency={settings.currency} settings={settings} />} />
-      <Route path="/share-report" element={<ShareReportView invoices={estimates} items={items} customers={customers} currency={settings.currency} settings={settings} />} />
+      <Route path="/share-report" element={<ShareReportView invoices={activeEstimates} items={items} customers={customers} currency={settings.currency} settings={settings} />} />
       <Route path="/billing" element={<AdvancedBillingView autoReminder={autoReminder} setAutoReminder={setAutoReminder} overdueCount={overdueCount} settings={settings} />} />
       <Route path="/settings" element={<SettingsView settings={settings} setSettings={saveSettings} />} />
       <Route path="*" element={<Dashboard data={data} settings={settings} openModal={openModal} go={goToView} reorderSuggestions={reorderSuggestions} />} />
@@ -285,12 +290,12 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       return <ChallanModal onClose={closeModal} onSave={saveChallan} />;
 
     if (type === "estimate")
-      return <DocumentModal type={type} customers={customers} items={items} estimates={estimates} editingDoc={payload?.editingDoc} onClose={closeModal} onSave={(v: any) => saveDocument(type, v)} />;
+      return <DocumentModal type={type} customers={customers} items={items} estimates={activeEstimates} editingDoc={payload?.editingDoc} onClose={closeModal} onSave={(v: any) => saveDocument(type, v)} />;
 
     if (type === "payment") {
       return <PaymentAllocationModal
         customers={customers}
-        estimates={estimates}
+        estimates={activeEstimates}
         currency={settings.currency}
         initialCustomerId={payload?.customerId || ""}
         initialInvoiceId={payload?.invoiceId || ""}
@@ -370,7 +375,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       )}
       {globalSearchOpen && (
         <GlobalSearchOverlay
-          customers={customers} items={items} estimates={estimates} currency={settings.currency}
+          customers={customers} items={items} estimates={activeEstimates} currency={settings.currency}
           onClose={() => setGlobalSearchOpen(false)}
           onSelectCustomer={(id: string) => { navigate(`/customers/${id}`); setGlobalSearchOpen(false); }}
           onSelectItem={() => { goToView("items"); setGlobalSearchOpen(false); }}
@@ -405,10 +410,11 @@ function CustomerDetailRoute() {
   const navigate = useNavigate();
   const { customers, estimates, payments, items, openModal, settings } = useAppStore();
   const customer = customers.find((c: any) => c.id === customerId);
+  const activeEstimates = estimates.filter((i: any) => !i.deleted);
   return (
     <CustomerDetailView
       customer={customer}
-      estimates={estimates} payments={payments} items={items} openModal={openModal} currency={settings.currency}
+      estimates={activeEstimates} payments={payments} items={items} openModal={openModal} currency={settings.currency}
       onBack={() => navigate("/customers")}
     />
   );

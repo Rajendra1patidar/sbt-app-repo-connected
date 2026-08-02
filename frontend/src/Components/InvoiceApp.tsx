@@ -58,10 +58,10 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     fetchAll, setOnSignOut, showToast, openModal, closeModal, cancelConfirmDelete,
     togglePrintSide, setAutoReminder, setShareInvoice,
     saveCustomer, removeCustomer, saveItem, removeItem, saveExpense, removeExpense,
-    saveVendor, removeVendor, savePurchase, convertOrderToPurchase, removePurchase,
+    saveVendor, removeVendor, savePurchase, removePurchase,
     saveVendorPayment, savePurchasePayment, saveDocument, removeDoc, restoreDoc, updateDocStatus,
     savePayment, savePaymentSplit, saveReturn, saveDelivery, removePayment, saveOrder, removeOrder,
-    markOrderReceived, saveLabourSession, removeLabourSession, saveContractorPhone,
+    payOrder, saveOrderPayment, saveLabourSession, removeLabourSession, saveContractorPhone,
     saveSettings, saveChallan, recordPaymentFor,
   } = useAppStore();
 
@@ -158,7 +158,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       } />
       <Route path="/customers/:customerId" element={<CustomerDetailRoute />} />
       <Route path="/items" element={<ItemsView items={items} categories={itemCategories} openModal={openModal} currency={settings.currency} removeItem={removeItem} />} />
-      <Route path="/orders" element={<OrdersView orders={orders} items={items} vendors={vendors} categories={itemCategories} openModal={openModal} markOrderReceived={markOrderReceived} removeOrder={removeOrder} convertOrderToPurchase={convertOrderToPurchase} />} />
+      <Route path="/orders" element={<OrdersView orders={orders} items={items} vendors={vendors} categories={itemCategories} currency={settings.currency} openModal={openModal} payOrder={payOrder} removeOrder={removeOrder} />} />
       <Route path="/vendors" element={<VendorsView vendors={vendors} purchases={purchases} currency={settings.currency} openModal={openModal} removeVendor={removeVendor} />} />
       <Route path="/purchases" element={<PurchasesView purchases={purchases} vendors={vendors} items={items} currency={settings.currency} openModal={openModal} removePurchase={removePurchase} />} />
       <Route path="/ledger" element={<LedgerReportsView currency={settings.currency} />} />
@@ -261,7 +261,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     if (type === "purchase") {
       const vendorOptions = vendors.map((v: any) => ({ value: v.id, label: v.name }));
       const itemOptions = items.map((i: any) => ({ value: i.id, label: i.name }));
-      return <FieldModal title={payload?.fromOrderId ? "Convert Order to Purchase" : "New Purchase"} fields={[
+      return <FieldModal title="New Purchase" fields={[
         { key: "vendorId",      label: "Vendor",              type: "select", options: vendorOptions, required: true },
         { key: "itemId",        label: "Item",                type: "select", options: itemOptions, required: true },
         { key: "qty",           label: "Quantity",            type: "number", required: true, placeholder: "0" },
@@ -271,7 +271,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         { key: "amountPaid",    label: "Amount paid now",     type: "number", placeholder: "0.00", showIf: (v: any) => v.paymentStatus === "partial" },
         { key: "notes",         label: "Notes",               type: "textarea", placeholder: "Optional" },
       ]} initial={{ date: today(), paymentStatus: "unpaid", itemId: payload?.itemId, vendorId: payload?.vendorId, qty: payload?.qty }} onClose={closeModal}
-        onSave={(v: any) => savePurchase({ ...v, fromOrderId: payload?.fromOrderId })} />;
+        onSave={(v: any) => savePurchase(v)} />;
     }
 
     if (type === "vendorPayment") {
@@ -294,7 +294,17 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         onSave={(v: any) => savePurchasePayment({ ...v, purchaseId: payload?.purchaseId })} />;
     }
 
-    if (type === "order") return <OrderModal items={items} vendors={vendors} onClose={closeModal} onSave={saveOrder} prefill={payload} />;
+    if (type === "order") return <OrderModal items={items} vendors={vendors} currency={settings.currency} onClose={closeModal} onSave={saveOrder} prefill={payload} />;
+
+    if (type === "orderPayment") {
+      return <FieldModal title={`Pay ${payload?.itemName || "Order"}`} fields={[
+        { key: "amount", label: `Amount (${fmtMoney(payload?.remaining || 0, settings.currency)} remaining)`, type: "number", required: true, placeholder: "0.00" },
+        { key: "method", label: "Method",  type: "select", options: [{ value: "Cash", label: "Cash" }, { value: "Bank Transfer", label: "Bank Transfer" }, { value: "UPI", label: "UPI" }, { value: "Card", label: "Card" }] },
+        { key: "date",   label: "Date",    type: "date" },
+        { key: "notes",  label: "Notes",   placeholder: "Optional" },
+      ]} initial={{ date: today(), amount: payload?.remaining || "" }} onClose={closeModal}
+        onSave={(v: any) => saveOrderPayment({ ...v, orderId: payload?.orderId })} />;
+    }
 
     if (type === "challan")
       return <ChallanModal onClose={closeModal} onSave={saveChallan} />;

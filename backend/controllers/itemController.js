@@ -42,6 +42,9 @@ base.create = async (req, res, next) => {
     });
     res.status(201).json(doc);
   } catch (err) {
+    if (err.name === "CastError" || err.name === "ValidationError") {
+      return res.status(400).json({ message: "Please check the values you entered — one of them isn't valid." });
+    }
     next(err);
   }
 };
@@ -49,7 +52,7 @@ base.create = async (req, res, next) => {
 // override update so renaming an item can't collide with another active item's name
 base.update = async (req, res, next) => {
   try {
-    const v = req.body;
+    const v = { ...req.body };
     const existing = await Item.findOne({ _id: req.params.id, owner: req.userId });
     if (!existing) return res.status(404).json({ message: "Not found" });
     if (existing.deleted) {
@@ -62,14 +65,25 @@ base.update = async (req, res, next) => {
         return res.status(409).json({ message: "An item with this name already exists" });
       }
     }
+    // The edit form always sends vendorId (even "" when no preferred vendor is
+    // set), and an empty string can't be cast to an ObjectId — that raw cast
+    // error used to bubble straight up to the user as a confusing popup.
+    // Treat "no vendor selected" as clearing the field instead of a bad value.
+    if (v.vendorId === "" || v.vendorId === null) delete v.vendorId;
+
     const doc = await Item.findOneAndUpdate(
       { _id: req.params.id, owner: req.userId },
-      { $set: v },
+      { $set: v, ...(req.body.vendorId === "" ? { $unset: { vendorId: 1 } } : {}) },
       { new: true, runValidators: true }
     );
     if (!doc) return res.status(404).json({ message: "Not found" });
     res.json(doc);
   } catch (err) {
+    // Any other invalid/malformed value (bad cast, failed schema validator)
+    // gets a clean, friendly message instead of Mongoose's raw internal one.
+    if (err.name === "CastError" || err.name === "ValidationError") {
+      return res.status(400).json({ message: "Please check the values you entered — one of them isn't valid." });
+    }
     next(err);
   }
 };

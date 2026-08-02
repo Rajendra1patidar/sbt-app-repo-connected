@@ -164,7 +164,7 @@ export const api = {
 
   customers: crud("/api/customers"),
   items: { ...crud("/api/items"), lowStock: () => request("/api/items/meta/low-stock") },
-  orders: { ...crud("/api/orders"), receive: (id: string) => request(`/api/orders/${id}/receive`, { method: "PATCH" }) },
+  orders: { ...crud("/api/orders"), recordPayment: (id: string, v: any) => request(`/api/orders/${id}/payments`, { method: "POST", body: JSON.stringify(v) }) },
   expenses: crud("/api/expenses"),
   payments: crud("/api/payments"),
   contractors: crud("/api/contractors"),

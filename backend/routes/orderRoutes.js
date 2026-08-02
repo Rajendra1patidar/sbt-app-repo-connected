@@ -2,6 +2,6 @@ const controller = require("../controllers/orderController");
 const makeCrudRouter = require("./crudRoutes");
 
 const router = makeCrudRouter(controller);
-router.patch("/:id/receive", controller.markReceived);
+router.post("/:id/payments", controller.recordPayment);
 
 module.exports = router;

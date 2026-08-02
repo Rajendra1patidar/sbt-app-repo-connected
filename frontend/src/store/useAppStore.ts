@@ -76,7 +76,6 @@ interface AppState {
   saveVendor: (v: any) => Promise<void>;
   removeVendor: (id: string) => void;
   savePurchase: (v: any) => Promise<void>;
-  convertOrderToPurchase: (order: any) => void;
   removePurchase: (id: string) => void;
   saveVendorPayment: (v: any) => Promise<void>;
   savePurchasePayment: (v: any) => Promise<void>;
@@ -91,7 +90,8 @@ interface AppState {
   removePayment: (id: string) => void;
   saveOrder: (v: any) => Promise<void>;
   removeOrder: (id: string) => void;
-  markOrderReceived: (orderId: string) => Promise<void>;
+  payOrder: (order: any) => void;
+  saveOrderPayment: (v: any) => Promise<void>;
   saveLabourSession: (v: any) => Promise<void>;
   removeLabourSession: (id: string) => void;
   saveContractorPhone: (name: string, phone: string) => Promise<void>;
@@ -342,21 +342,11 @@ export const useAppStore = create<AppState>()((set, get) => ({
         purchases: [purchase, ...state.purchases],
         items: item ? state.items.map((x) => (x.id === item.id ? item : x)) : state.items,
       }));
-      // Purchase already adds this qty to stock, so if this purchase was created
-      // by converting a pending Order, that order is now redundant — remove it
-      // quietly (no undo toast) rather than risk double-counting stock later.
-      if (v.fromOrderId) {
-        set((state) => ({ orders: state.orders.filter((o) => o.id !== v.fromOrderId) }));
-        api.orders.remove(v.fromOrderId).catch(() => {});
-      }
       showToast("Purchase recorded");
       closeModal();
       refreshReorderSuggestions();
     } catch (err) { onApiError(get, err, "Failed to record purchase"); }
   },
-
-  convertOrderToPurchase: (order) =>
-    get().openModal("purchase", { itemId: order.itemId, vendorId: order.vendorId, qty: order.qty, fromOrderId: order.id }),
 
   removePurchase: (id) => {
     const { purchases, items } = get();
@@ -630,9 +620,12 @@ export const useAppStore = create<AppState>()((set, get) => ({
   saveOrder: async (v) => {
     const { showToast, closeModal } = get();
     try {
-      const doc = await api.orders.create({ itemId: v.itemId, vendorId: v.vendorId, qty: v.qty, date: v.date, notes: v.notes });
-      set((state) => ({ orders: [doc, ...state.orders] }));
-      showToast("Order placed");
+      const { order, item } = await api.orders.create({ itemId: v.itemId, vendorId: v.vendorId, qty: v.qty, rate: v.rate, date: v.date, notes: v.notes });
+      set((state) => ({
+        orders: [order, ...state.orders],
+        items: item ? state.items.map((it) => (it.id === item.id ? item : it)) : state.items,
+      }));
+      showToast(order.status === "Received" ? `Order placed — stock updated: +${fmtNum(order.qty)} added` : "Order placed");
       closeModal();
     } catch (err) { onApiError(get, err, "Failed to place order"); }
   },
@@ -641,17 +634,25 @@ export const useAppStore = create<AppState>()((set, get) => ({
     scheduleDelete(set, get, "Order", "orders", id, () => api.orders.remove(id));
   },
 
-  markOrderReceived: async (orderId) => {
-    const { showToast, refreshReorderSuggestions } = get();
+  // opens the payment modal for a pending order — paying it off in full is
+  // what bumps stock now, replacing the old manual "mark as received" step
+  payOrder: (order) =>
+    get().openModal("orderPayment", { orderId: order.id, itemName: order.itemName, remaining: Math.round((Number(order.amount) - Number(order.amountPaid)) * 100) / 100 }),
+
+  saveOrderPayment: async (v) => {
+    const { showToast, closeModal, refreshReorderSuggestions } = get();
     try {
-      const { order, item } = await api.orders.receive(orderId);
+      const { order, item } = await api.orders.recordPayment(v.orderId, {
+        amount: Number(v.amount), date: v.date || today(), method: v.method, notes: v.notes,
+      });
       set((state) => ({
-        orders: state.orders.map((o) => (o.id === orderId ? order : o)),
-        items: state.items.map((it) => (it.id === item.id ? item : it)),
+        orders: state.orders.map((o) => (o.id === order.id ? order : o)),
+        items: item ? state.items.map((it) => (it.id === item.id ? item : it)) : state.items,
       }));
-      showToast(`Stock updated: +${fmtNum(order.qty)} added`);
-      refreshReorderSuggestions();
-    } catch (err) { onApiError(get, err, "Failed to update order"); }
+      showToast(order.status === "Received" ? `Paid in full — stock updated: +${fmtNum(order.qty)} added` : "Payment recorded");
+      closeModal();
+      if (item) refreshReorderSuggestions();
+    } catch (err) { onApiError(get, err, "Failed to record payment"); }
   },
 
   recordPaymentFor: (invoice) =>

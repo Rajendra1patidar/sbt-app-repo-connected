@@ -150,21 +150,19 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, o
                   const lineSubtotal = lineGross - lineDiscount;
                   return (
                     <div key={i} className="rounded-xl border border-line bg-paper/60 p-2">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1">
-                          <SearchableSelect
-                            options={(it?.deleted ? [...activeItems, it] : activeItems).map((opt: any) => ({ value: opt.id, label: opt.deleted ? `${opt.name} (deleted)` : `${opt.name} (stock: ${opt.stock ?? 0})` }))}
-                            value={ln.itemId}
-                            onChange={(v: string) => setLineItem(i, v)}
-                            placeholder="Select item"
-                          />
-                        </div>
-                        <input type="number" min="1" value={ln.qty} onChange={(e) => updateLine(i, { qty: e.target.value })} className="w-16 rounded-xl border border-line px-2 py-2 text-sm" />
+                      <SearchableSelect
+                        options={(it?.deleted ? [...activeItems, it] : activeItems).map((opt: any) => ({ value: opt.id, label: opt.deleted ? `${opt.name} (deleted)` : `${opt.name} (stock: ${opt.stock ?? 0})` }))}
+                        value={ln.itemId}
+                        onChange={(v: string) => setLineItem(i, v)}
+                        placeholder="Select item"
+                      />
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <input type="number" min="1" value={ln.qty} onChange={(e) => updateLine(i, { qty: e.target.value })} className="w-16 shrink-0 rounded-xl border border-line px-2 py-2 text-sm" />
                         {type === "estimate" && (
                           <button type="button" onClick={() => setRateEditIndex(i)}
-                            className={`relative flex shrink-0 items-center gap-1 rounded-xl border px-2.5 py-2 text-sm font-semibold ${isOverridden ? "border-warn-200 bg-warn-50 text-warn-700" : "border-brand-100 bg-brand-50 text-brand-700"}`}>
-                            {fmtMoney(Number(ln.rate || 0), "")}
-                            <Pencil size={11} className="opacity-70" />
+                            className={`relative flex min-w-[92px] shrink-0 items-center justify-between gap-1.5 rounded-xl border px-2.5 py-2 text-sm font-semibold tabular-nums ${isOverridden ? "border-warn-200 bg-warn-50 text-warn-700" : "border-brand-100 bg-brand-50 text-brand-700"}`}>
+                            <span className="truncate">{fmtMoney(Number(ln.rate || 0), "")}</span>
+                            <Pencil size={11} className="shrink-0 opacity-70" />
                             {isOverridden && <span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-warn-500" />}
                           </button>
                         )}

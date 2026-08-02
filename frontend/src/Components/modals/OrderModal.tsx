@@ -1,17 +1,19 @@
 import React, { useState } from "react";
 import { X } from "lucide-react";
 import { SearchableSelect } from "../common/SearchableSelect";
-import { today } from "../../lib/format";
+import { today, fmtMoney } from "../../lib/format";
 
 /* ---- OrderModal ---- */
 
-export function OrderModal({ items, vendors, onClose, onSave, prefill }: any) {
+export function OrderModal({ items, vendors, currency, onClose, onSave, prefill }: any) {
   const [itemId, setItemId] = useState(prefill?.itemId || items[0]?.id || "");
   const [vendorId, setVendorId] = useState(prefill?.vendorId || "");
   const [qty, setQty] = useState(String(prefill?.qty || "1"));
+  const [rate, setRate] = useState(String(prefill?.rate ?? items.find((it: any) => it.id === (prefill?.itemId || items[0]?.id))?.purchasePrice ?? ""));
   const [date, setDate] = useState(today());
   const [notes, setNotes] = useState("");
-  const canSave = itemId && Number(qty) > 0;
+  const canSave = itemId && Number(qty) > 0 && Number(rate) >= 0 && rate !== "";
+  const amount = (Number(qty) || 0) * (Number(rate) || 0);
 
   const selectedItem = items.find((it: any) => it.id === itemId);
   const showBoxReminder = selectedItem && selectedItem.trackingMode === "box" && selectedItem.piecesPerBox > 0;
@@ -53,6 +55,13 @@ export function OrderModal({ items, vendors, onClose, onSave, prefill }: any) {
               <input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
             </div>
             <div>
+              <label className="mb-1 block text-xs font-semibold text-ink/50">Rate per unit *</label>
+              <input type="number" min="0" step="0.01" placeholder="0.00" value={rate} onChange={(e) => setRate(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
+              {Number(qty) > 0 && rate !== "" && (
+                <p className="mt-1 text-xs font-semibold text-brand-600">Amount to pay: {fmtMoney(amount, currency)}</p>
+              )}
+            </div>
+            <div>
               <label className="mb-1 block text-xs font-semibold text-ink/50">Date</label>
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
             </div>
@@ -64,7 +73,7 @@ export function OrderModal({ items, vendors, onClose, onSave, prefill }: any) {
         )}
         <div className="mt-6 flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
-          <button disabled={!canSave} onClick={() => canSave && onSave({ itemId, vendorId: vendorId || undefined, qty: Number(qty), date, notes })}
+          <button disabled={!canSave} onClick={() => canSave && onSave({ itemId, vendorId: vendorId || undefined, qty: Number(qty), rate: Number(rate), date, notes })}
             className="flex-1 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40">Place Order</button>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Trash2 } from "lucide-react";
+import { History, Trash2 } from "lucide-react";
 import { Card } from "../common/UIPrimitives";
 import { SearchableSelect } from "../common/SearchableSelect";
 import { LABOUR_RATES, SARIA_KG_PER_BUNDLE } from "../../lib/constants";
@@ -196,8 +196,13 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
         <div className="mb-1 flex items-center justify-between">
           <label className="block text-xs font-semibold text-ink/50">Workers</label>
           {lastSession && (lastSession.workers || []).length > 0 && (
-            <button type="button" onClick={useLastSessionWorkers} className="text-xs font-semibold text-brand-600">
-              Same as last session ({lastSession.workers.join(", ")})
+            <button
+              type="button"
+              onClick={useLastSessionWorkers}
+              title={lastSession.workers.join(", ")}
+              className="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700 transition hover:bg-brand-100 active:scale-95"
+            >
+              <History size={11} /> Same as last session
             </button>
           )}
         </div>

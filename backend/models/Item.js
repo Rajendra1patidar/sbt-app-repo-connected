@@ -19,11 +19,41 @@ const itemSchema = new mongoose.Schema(
     // existing documents that reference it keep resolving normally.
     deleted: { type: Boolean, default: false },
     deletedAt: { type: Date },
+    // Normalized copy of name, kept in sync via the pre-validate hook below.
+    // Backs the unique index — the controller's own find-then-create check is just
+    // a fast-path for a friendly message; this index is what actually prevents two
+    // simultaneous requests from both slipping past that check (see
+    // itemController.create's E11000 handling).
+    nameKey: { type: String, select: false },
   },
   { timestamps: true }
 );
 
 // Speeds up the sorted list query and the per-owner duplicate-name scan in findDuplicate.
 itemSchema.index({ owner: 1, createdAt: -1 });
+
+// Enforces per-owner uniqueness on normalized name at the DB level, among active
+// items only — a soft-deleted item's old name stays free to reuse, matching the
+// controller's existing "active items only" duplicate-check semantics.
+itemSchema.index(
+  { owner: 1, nameKey: 1 },
+  { unique: true, partialFilterExpression: { deleted: false } }
+);
+
+itemSchema.pre("validate", function (next) {
+  this.nameKey = (this.name || "").trim().toLowerCase();
+  next();
+});
+
+// findOneAndUpdate (used by itemController.update) bypasses the document
+// pre('validate') hook above, so nameKey has to be kept in sync here too —
+// otherwise a rename could go stale in the index and stop actually enforcing
+// uniqueness against the item's new name.
+itemSchema.pre("findOneAndUpdate", function (next) {
+  const update = this.getUpdate() || {};
+  const set = update.$set || update;
+  if (set.name !== undefined) set.nameKey = (set.name || "").trim().toLowerCase();
+  next();
+});
 
 module.exports = mongoose.model("Item", itemSchema);

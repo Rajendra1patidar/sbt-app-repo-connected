@@ -42,6 +42,14 @@ base.create = async (req, res, next) => {
     });
     res.status(201).json(doc);
   } catch (err) {
+    // Belt-and-suspenders: the find-check above has a race window between two
+    // near-simultaneous requests. If both pass it, the partial unique index on
+    // {owner, nameKey} (active items only) rejects the second insert with
+    // E11000 — catch that here so it still surfaces as the same friendly
+    // message, not a 500.
+    if (err.code === 11000) {
+      return res.status(409).json({ message: "An item with this name already exists" });
+    }
     if (err.name === "CastError" || err.name === "ValidationError") {
       return res.status(400).json({ message: "Please check the values you entered — one of them isn't valid." });
     }
@@ -79,6 +87,9 @@ base.update = async (req, res, next) => {
     if (!doc) return res.status(404).json({ message: "Not found" });
     res.json(doc);
   } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ message: "An item with this name already exists" });
+    }
     // Any other invalid/malformed value (bad cast, failed schema validator)
     // gets a clean, friendly message instead of Mongoose's raw internal one.
     if (err.name === "CastError" || err.name === "ValidationError") {

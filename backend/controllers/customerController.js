@@ -33,6 +33,13 @@ base.create = async (req, res, next) => {
     const doc = await Customer.create({ ...v, owner: req.userId });
     res.status(201).json(doc);
   } catch (err) {
+    // Belt-and-suspenders: the find-check above has a race window between two
+    // near-simultaneous requests. If both pass it, the unique index on
+    // {owner, nameKey, phoneKey} rejects the second insert with E11000 — catch
+    // that here so it still surfaces as the same friendly message, not a 500.
+    if (err.code === 11000) {
+      return res.status(409).json({ message: "A customer with this name and phone number already exists" });
+    }
     next(err);
   }
 };
@@ -57,6 +64,9 @@ base.update = async (req, res, next) => {
     if (!doc) return res.status(404).json({ message: "Not found" });
     res.json(doc);
   } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ message: "A customer with this name and phone number already exists" });
+    }
     next(err);
   }
 };

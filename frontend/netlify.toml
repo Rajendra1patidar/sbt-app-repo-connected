@@ -3,10 +3,14 @@
   to = "/index.html"
   status = 200
 
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
 [build]
   command = "npm run build"
   publish = "dist"
 
 [build.environment]
   NPM_FLAGS = "--force"
-  

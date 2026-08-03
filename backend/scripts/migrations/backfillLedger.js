@@ -51,12 +51,12 @@
 require("dotenv").config();
 const mongoose = require("mongoose");
 
-const Document = require("../models/Document");
-const Item = require("../models/Item");
-const Payment = require("../models/Payment");
-const Expense = require("../models/Expense");
-const LedgerEntry = require("../models/LedgerEntry");
-const ledgerService = require("../services/ledgerService");
+const Document = require("../../models/Document");
+const Item = require("../../models/Item");
+const Payment = require("../../models/Payment");
+const Expense = require("../../models/Expense");
+const LedgerEntry = require("../../models/LedgerEntry");
+const ledgerService = require("../../services/ledgerService");
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 const today = () => new Date().toISOString().slice(0, 10);

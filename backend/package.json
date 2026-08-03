@@ -9,8 +9,8 @@
     "dev": "nodemon server.js",
     "test": "jest",
     "seed": "node config/seed.js",
-    "migrate:estimate": "node scripts/migrateToEstimate.js",
-    "backfill:ledger": "node scripts/backfillLedger.js"
+    "migrate:estimate": "node scripts/migrations/migrateToEstimate.js",
+    "backfill:ledger": "node scripts/migrations/backfillLedger.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

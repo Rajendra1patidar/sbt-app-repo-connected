@@ -20,7 +20,7 @@ const stockMovementSchema = new mongoose.Schema(
     balanceQty: { type: Number, required: true },
     balanceValue: { type: Number, required: true },
 
-    sourceType: { type: String, enum: ["Purchase", "Estimate", "Return"], required: true },
+    sourceType: { type: String, enum: ["Purchase", "Estimate", "Return", "Order"], required: true },
     sourceId: { type: mongoose.Schema.Types.ObjectId, required: true },
 
     date: { type: String, required: true }, // YYYY-MM-DD

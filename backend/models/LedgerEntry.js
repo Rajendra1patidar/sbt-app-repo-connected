@@ -37,7 +37,7 @@ const ledgerEntrySchema = new mongoose.Schema(
     // Which real-world transaction caused this posting
     sourceType: {
       type: String,
-      enum: ["Estimate", "Payment", "Expense", "Purchase", "Return", "Opening", "Manual"],
+      enum: ["Estimate", "Payment", "Expense", "Purchase", "Return", "Order", "Opening", "Manual"],
       required: true,
     },
     sourceId: { type: mongoose.Schema.Types.ObjectId, required: true },

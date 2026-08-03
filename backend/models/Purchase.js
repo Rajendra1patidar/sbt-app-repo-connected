@@ -1,31 +1,46 @@
 const mongoose = require("mongoose");
 
-// Records one purchase transaction (one item, one vendor, one rate). This is
-// what feeds the item's weighted-average purchasePrice and the Stock/COGS
-// ledger accounts — unlike the old Item.purchasePrice field, which used to be
-// a single manually-typed number with no history behind it.
+// Unified restock record. Every unit of stock that comes in from a supplier —
+// whether you placed an Order and paid it off, or logged an already-received
+// Purchase directly — lives in this one collection now, distinguished by
+// `source`. This is what lets a single Order show up as one card in both the
+// Orders screen (filtered to source:"order") and the Purchases screen (every
+// record, both sources), instead of living in two disconnected collections
+// that could drift out of sync with each other.
+//
+//   source "order"  — placed now, nothing owed is assumed paid yet. Stock is
+//                      only counted (status flips to "Received") once
+//                      amountPaid reaches amount. This is the "ask to pay,
+//                      then increase stock" flow.
+//   source "manual" — a purchase you're logging after the fact, stock
+//                      already in hand. Stock is bumped immediately on
+//                      creation regardless of payment status; Pay here only
+//                      settles money owed to the vendor.
 const purchaseSchema = new mongoose.Schema(
   {
     owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "Vendor", required: true, index: true },
-    itemId: { type: mongoose.Schema.Types.ObjectId, ref: "Item", required: true, index: true },
+    itemId: { type: mongoose.Schema.Types.ObjectId, ref: "Item", required: true },
+    vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "Vendor" }, // optional for "order" (may not know the vendor yet); enforced as required by the controller for "manual"
 
     qty: { type: Number, required: true, min: 0.001 },
-    rate: { type: Number, required: true, min: 0 }, // cost per unit for this batch
-    amount: { type: Number, required: true, min: 0 }, // qty * rate
+    rate: { type: Number, default: 0, min: [0, "Rate can't be negative"] },
+    amount: { type: Number, default: 0, min: [0, "Amount can't be negative"] },
+    amountPaid: { type: Number, default: 0, min: [0, "Amount paid can't be negative"] },
+    paymentStatus: { type: String, enum: ["unpaid", "partial", "paid"], default: "unpaid" },
 
-    date: { type: String, required: true }, // YYYY-MM-DD
+    source: { type: String, enum: ["order", "manual"], required: true },
+    // "Received" means stock has actually been counted for this record.
+    // "order" docs start Pending and flip once fully paid; "manual" docs
+    // are created already Received since the stock is already on hand.
+    status: { type: String, enum: ["Pending", "Received"], default: "Pending" },
 
-    // Whether this purchase was paid for immediately (Funds) or on credit
-    // (VendorPayable, settled later via a Payment-style entry against the vendor).
-    paymentStatus: { type: String, enum: ["paid", "unpaid", "partial"], default: "unpaid" },
-    amountPaid: { type: Number, default: 0 },
-
+    date: { type: String }, // YYYY-MM-DD
     notes: { type: String, trim: true, default: "" },
   },
   { timestamps: true }
 );
 
-purchaseSchema.index({ owner: 1, date: 1 });
+purchaseSchema.index({ owner: 1, createdAt: -1 });
+purchaseSchema.index({ owner: 1, source: 1, createdAt: -1 });
 
 module.exports = mongoose.model("Purchase", purchaseSchema);

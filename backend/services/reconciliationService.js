@@ -67,13 +67,16 @@ function buildCheck(name, sourceTotal, ledgerTotal, note) {
 async function integrityCheck(owner, { startDate, endDate } = {}) {
   const results = [];
 
-  // 1) Purchases -> Stock debits posted with sourceType "Purchase".
-  // (The Stock account also moves via Estimate/Return COGS postings, which is
-  // why this compares against sourceType "Purchase" specifically rather than
-  // the whole Stock account balance.)
+  // 1) Manually-logged purchases -> Stock debits posted with sourceType
+  // "Purchase". Orders live in this same collection now (source:"order") but
+  // post under sourceType "Order" instead, which is why this is scoped to
+  // source:"manual" specifically, and why check 1b below is its Order
+  // counterpart. (The Stock account also moves via Estimate/Return COGS
+  // postings, which is why this compares against sourceType "Purchase"
+  // specifically rather than the whole Stock account balance.)
   {
     const purchaseTotal = await Purchase.aggregate([
-      { $match: { owner: toOwnerId(owner), ...dateMatch(startDate, endDate) } },
+      { $match: { owner: toOwnerId(owner), source: "manual", ...dateMatch(startDate, endDate) } },
       { $group: { _id: null, total: { $sum: "$amount" } } },
     ]);
     const sourceTotal = purchaseTotal[0]?.total || 0;
@@ -84,6 +87,26 @@ async function integrityCheck(owner, { startDate, endDate } = {}) {
         sourceTotal,
         ledgerTotal,
         "Deleting a purchase reverses this ledger side but never adjusts Item.stock qty — a mismatch here can be expected if a purchase was deleted after other stock moved; check Bug 1 in the review before assuming an error."
+      )
+    );
+  }
+
+  // 1b) Orders that have actually been received (fully paid) -> Stock debits
+  // posted with sourceType "Order". A still-Pending order hasn't posted
+  // anything to the ledger yet, so this only counts status:"Received" docs.
+  {
+    const orderTotal = await Purchase.aggregate([
+      { $match: { owner: toOwnerId(owner), source: "order", status: "Received", ...dateMatch(startDate, endDate) } },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]);
+    const sourceTotal = orderTotal[0]?.total || 0;
+    const ledgerTotal = await ledgerNet(owner, { sourceType: "Order", account: "Stock", startDate, endDate });
+    results.push(
+      buildCheck(
+        "Received orders vs Stock ledger",
+        sourceTotal,
+        ledgerTotal,
+        "Same caveat as the purchases check: deleting a received order reverses the ledger side but never adjusts Item.stock qty."
       )
     );
   }

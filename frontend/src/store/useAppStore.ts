@@ -339,6 +339,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
         notes: v.notes,
       });
       set((state) => ({
+        // A manually-logged purchase (source:"manual") only ever belongs in
+        // the Purchases list — unlike an order, it has no matching card in Orders.
         purchases: [purchase, ...state.purchases],
         items: item ? state.items.map((x) => (x.id === item.id ? item : x)) : state.items,
       }));
@@ -356,7 +358,12 @@ export const useAppStore = create<AppState>()((set, get) => ({
       itemName ? `purchase of ${itemName}` : "this purchase",
       "This reverses the ledger entries but does NOT adjust the item's stock quantity — adjust it manually afterward if needed.",
       () => {
-        scheduleDelete(set, get, "Purchase", "purchases", id, () => api.purchases.remove(id));
+        scheduleDelete(set, get, "Purchase", "purchases", id, async () => {
+          await api.purchases.remove(id);
+          // If this card originated from an order, drop it from the orders
+          // array too once the delete has actually committed.
+          set((state) => ({ orders: state.orders.filter((o: any) => o.id !== id) }));
+        });
       }
     );
   },
@@ -375,14 +382,23 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
 
   savePurchasePayment: async (v) => {
-    const { showToast, closeModal } = get();
+    const { showToast, closeModal, refreshReorderSuggestions } = get();
     try {
-      const { purchase } = await api.purchases.recordPayment(v.purchaseId, {
+      // Same endpoint/logic Orders uses — if this card is actually an
+      // order-sourced restock (source:"order") and this payment pays it off
+      // in full, `item` comes back non-null and stock has just been bumped.
+      const { purchase, item } = await api.purchases.recordPayment(v.purchaseId, {
         amount: Number(v.amount), date: v.date || today(), method: v.method, notes: v.notes,
       });
-      set((state) => ({ purchases: state.purchases.map((x) => (x.id === purchase.id ? purchase : x)) }));
-      showToast("Payment recorded");
+      set((state) => ({
+        purchases: state.purchases.map((x) => (x.id === purchase.id ? purchase : x)),
+        // keep the mirrored Orders-screen card in sync too, if it exists there
+        orders: state.orders.map((x) => (x.id === purchase.id ? purchase : x)),
+        items: item ? state.items.map((x) => (x.id === item.id ? item : x)) : state.items,
+      }));
+      showToast(item ? `Paid in full — stock updated: +${fmtNum(purchase.qty)} added` : "Payment recorded");
       closeModal();
+      if (item) refreshReorderSuggestions();
     } catch (err) { onApiError(get, err, "Failed to record payment"); }
   },
 
@@ -622,7 +638,11 @@ export const useAppStore = create<AppState>()((set, get) => ({
     try {
       const { order, item } = await api.orders.create({ itemId: v.itemId, vendorId: v.vendorId, qty: v.qty, rate: v.rate, date: v.date, notes: v.notes });
       set((state) => ({
+        // An order is a Purchase document under the hood (source:"order"), so
+        // the same card belongs in both lists — the Purchases screen already
+        // returns it too on its next fetch, this just keeps it in sync now.
         orders: [order, ...state.orders],
+        purchases: [order, ...state.purchases],
         items: item ? state.items.map((it) => (it.id === item.id ? item : it)) : state.items,
       }));
       showToast(order.status === "Received" ? `Order placed — stock updated: +${fmtNum(order.qty)} added` : "Order placed");
@@ -631,7 +651,14 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
 
   removeOrder: (id) => {
-    scheduleDelete(set, get, "Order", "orders", id, () => api.orders.remove(id));
+    // Same document also lives in the purchases array (an order is a
+    // Purchase under the hood) — once the delete actually commits (the 5s
+    // undo window in scheduleDelete elapses without the user hitting Undo),
+    // drop it from there too so the mirrored card disappears as well.
+    scheduleDelete(set, get, "Order", "orders", id, async () => {
+      await api.orders.remove(id);
+      set((state) => ({ purchases: state.purchases.filter((p: any) => p.id !== id) }));
+    });
   },
 
   // opens the payment modal for a pending order — paying it off in full is
@@ -647,6 +674,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
       });
       set((state) => ({
         orders: state.orders.map((o) => (o.id === order.id ? order : o)),
+        // same underlying document — keep the mirrored Purchases-screen card in sync too
+        purchases: state.purchases.map((p) => (p.id === order.id ? order : p)),
         items: item ? state.items.map((it) => (it.id === item.id ? item : it)) : state.items,
       }));
       showToast(order.status === "Received" ? `Paid in full — stock updated: +${fmtNum(order.qty)} added` : "Payment recorded");

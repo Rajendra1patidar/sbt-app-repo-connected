@@ -2,7 +2,6 @@ const ExcelJS = require("exceljs");
 
 const Customer = require("../models/Customer");
 const Item = require("../models/Item");
-const Order = require("../models/Order");
 const Expense = require("../models/Expense");
 const Payment = require("../models/Payment");
 const Contractor = require("../models/Contractor");
@@ -22,7 +21,10 @@ const StockMovement = require("../models/StockMovement");
 const COLLECTIONS = [
   { key: "customers", model: Customer },
   { key: "items", model: Item },
-  { key: "orders", model: Order },
+  // Orders and Purchases are now the same underlying collection (Purchase,
+  // distinguished by source) — export them as two filtered views so existing
+  // export consumers keep seeing the same two sheets/keys as before.
+  { key: "orders", model: Purchase, filter: { source: "order" } },
   { key: "expenses", model: Expense },
   { key: "payments", model: Payment },
   { key: "contractors", model: Contractor },
@@ -38,7 +40,7 @@ const COLLECTIONS = [
 
 async function loadAll(owner) {
   const entries = await Promise.all(
-    COLLECTIONS.map(async ({ key, model }) => [key, await model.find({ owner }).lean()])
+    COLLECTIONS.map(async ({ key, model, filter }) => [key, await model.find({ owner, ...(filter || {}) }).lean()])
   );
   return Object.fromEntries(entries);
 }

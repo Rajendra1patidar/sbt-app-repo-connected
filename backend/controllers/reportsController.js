@@ -3,82 +3,15 @@ const Expense = require("../models/Expense");
 const Payment = require("../models/Payment");
 const Item = require("../models/Item");
 const Customer = require("../models/Customer");
-const StockMovement = require("../models/StockMovement");
-const Vendor = require("../models/Vendor");
-
-// A trailing window of "out" movements is used to estimate how fast an item
-// actually sells. Below MIN_MOVEMENTS data points in that window we don't trust
-// the pace enough to size an order off it, so those items fall back to the
-// original static low-stock alert instead (no suggested qty, just a flag).
-const WINDOW_DAYS = 30;
-const BUFFER_DAYS = 30; // suggested qty restocks to ~this many days of cover
-const MIN_MOVEMENTS = 3;
+const reorderService = require("../services/reorderService");
 
 // GET /api/reports/reorder-suggestions
+// Math lives in services/reorderService so the same reorder-point
+// calculation also drives the automated daily check in jobs/reorderCheckJob
+// — this endpoint and that job can never quietly disagree with each other.
 exports.reorderSuggestions = async (req, res, next) => {
   try {
-    const owner = req.userId;
-    const windowStart = new Date();
-    windowStart.setDate(windowStart.getDate() - WINDOW_DAYS);
-    const windowStartStr = windowStart.toISOString().slice(0, 10);
-
-    const [items, vendors, movements] = await Promise.all([
-      Item.find({ owner }),
-      Vendor.find({ owner }),
-      StockMovement.find({ owner, direction: "out", date: { $gte: windowStartStr } }),
-    ]);
-
-    const vendorMap = new Map(vendors.map((v) => [String(v._id), v]));
-
-    const byItem = new Map(); // itemId -> { totalQty, count }
-    for (const m of movements) {
-      const key = String(m.itemId);
-      const cur = byItem.get(key) || { totalQty: 0, count: 0 };
-      cur.totalQty += Number(m.qty) || 0;
-      cur.count += 1;
-      byItem.set(key, cur);
-    }
-
-    const suggestions = [];
-    for (const it of items) {
-      const stock = Number(it.stock) || 0;
-      const lowStock = Number(it.lowStock) || 5;
-      const vendor = it.vendorId ? vendorMap.get(String(it.vendorId)) : null;
-      const stats = byItem.get(String(it._id));
-      const hasEnoughHistory = stats && stats.count >= MIN_MOVEMENTS && stats.totalQty > 0;
-
-      if (hasEnoughHistory) {
-        const dailyRate = stats.totalQty / WINDOW_DAYS;
-        const daysLeft = dailyRate > 0 ? Math.round((stock / dailyRate) * 10) / 10 : null;
-        // only surface it once stock is at/under the alert line — otherwise every
-        // fast-mover would show up here even when well-stocked
-        if (stock <= lowStock) {
-          const suggestedQty = Math.max(0, Math.ceil(dailyRate * BUFFER_DAYS - stock));
-          suggestions.push({
-            itemId: it._id, name: it.name, unit: it.unit, stock, lowStock,
-            mode: "pace", dailyRate: Math.round(dailyRate * 100) / 100, daysLeft, suggestedQty,
-            vendor: vendor ? { id: vendor._id, name: vendor.name, phone: vendor.phone } : null,
-          });
-        }
-      } else if (stock <= lowStock) {
-        // not enough sales history to trust a pace calculation — fall back to
-        // the original static alert with no computed quantity
-        suggestions.push({
-          itemId: it._id, name: it.name, unit: it.unit, stock, lowStock,
-          mode: "static", dailyRate: null, daysLeft: null, suggestedQty: null,
-          vendor: vendor ? { id: vendor._id, name: vendor.name, phone: vendor.phone } : null,
-        });
-      }
-    }
-
-    // fastest-emptying items first (pace-based with a days-left figure), static-alert items last
-    suggestions.sort((a, b) => {
-      if (a.daysLeft == null && b.daysLeft == null) return 0;
-      if (a.daysLeft == null) return 1;
-      if (b.daysLeft == null) return -1;
-      return a.daysLeft - b.daysLeft;
-    });
-
+    const suggestions = await reorderService.computeSuggestions(req.userId);
     res.json(suggestions);
   } catch (err) {
     next(err);

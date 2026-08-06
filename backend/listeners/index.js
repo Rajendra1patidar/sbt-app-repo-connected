@@ -59,6 +59,18 @@ function registerListeners() {
       body: String(detail || "").slice(0, 500),
     });
   });
+
+  eventBus.on("stock.reorder-suggested", async ({ owner, itemId, name, stock, suggestedQty, daysLeft, vendor }) => {
+    const daysPart = daysLeft != null ? ` — about ${daysLeft} day${daysLeft === 1 ? "" : "s"} of stock left` : "";
+    const qtyPart = suggestedQty ? `Suggested order: ${suggestedQty} units` : "Review current stock level";
+    const vendorPart = vendor?.name ? ` from ${vendor.name}` : "";
+    await notificationService.notify(owner, {
+      type: "stock.reorder-suggested",
+      title: `${name} needs reordering${daysPart}`,
+      body: `${qtyPart}${vendorPart}. Currently ${stock} in stock.`,
+      refId: itemId,
+    });
+  });
 }
 
 module.exports = { registerListeners };

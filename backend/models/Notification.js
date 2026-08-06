@@ -17,6 +17,7 @@ const notificationSchema = new mongoose.Schema(
         "payment.refunded",
         "purchase.received",
         "reconciliation.failed",
+        "stock.reorder-suggested",
       ],
       index: true,
     },

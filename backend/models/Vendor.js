@@ -7,6 +7,11 @@ const vendorSchema = new mongoose.Schema(
     phone: { type: String, trim: true, default: "" },
     location: { type: String, trim: true, default: "" },
     notes: { type: String, trim: true, default: "" },
+    // Typical days between placing an order with this vendor and stock
+    // actually arriving. Feeds the reorder-point calculation in
+    // reorderService — left unset, items from this vendor fall back to a
+    // conservative default lead time instead of failing the calculation.
+    leadTimeDays: { type: Number, default: 7, min: 0 },
   },
   { timestamps: true }
 );

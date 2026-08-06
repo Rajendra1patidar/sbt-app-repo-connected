@@ -25,6 +25,7 @@ const financialYearRoutes = require("./routes/financialYearRoutes");
 const exportRoutes = require("./routes/exportRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const { registerListeners } = require("./listeners");
+const scheduler = require("./jobs/scheduler");
 const app = express();
 // Render (and most PaaS hosts) sit the app behind one reverse proxy that sets
 // X-Forwarded-For. Trusting exactly 1 hop lets express-rate-limit/req.ip read
@@ -95,4 +96,5 @@ app.use(notFound);
 app.use(errorHandler);
 const PORT = process.env.PORT || 5000;
 registerListeners();
+scheduler.start();
 app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));

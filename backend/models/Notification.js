@@ -10,7 +10,14 @@ const notificationSchema = new mongoose.Schema(
     type: {
       type: String,
       required: true,
-      enum: ["estimate.created", "stock.low", "payment.received", "payment.refunded", "purchase.received"],
+      enum: [
+        "estimate.created",
+        "stock.low",
+        "payment.received",
+        "payment.refunded",
+        "purchase.received",
+        "reconciliation.failed",
+      ],
       index: true,
     },
     title: { type: String, required: true },

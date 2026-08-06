@@ -51,6 +51,14 @@ function registerListeners() {
       refId: purchaseId,
     });
   });
+
+  eventBus.on("reconciliation.failed", async ({ owner, failedCount, detail }) => {
+    await notificationService.notify(owner, {
+      type: "reconciliation.failed",
+      title: `Ledger drift detected (${failedCount} check${failedCount === 1 ? "" : "s"})`,
+      body: String(detail || "").slice(0, 500),
+    });
+  });
 }
 
 module.exports = { registerListeners };

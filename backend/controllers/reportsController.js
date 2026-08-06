@@ -5,6 +5,7 @@ const Item = require("../models/Item");
 const Customer = require("../models/Customer");
 const reorderService = require("../services/reorderService");
 const creditService = require("../services/creditService");
+const vendorScorecardService = require("../services/vendorScorecardService");
 
 // GET /api/reports/reorder-suggestions
 // Math lives in services/reorderService so the same reorder-point
@@ -26,6 +27,19 @@ exports.reorderSuggestions = async (req, res, next) => {
 exports.customerCredit = async (req, res, next) => {
   try {
     const view = await creditService.computeCreditView(req.userId);
+    res.json(view);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/reports/vendor-scorecard
+// Per-vendor spend, real fulfillment time, and price trends — see
+// services/vendorScorecardService for the math and why it doesn't claim
+// an "on-time %" the schema has no data to back up.
+exports.vendorScorecard = async (req, res, next) => {
+  try {
+    const view = await vendorScorecardService.computeVendorScorecards(req.userId);
     res.json(view);
   } catch (err) {
     next(err);

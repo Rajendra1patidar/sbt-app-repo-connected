@@ -80,6 +80,15 @@ function registerListeners() {
       refId: approvalId,
     });
   });
+
+  eventBus.on("customer.credit-risk", async ({ owner, customerId, name, overdue, oldestDaysPastDue }) => {
+    await notificationService.notify(owner, {
+      type: "customer.credit-risk",
+      title: `${name} flagged as credit risk`,
+      body: `₹${overdue} overdue, oldest bill ${oldestDaysPastDue} days past due.`,
+      refId: customerId,
+    });
+  });
 }
 
 module.exports = { registerListeners };

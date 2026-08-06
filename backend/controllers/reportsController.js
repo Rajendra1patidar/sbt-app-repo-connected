@@ -4,6 +4,7 @@ const Payment = require("../models/Payment");
 const Item = require("../models/Item");
 const Customer = require("../models/Customer");
 const reorderService = require("../services/reorderService");
+const creditService = require("../services/creditService");
 
 // GET /api/reports/reorder-suggestions
 // Math lives in services/reorderService so the same reorder-point
@@ -13,6 +14,19 @@ exports.reorderSuggestions = async (req, res, next) => {
   try {
     const suggestions = await reorderService.computeSuggestions(req.userId);
     res.json(suggestions);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/reports/customer-credit
+// Per-customer risk view built on top of real outstanding/overdue amounts
+// and actual payment-speed history — see services/creditService for the
+// math. Suggestions only: nothing here changes a Customer's creditLimit.
+exports.customerCredit = async (req, res, next) => {
+  try {
+    const view = await creditService.computeCreditView(req.userId);
+    res.json(view);
   } catch (err) {
     next(err);
   }

@@ -1,6 +1,7 @@
 const cron = require("node-cron");
 const { runReconciliationCheck } = require("./reconciliationJob");
 const { runReorderCheck } = require("./reorderCheckJob");
+const { runCreditCheck } = require("./creditCheckJob");
 
 /**
  * Every scheduled/background job starts here — kept separate from server.js
@@ -41,6 +42,20 @@ function start() {
     }
   });
   console.log(`scheduler: reorder check scheduled (${reorderSchedule})`);
+
+  const creditSchedule = process.env.CREDIT_CHECK_CRON || "0 8 * * *"; // 8 AM — after reorder, still start of day
+  cron.schedule(creditSchedule, async () => {
+    console.log("scheduler: running daily customer credit-risk check...");
+    try {
+      const summary = await runCreditCheck();
+      console.log(
+        `scheduler: credit-risk check done — ${summary.checked} owner(s) checked, ${summary.notified} new notification(s).`
+      );
+    } catch (err) {
+      console.error("scheduler: credit-risk check crashed:", err.message);
+    }
+  });
+  console.log(`scheduler: credit-risk check scheduled (${creditSchedule})`);
 }
 
 module.exports = { start };

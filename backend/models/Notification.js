@@ -18,6 +18,7 @@ const notificationSchema = new mongoose.Schema(
         "purchase.received",
         "reconciliation.failed",
         "stock.reorder-suggested",
+        "approval.requested",
       ],
       index: true,
     },

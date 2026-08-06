@@ -159,3 +159,58 @@ exports.me = async (req, res, next) => {
     next(err);
   }
 };
+
+// POST /api/auth/staff  { email, pin, name }  (owner only)
+// Creates a second login that shares the owner's business data — see
+// middleware/auth.js for how a staff login's requests get scoped to the
+// owner's data instead of a separate empty account.
+exports.createStaff = async (req, res, next) => {
+  try {
+    const { email, pin, name } = req.body;
+    if (!email || !pin) {
+      return res.status(400).json({ message: "Email and PIN are required" });
+    }
+    if (String(pin).length < 4) {
+      return res.status(400).json({ message: "PIN must be at least 4 digits" });
+    }
+    const existing = await User.findOne({ email: email.toLowerCase() });
+    if (existing) {
+      return res.status(409).json({ message: "An account with this email already exists" });
+    }
+    const pinHash = await User.hashPin(String(pin));
+    // req.userId is already resolved to the owner's own id here (an owner
+    // logging in has req.userId === their own account), so this correctly
+    // scopes the new staff account to this business either way.
+    const staff = await User.create({
+      email: email.toLowerCase(),
+      pinHash,
+      name: name || "Staff",
+      role: "staff",
+      ownerId: req.userId,
+    });
+    res.status(201).json({ id: staff._id, email: staff.email, name: staff.name, role: staff.role });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/auth/staff  (owner only)
+exports.listStaff = async (req, res, next) => {
+  try {
+    const staff = await User.find({ ownerId: req.userId, role: "staff" }).select("-pinHash");
+    res.json(staff);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// DELETE /api/auth/staff/:id  (owner only)
+exports.removeStaff = async (req, res, next) => {
+  try {
+    const staff = await User.findOneAndDelete({ _id: req.params.id, ownerId: req.userId, role: "staff" });
+    if (!staff) return res.status(404).json({ message: "Not found" });
+    res.json({ message: "Staff account removed", id: req.params.id });
+  } catch (err) {
+    next(err);
+  }
+};

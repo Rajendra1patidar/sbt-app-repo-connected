@@ -71,6 +71,15 @@ function registerListeners() {
       refId: itemId,
     });
   });
+
+  eventBus.on("approval.requested", async ({ owner, approvalId, type, amount }) => {
+    await notificationService.notify(owner, {
+      type: "approval.requested",
+      title: `Approval needed: ${type} of ₹${amount}`,
+      body: "A staff member submitted this above your approval limit — review it in Approvals.",
+      refId: approvalId,
+    });
+  });
 }
 
 module.exports = { registerListeners };

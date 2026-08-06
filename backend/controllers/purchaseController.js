@@ -1,6 +1,8 @@
 const Purchase = require("../models/Purchase");
 const Vendor = require("../models/Vendor");
 const Item = require("../models/Item");
+const Settings = require("../models/Settings");
+const ApprovalRequest = require("../models/ApprovalRequest");
 const ledgerService = require("../services/ledgerService");
 const stockService = require("../services/stockService");
 const { withTransaction } = require("../utils/withTransaction");
@@ -107,82 +109,128 @@ async function receiveStock(doc, { date, method, notes, session }) {
   return item;
 }
 
+// The actual purchase-creation logic — unchanged from before, just pulled
+// out into its own function so both the normal POST /api/purchases path and
+// the approval-resolution path (once an owner approves a queued staff
+// request — see approvalController.js) call the exact same code instead of
+// risking two copies drifting apart.
+async function createPurchaseRecord(userId, v) {
+  const source = v.source === "order" ? "order" : "manual";
+  const qty = Number(v.qty);
+  const rate = Number(v.rate || 0);
+  if (!(qty > 0)) { const e = new Error("Quantity must be greater than zero"); e.status = 400; throw e; }
+  if (!(rate >= 0)) { const e = new Error("Rate can't be negative"); e.status = 400; throw e; }
+
+  const item = await Item.findOne({ _id: v.itemId, owner: userId });
+  if (!item) { const e = new Error("Item not found"); e.status = 400; throw e; }
+
+  let vendor = null;
+  if (source === "manual") {
+    // A manually-logged purchase always names a real vendor — it's a record
+    // of money that actually changed hands with someone.
+    vendor = await Vendor.findOne({ _id: v.vendorId, owner: userId });
+    if (!vendor) { const e = new Error("Vendor not found"); e.status = 400; throw e; }
+  } else if (v.vendorId) {
+    vendor = await Vendor.findOne({ _id: v.vendorId, owner: userId });
+    if (!vendor) { const e = new Error("Vendor not found"); e.status = 400; throw e; }
+  }
+
+  const amount = round2(qty * rate);
+  const date = v.date || new Date().toISOString().slice(0, 10);
+
+  const result = await withTransaction(async (session) => {
+    if (source === "manual") {
+      const paymentStatus = ["paid", "unpaid", "partial"].includes(v.paymentStatus) ? v.paymentStatus : "unpaid";
+      const amountPaid =
+        paymentStatus === "paid" ? amount : paymentStatus === "partial" ? Math.min(Number(v.amountPaid) || 0, amount) : 0;
+
+      const [doc] = await Purchase.create(
+        [{
+          owner: userId, itemId: item._id, vendorId: vendor._id, qty, rate, amount, date,
+          paymentStatus, amountPaid, notes: v.notes || "", source: "manual", status: "Pending",
+        }],
+        { session: session || undefined }
+      );
+      // A manual purchase means the stock is already in your hands —
+      // receive it immediately, independent of whether it's been paid for.
+      const updatedItem = await receiveStock(doc, { date, session });
+      await doc.save({ session: session || undefined });
+      return { purchase: doc, item: updatedItem };
+    }
+
+    // source === "order": nothing is assumed paid; stays Pending until
+    // amountPaid reaches amount (see recordPayment below) — unless it's a
+    // free/zero-rate order, which has nothing to pay and completes now.
+    const [doc] = await Purchase.create(
+      [{
+        owner: userId, itemId: item._id, vendorId: vendor ? vendor._id : undefined, qty, rate, amount, date,
+        notes: v.notes || "", source: "order", status: "Pending",
+      }],
+      { session: session || undefined }
+    );
+    let updatedItem = null;
+    if (amount <= 0) {
+      updatedItem = await receiveStock(doc, { date, session });
+      await doc.save({ session: session || undefined });
+    }
+    return { purchase: doc, item: updatedItem };
+  });
+
+  // Keep both response shapes: { order, item } for /api/orders, { purchase, item } for /api/purchases.
+  if (result.item) {
+    eventBus.emit("purchase.received", {
+      owner: userId,
+      purchaseId: result.purchase._id,
+      itemName: item.name,
+      qty: result.purchase.qty,
+    });
+  }
+  return { purchase: result.purchase, order: result.purchase, item: result.item };
+}
+exports.createPurchaseRecord = createPurchaseRecord;
+
 // POST /api/purchases  { source: "order" | "manual", vendorId, itemId, qty, rate, date, notes, paymentStatus?, amountPaid? }
 exports.create = async (req, res, next) => {
   try {
     const v = req.body;
-    const source = v.source === "order" ? "order" : "manual";
     const qty = Number(v.qty);
     const rate = Number(v.rate || 0);
-    if (!(qty > 0)) return res.status(400).json({ message: "Quantity must be greater than zero" });
-    if (!(rate >= 0)) return res.status(400).json({ message: "Rate can't be negative" });
-
-    const item = await Item.findOne({ _id: v.itemId, owner: req.userId });
-    if (!item) return res.status(400).json({ message: "Item not found" });
-
-    let vendor = null;
-    if (source === "manual") {
-      // A manually-logged purchase always names a real vendor — it's a record
-      // of money that actually changed hands with someone.
-      vendor = await Vendor.findOne({ _id: v.vendorId, owner: req.userId });
-      if (!vendor) return res.status(400).json({ message: "Vendor not found" });
-    } else if (v.vendorId) {
-      vendor = await Vendor.findOne({ _id: v.vendorId, owner: req.userId });
-      if (!vendor) return res.status(400).json({ message: "Vendor not found" });
-    }
-
     const amount = round2(qty * rate);
-    const date = v.date || new Date().toISOString().slice(0, 10);
+    const source = v.source === "order" ? "order" : "manual";
 
-    const result = await withTransaction(async (session) => {
-      if (source === "manual") {
-        const paymentStatus = ["paid", "unpaid", "partial"].includes(v.paymentStatus) ? v.paymentStatus : "unpaid";
-        const amountPaid =
-          paymentStatus === "paid" ? amount : paymentStatus === "partial" ? Math.min(Number(v.amountPaid) || 0, amount) : 0;
-
-        const [doc] = await Purchase.create(
-          [{
-            owner: req.userId, itemId: item._id, vendorId: vendor._id, qty, rate, amount, date,
-            paymentStatus, amountPaid, notes: v.notes || "", source: "manual", status: "Pending",
-          }],
-          { session: session || undefined }
-        );
-        // A manual purchase means the stock is already in your hands —
-        // receive it immediately, independent of whether it's been paid for.
-        const updatedItem = await receiveStock(doc, { date, session });
-        await doc.save({ session: session || undefined });
-        return { purchase: doc, item: updatedItem };
+    // A staff account logging a manual purchase above the configured
+    // approval threshold queues for the owner's review instead of executing
+    // immediately. Orders (restocking against a running vendor tab) and
+    // anything the owner does directly are never gated — this only slows
+    // down a staff member committing a large one-off spend on their own.
+    if (req.role === "staff" && source === "manual") {
+      const settings = await Settings.findOne({ owner: req.userId });
+      const threshold = Number(settings?.approvalThreshold) || 0;
+      if (threshold > 0 && amount > threshold) {
+        const approval = await ApprovalRequest.create({
+          owner: req.userId,
+          requestedBy: req.actorId,
+          type: "purchase",
+          amount,
+          payload: v,
+        });
+        eventBus.emit("approval.requested", {
+          owner: req.userId,
+          approvalId: approval._id,
+          type: "purchase",
+          amount,
+        });
+        return res.status(202).json({
+          message: `This purchase (₹${amount}) is above the ₹${threshold} approval limit and has been sent to the owner for approval.`,
+          approvalRequestId: approval._id,
+        });
       }
-
-      // source === "order": nothing is assumed paid; stays Pending until
-      // amountPaid reaches amount (see recordPayment below) — unless it's a
-      // free/zero-rate order, which has nothing to pay and completes now.
-      const [doc] = await Purchase.create(
-        [{
-          owner: req.userId, itemId: item._id, vendorId: vendor ? vendor._id : undefined, qty, rate, amount, date,
-          notes: v.notes || "", source: "order", status: "Pending",
-        }],
-        { session: session || undefined }
-      );
-      let updatedItem = null;
-      if (amount <= 0) {
-        updatedItem = await receiveStock(doc, { date, session });
-        await doc.save({ session: session || undefined });
-      }
-      return { purchase: doc, item: updatedItem };
-    });
-
-    // Keep both response shapes: { order, item } for /api/orders, { purchase, item } for /api/purchases.
-    if (result.item) {
-      eventBus.emit("purchase.received", {
-        owner: req.userId,
-        purchaseId: result.purchase._id,
-        itemName: item.name,
-        qty: result.purchase.qty,
-      });
     }
-    res.status(201).json({ purchase: result.purchase, order: result.purchase, item: result.item });
+
+    const result = await createPurchaseRecord(req.userId, v);
+    res.status(201).json(result);
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message });
     next(err);
   }
 };

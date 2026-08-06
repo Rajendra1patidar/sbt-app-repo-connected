@@ -16,6 +16,13 @@ const userSchema = new mongoose.Schema(
     // same reasoning as storing pinHash instead of the PIN itself.
     resetTokenHash: { type: String, default: null },
     resetTokenExpires: { type: Date, default: null },
+    // "owner" is the business account (the original single-user model).
+    // "staff" is an additional login that shares the owner's business data —
+    // see middleware/auth.js, which resolves a staff login's effective
+    // req.userId to ownerId so every existing controller (all already
+    // scoped by req.userId) keeps working unchanged for staff too.
+    role: { type: String, enum: ["owner", "staff"], default: "owner" },
+    ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: true }
 );

@@ -9,6 +9,7 @@ const stockService = require("../services/stockService");
 const paymentController = require("./paymentController");
 const { withTransaction } = require("../utils/withTransaction");
 const idempotency = require("../utils/idempotency");
+const eventBus = require("../services/eventBus");
 
 const PREFIX = { estimate: "EST", challan: "DC" };
 const DEFAULT_STATUS = { estimate: "Due", challan: "Pending" };
@@ -132,7 +133,9 @@ async function applyEstimateEffects(owner, doc, lines, session) {
       if (result) {
         totalCogs += result.cogsAmount;
         const threshold = result.item.lowStock ?? 5;
-        if (result.item.stock <= threshold) lowStock.push({ name: result.item.name, stock: result.item.stock });
+        if (result.item.stock <= threshold) {
+          lowStock.push({ itemId: result.item._id, name: result.item.name, stock: result.item.stock });
+        }
       }
     }
   }
@@ -287,6 +290,22 @@ exports.create = (type) => async (req, res, next) => {
     });
 
     idempotency.remember(req.userId, idempotencyKey, result);
+
+    // Emitted after the transaction has committed, never inside it — a listener
+    // failing (e.g. writing a Notification) must never roll back or block the
+    // response for the estimate/challan itself.
+    if (type === "estimate") {
+      eventBus.emit("estimate.created", {
+        owner: req.userId,
+        documentId: result.doc._id,
+        number: result.doc.number,
+        total: result.doc.total,
+      });
+      for (const low of result.lowStock || []) {
+        eventBus.emit("stock.low", { owner: req.userId, itemId: low.itemId, name: low.name, stock: low.stock });
+      }
+    }
+
     res.status(201).json(result);
   } catch (err) {
     if (err.status) return res.status(err.status).json({ message: err.message });
@@ -354,6 +373,10 @@ exports.update = (type) => async (req, res, next) => {
 
       return { doc, lowStock };
     });
+
+    for (const low of result.lowStock || []) {
+      eventBus.emit("stock.low", { owner: req.userId, itemId: low.itemId, name: low.name, stock: low.stock });
+    }
 
     res.json(result);
   } catch (err) {
@@ -515,6 +538,10 @@ exports.restore = (type) => async (req, res, next) => {
 
       return { doc: finalDoc || doc, lowStock };
     });
+
+    for (const low of result.lowStock || []) {
+      eventBus.emit("stock.low", { owner: req.userId, itemId: low.itemId, name: low.name, stock: low.stock });
+    }
 
     const freshItems = await Item.find({ owner: req.userId });
     res.json({ ...result, items: freshItems });

@@ -4,6 +4,7 @@ const Item = require("../models/Item");
 const ledgerService = require("../services/ledgerService");
 const stockService = require("../services/stockService");
 const { withTransaction } = require("../utils/withTransaction");
+const eventBus = require("../services/eventBus");
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
@@ -172,6 +173,14 @@ exports.create = async (req, res, next) => {
     });
 
     // Keep both response shapes: { order, item } for /api/orders, { purchase, item } for /api/purchases.
+    if (result.item) {
+      eventBus.emit("purchase.received", {
+        owner: req.userId,
+        purchaseId: result.purchase._id,
+        itemName: item.name,
+        qty: result.purchase.qty,
+      });
+    }
     res.status(201).json({ purchase: result.purchase, order: result.purchase, item: result.item });
   } catch (err) {
     next(err);
@@ -243,6 +252,15 @@ exports.recordPayment = async (req, res, next) => {
       await doc.save({ session: session || undefined });
       return { doc, item };
     });
+
+    if (result.item) {
+      eventBus.emit("purchase.received", {
+        owner: req.userId,
+        purchaseId: result.doc._id,
+        itemName: result.item.name,
+        qty: result.doc.qty,
+      });
+    }
 
     res.status(201).json({ purchase: result.doc, order: result.doc, item: result.item });
   } catch (err) {

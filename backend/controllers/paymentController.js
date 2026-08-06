@@ -3,6 +3,7 @@ const Document = require("../models/Document");
 const crudController = require("./crudController");
 const ledgerService = require("../services/ledgerService");
 const { withTransaction } = require("../utils/withTransaction");
+const eventBus = require("../services/eventBus");
 
 const base = crudController(Payment);
 
@@ -106,6 +107,13 @@ base.create = async (req, res, next) => {
       }
 
       return { payment, invoice };
+    });
+
+    eventBus.emit(amount < 0 ? "payment.refunded" : "payment.received", {
+      owner: req.userId,
+      paymentId: result.payment._id,
+      amount: Math.abs(amount),
+      invoiceNumber: result.payment.invoiceNumber,
     });
 
     res.status(201).json(result);

@@ -1,5 +1,6 @@
-import { Bell, LifeBuoy, Menu, Search } from "lucide-react";
+import { LifeBuoy, Menu, Search } from "lucide-react";
 import { NAV } from "../../lib/constants";
+import { NotificationBell } from "./NotificationBell";
 
 export function Topbar({ onMenu, settings, view, onOpenSearch }: any) {
   const titleMap: any = Object.fromEntries(NAV.map((n) => [n.id, n.label]));
@@ -13,7 +14,7 @@ export function Topbar({ onMenu, settings, view, onOpenSearch }: any) {
       <div className="flex items-center gap-2">
         <button onClick={onOpenSearch} className="rounded-full border border-line bg-white p-2 hover:border-brand-200 transition-colors"><Search size={18} className="text-ink/50" /></button>
         <button className="rounded-full border border-line bg-white p-2 hover:border-brand-200 transition-colors hidden sm:inline-flex"><LifeBuoy size={18} className="text-ink/50" /></button>
-        <button className="relative rounded-full border border-line bg-white p-2 hover:border-brand-200 transition-colors"><Bell size={18} className="text-ink/50" /></button>
+        <NotificationBell />
       </div>
     </div>
   );

@@ -226,6 +226,27 @@ export const api = {
     summary: () => request("/api/reports/summary"),
     reorderSuggestions: () => request("/api/reports/reorder-suggestions"),
     arAging: (asOfDate?: string) => request(`/api/reports/ar-aging${asOfDate ? `?asOfDate=${asOfDate}` : ""}`),
+    customerCredit: () => request("/api/reports/customer-credit"),
+    vendorScorecard: () => request("/api/reports/vendor-scorecard"),
+  },
+
+  notifications: {
+    list: () => request("/api/notifications"),
+    unreadCount: () => request("/api/notifications/unread-count"),
+    markRead: (id: string) => request(`/api/notifications/${id}/read`, { method: "PATCH" }),
+    markAllRead: () => request("/api/notifications/mark-all-read", { method: "PATCH" }),
+  },
+
+  approvals: {
+    list: (status?: string) => request(`/api/approvals${status ? `?status=${status}` : ""}`),
+    approve: (id: string, note?: string) => request(`/api/approvals/${id}/approve`, { method: "POST", body: JSON.stringify({ note }) }),
+    reject: (id: string, note?: string) => request(`/api/approvals/${id}/reject`, { method: "POST", body: JSON.stringify({ note }) }),
+  },
+
+  staff: {
+    list: () => request("/api/auth/staff"),
+    create: (v: { email: string; pin: string; name?: string }) => request("/api/auth/staff", { method: "POST", body: JSON.stringify(v) }),
+    remove: (id: string) => request(`/api/auth/staff/${id}`, { method: "DELETE" }),
   },
 };
 

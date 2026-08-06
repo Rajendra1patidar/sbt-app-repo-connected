@@ -42,6 +42,7 @@ interface AppState {
   vendors: any[];
   purchases: any[];
   reorderSuggestions: any[];
+  notifications: any[];
 
   // ---- ephemeral UI state ----
   toast: Toast;
@@ -66,6 +67,9 @@ interface AppState {
   setAutoReminder: (v: boolean) => void;
   setShareInvoice: (inv: any) => void;
   refreshReorderSuggestions: () => Promise<void>;
+  fetchNotifications: () => Promise<void>;
+  markNotificationRead: (id: string) => void;
+  markAllNotificationsRead: () => void;
 
   saveCustomer: (v: any) => Promise<void>;
   removeCustomer: (id: string) => void;
@@ -126,6 +130,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   vendors: [],
   purchases: [],
   reorderSuggestions: [],
+  notifications: [],
 
   toast: null,
   modal: null,
@@ -140,7 +145,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   fetchAll: async () => {
     set({ loading: true, loadError: "" });
     try {
-      const [c, it, o, est, ch, ex, pay, st, ls, lw, ct, vd, pu, rs] = await Promise.all([
+      const [c, it, o, est, ch, ex, pay, st, ls, lw, ct, vd, pu, rs, nt] = await Promise.all([
         api.customers.list(),
         api.items.list(),
         api.orders.list(),
@@ -155,6 +160,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
         api.vendors.list(),
         api.purchases.list(),
         api.reports.reorderSuggestions().catch(() => []),
+        api.notifications.list().catch(() => []),
       ]);
       set((state) => ({
         customers: c,
@@ -170,6 +176,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
         vendors: vd,
         purchases: pu,
         reorderSuggestions: rs || [],
+        notifications: nt || [],
         settings: { ...state.settings, ...st },
         loading: false,
       }));
@@ -216,6 +223,23 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const rs = await api.reports.reorderSuggestions();
       set({ reorderSuggestions: rs });
     } catch { /* non-critical */ }
+  },
+
+  fetchNotifications: async () => {
+    try {
+      const nt = await api.notifications.list();
+      set({ notifications: nt || [] });
+    } catch { /* non-critical — bell just shows stale data until the next successful poll */ }
+  },
+  markNotificationRead: (id) => {
+    // optimistic: flip locally first, since this is purely a read/unread flag
+    // with nothing else depending on the server round-trip completing first
+    set((state) => ({ notifications: state.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)) }));
+    api.notifications.markRead(id).catch(() => { /* worst case it re-shows as unread on next fetchAll */ });
+  },
+  markAllNotificationsRead: () => {
+    set((state) => ({ notifications: state.notifications.map((n) => ({ ...n, read: true })) }));
+    api.notifications.markAllRead().catch(() => { /* same as above */ });
   },
 
   // ---- internal helpers (not part of the public interface, but attached via closures below) ----

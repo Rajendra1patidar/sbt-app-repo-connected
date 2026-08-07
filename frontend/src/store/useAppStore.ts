@@ -43,6 +43,7 @@ interface AppState {
   purchases: any[];
   reorderSuggestions: any[];
   notifications: any[];
+  role: "owner" | "staff";
 
   // ---- ephemeral UI state ----
   toast: Toast;
@@ -131,6 +132,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   purchases: [],
   reorderSuggestions: [],
   notifications: [],
+  role: "owner",
 
   toast: null,
   modal: null,
@@ -145,7 +147,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   fetchAll: async () => {
     set({ loading: true, loadError: "" });
     try {
-      const [c, it, o, est, ch, ex, pay, st, ls, lw, ct, vd, pu, rs, nt] = await Promise.all([
+      const [c, it, o, est, ch, ex, pay, st, ls, lw, ct, vd, pu, rs, nt, me] = await Promise.all([
         api.customers.list(),
         api.items.list(),
         api.orders.list(),
@@ -161,6 +163,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
         api.purchases.list(),
         api.reports.reorderSuggestions().catch(() => []),
         api.notifications.list().catch(() => []),
+        api.auth.me().catch(() => ({ role: "owner" })),
       ]);
       set((state) => ({
         customers: c,
@@ -177,6 +180,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
         purchases: pu,
         reorderSuggestions: rs || [],
         notifications: nt || [],
+        role: me?.role === "staff" ? "staff" : "owner",
         settings: { ...state.settings, ...st },
         loading: false,
       }));

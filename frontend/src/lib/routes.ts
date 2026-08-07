@@ -11,6 +11,7 @@ export const VIEW_PATHS: Record<string, string> = {
   orders: "/orders",
   vendors: "/vendors",
   purchases: "/purchases",
+  approvals: "/approvals",
   ledger: "/ledger",
   financialYears: "/financial-years",
   challans: "/challans",

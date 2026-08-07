@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Phone, Plus, X, Download, Loader2 } from "lucide-react";
+import { Phone, Plus, X, Download, Loader2, ShieldCheck } from "lucide-react";
 import { Card, PillButton } from "../common/UIPrimitives";
 import { ChangePinCard } from "./ChangePinCard";
+import { StaffManagementCard } from "./StaffManagementCard";
 import { WHATSAPP_GREEN, ITEM_CATEGORIES } from "../../lib/constants";
 import { api } from "../../lib/api";
 
@@ -76,6 +77,25 @@ export function SettingsView({ settings, setSettings }: any) {
         <div><label className="mb-1 block text-xs font-semibold text-ink/50">Business WhatsApp number (with country code)</label>
         <input value={local.businessWhatsApp} onChange={(e) => set("businessWhatsApp", e.target.value)} placeholder="+91 98765 43210" className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" /></div>
       </Card>
+      <Card className="space-y-3">
+        <div className="flex items-center gap-2"><ShieldCheck size={16} className="text-brand-500" /><h3 className="text-sm font-bold text-ink">Staff approval limit</h3></div>
+        <p className="text-xs text-ink/40">
+          A manual purchase a staff member creates above this amount waits for your approval instead of going through
+          right away. Set to 0 to turn this off — your own purchases are never gated, regardless of this setting.
+        </p>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-ink/50">Approval limit ({local.currency || "₹"})</label>
+          <input
+            type="number"
+            min={0}
+            value={local.approvalThreshold ?? 0}
+            onChange={(e) => set("approvalThreshold", Number(e.target.value))}
+            placeholder="0 = disabled"
+            className="w-full rounded-xl border border-line px-3 py-2.5 text-sm"
+          />
+        </div>
+      </Card>
+      <StaffManagementCard />
       <Card className="space-y-3">
         <h3 className="text-sm font-bold text-ink">Export your data</h3>
         <p className="text-xs text-ink/40">

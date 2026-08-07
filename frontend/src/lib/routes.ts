@@ -23,6 +23,7 @@ export const VIEW_PATHS: Record<string, string> = {
   contractors: "/contractors",
   vendorScorecard: "/vendor-scorecard",
   customerCredit: "/customer-credit",
+  cashFlowForecast: "/cash-flow-forecast",
   reports: "/reports",
   sharereport: "/share-report",
   billing: "/billing",

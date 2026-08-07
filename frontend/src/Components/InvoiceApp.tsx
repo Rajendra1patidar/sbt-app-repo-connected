@@ -21,6 +21,7 @@ import { AdvancedBillingView } from "./views/AdvancedBillingView";
 import { ApprovalsView } from "./views/ApprovalsView";
 import { ContractorScorecardView } from "./views/ContractorScorecardView";
 import { CustomerCreditView } from "./views/CustomerCreditView";
+import { CashFlowForecastView } from "./views/CashFlowForecastView";
 import { CustomerDetailView } from "./views/CustomerDetailView";
 import { CustomersView } from "./views/CustomersView";
 import { Dashboard } from "./views/Dashboard";
@@ -193,6 +194,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <Route path="/contractors" element={<ContractorScorecardView estimates={activeEstimates} items={items} currency={settings.currency} contractors={contractors} onSavePhone={saveContractorPhone} showToast={showToast} />} />
       <Route path="/vendor-scorecard" element={<VendorScorecardView currency={settings.currency} />} />
       <Route path="/customer-credit" element={<CustomerCreditView currency={settings.currency} />} />
+      <Route path="/cash-flow-forecast" element={<CashFlowForecastView currency={settings.currency} />} />
       <Route path="/reports" element={<ReportsView data={data} currency={settings.currency} settings={settings} />} />
       <Route path="/share-report" element={<ShareReportView invoices={activeEstimates} items={items} customers={customers} currency={settings.currency} settings={settings} />} />
       <Route path="/billing" element={<AdvancedBillingView autoReminder={autoReminder} setAutoReminder={setAutoReminder} overdueCount={overdueCount} settings={settings} />} />

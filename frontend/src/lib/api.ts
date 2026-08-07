@@ -228,6 +228,7 @@ export const api = {
     arAging: (asOfDate?: string) => request(`/api/reports/ar-aging${asOfDate ? `?asOfDate=${asOfDate}` : ""}`),
     customerCredit: () => request("/api/reports/customer-credit"),
     vendorScorecard: () => request("/api/reports/vendor-scorecard"),
+    cashFlowForecast: () => request("/api/reports/cash-flow-forecast"),
   },
 
   notifications: {

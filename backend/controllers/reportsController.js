@@ -6,6 +6,7 @@ const Customer = require("../models/Customer");
 const reorderService = require("../services/reorderService");
 const creditService = require("../services/creditService");
 const vendorScorecardService = require("../services/vendorScorecardService");
+const cashFlowService = require("../services/cashFlowService");
 
 // GET /api/reports/reorder-suggestions
 // Math lives in services/reorderService so the same reorder-point
@@ -41,6 +42,19 @@ exports.vendorScorecard = async (req, res, next) => {
   try {
     const view = await vendorScorecardService.computeVendorScorecards(req.userId);
     res.json(view);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/reports/cash-flow-forecast
+// A 30/60/90-day cash position projection — see services/cashFlowService
+// for exactly what it is (and isn't): grounded in real dueDates and real
+// expense history, not a fabricated day-by-day model.
+exports.cashFlowForecast = async (req, res, next) => {
+  try {
+    const forecast = await cashFlowService.computeCashFlowForecast(req.userId);
+    res.json(forecast);
   } catch (err) {
     next(err);
   }

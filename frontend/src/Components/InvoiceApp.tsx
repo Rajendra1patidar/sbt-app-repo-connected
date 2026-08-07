@@ -20,6 +20,7 @@ import { ViewEstimateModal } from "./modals/ViewEstimateModal";
 import { AdvancedBillingView } from "./views/AdvancedBillingView";
 import { ApprovalsView } from "./views/ApprovalsView";
 import { ContractorScorecardView } from "./views/ContractorScorecardView";
+import { CustomerCreditView } from "./views/CustomerCreditView";
 import { CustomerDetailView } from "./views/CustomerDetailView";
 import { CustomersView } from "./views/CustomersView";
 import { Dashboard } from "./views/Dashboard";
@@ -37,6 +38,7 @@ import { ReportsView } from "./views/ReportsView";
 import { SettingsView } from "./views/SettingsView";
 import { ShareReportView } from "./views/ShareReportView";
 import { VendorsView } from "./views/VendorsView";
+import { VendorScorecardView } from "./views/VendorScorecardView";
 import { ITEM_CATEGORIES, LOW_STOCK_DEFAULT, WHATSAPP_GREEN } from "../lib/constants";
 import { waLink } from "../lib/contactLinks";
 import { fmtDate, fmtMoney, today } from "../lib/format";
@@ -189,6 +191,8 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <Route path="/inventory" element={<ToDoTrackingView items={items} settings={settings} categories={itemCategories} orders={orders} openModal={openModal} reorderSuggestions={reorderSuggestions} />} />
       <Route path="/labour" element={<LabourTrackingView sessions={labourSessions} knownWorkers={labourWorkers} onSave={saveLabourSession} onRemove={removeLabourSession} currency={settings.currency} estimates={activeEstimates} items={items} customers={customers} />} />
       <Route path="/contractors" element={<ContractorScorecardView estimates={activeEstimates} items={items} currency={settings.currency} contractors={contractors} onSavePhone={saveContractorPhone} showToast={showToast} />} />
+      <Route path="/vendor-scorecard" element={<VendorScorecardView currency={settings.currency} />} />
+      <Route path="/customer-credit" element={<CustomerCreditView currency={settings.currency} />} />
       <Route path="/reports" element={<ReportsView data={data} currency={settings.currency} settings={settings} />} />
       <Route path="/share-report" element={<ShareReportView invoices={activeEstimates} items={items} customers={customers} currency={settings.currency} settings={settings} />} />
       <Route path="/billing" element={<AdvancedBillingView autoReminder={autoReminder} setAutoReminder={setAutoReminder} overdueCount={overdueCount} settings={settings} />} />

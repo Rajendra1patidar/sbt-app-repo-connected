@@ -21,6 +21,8 @@ export const VIEW_PATHS: Record<string, string> = {
   todo: "/inventory",
   labour: "/labour",
   contractors: "/contractors",
+  vendorScorecard: "/vendor-scorecard",
+  customerCredit: "/customer-credit",
   reports: "/reports",
   sharereport: "/share-report",
   billing: "/billing",

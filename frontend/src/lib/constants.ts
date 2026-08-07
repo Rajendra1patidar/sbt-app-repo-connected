@@ -1,4 +1,4 @@
-import { ArrowDownToLine, Award, BarChart3, Building2, CalendarClock, ClipboardList, Globe2, HardHat, Home, Landmark, PackagePlus, Receipt, Send, ShieldCheck, ShoppingBag, ShoppingCart, Truck, Users, Wallet, Settings as SettingsIcon } from "lucide-react";
+import { ArrowDownToLine, Award, BarChart3, Building2, CalendarClock, ClipboardList, Globe2, HardHat, Home, Landmark, PackagePlus, Receipt, Send, ShieldCheck, ShoppingBag, ShoppingCart, TrendingDown, Truck, Users, Wallet, Settings as SettingsIcon } from "lucide-react";
 
 export const WHATSAPP_GREEN = "#25D366";
 
@@ -37,6 +37,8 @@ export const NAV = [
   { id: "todo",       label: "Inventory",            icon: ClipboardList },
   { id: "labour",     label: "Labour Tracking",      icon: HardHat },
   { id: "contractors", label: "Contractor Scorecard", icon: Award },
+  { id: "vendorScorecard", label: "Vendor Scorecard", icon: Building2 },
+  { id: "customerCredit", label: "Customer Credit", icon: TrendingDown },
   { id: "reports",       label: "Reports",              icon: BarChart3 },
   { id: "ledger",        label: "Ledger & Accounts",    icon: Landmark },
   { id: "financialYears", label: "Financial Years",      icon: CalendarClock },

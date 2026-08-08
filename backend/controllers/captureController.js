@@ -34,6 +34,9 @@ const CAPTURE_SCHEMA = {
     rate: { type: "number", nullable: true },
     amount: { type: "number", nullable: true },
     discountAmount: { type: "number", nullable: true },
+    labourCost: { type: "number", nullable: true },
+    freightCost: { type: "number", nullable: true },
+    contractorName: { type: "string", nullable: true },
     category: { type: "string", nullable: true },
     vendor: { type: "string", nullable: true },
   },
@@ -56,7 +59,7 @@ ${line(vendors, ["_id", "name"])}
 The note: "${text}"
 
 Return JSON matching exactly ONE of these shapes, based on what the note describes:
-{"kind":"sale","itemId":<id string or null>,"itemName":<string>,"customerId":<id string or null>,"customerName":<string>,"qty":<number>,"rate":<number or null>,"amount":<number or null>,"discountAmount":<number or null>}
+{"kind":"sale","itemId":<id string or null>,"itemName":<string>,"customerId":<id string or null>,"customerName":<string>,"qty":<number>,"rate":<number or null>,"amount":<number or null>,"discountAmount":<number or null>,"labourCost":<number or null>,"freightCost":<number or null>,"contractorName":<string or null>}
 {"kind":"purchase","itemId":<id string or null>,"itemName":<string>,"vendorId":<id string or null>,"vendorName":<string>,"qty":<number>,"rate":<number or null>}
 {"kind":"payment","customerId":<id string or null>,"customerName":<string>,"amount":<number>}
 {"kind":"expense","category":<short string>,"amount":<number>,"vendor":<string or null>}
@@ -65,9 +68,12 @@ Return JSON matching exactly ONE of these shapes, based on what the note describ
 Rules:
 - Only fill an id when you're genuinely confident it's that exact known item/customer/vendor — fuzzy spelling, typos, and Hindi-English mixed names are fine to match, but a name with no real match in the lists above must get id: null. Never invent an id.
 - "rate" is a PER-UNIT price, signalled by words like "at", "@", "each", "/bag", "/unit". A bare trailing number with none of those words is the TOTAL "amount" instead — never fill both rate and amount from the same number.
-- "discountAmount" is a FLAT rupee amount taken off the whole line's subtotal (qty × rate), signalled by words like "discount", "less", "off", "chhoot", "kam kiya". It is only ever present on a sale. Never subtract it yourself from rate or amount — return it as its own field, unadjusted. If no discount is mentioned, use null, not 0.
+- "discountAmount" is a FLAT rupee amount taken off the item line's own subtotal (qty × rate), signalled by words like "discount", "less", "off", "chhoot", "kam kiya". Never subtract it yourself from rate or amount — return it as its own field, unadjusted.
+- "labourCost" and "freightCost" are FLAT rupee charges added to the whole estimate on top of the item line(s) — not per unit, not part of the item's rate. "labourCost" is signalled by "labour cost", "labour", "majdoori". "freightCost" is signalled by "freight" (note: often misspelled "fright" or "frieght" — treat those the same), "transport", "bhada".
+- "contractorName" is a person or firm associated with the estimate as a contractor, distinct from the customer — signalled by phrasing like "for <name> contractor", "contractor <name>", "<name> ka contractor". Only fill it when the note clearly names one; otherwise null. Never confuse the contractor with the customer even if the contractor is mentioned right after the customer's name.
+- discountAmount, labourCost, and freightCost only ever apply to a sale — leave them null on purchase/payment/expense.
 - If the note doesn't clearly describe a sale, purchase, payment, or expense, return {"kind":"unknown"} rather than guessing.
-- qty, amount, rate, and discountAmount must be plain numbers with no currency symbols, commas, or units attached.`;
+- qty, amount, rate, discountAmount, labourCost, and freightCost must be plain numbers with no currency symbols, commas, or units attached.`;
 }
 
 /** Best-effort strip of ```json ... ``` fences some models add despite being told not to. */

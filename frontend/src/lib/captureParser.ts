@@ -9,8 +9,8 @@
 export interface MatchCandidate { entity: any; score: number }
 
 export type CaptureAction =
-  | { kind: "sale"; item: any; customer: any; qty: number; amount?: number; rate?: number; discountAmount?: number; itemCandidates: MatchCandidate[]; customerCandidates: MatchCandidate[]; priceWarning?: string; source?: "ai" }
-  | { kind: "sale_needs_review"; itemName: string; customerName: string; qty: number; amount?: number; rate?: number; discountAmount?: number; item: any; customer: any; source?: "ai" }
+  | { kind: "sale"; item: any; customer: any; qty: number; amount?: number; rate?: number; discountAmount?: number; labourCost?: number; freightCost?: number; contractorName?: string; itemCandidates: MatchCandidate[]; customerCandidates: MatchCandidate[]; priceWarning?: string; source?: "ai" }
+  | { kind: "sale_needs_review"; itemName: string; customerName: string; qty: number; amount?: number; rate?: number; discountAmount?: number; labourCost?: number; freightCost?: number; contractorName?: string; item: any; customer: any; source?: "ai" }
   | { kind: "purchase"; item: any; vendor: any; qty: number; rate?: number; itemCandidates: MatchCandidate[]; vendorCandidates: MatchCandidate[]; priceWarning?: string; source?: "ai" }
   | { kind: "purchase_needs_review"; itemName: string; vendorName: string; qty: number; rate?: number; item: any; vendor: any; source?: "ai" }
   | { kind: "payment"; customer: any; amount: number; customerCandidates: MatchCandidate[]; source?: "ai" }
@@ -46,6 +46,7 @@ export interface AiCaptureResult {
   vendorId?: string | null; vendorName?: string;
   qty?: number; rate?: number | null; amount?: number | null;
   discountAmount?: number | null;
+  labourCost?: number | null; freightCost?: number | null; contractorName?: string | null;
   category?: string; vendor?: string | null;
 }
 
@@ -64,12 +65,15 @@ export function actionFromAiResult(result: AiCaptureResult | null | undefined, c
     const rate = result.rate != null ? Number(result.rate) : undefined;
     const amount = result.amount != null ? Number(result.amount) : undefined;
     const discountAmount = result.discountAmount != null ? Number(result.discountAmount) : undefined;
+    const labourCost = result.labourCost != null ? Number(result.labourCost) : undefined;
+    const freightCost = result.freightCost != null ? Number(result.freightCost) : undefined;
+    const contractorName = result.contractorName || undefined;
     if (item && customer && qty > 0) {
       const effectiveRate = rate ?? (amount ? amount / qty : (item.sellingPrice ?? item.price));
       const priceWarning = checkPriceSanity(effectiveRate, item.sellingPrice ?? item.price, "unit");
-      return { kind: "sale", item, customer, qty, amount, rate, discountAmount, itemCandidates: [{ entity: item, score: 3 }], customerCandidates: [{ entity: customer, score: 3 }], priceWarning, source: "ai" };
+      return { kind: "sale", item, customer, qty, amount, rate, discountAmount, labourCost, freightCost, contractorName, itemCandidates: [{ entity: item, score: 3 }], customerCandidates: [{ entity: customer, score: 3 }], priceWarning, source: "ai" };
     }
-    return { kind: "sale_needs_review", itemName: result.itemName || "that item", customerName: result.customerName || "that customer", qty, amount, rate, discountAmount, item, customer, source: "ai" };
+    return { kind: "sale_needs_review", itemName: result.itemName || "that item", customerName: result.customerName || "that customer", qty, amount, rate, discountAmount, labourCost, freightCost, contractorName, item, customer, source: "ai" };
   }
 
   if (result.kind === "purchase") {
@@ -266,7 +270,7 @@ function stripWords(text: string, words: string[]): string {
   return out;
 }
 
-function extractNumbers(text: string, claimedDigitWords: string[]): { qty?: number; amount?: number; rate?: number; discountAmount?: number } {
+function extractNumbers(text: string, claimedDigitWords: string[]): { qty?: number; amount?: number; rate?: number; discountAmount?: number; labourCost?: number; freightCost?: number } {
   // \b before rs/inr matters: without it "rs" also matches inside ordinary
   // words like "Brothers" or "Traders" (both end in "...rs"), which would
   // misread the *next* number in the sentence as a currency amount.
@@ -279,12 +283,22 @@ function extractNumbers(text: string, claimedDigitWords: string[]): { qty?: numb
     /(?:\b(?:discount|less|off)\b\s*(?:of)?\s*(?:₹|\brs\.?|\binr)?\s*([\d,]+(?:\.\d+)?))|(?:([\d,]+(?:\.\d+)?)\s*(?:₹|\brs\.?|\binr)?\s*\b(?:discount|off)\b)/i
   );
   const discountAmount = discountMatch ? numFromMoney(discountMatch[1] || discountMatch[2]) : undefined;
+  // Flat ₹ labour charge: "labour cost is 12" / "12 rs labour" / "majdoori 12".
+  const labourMatch = text.match(
+    /(?:\b(?:labour|labor|majdoori)\b(?:\s*cost)?\s*(?:is|of)?\s*(?:₹|\brs\.?|\binr)?\s*([\d,]+(?:\.\d+)?))|(?:([\d,]+(?:\.\d+)?)\s*(?:₹|\brs\.?|\binr)?\s*\b(?:labour|labor)\b)/i
+  );
+  const labourCost = labourMatch ? numFromMoney(labourMatch[1] || labourMatch[2]) : undefined;
+  // Flat ₹ freight/transport charge — "fright"/"frieght" are common misspellings, kept as-is.
+  const freightMatch = text.match(
+    /(?:\b(?:freight|fright|frieght|transport|bhada)\b\s*(?:cost|charge)?\s*(?:is|of)?\s*(?:₹|\brs\.?|\binr)?\s*([\d,]+(?:\.\d+)?))|(?:([\d,]+(?:\.\d+)?)\s*(?:₹|\brs\.?|\binr)?\s*\b(?:freight|fright|frieght|transport)\b)/i
+  );
+  const freightCost = freightMatch ? numFromMoney(freightMatch[1] || freightMatch[2]) : undefined;
 
   const allNums = [...text.matchAll(/\d[\d,]*(?:\.\d+)?/g)].map((mm) => mm[0]);
   // numbers baked into a matched item's own name (e.g. the "12" in "12mm Saria")
   // aren't a quantity or amount — drop them before picking qty/amount
   const itemNums = new Set(claimedDigitWords.filter((w) => /^\d+$/.test(w)));
-  const claimed = new Set([explicitAmount, rate, discountAmount].filter((v) => v !== undefined).map(String));
+  const claimed = new Set([explicitAmount, rate, discountAmount, labourCost, freightCost].filter((v) => v !== undefined).map(String));
   const candidateNums = allNums
     .filter((n) => !itemNums.has(n.replace(/,/g, "")))
     .filter((n) => !claimed.has(n.replace(/,/g, "")));
@@ -299,7 +313,17 @@ function extractNumbers(text: string, claimedDigitWords: string[]): { qty?: numb
   } else if (candidateNums.length === 1) {
     qty = Number(candidateNums[0].replace(/,/g, ""));
   }
-  return { qty, amount, rate, discountAmount };
+  return { qty, amount, rate, discountAmount, labourCost, freightCost };
+}
+
+/** Pulls a contractor name out of phrasing like "for Sitaram contractor" or
+ *  "contractor Sitaram" — a plain free-text field on the estimate, distinct
+ *  from the customer, so it isn't matched against any known-entity list. */
+function extractContractorName(text: string): string | undefined {
+  const m =
+    text.match(/\bfor\s+([a-z][a-z\s]*?)\s+contractor\b/i) ||
+    text.match(/\bcontractor\s+([a-z][a-z\s]*?)(?:[,.]|$)/i);
+  return m ? m[1].trim() : undefined;
 }
 
 const SALE_VERBS = /\b(sold|sell|billed|bill|gave|give|invoiced)\b/i;
@@ -352,7 +376,8 @@ function parseLoose(text: string, ctx: { items: any[]; customers: any[]; vendors
   const { candidates: itemCandidates, claimedWords: itemWords } = findMentions(text, ctx.items, (i) => i.name);
   const reduced = stripWords(text, itemWords);
   const { candidates: customerCandidates } = findMentions(reduced, ctx.customers, (c) => c.name);
-  const { qty, amount, rate, discountAmount } = extractNumbers(text, itemWords);
+  const { qty, amount, rate, discountAmount, labourCost, freightCost } = extractNumbers(text, itemWords);
+  const contractorName = extractContractorName(text);
   if (!qty || (!isSale && !itemCandidates.length)) return null;
   const item = itemCandidates[0]?.entity ?? null;
   const customer = customerCandidates[0]?.entity ?? null;
@@ -364,8 +389,8 @@ function parseLoose(text: string, ctx: { items: any[]; customers: any[]; vendors
   if (item && customer) {
     const effectiveRate = rate ?? (effectiveAmount ? effectiveAmount / qty : (item.sellingPrice ?? item.price));
     const priceWarning = checkPriceSanity(effectiveRate, item.sellingPrice ?? item.price, "unit");
-    return { kind: "sale", item, customer, qty, amount: effectiveAmount, rate, discountAmount, itemCandidates, customerCandidates, priceWarning };
+    return { kind: "sale", item, customer, qty, amount: effectiveAmount, rate, discountAmount, labourCost, freightCost, contractorName, itemCandidates, customerCandidates, priceWarning };
   }
-  if (isSale) return { kind: "sale_needs_review", itemName, customerName, qty, amount: effectiveAmount, rate, discountAmount, item, customer };
+  if (isSale) return { kind: "sale_needs_review", itemName, customerName, qty, amount: effectiveAmount, rate, discountAmount, labourCost, freightCost, contractorName, item, customer };
   return null;
 }

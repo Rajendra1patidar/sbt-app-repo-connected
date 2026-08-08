@@ -167,10 +167,15 @@ export function CaptureBar({ items, customers, vendors, currency, saveDocument, 
           // clamp here too so a misheard/misread discount can't silently fail
           // the whole estimate at save time.
           const discountAmount = Math.min(pending.discountAmount ?? 0, subtotal);
-          const total = subtotal - discountAmount;
+          const labourCost = pending.labourCost ?? 0;
+          const freightCost = pending.freightCost ?? 0;
+          // labour/freight are flat charges on the whole estimate (not the item
+          // line) — same total formula the estimate form itself uses.
+          const total = (subtotal - discountAmount) + labourCost + freightCost;
           const doc = await saveDocument("estimate", {
             customerId: customer.id, date: today(), dueDate: today(),
             lines: [{ itemId: item.id, qty: pending.qty, rate, discountAmount }], total, status: "Due",
+            labourCost, freightCost, contractorName: pending.contractorName || "",
           });
           showToast(`Estimate created for ${customer.name} · ${fmtMoney(total, currency)}`, doc?.id ? { undo: () => undoEstimate(doc.id), duration: 6000 } : undefined);
           break;
@@ -293,7 +298,9 @@ function PreviewCard({ pending, picked, setPicked, currency, busy, onConfirm, on
     const rate = pending.rate ?? (pending.amount ? pending.amount / pending.qty : (item.sellingPrice ?? item.price ?? 0));
     const subtotal = pending.amount ?? rate * pending.qty;
     const discountAmount = Math.min(pending.discountAmount ?? 0, subtotal);
-    const total = subtotal - discountAmount;
+    const labourCost = pending.labourCost ?? 0;
+    const freightCost = pending.freightCost ?? 0;
+    const total = (subtotal - discountAmount) + labourCost + freightCost;
     title = "New sale";
     lines = [
       `${pending.qty} × ${item.name} → ${customer.name}`,
@@ -301,6 +308,11 @@ function PreviewCard({ pending, picked, setPicked, currency, busy, onConfirm, on
         ? `${fmtMoney(total, currency)} (${fmtMoney(subtotal, currency)} − ${fmtMoney(discountAmount, currency)} discount) · ${fmtMoney(rate, currency)}/unit`
         : `${fmtMoney(total, currency)} · ${fmtMoney(rate, currency)}/unit`,
     ];
+    const extras: string[] = [];
+    if (labourCost > 0) extras.push(`Labour ${fmtMoney(labourCost, currency)}`);
+    if (freightCost > 0) extras.push(`Freight ${fmtMoney(freightCost, currency)}`);
+    if (pending.contractorName) extras.push(`Contractor: ${pending.contractorName}`);
+    if (extras.length) lines.push(extras.join(" · "));
     warning = pending.priceWarning;
   } else if (pending.kind === "purchase") {
     const item = picked.item ?? pending.item;
@@ -334,6 +346,7 @@ function PreviewCard({ pending, picked, setPicked, currency, busy, onConfirm, on
         </p>
         <p className="mt-1 text-[15px] font-semibold text-white">{lines[0]}</p>
         {lines[1] && <p className="font-mono text-[13px] text-[#c9cdd6]">{lines[1]}</p>}
+        {lines[2] && <p className="mt-0.5 text-[12px] text-[#9a9ea8]">{lines[2]}</p>}
       </div>
 
       {warning && (

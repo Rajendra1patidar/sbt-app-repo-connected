@@ -9,17 +9,31 @@
 export interface MatchCandidate { entity: any; score: number }
 
 export type CaptureAction =
-  | { kind: "sale"; item: any; customer: any; qty: number; amount?: number; itemCandidates: MatchCandidate[]; customerCandidates: MatchCandidate[] }
-  | { kind: "sale_needs_review"; itemName: string; customerName: string; qty: number; amount?: number; item: any; customer: any }
-  | { kind: "purchase"; item: any; vendor: any; qty: number; rate?: number; itemCandidates: MatchCandidate[]; vendorCandidates: MatchCandidate[] }
+  | { kind: "sale"; item: any; customer: any; qty: number; amount?: number; rate?: number; itemCandidates: MatchCandidate[]; customerCandidates: MatchCandidate[]; priceWarning?: string }
+  | { kind: "sale_needs_review"; itemName: string; customerName: string; qty: number; amount?: number; rate?: number; item: any; customer: any }
+  | { kind: "purchase"; item: any; vendor: any; qty: number; rate?: number; itemCandidates: MatchCandidate[]; vendorCandidates: MatchCandidate[]; priceWarning?: string }
   | { kind: "purchase_needs_review"; itemName: string; vendorName: string; qty: number; rate?: number; item: any; vendor: any }
   | { kind: "payment"; customer: any; amount: number; customerCandidates: MatchCandidate[] }
   | { kind: "payment_needs_review"; customerName: string; amount: number }
+  | { kind: "expense"; category: string; amount: number; vendor?: string }
   | { kind: "new_estimate"; customer: any }
   | { kind: "add_customer"; name: string; location?: string; existing?: any }
   | { kind: "unknown"; text: string };
 
 const numFromMoney = (s?: string) => (s ? Number(s.replace(/[₹,\s]/g, "")) : undefined);
+
+/** Flags a wildly implausible per-unit rate against the item's known price,
+ *  e.g. someone meant "300 each" but the parser read "300 total" for 2 bags
+ *  and landed on ₹150/bag when cement never sells anywhere near that. Doesn't
+ *  block anything — just a warning shown on the preview card so the person
+ *  can catch a misread before confirming, not a hard validation rule (prices
+ *  do legitimately vary, discounts happen, etc). */
+function checkPriceSanity(rate: number | undefined, expected: number | undefined, unitLabel: string): string | undefined {
+  if (!rate || !expected || expected <= 0) return undefined;
+  if (rate < expected * 0.4) return `₹${rate.toLocaleString("en-IN")}/${unitLabel} looks low — usual price is ₹${expected.toLocaleString("en-IN")}/${unitLabel}. Check if the amount typed was a total, not a rate.`;
+  if (rate > expected * 2.5) return `₹${rate.toLocaleString("en-IN")}/${unitLabel} looks high — usual price is ₹${expected.toLocaleString("en-IN")}/${unitLabel}.`;
+  return undefined;
+}
 
 /** All candidates whose score is within 1 point of the best score, sorted best-first.
  *  A single exact-name match (score 3) is never treated as ambiguous, even if
@@ -68,18 +82,27 @@ export function parseCapture(raw: string, ctx: { items: any[]; customers: any[];
   }
 
   // "Sold 40 bags OPC cement to Patel Traders, 22500" / "Sold 40 OPC cement to Patel Traders"
-  m = text.match(/^sold\s+([\d.]+)\s*(?:bags?|pcs?|units?|t|tons?|kg)?\s*(.+?)\s+to\s+(.+?)(?:[,]?\s*(?:₹|\brs\.?|\binr)?\s*([\d,]+(?:\.\d+)?))?$/i);
+  // "Sold 2 bags cement to Patel Traders at 300" / "...at ₹300 each" — "at"/"@" before
+  // the number means a per-unit RATE, not the total, unlike a bare trailing number.
+  m = text.match(/^sold\s+([\d.]+)\s*(?:bags?|pcs?|units?|t|tons?|kg)?\s*(.+?)\s+to\s+(.+?)(?:\s*,?\s*(?:(at|@)\s*)?(?:₹|\brs\.?|\binr)?\s*([\d,]+(?:\.\d+)?)(?:\s*(?:each|\/\s*(?:unit|bag|pc)))?)?$/i);
   if (m) {
     const qty = Number(m[1]);
     const itemName = m[2].trim();
     const customerName = m[3].trim();
-    const amount = numFromMoney(m[4]);
+    const isRate = !!m[4];
+    const num = numFromMoney(m[5]);
+    const amount = isRate ? undefined : num;
+    const rate = isRate ? num : undefined;
     const itemCandidates = bestMatches(itemName, ctx.items, (i) => i.name);
     const customerCandidates = bestMatches(customerName, ctx.customers, (c) => c.name);
     const item = itemCandidates[0]?.entity ?? null;
     const customer = customerCandidates[0]?.entity ?? null;
-    if (item && customer) return { kind: "sale", item, customer, qty, amount, itemCandidates, customerCandidates };
-    return { kind: "sale_needs_review", itemName, customerName, qty, amount, item, customer };
+    if (item && customer) {
+      const effectiveRate = rate ?? (amount ? amount / qty : (item.sellingPrice ?? item.price));
+      const priceWarning = checkPriceSanity(effectiveRate, item.sellingPrice ?? item.price, "unit");
+      return { kind: "sale", item, customer, qty, amount, rate, itemCandidates, customerCandidates, priceWarning };
+    }
+    return { kind: "sale_needs_review", itemName, customerName, qty, amount, rate, item, customer };
   }
 
   // "Received 2t 12mm saria from Agarwal Steel, rate 45" / "Received 2 12mm saria from Agarwal Steel"
@@ -93,7 +116,11 @@ export function parseCapture(raw: string, ctx: { items: any[]; customers: any[];
     const vendorCandidates = bestMatches(vendorName, ctx.vendors, (v) => v.name);
     const item = itemCandidates[0]?.entity ?? null;
     const vendor = vendorCandidates[0]?.entity ?? null;
-    if (item && vendor) return { kind: "purchase", item, vendor, qty, rate, itemCandidates, vendorCandidates };
+    if (item && vendor) {
+      const effectiveRate = rate ?? item.purchasePrice;
+      const priceWarning = checkPriceSanity(effectiveRate, item.purchasePrice, "unit");
+      return { kind: "purchase", item, vendor, qty, rate, itemCandidates, vendorCandidates, priceWarning };
+    }
     return { kind: "purchase_needs_review", itemName, vendorName, qty, rate, item, vendor };
   }
 
@@ -106,6 +133,16 @@ export function parseCapture(raw: string, ctx: { items: any[]; customers: any[];
     const customer = customerCandidates[0]?.entity ?? null;
     if (customer && amount > 0) return { kind: "payment", customer, amount, customerCandidates };
     return { kind: "payment_needs_review", customerName, amount };
+  }
+
+  // "Logged expense of ₹500 for diesel" / "Expense ₹500 for diesel" /
+  // "Spent 500 on diesel from Shell" / "Paid ₹1200 for transport"
+  m = text.match(/^(?:logged\s+expense(?:\s+of)?|expense(?:\s+of)?|spent|paid)\s+(?:₹|\brs\.?|\binr)?\s*([\d,]+(?:\.\d+)?)\s+(?:for|on)\s+(.+?)(?:\s+(?:from|at)\s+(.+))?$/i);
+  if (m) {
+    const amount = Number(numFromMoney(m[1]));
+    const category = m[2].trim();
+    const vendor = m[3]?.trim();
+    if (amount > 0 && category) return { kind: "expense", category, amount, vendor };
   }
 
   // "New estimate for Patel Traders"
@@ -169,7 +206,7 @@ function extractNumbers(text: string, claimedDigitWords: string[]): { qty?: numb
   // misread the *next* number in the sentence as a currency amount.
   const moneyMatch = text.match(/(?:₹\s*|\brs\.?\s*|\binr\s*)([\d,]+(?:\.\d+)?)/i);
   const explicitAmount = moneyMatch ? numFromMoney(moneyMatch[1]) : undefined;
-  const rateMatch = text.match(/\brate\s*(?:₹|\brs\.?|\binr)?\s*([\d,]+(?:\.\d+)?)/i);
+  const rateMatch = text.match(/\b(?:rate|at|@)\s*(?:₹|\brs\.?|\binr)?\s*([\d,]+(?:\.\d+)?)\s*(?:each|\/\s*(?:unit|bag|pc))?/i);
   const rate = rateMatch ? numFromMoney(rateMatch[1]) : undefined;
 
   const allNums = [...text.matchAll(/\d[\d,]*(?:\.\d+)?/g)].map((mm) => mm[0]);
@@ -230,8 +267,12 @@ function parseLoose(text: string, ctx: { items: any[]; customers: any[]; vendors
     const vendor = vendorCandidates[0]?.entity ?? null;
     const itemName = item?.name ?? "that item";
     const vendorName = vendor?.name ?? "that vendor";
-    if (item && vendor) return { kind: "purchase", item, vendor, qty, rate: rate ?? amount, itemCandidates, vendorCandidates };
-    return { kind: "purchase_needs_review", itemName, vendorName, qty, rate: rate ?? amount, item, vendor };
+    const effectiveRate = rate ?? amount;
+    if (item && vendor) {
+      const priceWarning = checkPriceSanity(effectiveRate ?? item.purchasePrice, item.purchasePrice, "unit");
+      return { kind: "purchase", item, vendor, qty, rate: effectiveRate, itemCandidates, vendorCandidates, priceWarning };
+    }
+    return { kind: "purchase_needs_review", itemName, vendorName, qty, rate: effectiveRate, item, vendor };
   }
 
   // Default to a sale whenever there's an explicit sale verb, OR — for the
@@ -240,13 +281,20 @@ function parseLoose(text: string, ctx: { items: any[]; customers: any[]; vendors
   const { candidates: itemCandidates, claimedWords: itemWords } = findMentions(text, ctx.items, (i) => i.name);
   const reduced = stripWords(text, itemWords);
   const { candidates: customerCandidates } = findMentions(reduced, ctx.customers, (c) => c.name);
-  const { qty, amount } = extractNumbers(text, itemWords);
+  const { qty, amount, rate } = extractNumbers(text, itemWords);
   if (!qty || (!isSale && !itemCandidates.length)) return null;
   const item = itemCandidates[0]?.entity ?? null;
   const customer = customerCandidates[0]?.entity ?? null;
   const itemName = item?.name ?? "that item";
   const customerName = customer?.name ?? "that customer";
-  if (item && customer) return { kind: "sale", item, customer, qty, amount, itemCandidates, customerCandidates };
-  if (isSale) return { kind: "sale_needs_review", itemName, customerName, qty, amount, item, customer };
+  // an explicit "at"/"rate" number is a per-unit rate; a bare trailing number
+  // (picked up as `amount` above) is the total — don't double count both.
+  const effectiveAmount = rate ? undefined : amount;
+  if (item && customer) {
+    const effectiveRate = rate ?? (effectiveAmount ? effectiveAmount / qty : (item.sellingPrice ?? item.price));
+    const priceWarning = checkPriceSanity(effectiveRate, item.sellingPrice ?? item.price, "unit");
+    return { kind: "sale", item, customer, qty, amount: effectiveAmount, rate, itemCandidates, customerCandidates, priceWarning };
+  }
+  if (isSale) return { kind: "sale_needs_review", itemName, customerName, qty, amount: effectiveAmount, rate, item, customer };
   return null;
 }

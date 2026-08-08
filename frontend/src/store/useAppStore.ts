@@ -76,7 +76,7 @@ interface AppState {
   removeCustomer: (id: string) => void;
   saveItem: (v: any) => Promise<void>;
   removeItem: (id: string) => void;
-  saveExpense: (v: any) => Promise<void>;
+  saveExpense: (v: any) => Promise<any>;
   removeExpense: (id: string) => void;
   saveVendor: (v: any) => Promise<void>;
   removeVendor: (id: string) => void;
@@ -335,6 +335,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       set((state) => ({ expenses: [doc, ...state.expenses] }));
       showToast("Expense recorded");
       closeModal();
+      return doc;
     } catch (err) { onApiError(get, err, "Failed to record expense"); }
   },
 

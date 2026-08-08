@@ -9,13 +9,14 @@ const CHIPS = [
   { label: "Sold cement", fill: "Sold 40 bags OPC Cement to " },
   { label: "Received saria", fill: "Received 2 12mm Saria from " },
   { label: "Logged payment", fill: "Logged payment of ₹ from " },
+  { label: "Logged expense", fill: "Logged expense of ₹ for " },
   { label: "New estimate", fill: "New estimate for " },
   { label: "Add customer", fill: "Add customer " },
 ];
 
 // Kinds that get a preview-and-confirm step before anything is written.
-type PendingAction = Extract<CaptureAction, { kind: "sale" | "purchase" | "payment" | "add_customer" }>;
-const PREVIEWABLE: PendingAction["kind"][] = ["sale", "purchase", "payment", "add_customer"];
+type PendingAction = Extract<CaptureAction, { kind: "sale" | "purchase" | "payment" | "expense" | "add_customer" }>;
+const PREVIEWABLE: PendingAction["kind"][] = ["sale", "purchase", "payment", "expense", "add_customer"];
 
 /* ---- Undo helpers for the capture bar's toast ----
  * These call the API directly and patch the store's state by hand, rather
@@ -65,7 +66,14 @@ async function undoCustomer(id: string) {
   } catch { /* best-effort */ }
 }
 
-export function CaptureBar({ items, customers, vendors, currency, saveDocument, savePayment, savePurchase, saveCustomer, openModal, showToast }: any) {
+async function undoExpense(id: string) {
+  try {
+    await api.expenses.remove(id);
+    useAppStore.setState((state: any) => ({ expenses: state.expenses.filter((x: any) => x.id !== id) }));
+  } catch { /* best-effort */ }
+}
+
+export function CaptureBar({ items, customers, vendors, currency, saveDocument, savePayment, savePurchase, saveCustomer, saveExpense, openModal, showToast }: any) {
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<PendingAction | null>(null);
@@ -128,7 +136,7 @@ export function CaptureBar({ items, customers, vendors, currency, saveDocument, 
         case "sale": {
           const item = picked.item ?? pending.item;
           const customer = picked.customer ?? pending.customer;
-          const rate = pending.amount ? pending.amount / pending.qty : (item.sellingPrice ?? item.price ?? 0);
+          const rate = pending.rate ?? (pending.amount ? pending.amount / pending.qty : (item.sellingPrice ?? item.price ?? 0));
           const total = pending.amount ?? rate * pending.qty;
           const doc = await saveDocument("estimate", {
             customerId: customer.id, date: today(), dueDate: today(),
@@ -158,6 +166,11 @@ export function CaptureBar({ items, customers, vendors, currency, saveDocument, 
           if (doc?.id) showToast(`Customer "${pending.name}" added`, { undo: () => undoCustomer(doc.id), duration: 6000 });
           break;
         }
+        case "expense": {
+          const doc = await saveExpense({ category: pending.category, vendor: pending.vendor, amount: pending.amount });
+          if (doc?.id) showToast(`Expense of ${fmtMoney(pending.amount, currency)} logged`, { undo: () => undoExpense(doc.id), duration: 6000 });
+          break;
+        }
       }
       resetAll();
     } finally {
@@ -182,7 +195,7 @@ export function CaptureBar({ items, customers, vendors, currency, saveDocument, 
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-              placeholder="Sold 50 bags cement to Patel Traders, ₹22,500... or Add customer Ramesh Traders, Sarangpur Road"
+              placeholder="Sold 50 bags cement to Patel Traders at ₹450 each... or Logged expense of ₹500 for diesel"
               disabled={busy}
               className="flex-1 bg-transparent border-none outline-none text-[15px] text-[#F5F3EE] placeholder:text-[#6b6f78]"
             />
@@ -242,23 +255,30 @@ function PreviewCard({ pending, picked, setPicked, currency, busy, onConfirm, on
   let title = "";
   let lines: string[] = [];
 
+  let warning: string | undefined;
+
   if (pending.kind === "sale") {
     const item = picked.item ?? pending.item;
     const customer = picked.customer ?? pending.customer;
-    const rate = pending.amount ? pending.amount / pending.qty : (item.sellingPrice ?? item.price ?? 0);
+    const rate = pending.rate ?? (pending.amount ? pending.amount / pending.qty : (item.sellingPrice ?? item.price ?? 0));
     const total = pending.amount ?? rate * pending.qty;
     title = "New sale";
-    lines = [`${pending.qty} × ${item.name} → ${customer.name}`, fmtMoney(total, currency)];
+    lines = [`${pending.qty} × ${item.name} → ${customer.name}`, `${fmtMoney(total, currency)} · ${fmtMoney(rate, currency)}/unit`];
+    warning = pending.priceWarning;
   } else if (pending.kind === "purchase") {
     const item = picked.item ?? pending.item;
     const vendor = picked.vendor ?? pending.vendor;
     const rate = pending.rate ?? item.purchasePrice ?? 0;
     title = "New purchase";
     lines = [`${pending.qty} × ${item.name} ← ${vendor.name}`, rate ? `${fmtMoney(rate, currency)} / unit` : "Rate not specified — will use item default"];
+    warning = pending.priceWarning;
   } else if (pending.kind === "payment") {
     const customer = picked.customer ?? pending.customer;
     title = "Payment received";
     lines = [`From ${customer.name}`, fmtMoney(pending.amount, currency)];
+  } else if (pending.kind === "expense") {
+    title = "New expense";
+    lines = [pending.category, `${fmtMoney(pending.amount, currency)}${pending.vendor ? ` · ${pending.vendor}` : ""}`];
   } else if (pending.kind === "add_customer") {
     title = "New customer";
     lines = [pending.name, pending.location || "No location given"];
@@ -271,6 +291,12 @@ function PreviewCard({ pending, picked, setPicked, currency, busy, onConfirm, on
         <p className="mt-1 text-[15px] font-semibold text-white">{lines[0]}</p>
         {lines[1] && <p className="font-mono text-[13px] text-[#c9cdd6]">{lines[1]}</p>}
       </div>
+
+      {warning && (
+        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-[12px] leading-snug text-amber-300">
+          ⚠️ {warning}
+        </p>
+      )}
 
       {pending.kind === "sale" && (
         <>

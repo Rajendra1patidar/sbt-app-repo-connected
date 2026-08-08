@@ -4,11 +4,13 @@ const Vendor = require("../models/Vendor");
 
 // Configurable so the model can be swapped (Google renames/retires these
 // periodically) without a code change — see README.md "AI capture" for the
-// current recommended value. Default is Gemma 4 4B — it's free on the Gemini API
-// (open-weights, no per-token billing) and plenty for this classification-
-// sized task. Bump to gemma-4-26b-a4b-it if parse quality needs to go up,
-// or back to a gemini-* model if you need Gemini-only features.
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemma-4-4b-it";
+// current recommended value. Default is Gemma 4 26B A4B — it's free on the
+// Gemini API (open-weights, no per-token billing). Note: the smaller
+// gemma-4-4b-it isn't exposed on every API key/project — check
+// `GET /v1beta/models` for your key's actual available list before
+// assuming a given size is enabled. Bump to gemma-4-31b-it for stronger
+// reasoning, or back to a gemini-* model if you need Gemini-only features.
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemma-4-26b-a4b-it";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 const VALID_KINDS = new Set(["sale", "purchase", "payment", "expense", "unknown"]);
@@ -140,4 +142,3 @@ exports.parse = async (req, res, next) => {
     next(err);
   }
 };
-

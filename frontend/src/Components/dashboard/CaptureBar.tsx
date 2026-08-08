@@ -111,18 +111,28 @@ export function CaptureBar({ items, customers, vendors, currency, saveDocument, 
     resetAll();
   };
 
+  const NEEDS_AI_FALLBACK = new Set(["unknown", "sale_needs_review", "purchase_needs_review", "payment_needs_review"]);
+
   const submit = async () => {
     const text = value.trim();
     if (!text || busy || pending) return;
     let action = parseCapture(text, { items, customers, vendors });
-    if (action.kind === "unknown") {
-      // The regex parser has a fixed vocabulary — anything it can't confidently
-      // read falls back to the AI parser (Gemini) before giving up entirely,
-      // so unusual phrasing still has a shot at working.
+    if (NEEDS_AI_FALLBACK.has(action.kind)) {
+      // The regex parser has a fixed vocabulary and exact-ish name matching —
+      // typos, unfamiliar phrasing, or names it can't resolve land here (as a
+      // "needs_review" guess or a flat "unknown"). Try the AI parser (Gemini)
+      // before falling back to opening a blank form, so unusual phrasing or a
+      // misspelled name still has a shot at resolving correctly.
       setBusy(true);
       try {
         const { action: aiResult } = await api.capture.parse(text);
-        action = actionFromAiResult(aiResult, { items, customers, vendors });
+        const resolved = actionFromAiResult(aiResult, { items, customers, vendors });
+        // Keep the AI's read whenever it managed to produce anything at all —
+        // even a "needs_review" from AI usually has a better fuzzy-matched
+        // guess at the name than the regex parser's stricter matching did.
+        // Only fall back to the regex parser's own guess if AI drew a total
+        // blank too.
+        if (resolved.kind !== "unknown") action = resolved;
       } catch (err: any) {
         showToast(err?.message || "Couldn't parse that — try one of the examples below.");
         setBusy(false);

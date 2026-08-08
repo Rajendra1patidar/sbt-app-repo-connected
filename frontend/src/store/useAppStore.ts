@@ -72,7 +72,7 @@ interface AppState {
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
 
-  saveCustomer: (v: any) => Promise<void>;
+  saveCustomer: (v: any) => Promise<any>;
   removeCustomer: (id: string) => void;
   saveItem: (v: any) => Promise<void>;
   removeItem: (id: string) => void;
@@ -80,15 +80,15 @@ interface AppState {
   removeExpense: (id: string) => void;
   saveVendor: (v: any) => Promise<void>;
   removeVendor: (id: string) => void;
-  savePurchase: (v: any) => Promise<void>;
+  savePurchase: (v: any) => Promise<any>;
   removePurchase: (id: string) => void;
   saveVendorPayment: (v: any) => Promise<void>;
   savePurchasePayment: (v: any) => Promise<void>;
-  saveDocument: (type: string, v: any) => Promise<void>;
+  saveDocument: (type: string, v: any) => Promise<any>;
   removeDoc: (type: string, id: string) => void;
   restoreDoc: (id: string) => Promise<void>;
   updateDocStatus: (type: string, id: string, s: string) => Promise<void>;
-  savePayment: (v: any) => Promise<void>;
+  savePayment: (v: any) => Promise<any>;
   savePaymentSplit: (v: { customerId: string; date?: string; method?: string; allocations: { invoiceId: string; amount: number }[]; advanceAmount?: number }) => Promise<void>;
   saveReturn: (docId: string, lines: { itemId: string; qty: number }[]) => Promise<void>;
   saveDelivery: (docId: string, lines: { itemId: string; qty: number }[]) => Promise<void>;
@@ -269,12 +269,15 @@ export const useAppStore = create<AppState>()((set, get) => ({
         const doc = await api.customers.update(id, updateFields);
         set((state) => ({ customers: state.customers.map((x) => (x.id === id ? doc : x)) }));
         showToast("Customer updated");
+        closeModal();
+        return doc;
       } else {
         const doc = await api.customers.create(payload);
         set((state) => ({ customers: [doc, ...state.customers] }));
         showToast("Customer added");
+        closeModal();
+        return doc;
       }
-      closeModal();
     } catch (err) { onApiError(get, err, "Failed to save customer"); }
   },
 
@@ -375,6 +378,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       showToast("Purchase recorded");
       closeModal();
       refreshReorderSuggestions();
+      return purchase;
     } catch (err) { onApiError(get, err, "Failed to record purchase"); }
   },
 
@@ -490,6 +494,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
         showToast(`${doc.number} created`);
       }
       closeModal();
+      return doc;
     } catch (err) { onApiError(get, err, "Failed to save document"); }
   },
 
@@ -565,6 +570,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
         : "Advance payment recorded";
       showToast(toastMessage);
       closeModal();
+      return payment;
     } catch (err) { onApiError(get, err, "Failed to record payment"); }
   },
 

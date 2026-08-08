@@ -2,6 +2,8 @@ import React, { useRef, useState } from "react";
 import { ArrowUp, Check, X } from "lucide-react";
 import { parseCapture, CaptureAction, MatchCandidate } from "../../lib/captureParser";
 import { fmtMoney, today } from "../../lib/format";
+import { api } from "../../lib/api";
+import { useAppStore } from "../../store/useAppStore";
 
 const CHIPS = [
   { label: "Sold cement", fill: "Sold 40 bags OPC Cement to " },
@@ -14,6 +16,54 @@ const CHIPS = [
 // Kinds that get a preview-and-confirm step before anything is written.
 type PendingAction = Extract<CaptureAction, { kind: "sale" | "purchase" | "payment" | "add_customer" }>;
 const PREVIEWABLE: PendingAction["kind"][] = ["sale", "purchase", "payment", "add_customer"];
+
+/* ---- Undo helpers for the capture bar's toast ----
+ * These call the API directly and patch the store's state by hand, rather
+ * than going through removeDoc/removePurchase/removePayment/removeCustomer —
+ * those go through confirmThenDelete (a confirmation modal) and/or their own
+ * 5s optimistic-delete-with-undo window, which is the right UX for a
+ * deliberate delete elsewhere in the app but wrong here: this is a single
+ * "oops, undo that" click within the capture bar's own toast window right
+ * after creation, so it should just happen — no second confirmation, no
+ * second undo-of-the-undo. Best-effort: if the delete call fails, the
+ * record simply stays, same as if any other delete failed. */
+
+async function undoEstimate(id: string) {
+  try {
+    const result = await api.documents("estimate").remove(id);
+    useAppStore.setState((state: any) => ({
+      estimates: state.estimates.map((x: any) => (x.id === id ? result.doc : x)),
+      items: result.items || state.items,
+    }));
+  } catch { /* best-effort */ }
+}
+
+async function undoPurchase(id: string) {
+  try {
+    await api.purchases.remove(id);
+    useAppStore.setState((state: any) => ({
+      purchases: state.purchases.filter((x: any) => x.id !== id),
+      orders: state.orders.filter((x: any) => x.id !== id),
+    }));
+  } catch { /* best-effort */ }
+}
+
+async function undoPayment(id: string) {
+  try {
+    const result = await api.payments.remove(id);
+    useAppStore.setState((state: any) => ({
+      payments: state.payments.filter((x: any) => x.id !== id),
+      estimates: result?.invoice ? state.estimates.map((x: any) => (x.id === result.invoice.id ? result.invoice : x)) : state.estimates,
+    }));
+  } catch { /* best-effort */ }
+}
+
+async function undoCustomer(id: string) {
+  try {
+    await api.customers.remove(id);
+    useAppStore.setState((state: any) => ({ customers: state.customers.filter((x: any) => x.id !== id) }));
+  } catch { /* best-effort */ }
+}
 
 export function CaptureBar({ items, customers, vendors, currency, saveDocument, savePayment, savePurchase, saveCustomer, openModal, showToast }: any) {
   const [value, setValue] = useState("");
@@ -80,30 +130,32 @@ export function CaptureBar({ items, customers, vendors, currency, saveDocument, 
           const customer = picked.customer ?? pending.customer;
           const rate = pending.amount ? pending.amount / pending.qty : (item.sellingPrice ?? item.price ?? 0);
           const total = pending.amount ?? rate * pending.qty;
-          await saveDocument("estimate", {
+          const doc = await saveDocument("estimate", {
             customerId: customer.id, date: today(), dueDate: today(),
             lines: [{ itemId: item.id, qty: pending.qty, rate }], total, status: "Due",
           });
-          showToast(`Estimate created for ${customer.name} · ${fmtMoney(total, currency)}`);
+          showToast(`Estimate created for ${customer.name} · ${fmtMoney(total, currency)}`, doc?.id ? { undo: () => undoEstimate(doc.id), duration: 6000 } : undefined);
           break;
         }
         case "purchase": {
           const item = picked.item ?? pending.item;
           const vendor = picked.vendor ?? pending.vendor;
           const rate = pending.rate ?? item.purchasePrice ?? 0;
-          await savePurchase({ vendorId: vendor.id, itemId: item.id, qty: pending.qty, rate, date: today() });
-          showToast(`Purchase recorded from ${vendor.name}`);
+          const doc = await savePurchase({ vendorId: vendor.id, itemId: item.id, qty: pending.qty, rate, date: today() });
+          showToast(`Purchase recorded from ${vendor.name}`, doc?.id ? { undo: () => undoPurchase(doc.id), duration: 6000 } : undefined);
           break;
         }
         case "payment": {
           const customer = picked.customer ?? pending.customer;
-          await savePayment({ customerId: customer.id, amount: pending.amount, date: today(), method: "Cash" });
-          showToast(`Payment of ${fmtMoney(pending.amount, currency)} logged for ${customer.name}`);
+          const doc = await savePayment({ customerId: customer.id, amount: pending.amount, date: today(), method: "Cash" });
+          showToast(`Payment of ${fmtMoney(pending.amount, currency)} logged for ${customer.name}`, doc?.id ? { undo: () => undoPayment(doc.id), duration: 6000 } : undefined);
           break;
         }
         case "add_customer": {
-          await saveCustomer({ name: pending.name, location: pending.location || "" });
-          showToast(`Customer "${pending.name}" added`);
+          const doc = await saveCustomer({ name: pending.name, location: pending.location || "" });
+          // saveCustomer can return undefined (e.g. its own duplicate-name-and-phone
+          // check) and already shows its own toast in that case — don't stomp it.
+          if (doc?.id) showToast(`Customer "${pending.name}" added`, { undo: () => undoCustomer(doc.id), duration: 6000 });
           break;
         }
       }

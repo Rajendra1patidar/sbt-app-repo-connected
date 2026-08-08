@@ -13,7 +13,7 @@ const Vendor = require("../models/Vendor");
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemma-4-26b-a4b-it";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
-const VALID_KINDS = new Set(["sale", "purchase", "payment", "expense", "unknown"]);
+const VALID_KINDS = new Set(["sale", "purchase", "payment", "return", "expense", "unknown"]);
 
 // Gemma 4 supports response_mime_type but (unlike Gemini) only reliably
 // skips its own reasoning preamble and emits raw JSON when a full
@@ -23,7 +23,7 @@ const VALID_KINDS = new Set(["sale", "purchase", "payment", "expense", "unknown"
 const CAPTURE_SCHEMA = {
   type: "object",
   properties: {
-    kind: { type: "string", enum: ["sale", "purchase", "payment", "expense", "unknown"] },
+    kind: { type: "string", enum: ["sale", "purchase", "payment", "return", "expense", "unknown"] },
     itemId: { type: "string", nullable: true },
     itemName: { type: "string", nullable: true },
     customerId: { type: "string", nullable: true },
@@ -62,18 +62,20 @@ Return JSON matching exactly ONE of these shapes, based on what the note describ
 {"kind":"sale","itemId":<id string or null>,"itemName":<string>,"customerId":<id string or null>,"customerName":<string>,"qty":<number>,"rate":<number or null>,"amount":<number or null>,"discountAmount":<number or null>,"labourCost":<number or null>,"freightCost":<number or null>,"contractorName":<string or null>}
 {"kind":"purchase","itemId":<id string or null>,"itemName":<string>,"vendorId":<id string or null>,"vendorName":<string>,"qty":<number>,"rate":<number or null>}
 {"kind":"payment","customerId":<id string or null>,"customerName":<string>,"amount":<number>}
+{"kind":"return","itemId":<id string or null>,"itemName":<string>,"customerId":<id string or null>,"customerName":<string>,"qty":<number>}
 {"kind":"expense","category":<short string>,"amount":<number>,"vendor":<string or null>}
 {"kind":"unknown"}
 
 Rules:
 - Only fill an id when you're genuinely confident it's that exact known item/customer/vendor — fuzzy spelling, typos, and Hindi-English mixed names are fine to match, but a name with no real match in the lists above must get id: null. Never invent an id.
 - An item mention may reference its brand instead of (or alongside) its name — e.g. "kamdhenu 10mm" should match an item whose brand column is "Kamdhenu" and name is "10mm ..." even though the words aren't in that order. Match on the combination of name and brand together.
+- "return" is when the customer is giving goods BACK — signalled by "return", "returned", "return kar diya", "wapas". This is the opposite direction of a sale; never confuse a return with a fresh sale even if phrased similarly. The actual estimate/refund lookup happens elsewhere — you only need to resolve which item and which customer, plus the quantity being returned.
 - "rate" is a PER-UNIT price, signalled by words like "at", "@", "each", "/bag", "/unit". A bare trailing number with none of those words is the TOTAL "amount" instead — never fill both rate and amount from the same number.
 - "discountAmount" is a FLAT rupee amount taken off the item line's own subtotal (qty × rate), signalled by words like "discount", "less", "off", "chhoot", "kam kiya". Never subtract it yourself from rate or amount — return it as its own field, unadjusted.
 - "labourCost" and "freightCost" are FLAT rupee charges added to the whole estimate on top of the item line(s) — not per unit, not part of the item's rate. "labourCost" is signalled by "labour cost", "labour", "majdoori". "freightCost" is signalled by "freight" (note: often misspelled "fright" or "frieght" — treat those the same), "transport", "bhada".
 - "contractorName" is a person or firm associated with the estimate as a contractor, distinct from the customer — signalled by phrasing like "for <name> contractor", "contractor <name>", "<name> ka contractor". Only fill it when the note clearly names one; otherwise null. Never confuse the contractor with the customer even if the contractor is mentioned right after the customer's name.
 - discountAmount, labourCost, and freightCost only ever apply to a sale — leave them null on purchase/payment/expense.
-- If the note doesn't clearly describe a sale, purchase, payment, or expense, return {"kind":"unknown"} rather than guessing.
+- If the note doesn't clearly describe a sale, purchase, payment, return, or expense, return {"kind":"unknown"} rather than guessing.
 - qty, amount, rate, discountAmount, labourCost, and freightCost must be plain numbers with no currency symbols, commas, or units attached.`;
 }
 

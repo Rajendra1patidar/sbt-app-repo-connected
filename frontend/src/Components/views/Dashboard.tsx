@@ -12,7 +12,7 @@ import { ContractorPodium } from "../dashboard/ContractorPodium";
 
 /* ---- Dashboard ---- */
 
-export function Dashboard({ data, settings, openModal, go, reorderSuggestions, saveDocument, savePayment, savePurchase, saveCustomer, saveExpense, showToast }: any) {
+export function Dashboard({ data, settings, openModal, go, reorderSuggestions, saveDocument, savePayment, savePurchase, saveCustomer, saveExpense, saveReturn, showToast }: any) {
   const { customers, estimates, expenses, items, payments, purchases, vendors } = data;
   const [tab, setTab] = useState("estimates");
   const outstanding = round2(estimates.filter((i: any) => i.status !== "Paid").reduce((s: number, i: any) => s + (Number(i.total || 0) - Number(i.amountPaid || 0)), 0));
@@ -79,8 +79,8 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
       </div>
 
       <CaptureBar
-        items={items} customers={customers} vendors={vendors} currency={settings.currency}
-        saveDocument={saveDocument} savePayment={savePayment} savePurchase={savePurchase} saveCustomer={saveCustomer} saveExpense={saveExpense}
+        items={items} customers={customers} vendors={vendors} estimates={estimates} currency={settings.currency}
+        saveDocument={saveDocument} savePayment={savePayment} savePurchase={savePurchase} saveCustomer={saveCustomer} saveExpense={saveExpense} saveReturn={saveReturn}
         openModal={openModal} showToast={showToast}
       />
 

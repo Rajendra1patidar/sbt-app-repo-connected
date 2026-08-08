@@ -9,14 +9,15 @@ const CHIPS = [
   { label: "Sold cement", fill: "Sold 40 bags OPC Cement to " },
   { label: "Received saria", fill: "Received 2 12mm Saria from " },
   { label: "Logged payment", fill: "Logged payment of ₹ from " },
+  { label: "Log return", fill: "Returned 2 12mm Saria from " },
   { label: "Logged expense", fill: "Logged expense of ₹ for " },
   { label: "New estimate", fill: "New estimate for " },
   { label: "Add customer", fill: "Add customer " },
 ];
 
 // Kinds that get a preview-and-confirm step before anything is written.
-type PendingAction = Extract<CaptureAction, { kind: "sale" | "purchase" | "payment" | "expense" | "add_customer" }>;
-const PREVIEWABLE: PendingAction["kind"][] = ["sale", "purchase", "payment", "expense", "add_customer"];
+type PendingAction = Extract<CaptureAction, { kind: "sale" | "purchase" | "payment" | "return" | "expense" | "add_customer" }>;
+const PREVIEWABLE: PendingAction["kind"][] = ["sale", "purchase", "payment", "return", "expense", "add_customer"];
 
 /* ---- Undo helpers for the capture bar's toast ----
  * These call the API directly and patch the store's state by hand, rather
@@ -73,12 +74,12 @@ async function undoExpense(id: string) {
   } catch { /* best-effort */ }
 }
 
-export function CaptureBar({ items, customers, vendors, currency, saveDocument, savePayment, savePurchase, saveCustomer, saveExpense, openModal, showToast }: any) {
+export function CaptureBar({ items, customers, vendors, estimates, currency, saveDocument, savePayment, savePurchase, saveCustomer, saveExpense, saveReturn, openModal, showToast }: any) {
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<PendingAction | null>(null);
   // User's picks when a name matched more than one record — keyed by entity type.
-  const [picked, setPicked] = useState<{ item?: any; customer?: any; vendor?: any }>({});
+  const [picked, setPicked] = useState<{ item?: any; customer?: any; vendor?: any; doc?: any }>({});
   const inputRef = useRef<HTMLInputElement>(null);
 
   const fill = (text: string) => {
@@ -105,18 +106,25 @@ export function CaptureBar({ items, customers, vendors, currency, saveDocument, 
         showToast(`Couldn't find a customer matching "${action.customerName}" — opening Payments`);
         openModal("payment");
         break;
+      case "return_needs_review":
+        showToast(
+          !action.item ? `Couldn't find an item matching "${action.itemName}" — open the customer's estimate to log the return manually.`
+          : !action.customer ? `Couldn't find a customer matching "${action.customerName}" — open the customer's estimate to log the return manually.`
+          : `No returnable "${action.item.name}" found on an estimate for ${action.customer.name} — open that estimate to log the return manually.`
+        );
+        break;
       default:
         showToast("Couldn't quite parse that — try one of the examples below, or use + New.");
     }
     resetAll();
   };
 
-  const NEEDS_AI_FALLBACK = new Set(["unknown", "sale_needs_review", "purchase_needs_review", "payment_needs_review"]);
+  const NEEDS_AI_FALLBACK = new Set(["unknown", "sale_needs_review", "purchase_needs_review", "payment_needs_review", "return_needs_review"]);
 
   const submit = async () => {
     const text = value.trim();
     if (!text || busy || pending) return;
-    let action = parseCapture(text, { items, customers, vendors });
+    let action = parseCapture(text, { items, customers, vendors, estimates });
     if (NEEDS_AI_FALLBACK.has(action.kind)) {
       // The regex parser has a fixed vocabulary and exact-ish name matching —
       // typos, unfamiliar phrasing, or names it can't resolve land here (as a
@@ -126,7 +134,7 @@ export function CaptureBar({ items, customers, vendors, currency, saveDocument, 
       setBusy(true);
       try {
         const { action: aiResult } = await api.capture.parse(text);
-        const resolved = actionFromAiResult(aiResult, { items, customers, vendors });
+        const resolved = actionFromAiResult(aiResult, { items, customers, vendors, estimates });
         // Keep the AI's read whenever it managed to produce anything at all —
         // even a "needs_review" from AI usually has a better fuzzy-matched
         // guess at the name than the regex parser's stricter matching did.
@@ -192,6 +200,13 @@ export function CaptureBar({ items, customers, vendors, currency, saveDocument, 
           const customer = picked.customer ?? pending.customer;
           const doc = await savePayment({ customerId: customer.id, amount: pending.amount, date: today(), method: "Cash" });
           showToast(`Payment of ${fmtMoney(pending.amount, currency)} logged for ${customer.name}`, doc?.id ? { undo: () => undoPayment(doc.id), duration: 6000 } : undefined);
+          break;
+        }
+        case "return": {
+          const item = picked.item ?? pending.item;
+          const doc = picked.doc ?? pending.doc;
+          await saveReturn(doc.id, [{ itemId: item.id, qty: pending.qty }]);
+          showToast(`Return of ${pending.qty} × ${item.name} recorded against ${doc.number}`, { duration: 6000 });
           break;
         }
         case "add_customer": {
@@ -325,6 +340,16 @@ function PreviewCard({ pending, picked, setPicked, currency, busy, onConfirm, on
     const customer = picked.customer ?? pending.customer;
     title = "Payment received";
     lines = [`From ${customer.name}`, fmtMoney(pending.amount, currency)];
+  } else if (pending.kind === "return") {
+    const item = picked.item ?? pending.item;
+    const doc = picked.doc ?? pending.doc;
+    const line = (doc.lines || []).find((l: any) => l.itemId === item.id);
+    const refund = (line?.rate || 0) * pending.qty;
+    title = "Return items";
+    lines = [
+      `${pending.qty} × ${item.name} ← ${pending.customer.name}`,
+      `${doc.number}${refund > 0 ? ` · Refund ${fmtMoney(refund, currency)}` : ""}`,
+    ];
   } else if (pending.kind === "expense") {
     title = "New expense";
     lines = [pending.category, `${fmtMoney(pending.amount, currency)}${pending.vendor ? ` · ${pending.vendor}` : ""}`];
@@ -369,6 +394,12 @@ function PreviewCard({ pending, picked, setPicked, currency, busy, onConfirm, on
       )}
       {pending.kind === "payment" && (
         <CandidatePicker label="customer" candidates={pending.customerCandidates} selected={picked.customer} nameOf={(e) => e.name} onPick={(e) => setPicked((p: any) => ({ ...p, customer: e }))} />
+      )}
+      {pending.kind === "return" && (
+        <>
+          <CandidatePicker label="item" candidates={pending.itemCandidates} selected={picked.item} nameOf={(e) => e.brand ? `${e.name} (${e.brand})` : e.name} onPick={(e) => setPicked((p: any) => ({ ...p, item: e }))} />
+          <CandidatePicker label="estimate" candidates={pending.docCandidates} selected={picked.doc} nameOf={(e) => e.number} onPick={(e) => setPicked((p: any) => ({ ...p, doc: e }))} />
+        </>
       )}
 
       <div className="relative flex gap-2 pt-0.5">

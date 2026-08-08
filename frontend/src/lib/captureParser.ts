@@ -15,6 +15,8 @@ export type CaptureAction =
   | { kind: "purchase_needs_review"; itemName: string; vendorName: string; qty: number; rate?: number; item: any; vendor: any; source?: "ai" }
   | { kind: "payment"; customer: any; amount: number; customerCandidates: MatchCandidate[]; source?: "ai" }
   | { kind: "payment_needs_review"; customerName: string; amount: number; source?: "ai" }
+  | { kind: "return"; doc: any; item: any; qty: number; customer: any; docCandidates: MatchCandidate[]; itemCandidates: MatchCandidate[] }
+  | { kind: "return_needs_review"; itemName: string; customerName: string; qty: number; item: any; customer: any; doc: any }
   | { kind: "expense"; category: string; amount: number; vendor?: string; source?: "ai" }
   | { kind: "new_estimate"; customer: any }
   | { kind: "add_customer"; name: string; location?: string; existing?: any }
@@ -26,6 +28,28 @@ const numFromMoney = (s?: string) => (s ? Number(s.replace(/[₹,\s]/g, "")) : u
  *  "kamdhenu saria") can find the item even if "Kamdhenu" isn't part of the
  *  item's own name field. */
 const itemLabel = (i: any) => [i.name, i.brand].filter(Boolean).join(" ");
+
+/** Estimates belonging to a customer that still have returnable qty of a
+ *  given item — most recent first. "Returnable" = line qty minus whatever's
+ *  already in doc.returns for that item. Used to resolve a capture-bar
+ *  "returned X <item> from <customer>" line without the person having to
+ *  open the specific estimate manually. */
+function returnableEstimates(customer: any, item: any, estimates: any[]): MatchCandidate[] {
+  if (!customer || !item || !estimates?.length) return [];
+  const matches: { doc: any; returnableQty: number }[] = [];
+  for (const doc of estimates) {
+    if (doc.customerId !== customer.id) continue;
+    const line = (doc.lines || []).find((l: any) => l.itemId === item.id);
+    if (!line) continue;
+    const alreadyReturned = (doc.returns || [])
+      .filter((r: any) => r.itemId === item.id)
+      .reduce((s: number, r: any) => s + Number(r.qty || 0), 0);
+    const returnableQty = Number(line.qty || 0) - alreadyReturned;
+    if (returnableQty > 0) matches.push({ doc, returnableQty });
+  }
+  matches.sort((a, b) => new Date(b.doc.date || 0).getTime() - new Date(a.doc.date || 0).getTime());
+  return matches.map((m) => ({ entity: m.doc, score: m.returnableQty }));
+}
 
 /** Flags a wildly implausible per-unit rate against the item's known price,
  *  e.g. someone meant "300 each" but the parser read "300 total" for 2 bags
@@ -45,7 +69,7 @@ export function checkPriceSanity(rate: number | undefined, expected: number | un
  *  itself against the same owner's data, so this side just needs to look
  *  those ids up in the store's already-loaded lists. */
 export interface AiCaptureResult {
-  kind: "sale" | "purchase" | "payment" | "expense" | "unknown";
+  kind: "sale" | "purchase" | "payment" | "return" | "expense" | "unknown";
   itemId?: string | null; itemName?: string;
   customerId?: string | null; customerName?: string;
   vendorId?: string | null; vendorName?: string;
@@ -59,7 +83,7 @@ export interface AiCaptureResult {
  *  parser produces, so the capture bar's preview/confirm/undo UI doesn't
  *  need to know or care which path produced it. A missing/unmatched id
  *  falls back to the same "_needs_review" flow as a regex miss. */
-export function actionFromAiResult(result: AiCaptureResult | null | undefined, ctx: { items: any[]; customers: any[]; vendors: any[] }): CaptureAction {
+export function actionFromAiResult(result: AiCaptureResult | null | undefined, ctx: { items: any[]; customers: any[]; vendors: any[]; estimates?: any[] }): CaptureAction {
   const findById = (id: string | null | undefined, pool: any[]) => (id ? pool.find((x) => x.id === id) ?? null : null);
   if (!result || result.kind === "unknown") return { kind: "unknown", text: "" };
 
@@ -101,6 +125,20 @@ export function actionFromAiResult(result: AiCaptureResult | null | undefined, c
     return { kind: "payment_needs_review", customerName: result.customerName || "that customer", amount, source: "ai" };
   }
 
+  if (result.kind === "return") {
+    const item = findById(result.itemId, ctx.items);
+    const customer = findById(result.customerId, ctx.customers);
+    const qty = Number(result.qty) || 0;
+    const itemName = result.itemName || "that item";
+    const customerName = result.customerName || "that customer";
+    if (item && customer && qty > 0) {
+      const docCandidates = returnableEstimates(customer, item, ctx.estimates || []);
+      const doc = docCandidates[0]?.entity ?? null;
+      if (doc) return { kind: "return", doc, item, qty, customer, docCandidates, itemCandidates: [{ entity: item, score: 3 }] };
+    }
+    return { kind: "return_needs_review", itemName, customerName, qty, item, customer, doc: null };
+  }
+
   if (result.kind === "expense") {
     const amount = Number(result.amount) || 0;
     const category = (result.category || "").trim();
@@ -137,7 +175,7 @@ function bestMatch(name: string, pool: any[], keyFn: (x: any) => string): any {
   return bestMatches(name, pool, keyFn)[0]?.entity ?? null;
 }
 
-export function parseCapture(raw: string, ctx: { items: any[]; customers: any[]; vendors: any[] }): CaptureAction {
+export function parseCapture(raw: string, ctx: { items: any[]; customers: any[]; vendors: any[]; estimates?: any[] }): CaptureAction {
   const text = raw.trim();
   if (!text) return { kind: "unknown", text };
 
@@ -198,6 +236,25 @@ export function parseCapture(raw: string, ctx: { items: any[]; customers: any[];
     }
     return { kind: "purchase_needs_review", itemName, vendorName, qty, rate, item, vendor };
   }
+
+  // "Returned 5 pcs 110mm Y Tee from Ashish" / "Return 2 12mm Saria for Patel Traders"
+  m = text.match(/^returned?\s+([\d.]+)\s*(?:bags?|pcs?|units?|t|tons?|kg)?\s*(.+?)\s+(?:from|for)\s+(.+)$/i);
+  if (m) {
+    const qty = Number(m[1]);
+    const itemName = m[2].trim();
+    const customerName = m[3].trim();
+    const itemCandidates = bestMatches(itemName, ctx.items, itemLabel);
+    const customerCandidates = bestMatches(customerName, ctx.customers, (c) => c.name);
+    const item = itemCandidates[0]?.entity ?? null;
+    const customer = customerCandidates[0]?.entity ?? null;
+    if (item && customer) {
+      const docCandidates = returnableEstimates(customer, item, ctx.estimates || []);
+      const doc = docCandidates[0]?.entity ?? null;
+      if (doc) return { kind: "return", doc, item, qty, customer, docCandidates, itemCandidates };
+    }
+    return { kind: "return_needs_review", itemName, customerName, qty, item, customer, doc: null };
+  }
+
 
   // "Logged payment of ₹5000 from Patel Traders"
   m = text.match(/^logged\s+payment\s+of\s+(?:₹|\brs\.?|\binr)?\s*([\d,]+(?:\.\d+)?)\s+from\s+(.+)$/i);
@@ -335,6 +392,7 @@ const SALE_VERBS = /\b(sold|sell|billed|bill|gave|give|invoiced)\b/i;
 const PURCHASE_VERBS = /\b(bought|buy|purchased|purchase)\b/i;
 const PAYMENT_HINTS = /\b(payment|paid|collected|receipt)\b/i;
 const RECEIVED_VERB = /\breceived\b/i;
+const RETURN_VERB = /\breturn(?:ed)?\b/i;
 
 /** Fallback for phrasing the strict patterns above don't cover — different
  *  word order, missing connector words, dashes instead of "to"/"from", or
@@ -342,10 +400,11 @@ const RECEIVED_VERB = /\breceived\b/i;
  *  "the item" and "the party" from arbitrary phrasing, this scans the raw
  *  text for known item/customer/vendor names directly (see findMentions),
  *  which is far more robust once real records exist to match against. */
-function parseLoose(text: string, ctx: { items: any[]; customers: any[]; vendors: any[] }): CaptureAction | null {
+function parseLoose(text: string, ctx: { items: any[]; customers: any[]; vendors: any[]; estimates?: any[] }): CaptureAction | null {
   const isPayment = PAYMENT_HINTS.test(text);
-  const isPurchase = !isPayment && (PURCHASE_VERBS.test(text) || (RECEIVED_VERB.test(text) && /\bfrom\b/i.test(text)));
-  const isSale = !isPayment && !isPurchase && SALE_VERBS.test(text);
+  const isReturn = !isPayment && RETURN_VERB.test(text);
+  const isPurchase = !isPayment && !isReturn && (PURCHASE_VERBS.test(text) || (RECEIVED_VERB.test(text) && /\bfrom\b/i.test(text)));
+  const isSale = !isPayment && !isReturn && !isPurchase && SALE_VERBS.test(text);
 
   if (isPayment) {
     const { candidates: customerCandidates } = findMentions(text, ctx.customers, (c) => c.name);
@@ -354,7 +413,25 @@ function parseLoose(text: string, ctx: { items: any[]; customers: any[]; vendors
     const customer = customerCandidates[0]?.entity ?? null;
     if (customer && amount && amount > 0) return { kind: "payment", customer, amount, customerCandidates };
     if (amount && amount > 0) return { kind: "payment_needs_review", customerName, amount };
-    return null;
+    return null
+  }
+
+  if (isReturn) {
+    const { candidates: itemCandidates, claimedWords: itemWords } = findMentions(text, ctx.items, itemLabel);
+    const reduced = stripWords(text, itemWords);
+    const { candidates: customerCandidates } = findMentions(reduced, ctx.customers, (c) => c.name);
+    const { qty } = extractNumbers(text, itemWords);
+    const item = itemCandidates[0]?.entity ?? null;
+    const customer = customerCandidates[0]?.entity ?? null;
+    const itemName = item?.name ?? "that item";
+    const customerName = customer?.name ?? "that customer";
+    if (!qty) return null;
+    if (item && customer) {
+      const docCandidates = returnableEstimates(customer, item, ctx.estimates || []);
+      const doc = docCandidates[0]?.entity ?? null;
+      if (doc) return { kind: "return", doc, item, qty, customer, docCandidates, itemCandidates };
+    }
+    return { kind: "return_needs_review", itemName, customerName, qty, item, customer, doc: null };
   }
 
   if (isPurchase) {

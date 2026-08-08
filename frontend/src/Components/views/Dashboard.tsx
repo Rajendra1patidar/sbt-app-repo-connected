@@ -6,6 +6,7 @@ import { fmtDate, fmtMoney, fmtNum, today, round2 } from "../../lib/format";
 import { CaptureBar } from "../dashboard/CaptureBar";
 import { BalanceBeam } from "../dashboard/BalanceBeam";
 import { ActivityRiver } from "../dashboard/ActivityRiver";
+import { AlertStrip, buildDashboardAlerts } from "../dashboard/AlertStrip";
 
 /* ---- Dashboard ---- */
 
@@ -67,6 +68,8 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
 
   return (
     <div className="space-y-5 px-5 pb-28">
+      <AlertStrip alerts={buildDashboardAlerts({ lowStockItems, overdueEstimates, overdueAmount, payable, currency: settings.currency, go })} />
+
       <div className="pt-1">
         <h1 className="font-display text-2xl font-semibold text-ink">Welcome, {settings.ownerName}</h1>
         <p className="text-sm text-ink/40">Here's where the business stands today</p>

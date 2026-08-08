@@ -20,6 +20,9 @@ export default {
         line: themeColor("--color-line"),
         card: themeColor("--color-card"),
         sidebar: themeColor("--color-sidebar"),
+        sidebarText: themeColor("--color-sidebar-text"),
+        sidebarLine: themeColor("--color-sidebar-line"),
+        sidebarHeading: themeColor("--color-sidebar-heading"),
         brand: {
           50: "#EAF1FB", 100: "#D3E3F7", 200: "#A8C7EF", 300: "#78A6E3",
           400: "#4C86D6", 500: "#2F5AA8", 600: "#22437F", 700: "#1B3563",

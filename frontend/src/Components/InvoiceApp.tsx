@@ -161,7 +161,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
           onSelectCustomer={(id: string) => navigate(`/customers/${id}`)} />
       } />
       <Route path="/customers/:customerId" element={<CustomerDetailRoute />} />
-      <Route path="/items" element={<ItemsView items={items} categories={itemCategories} openModal={openModal} currency={settings.currency} removeItem={removeItem} />} />
+      <Route path="/items" element={<ItemsView items={items} categories={itemCategories} openModal={openModal} currency={settings.currency} removeItem={removeItem} purchases={purchases} estimates={activeEstimates} />} />
       <Route path="/orders" element={<OrdersView orders={orders} items={items} vendors={vendors} categories={itemCategories} currency={settings.currency} openModal={openModal} payOrder={payOrder} removeOrder={removeOrder} />} />
       <Route path="/vendors" element={<VendorsView vendors={vendors} purchases={purchases} currency={settings.currency} openModal={openModal} removeVendor={removeVendor} />} />
       <Route path="/purchases" element={<PurchasesView purchases={purchases} vendors={vendors} items={items} currency={settings.currency} openModal={openModal} removePurchase={removePurchase} />} />
@@ -371,7 +371,8 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 
   return (
     <div className="flex h-screen bg-paper font-sans text-ink">
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} active={view} onNav={goToView} settings={settings} onSignOut={onSignOut} />
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} active={view} onNav={goToView} settings={settings} onSignOut={onSignOut}
+        estimates={activeEstimates} items={items} overdueCount={overdueCount} />
       <div className="flex-1 overflow-y-auto pb-24 md:pb-0">
         <Topbar onMenu={() => setSidebarOpen(true)} settings={settings} view={view} onOpenSearch={() => setGlobalSearchOpen(true)} />
         {routes}

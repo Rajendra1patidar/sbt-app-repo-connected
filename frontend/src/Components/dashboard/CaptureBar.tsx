@@ -96,7 +96,7 @@ export function CaptureBar({ items, customers, vendors, saveDocument, savePaymen
   };
 
   return (
-    <div className="relative overflow-hidden rounded-card bg-ink p-5 flex flex-col gap-3.5 shadow-card">
+    <div className="relative overflow-hidden rounded-card bg-sidebar p-5 flex flex-col gap-3.5 shadow-card">
       <div className="pointer-events-none absolute inset-0 opacity-60" style={{ background: "radial-gradient(480px 120px at 15% 0%, rgba(217,80,15,0.16), transparent 70%)" }} />
       <div className="relative flex items-center gap-3">
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#20242c] border border-[#333844] text-white/80">

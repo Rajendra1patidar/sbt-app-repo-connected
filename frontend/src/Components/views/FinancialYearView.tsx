@@ -88,7 +88,7 @@ export function FinancialYearView({ currency }: any) {
         <PillButton onClick={() => setCreating(true)}><Plus size={16} /> Open Financial Year</PillButton>
       </div>
 
-      {toast && <div className="rounded-xl bg-ink px-3 py-2 text-xs font-semibold text-white">{toast}</div>}
+      {toast && <div className="rounded-xl bg-ink px-3 py-2 text-xs font-semibold text-paper">{toast}</div>}
 
       {creating && (
         <Card className="border border-brand-100">
@@ -129,7 +129,7 @@ export function FinancialYearView({ currency }: any) {
                 )}
               </div>
               {!y.closed && (
-                <button onClick={() => setConfirmCloseId(y.id)} className="inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-xs font-semibold text-white">
+                <button onClick={() => setConfirmCloseId(y.id)} className="inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-xs font-semibold text-paper">
                   <Lock size={12} /> Close Year
                 </button>
               )}

@@ -269,7 +269,7 @@ export function LedgerReportsView({ currency }: any) {
 
             <div className="mt-2 flex items-center gap-1.5">
               {[["all", "All"], ["debit", "Debit only"], ["credit", "Credit only"]].map(([key, label]) => (
-                <button key={key} onClick={() => setDbType(key as any)} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${dbType === key ? "bg-ink text-white" : "bg-paper text-ink/70"}`}>{label}</button>
+                <button key={key} onClick={() => setDbType(key as any)} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${dbType === key ? "bg-ink text-paper" : "bg-paper text-ink/70"}`}>{label}</button>
               ))}
             </div>
 

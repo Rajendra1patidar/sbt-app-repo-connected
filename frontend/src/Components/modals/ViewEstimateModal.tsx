@@ -166,7 +166,7 @@ export function ViewEstimateModal({ doc, customers, items, currency, onClose, on
           <a
             href={customer?.phone ? `tel:${customer.phone}` : undefined}
             onClick={(e) => !customer?.phone && e.preventDefault()}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-full bg-ink py-3 text-xs font-bold text-white transition ${customer?.phone ? "active:scale-[0.97]" : "opacity-40 cursor-not-allowed"}`}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-full bg-ink py-3 text-xs font-bold text-paper transition ${customer?.phone ? "active:scale-[0.97]" : "opacity-40 cursor-not-allowed"}`}
           >
             <Phone size={14} /> Call
           </a>

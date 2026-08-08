@@ -8,9 +8,10 @@ const CHIPS = [
   { label: "Received saria", fill: "Received 2 12mm Saria from " },
   { label: "Logged payment", fill: "Logged payment of ₹ from " },
   { label: "New estimate", fill: "New estimate for " },
+  { label: "Add customer", fill: "Add customer " },
 ];
 
-export function CaptureBar({ items, customers, vendors, saveDocument, savePayment, savePurchase, openModal, showToast }: any) {
+export function CaptureBar({ items, customers, vendors, saveDocument, savePayment, savePurchase, saveCustomer, openModal, showToast }: any) {
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -57,6 +58,16 @@ export function CaptureBar({ items, customers, vendors, saveDocument, savePaymen
           setValue("");
           break;
         }
+        case "add_customer": {
+          if (action.existing) {
+            showToast(`"${action.existing.name}" already exists — opening their edit form`);
+            openModal("customer", { editingCustomer: action.existing });
+          } else {
+            await saveCustomer({ name: action.name, location: action.location || "" });
+          }
+          setValue("");
+          break;
+        }
         case "sale_needs_review": {
           showToast(!action.item ? `Couldn't find an item matching "${action.itemName}" — opening a blank estimate` : `Couldn't find a customer matching "${action.customerName}" — opening a blank estimate`);
           openModal("estimate");
@@ -96,7 +107,7 @@ export function CaptureBar({ items, customers, vendors, saveDocument, savePaymen
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-          placeholder="Sold 50 bags cement to Patel Traders, ₹22,500..."
+          placeholder="Sold 50 bags cement to Patel Traders, ₹22,500... or Add customer Ramesh Traders, Sarangpur Road"
           disabled={busy}
           className="flex-1 bg-transparent border-none outline-none text-[15px] text-[#F5F3EE] placeholder:text-[#6b6f78]"
         />

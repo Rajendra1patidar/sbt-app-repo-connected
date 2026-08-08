@@ -9,7 +9,7 @@ import { ActivityRiver } from "../dashboard/ActivityRiver";
 
 /* ---- Dashboard ---- */
 
-export function Dashboard({ data, settings, openModal, go, reorderSuggestions, saveDocument, savePayment, savePurchase, showToast }: any) {
+export function Dashboard({ data, settings, openModal, go, reorderSuggestions, saveDocument, savePayment, savePurchase, saveCustomer, showToast }: any) {
   const { customers, estimates, expenses, items, payments, purchases, vendors } = data;
   const [tab, setTab] = useState("estimates");
   const outstanding = round2(estimates.filter((i: any) => i.status !== "Paid").reduce((s: number, i: any) => s + (Number(i.total || 0) - Number(i.amountPaid || 0)), 0));
@@ -74,7 +74,7 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
 
       <CaptureBar
         items={items} customers={customers} vendors={vendors}
-        saveDocument={saveDocument} savePayment={savePayment} savePurchase={savePurchase}
+        saveDocument={saveDocument} savePayment={savePayment} savePurchase={savePurchase} saveCustomer={saveCustomer}
         openModal={openModal} showToast={showToast}
       />
 

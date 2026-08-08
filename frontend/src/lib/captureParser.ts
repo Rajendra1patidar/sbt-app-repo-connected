@@ -11,6 +11,7 @@ export type CaptureAction =
   | { kind: "payment"; customer: any; amount: number }
   | { kind: "payment_needs_review"; customerName: string; amount: number }
   | { kind: "new_estimate"; customer: any }
+  | { kind: "add_customer"; name: string; location?: string; existing?: any }
   | { kind: "unknown"; text: string };
 
 const numFromMoney = (s?: string) => (s ? Number(s.replace(/[₹,\s]/g, "")) : undefined);
@@ -36,8 +37,23 @@ export function parseCapture(raw: string, ctx: { items: any[]; customers: any[];
   const text = raw.trim();
   if (!text) return { kind: "unknown", text };
 
+  // "Add customer Ramesh Traders, Sarangpur Road" / "Add customer Ramesh Traders at Sarangpur Road" / "Add customer Ramesh Traders"
+  let m = text.match(/^add\s+customer\s+(.+?)(?:\s*,\s*|\s+(?:at|in|near|from)\s+)(.+)$/i);
+  if (m) {
+    const name = m[1].trim();
+    const location = m[2].trim();
+    const existing = bestMatch(name, ctx.customers, (c) => c.name);
+    return { kind: "add_customer", name, location, existing };
+  }
+  m = text.match(/^add\s+customer\s+(.+)$/i);
+  if (m) {
+    const name = m[1].trim();
+    const existing = bestMatch(name, ctx.customers, (c) => c.name);
+    return { kind: "add_customer", name, existing };
+  }
+
   // "Sold 40 bags OPC cement to Patel Traders, 22500" / "Sold 40 OPC cement to Patel Traders"
-  let m = text.match(/^sold\s+([\d.]+)\s*(?:bags?|pcs?|units?|t|tons?|kg)?\s*(.+?)\s+to\s+(.+?)(?:[,]?\s*(?:₹|rs\.?|inr)?\s*([\d,]+(?:\.\d+)?))?$/i);
+  m = text.match(/^sold\s+([\d.]+)\s*(?:bags?|pcs?|units?|t|tons?|kg)?\s*(.+?)\s+to\s+(.+?)(?:[,]?\s*(?:₹|rs\.?|inr)?\s*([\d,]+(?:\.\d+)?))?$/i);
   if (m) {
     const qty = Number(m[1]);
     const itemName = m[2].trim();

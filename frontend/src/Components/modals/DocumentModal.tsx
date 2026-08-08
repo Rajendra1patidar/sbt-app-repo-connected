@@ -7,13 +7,13 @@ import { fmtMoney, today, round2 } from "../../lib/format";
 import { InvoiceLine } from "../../types/index";
 import { api } from "../../lib/api";
 
-export function DocumentModal({ type, customers, items, estimates, editingDoc, prefillCustomerId, onClose, onSave }: any) {
+export function DocumentModal({ type, customers, items, estimates, editingDoc, onClose, onSave }: any) {
   const isEditing = !!editingDoc;
   // deleted items shouldn't be pickable for a new line, but an existing line that
   // already references one (from before it was deleted) still needs to resolve
   // correctly, so `items` (full list) stays available for lookups via itemById.
   const activeItems = items.filter((it: any) => !it.deleted);
-  const [customerId, setCustomerId] = useState(editingDoc?.customerId || prefillCustomerId || customers[0]?.id || "");
+  const [customerId, setCustomerId] = useState(editingDoc?.customerId || customers[0]?.id || "");
   const [date, setDate] = useState(editingDoc?.date ? String(editingDoc.date).slice(0, 10) : today());
   const [dueDate, setDueDate] = useState(editingDoc?.dueDate ? String(editingDoc.dueDate).slice(0, 10) : today());
   const [lines, setLines] = useState<InvoiceLine[]>(editingDoc?.lines?.length ? editingDoc.lines.map((ln: InvoiceLine) => ({ ...ln })) : [{ itemId: activeItems[0]?.id || "", qty: 1, rate: activeItems[0]?.sellingPrice || 0, discountAmount: 0 }]);
@@ -109,7 +109,7 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, p
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
-      <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card p-6 shadow-xl">
+      <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display text-lg font-bold text-ink">{titleMap[type]}</h3>
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
@@ -237,7 +237,7 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, p
                     <p className="mt-0.5 text-xs text-warn-700">From {previousDueEstimates.length} earlier unpaid estimate{previousDueEstimates.length !== 1 ? "s" : ""}: {previousDueEstimates.map((e: any) => e.number).join(", ")}</p>
                   </div>
                   <button type="button" onClick={() => setIncludePreviousDue((v) => !v)} className={`h-6 w-11 shrink-0 rounded-full p-0.5 transition ${includePreviousDue ? "bg-warn-500" : "bg-paper"}`}>
-                    <span className={`block h-5 w-5 rounded-full bg-card transition ${includePreviousDue ? "translate-x-5" : "translate-x-0"}`} />
+                    <span className={`block h-5 w-5 rounded-full bg-white transition ${includePreviousDue ? "translate-x-5" : "translate-x-0"}`} />
                   </button>
                 </div>
                 {includePreviousDue && <p className="mt-2 text-[11px] text-warn-700">Included in this estimate's total. Those {previousDueEstimates.length} earlier estimate{previousDueEstimates.length !== 1 ? "s" : ""} will be marked Paid once this one is saved.</p>}

@@ -23,14 +23,14 @@ export function BottomNav({ active, onNav, onMore, onQuickAction }: any) {
               return (
                 <button key={a.key} onClick={() => { onQuickAction(a.key); setFabOpen(false); }}
                   style={{ animationDelay: `${i * 30}ms` }}
-                  className="animate-pop-in flex items-center gap-2 rounded-pill bg-card border border-line pl-4 pr-3 py-2.5 shadow-card text-sm font-semibold text-ink/80">
+                  className="animate-pop-in flex items-center gap-2 rounded-pill bg-white border border-line pl-4 pr-3 py-2.5 shadow-card text-sm font-semibold text-ink/80">
                   {a.label} <Icon size={16} className="text-brand-500" />
                 </button>
               );
             })}
           </div>
         )}
-        <nav className="relative flex items-center justify-around bg-card border-t border-line pt-2 pb-[calc(env(safe-area-inset-bottom)+8px)] px-2">
+        <nav className="relative flex items-center justify-around bg-white border-t border-line pt-2 pb-[calc(env(safe-area-inset-bottom)+8px)] px-2">
           {items.slice(0, 2).map((n) => {
             const Icon = n.icon; const isActive = active === n.id;
             return (

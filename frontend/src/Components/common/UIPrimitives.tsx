@@ -16,7 +16,7 @@ export function PillButton({ children, onClick, className = "", disabled }: any)
 export function GhostButton({ children, onClick, className = "" }: any) {
   return (
     <button onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-pill border border-line bg-card px-3 py-1.5 text-xs font-semibold text-ink/70 hover:bg-paper hover:border-brand-200 active:scale-[0.97] transition-all duration-150 ${className}`}>
+      className={`inline-flex items-center gap-1.5 rounded-pill border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink/70 hover:bg-paper hover:border-brand-200 active:scale-[0.97] transition-all duration-150 ${className}`}>
       {children}
     </button>
   );
@@ -84,7 +84,7 @@ export function EmptyState({ text, cta, onCta }: any) {
 export function Card({ children, className = "", onClick }: any) {
   return (
     <div onClick={onClick}
-      className={`rounded-card bg-card p-5 shadow-card border border-line/70 transition-all duration-150 ${onClick ? "cursor-pointer hover:border-brand-200 active:scale-[0.995]" : ""} ${className}`}>
+      className={`rounded-card bg-white p-5 shadow-card border border-line/70 transition-all duration-150 ${onClick ? "cursor-pointer hover:border-brand-200 active:scale-[0.995]" : ""} ${className}`}>
       {children}
     </div>
   );

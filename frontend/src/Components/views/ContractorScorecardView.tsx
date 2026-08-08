@@ -121,7 +121,7 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
   return (
     <div className="space-y-3 px-5 pb-28">
       {/* Period filter */}
-      <div className="mt-1 rounded-card border border-line bg-card p-3">
+      <div className="mt-1 rounded-card border border-line bg-white p-3">
         <div className="flex gap-1.5">
           {(["week", "month", "year", "custom"] as PeriodPreset[]).map((p) => (
             <button key={p} onClick={() => setPreset(p)}
@@ -168,7 +168,7 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search contractors..."
-              className="w-full rounded-xl border border-line bg-card py-2.5 pl-9 pr-3 text-sm"
+              className="w-full rounded-xl border border-line bg-white py-2.5 pl-9 pr-3 text-sm"
             />
           </div>
           <GhostButton className="w-full justify-center" onClick={() => setSharePopup({ scope: "all" })}><Send size={14} /> Share or print this list</GhostButton>

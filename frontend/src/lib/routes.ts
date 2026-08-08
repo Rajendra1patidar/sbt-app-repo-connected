@@ -24,6 +24,7 @@ export const VIEW_PATHS: Record<string, string> = {
   vendorScorecard: "/vendor-scorecard",
   customerCredit: "/customer-credit",
   cashFlowForecast: "/cash-flow-forecast",
+  bankReconciliation: "/bank-reconciliation",
   reports: "/reports",
   sharereport: "/share-report",
   billing: "/billing",

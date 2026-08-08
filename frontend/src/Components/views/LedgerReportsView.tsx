@@ -256,7 +256,7 @@ export function LedgerReportsView({ currency }: any) {
                 value={dbSearch}
                 onChange={(e) => setDbSearch(e.target.value)}
                 placeholder="Search narration (customer, estimate number...)"
-                className="w-full rounded-xl border border-line bg-card py-2 pl-9 pr-3 text-sm"
+                className="w-full rounded-xl border border-line bg-white py-2 pl-9 pr-3 text-sm"
               />
             </div>
 
@@ -269,7 +269,7 @@ export function LedgerReportsView({ currency }: any) {
 
             <div className="mt-2 flex items-center gap-1.5">
               {[["all", "All"], ["debit", "Debit only"], ["credit", "Credit only"]].map(([key, label]) => (
-                <button key={key} onClick={() => setDbType(key as any)} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${dbType === key ? "bg-ink text-paper" : "bg-paper text-ink/70"}`}>{label}</button>
+                <button key={key} onClick={() => setDbType(key as any)} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${dbType === key ? "bg-ink text-white" : "bg-paper text-ink/70"}`}>{label}</button>
               ))}
             </div>
 
@@ -283,7 +283,7 @@ export function LedgerReportsView({ currency }: any) {
               <p className="mt-3 text-sm text-ink/40">No ledger activity matches this range/filter.</p>
             ) : (
               <div className="mt-3 max-h-96 overflow-y-auto">
-                <div className="grid grid-cols-12 gap-2 border-b border-line pb-1.5 text-[10px] font-bold uppercase tracking-wide text-ink/40 sticky top-0 bg-card">
+                <div className="grid grid-cols-12 gap-2 border-b border-line pb-1.5 text-[10px] font-bold uppercase tracking-wide text-ink/40 sticky top-0 bg-white">
                   <button onClick={() => handleSort("date")} className="col-span-3 flex items-center gap-1 text-left">Date {sortIcon("date")}</button>
                   <span className="col-span-4">Narration</span>
                   <button onClick={() => handleSort("account")} className="col-span-2 flex items-center gap-1 text-left">Account {sortIcon("account")}</button>

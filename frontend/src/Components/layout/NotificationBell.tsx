@@ -87,7 +87,7 @@ export function NotificationBell() {
     <div className="relative" ref={panelRef}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="relative rounded-full border border-line bg-card p-2 hover:border-brand-200 transition-colors"
+        className="relative rounded-full border border-line bg-white p-2 hover:border-brand-200 transition-colors"
       >
         <Bell size={18} className="text-ink/50" />
         {unreadCount > 0 && (
@@ -98,7 +98,7 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-12 z-30 w-80 max-w-[90vw] rounded-2xl border border-line bg-card shadow-xl overflow-hidden">
+        <div className="absolute right-0 top-12 z-30 w-80 max-w-[90vw] rounded-2xl border border-line bg-white shadow-xl overflow-hidden">
           <div className="flex items-center justify-between border-b border-line px-4 py-3">
             <p className="text-sm font-semibold text-ink">Notifications</p>
             {unreadCount > 0 && (

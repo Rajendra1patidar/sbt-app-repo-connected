@@ -16,7 +16,7 @@ export function ViewEstimateModal({ doc, customers, items, currency, onClose, on
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
-      <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card p-6 pt-3 shadow-xl">
+      <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-6 pt-3 shadow-xl">
         <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-line sm:hidden" />
 
         <div className="flex items-center justify-between mb-4">
@@ -37,19 +37,19 @@ export function ViewEstimateModal({ doc, customers, items, currency, onClose, on
           </div>
 
           <div className="grid grid-cols-2 gap-2.5">
-            <div className="rounded-xl border border-line bg-card px-3.5 py-2.5">
+            <div className="rounded-xl border border-line bg-white px-3.5 py-2.5">
               <p className="text-[10.5px] font-bold text-ink/40">TOTAL</p>
               <p className="mt-0.5 font-mono text-base font-bold text-ink">{fmtMoney(doc.total, currency)}</p>
             </div>
-            <div className="rounded-xl border border-line bg-card px-3.5 py-2.5">
+            <div className="rounded-xl border border-line bg-white px-3.5 py-2.5">
               <p className="text-[10.5px] font-bold text-ink/40">PAID</p>
               <p className="mt-0.5 font-mono text-base font-bold text-good-600">{fmtMoney(doc.amountPaid, currency)}</p>
             </div>
-            <div className="rounded-xl border border-line bg-card px-3.5 py-2.5">
+            <div className="rounded-xl border border-line bg-white px-3.5 py-2.5">
               <p className="text-[10.5px] font-bold text-ink/40">BALANCE</p>
               <p className={`mt-0.5 font-mono text-base font-bold ${balance > 0 ? "text-bad-600" : "text-good-600"}`}>{fmtMoney(balance, currency)}</p>
             </div>
-            <div className="rounded-xl border border-line bg-card px-3.5 py-2.5">
+            <div className="rounded-xl border border-line bg-white px-3.5 py-2.5">
               <p className="text-[10.5px] font-bold text-ink/40">DUE DATE</p>
               <p className="mt-0.5 text-sm font-bold text-ink">{doc.dueDate ? fmtDate(doc.dueDate) : "—"}</p>
             </div>
@@ -166,7 +166,7 @@ export function ViewEstimateModal({ doc, customers, items, currency, onClose, on
           <a
             href={customer?.phone ? `tel:${customer.phone}` : undefined}
             onClick={(e) => !customer?.phone && e.preventDefault()}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-full bg-ink py-3 text-xs font-bold text-paper transition ${customer?.phone ? "active:scale-[0.97]" : "opacity-40 cursor-not-allowed"}`}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-full bg-ink py-3 text-xs font-bold text-white transition ${customer?.phone ? "active:scale-[0.97]" : "opacity-40 cursor-not-allowed"}`}
           >
             <Phone size={14} /> Call
           </a>

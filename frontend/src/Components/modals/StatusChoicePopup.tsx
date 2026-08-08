@@ -26,7 +26,7 @@ export function StatusChoicePopup({ total, currency, onChoose, onCancel }: any) 
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/50 p-4">
-      <div className="w-full max-w-xs rounded-3xl bg-card p-6 shadow-xl">
+      <div className="w-full max-w-xs rounded-3xl bg-white p-6 shadow-xl">
         <h3 className="font-display text-lg font-bold text-ink">Is this estimate paid?</h3>
         <p className="mt-1 text-sm text-ink/50">Total amount: <span className="font-semibold text-ink/80">{fmtMoney(total, currency)}</span></p>
 
@@ -39,7 +39,7 @@ export function StatusChoicePopup({ total, currency, onChoose, onCancel }: any) 
                 key={c.key}
                 onClick={() => setSelected(c.key)}
                 className={`flex w-full items-center gap-3 rounded-2xl border-[1.5px] px-3.5 py-3 text-left transition-all duration-150 ${
-                  isSelected ? "border-brand-500 bg-brand-50/60" : "border-line bg-card hover:border-brand-200"
+                  isSelected ? "border-brand-500 bg-brand-50/60" : "border-line bg-white hover:border-brand-200"
                 }`}
               >
                 <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${c.iconBg} ${c.iconFg}`}>
@@ -51,7 +51,7 @@ export function StatusChoicePopup({ total, currency, onChoose, onCancel }: any) 
                 </span>
                 <span
                   className={`h-5 w-5 shrink-0 rounded-full border-[1.5px] flex items-center justify-center text-[10px] font-bold text-white transition-colors ${
-                    isSelected ? "border-brand-500 bg-brand-500" : "border-line bg-card"
+                    isSelected ? "border-brand-500 bg-brand-500" : "border-line bg-white"
                   }`}
                 >
                   {isSelected && "✓"}

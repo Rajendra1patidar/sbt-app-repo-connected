@@ -35,7 +35,7 @@ export function OrdersView({ orders, items, vendors, categories, currency, openM
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search orders by item or note..."
-            className="w-full rounded-xl border border-line bg-card py-2.5 pl-9 pr-3 text-sm"
+            className="w-full rounded-xl border border-line bg-white py-2.5 pl-9 pr-3 text-sm"
           />
         </div>
       )}

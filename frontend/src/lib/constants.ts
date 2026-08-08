@@ -23,34 +23,30 @@ export const CATEGORY_COLORS = ["bg-brand-400","bg-brand-300","bg-warn-500","bg-
 /* ---- nav ---- */
 
 export const NAV = [
-  { id: "dashboard",  label: "Home",                icon: Home, section: "Overview" },
-
-  { id: "customers",  label: "Customers",            icon: Users, section: "Trading" },
-  { id: "items",      label: "Items",                icon: ShoppingBag, section: "Trading" },
-  { id: "orders",     label: "Orders",               icon: ShoppingCart, section: "Trading" },
-  { id: "vendors",    label: "Vendors",              icon: Building2, section: "Trading" },
-  { id: "purchases",  label: "Purchases",            icon: PackagePlus, section: "Trading" },
-  { id: "approvals",  label: "Approvals",            icon: ShieldCheck, section: "Trading" },
-
-  { id: "estimates",  label: "Estimates",            icon: Receipt, section: "Documents" },
-  { id: "challans",   label: "Delivery Challans",    icon: Truck, section: "Documents" },
-  { id: "payments",   label: "Payments Received",    icon: ArrowDownToLine, section: "Documents" },
-  { id: "expenses",   label: "Expenses",             icon: Wallet, section: "Documents" },
-
-  { id: "todo",       label: "Inventory",            icon: ClipboardList, section: "Insights" },
-  { id: "labour",     label: "Labour Tracking",      icon: HardHat, section: "Insights" },
-  { id: "contractors", label: "Contractor Scorecard", icon: Award, section: "Insights" },
-  { id: "vendorScorecard", label: "Vendor Scorecard", icon: Building2, section: "Insights" },
-  { id: "customerCredit", label: "Customer Credit", icon: TrendingDown, section: "Insights" },
-  { id: "cashFlowForecast", label: "Cash Flow Forecast", icon: TrendingUp, section: "Insights" },
-  { id: "reports",       label: "Reports",              icon: BarChart3, section: "Insights" },
-
-  { id: "ledger",        label: "Ledger & Accounts",    icon: Landmark, section: "Finance" },
-  { id: "financialYears", label: "Financial Years",      icon: CalendarClock, section: "Finance" },
-  { id: "sharereport",   label: "Share Report",         icon: Send, section: "Finance" },
-  { id: "billing",       label: "Advanced Billing",     icon: Globe2, section: "Finance" },
-
-  { id: "settings",   label: "Settings",             icon: SettingsIcon, section: "Finance" },
+  { id: "dashboard",  label: "Home",                icon: Home },
+  { id: "customers",  label: "Customers",            icon: Users },
+  { id: "items",      label: "Items",                icon: ShoppingBag },
+  { id: "orders",     label: "Orders",               icon: ShoppingCart },
+  { id: "vendors",    label: "Vendors",              icon: Building2 },
+  { id: "purchases",  label: "Purchases",            icon: PackagePlus },
+  { id: "approvals",  label: "Approvals",            icon: ShieldCheck },
+  { id: "estimates",  label: "Estimates",            icon: Receipt },
+  { id: "challans",   label: "Delivery Challans",    icon: Truck },
+  { id: "payments",   label: "Payments Received",    icon: ArrowDownToLine },
+  { id: "expenses",   label: "Expenses",             icon: Wallet },
+  { id: "todo",       label: "Inventory",            icon: ClipboardList },
+  { id: "labour",     label: "Labour Tracking",      icon: HardHat },
+  { id: "contractors", label: "Contractor Scorecard", icon: Award },
+  { id: "vendorScorecard", label: "Vendor Scorecard", icon: Building2 },
+  { id: "customerCredit", label: "Customer Credit", icon: TrendingDown },
+  { id: "cashFlowForecast", label: "Cash Flow Forecast", icon: TrendingUp },
+  { id: "bankReconciliation", label: "Bank Reconciliation", icon: Landmark },
+  { id: "reports",       label: "Reports",              icon: BarChart3 },
+  { id: "ledger",        label: "Ledger & Accounts",    icon: Landmark },
+  { id: "financialYears", label: "Financial Years",      icon: CalendarClock },
+  { id: "sharereport",   label: "Share Report",         icon: Send },
+  { id: "billing",       label: "Advanced Billing",     icon: Globe2 },
+  { id: "settings",   label: "Settings",             icon: SettingsIcon },
 ];
 
 /* ---- Bottom nav (mobile) + radial quick-add FAB ---- */

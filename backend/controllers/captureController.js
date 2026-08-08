@@ -3,12 +3,39 @@ const Customer = require("../models/Customer");
 const Vendor = require("../models/Vendor");
 
 // Configurable so the model can be swapped (Google renames/retires these
-// periodically) without a code change — see backend README for the current
-// recommended value.
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+// periodically) without a code change — see README.md "AI capture" for the
+// current recommended value. Default is Gemma 4 4B — it's free on the Gemini API
+// (open-weights, no per-token billing) and plenty for this classification-
+// sized task. Bump to gemma-4-26b-a4b-it if parse quality needs to go up,
+// or back to a gemini-* model if you need Gemini-only features.
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemma-4-4b-it";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 const VALID_KINDS = new Set(["sale", "purchase", "payment", "expense", "unknown"]);
+
+// Gemma 4 supports response_mime_type but (unlike Gemini) only reliably
+// skips its own reasoning preamble and emits raw JSON when a full
+// response_schema is given alongside it — schema-less JSON mode alone can
+// still return "thinking" text first. Gemini models accept this same field
+// too, so it's safe to send regardless of which model is configured.
+const CAPTURE_SCHEMA = {
+  type: "object",
+  properties: {
+    kind: { type: "string", enum: ["sale", "purchase", "payment", "expense", "unknown"] },
+    itemId: { type: "string", nullable: true },
+    itemName: { type: "string", nullable: true },
+    customerId: { type: "string", nullable: true },
+    customerName: { type: "string", nullable: true },
+    vendorId: { type: "string", nullable: true },
+    vendorName: { type: "string", nullable: true },
+    qty: { type: "number", nullable: true },
+    rate: { type: "number", nullable: true },
+    amount: { type: "number", nullable: true },
+    category: { type: "string", nullable: true },
+    vendor: { type: "string", nullable: true },
+  },
+  required: ["kind"],
+};
 
 function buildPrompt(text, items, customers, vendors) {
   const line = (list, fields) => list.map((x) => fields.map((f) => x[f] ?? "").join("|")).join("\n") || "(none)";
@@ -67,7 +94,16 @@ exports.parse = async (req, res, next) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: "application/json", temperature: 0 },
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: CAPTURE_SCHEMA,
+            temperature: 0,
+            // Ignored by Gemini models, respected by Gemma 4: this is a
+            // one-shot classification, not a reasoning task, so keep
+            // thinking off for lower latency. "low"/"off" both work
+            // depending on model size — "low" is the safe default.
+            thinkingConfig: { thinkingLevel: "low" },
+          },
         }),
       });
     } catch (err) {
@@ -104,3 +140,4 @@ exports.parse = async (req, res, next) => {
     next(err);
   }
 };
+

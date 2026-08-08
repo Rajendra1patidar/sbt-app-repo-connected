@@ -249,6 +249,15 @@ export const api = {
     create: (v: { email: string; pin: string; name?: string }) => request("/api/auth/staff", { method: "POST", body: JSON.stringify(v) }),
     remove: (id: string) => request(`/api/auth/staff/${id}`, { method: "DELETE" }),
   },
+
+  bankStatement: {
+    import: (rows: { date: string; description: string; amount: number }[]) =>
+      request("/api/bank-statement/import", { method: "POST", body: JSON.stringify({ rows }) }),
+    list: (matched?: boolean) => request(`/api/bank-statement${matched !== undefined ? `?matched=${matched}` : ""}`),
+    candidates: (date: string, amount: number) => request(`/api/bank-statement/candidates?date=${date}&amount=${amount}`),
+    match: (id: string, ledgerEntryId: string) => request(`/api/bank-statement/${id}/match`, { method: "POST", body: JSON.stringify({ ledgerEntryId }) }),
+    unmatch: (id: string) => request(`/api/bank-statement/${id}/unmatch`, { method: "POST" }),
+  },
 };
 
 export { ApiError };

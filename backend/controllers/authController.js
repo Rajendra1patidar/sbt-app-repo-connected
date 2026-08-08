@@ -61,13 +61,18 @@ exports.login = async (req, res, next) => {
 };
 
 // POST /api/auth/change-pin  { currentPin, newPin }  (protected)
+// Uses req.actorId, not req.userId — same reasoning as /me above. Getting
+// this wrong here is worse than a cosmetic mismatch: for a staff login,
+// req.userId resolves to the *owner's* account, so comparing/overwriting
+// pinHash against req.userId would check the owner's PIN and could silently
+// change the owner's login credential instead of the staff member's own.
 exports.changePin = async (req, res, next) => {
   try {
     const { currentPin, newPin } = req.body;
     if (!newPin || String(newPin).length < 4) {
       return res.status(400).json({ message: "New PIN must be at least 4 digits" });
     }
-    const user = await User.findById(req.userId);
+    const user = await User.findById(req.actorId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
     if (user.isLocked()) {
@@ -150,9 +155,13 @@ exports.resetPin = async (req, res, next) => {
 };
 
 // GET /api/auth/me  (protected)
+// Uses req.actorId — the account that actually logged in — not req.userId,
+// which for a staff login is deliberately resolved to the *owner's* id
+// everywhere else (see middleware/auth.js) so data queries stay scoped
+// correctly. "Who am I" needs the real logged-in identity, not that scope.
 exports.me = async (req, res, next) => {
   try {
-    const user = await User.findById(req.userId).select("-pinHash");
+    const user = await User.findById(req.actorId).select("-pinHash");
     if (!user) return res.status(404).json({ message: "User not found" });
     res.json(user);
   } catch (err) {

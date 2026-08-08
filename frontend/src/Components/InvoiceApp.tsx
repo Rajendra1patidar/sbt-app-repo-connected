@@ -32,6 +32,7 @@ import { ToDoTrackingView } from "./views/InventoryView";
 import { ItemsView } from "./views/ItemsView";
 import { LabourTrackingView } from "./views/LabourTrackingView";
 import { LedgerReportsView } from "./views/LedgerReportsView";
+import { BankReconciliationView } from "./views/BankReconciliationView";
 import { OrdersView } from "./views/OrdersView";
 import { PaymentsView } from "./views/PaymentsView";
 import { PurchasesView } from "./views/PurchasesView";
@@ -167,6 +168,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <Route path="/purchases" element={<PurchasesView purchases={purchases} vendors={vendors} items={items} currency={settings.currency} openModal={openModal} removePurchase={removePurchase} />} />
       <Route path="/approvals" element={<ApprovalsView currency={settings.currency} />} />
       <Route path="/ledger" element={<LedgerReportsView currency={settings.currency} />} />
+      <Route path="/bank-reconciliation" element={<BankReconciliationView currency={settings.currency} />} />
       <Route path="/financial-years" element={<FinancialYearView currency={settings.currency} />} />
       <Route path="/challans" element={<DocumentList type="challan" docs={challans} customers={customers} currency={settings.currency} openModal={openModal} removeDoc={(id: string) => removeDoc("challan", id)} updateStatus={(id: string, s: string) => updateDocStatus("challan", id, s)} />} />
       <Route path="/estimates" element={

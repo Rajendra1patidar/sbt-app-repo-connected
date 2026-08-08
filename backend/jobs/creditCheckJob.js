@@ -1,7 +1,7 @@
-const User = require("../models/User");
 const Notification = require("../models/Notification");
 const creditService = require("../services/creditService");
 const eventBus = require("../services/eventBus");
+const { findOwnerUsers } = require("../utils/ownerAccounts");
 
 /**
  * Runs creditService.computeCreditView for every owner and turns any
@@ -14,7 +14,7 @@ const eventBus = require("../services/eventBus");
  * morning while the last one is still unread.
  */
 async function runCreditCheck() {
-  const users = await User.find({}, { _id: 1 });
+  const users = await findOwnerUsers();
   const summary = { checked: 0, notified: 0 };
 
   for (const user of users) {

@@ -1,7 +1,7 @@
-const User = require("../models/User");
 const reconciliationService = require("../services/reconciliationService");
 const eventBus = require("../services/eventBus");
 const { sendErrorAlert } = require("../utils/alertWebhook");
+const { findOwnerUsers } = require("../utils/ownerAccounts");
 
 /**
  * Runs reconciliationService.integrityCheck (previously only callable
@@ -15,7 +15,7 @@ const { sendErrorAlert } = require("../utils/alertWebhook");
  * nobody has looked at recently still gets caught, not just recent activity.
  */
 async function runReconciliationCheck() {
-  const users = await User.find({}, { _id: 1 });
+  const users = await findOwnerUsers();
   const summary = { checked: 0, failed: 0 };
 
   for (const user of users) {

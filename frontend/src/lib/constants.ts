@@ -46,6 +46,7 @@ export const NAV = [
   { id: "reports",       label: "Reports",              icon: BarChart3, section: "Insights" },
 
   { id: "ledger",        label: "Ledger & Accounts",    icon: Landmark, section: "Finance" },
+  { id: "bankReconciliation", label: "Bank Reconciliation", icon: Landmark, section: "Finance" },
   { id: "financialYears", label: "Financial Years",      icon: CalendarClock, section: "Finance" },
   { id: "sharereport",   label: "Share Report",         icon: Send, section: "Finance" },
   { id: "billing",       label: "Advanced Billing",     icon: Globe2, section: "Finance" },

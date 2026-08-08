@@ -1,7 +1,7 @@
-const User = require("../models/User");
 const Notification = require("../models/Notification");
 const reorderService = require("../services/reorderService");
 const eventBus = require("../services/eventBus");
+const { findOwnerUsers } = require("../utils/ownerAccounts");
 
 /**
  * Runs reorderService.computeSuggestions for every owner and turns any
@@ -19,7 +19,7 @@ const eventBus = require("../services/eventBus");
  * what clears the way for the next alert.
  */
 async function runReorderCheck() {
-  const users = await User.find({}, { _id: 1 });
+  const users = await findOwnerUsers();
   const summary = { checked: 0, notified: 0 };
 
   for (const user of users) {

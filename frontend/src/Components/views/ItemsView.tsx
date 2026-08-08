@@ -3,28 +3,36 @@ import { AlertTriangle, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { Card, EmptyState, PillButton } from "../common/UIPrimitives";
 import { Pagination } from "../common/Pagination";
 import { usePagination } from "../../hooks/usePagination";
-import { ITEM_CATEGORIES, LOW_STOCK_DEFAULT, PAGE_SIZE } from "../../lib/constants";
+import { ITEM_BRANDS, ITEM_CATEGORIES, LOW_STOCK_DEFAULT, PAGE_SIZE } from "../../lib/constants";
 import { fmtMoney, fmtNum } from "../../lib/format";
 import { StockTreemap } from "../items/StockTreemap";
 import { ItemDetailDrawer } from "../items/ItemDetailDrawer";
 
 /* ---- Items (with stock display) ---- */
 
-export function ItemsView({ items, categories, openModal, removeItem, currency, purchases, estimates }: any) {
+export function ItemsView({ items, categories, brands, openModal, removeItem, currency, purchases, estimates }: any) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
+  const [brand, setBrand] = useState("All");
   const [drawerItem, setDrawerItem] = useState<any>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const cats = categories?.length ? categories : ITEM_CATEGORIES;
+  const brandList = brands?.length ? brands : ITEM_BRANDS;
 
   const openDrawer = (it: any) => { setDrawerItem(it); setDrawerOpen(true); };
   const closeDrawer = () => setDrawerOpen(false);
 
   const filtered = items.filter((it: any) => {
     if (it.deleted) return false;
-    const matchesSearch = !search.trim() || it.name.toLowerCase().includes(search.trim().toLowerCase());
+    const q = search.trim().toLowerCase();
+    const matchesSearch = !q
+      || it.name.toLowerCase().includes(q)
+      || (it.brand || "").toLowerCase().includes(q)
+      || (it.category || "").toLowerCase().includes(q)
+      || (it.unit || "").toLowerCase().includes(q);
     const matchesCategory = category === "All" || (it.category || "Others") === category;
-    return matchesSearch && matchesCategory;
+    const matchesBrand = brand === "All" || (it.brand || "") === brand;
+    return matchesSearch && matchesCategory && matchesBrand;
   });
   const { pageItems, page, setPage, totalPages, total, pageSize } = usePagination(filtered, PAGE_SIZE);
 
@@ -48,6 +56,11 @@ export function ItemsView({ items, categories, openModal, removeItem, currency, 
           <button key={c} onClick={() => setCategory(c)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${category === c ? "bg-brand-500 text-white" : "bg-paper text-ink/70"}`}>{c}</button>
         ))}
       </div>
+      <div className="flex flex-wrap gap-2">
+        {["All", ...brandList].map((b) => (
+          <button key={b} onClick={() => setBrand(b)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${brand === b ? "bg-ink text-white" : "bg-paper text-ink/60"}`}>{b}</button>
+        ))}
+      </div>
 
       {filtered.length > 0 && <StockTreemap items={filtered} currency={currency} onSelect={openDrawer} />}
 
@@ -65,6 +78,7 @@ export function ItemsView({ items, categories, openModal, removeItem, currency, 
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-semibold text-ink truncate">{it.name}</p>
                   <span className="rounded-full bg-paper px-2 py-0.5 text-xs font-semibold text-ink/50">{it.category || "Others"}</span>
+                  {it.brand && <span className="rounded-full bg-ink/5 px-2 py-0.5 text-xs font-semibold text-ink/50">{it.brand}</span>}
                   {isLow && <span className="rounded-full bg-warn-100 px-2 py-0.5 text-xs font-semibold text-warn-700 flex items-center gap-1"><AlertTriangle size={10} /> Low stock</span>}
                 </div>
                 <p className="text-xs text-ink/40">{it.unit || "unit"} · Stock: <span className={`font-semibold ${isLow ? "text-warn-600" : "text-ink/80"}`}>{fmtNum(it.stock ?? 0)}</span> (alert at ≤{fmtNum(threshold)})</p>

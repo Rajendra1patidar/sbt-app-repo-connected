@@ -7,6 +7,13 @@ export const PAGE_SIZE = 20;
 
 export const ITEM_CATEGORIES = ["Saria", "Cement", "CPVC", "UPVC", "Kasta", "Wall fit", "Roof fit", "Power Tool", "IOCL", "Sand", "Sanitary", "Others"];
 
+// Brands he stocks — editable in Settings (settings.itemBrands), same pattern as ITEM_CATEGORIES.
+export const ITEM_BRANDS = ["Anant", "Shivangi", "Kamdhenu"];
+
+// Suggested units — shown as a type-ahead (datalist) on the item form, not a hard
+// restriction, so existing free-text units on old items keep working.
+export const ITEM_UNITS = ["kg", "pc", "bundle", "bag", "box", "ft", "ton"];
+
 export const STATUS_STYLES: Record<string, string> = {
   Accepted: "bg-advance-50 text-advance-700",
   Due: "bg-warn-50 text-warn-700",

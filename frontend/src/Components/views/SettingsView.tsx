@@ -3,12 +3,13 @@ import { Phone, Plus, X, Download, Loader2, ShieldCheck } from "lucide-react";
 import { Card, PillButton } from "../common/UIPrimitives";
 import { ChangePinCard } from "./ChangePinCard";
 import { StaffManagementCard } from "./StaffManagementCard";
-import { WHATSAPP_GREEN, ITEM_CATEGORIES } from "../../lib/constants";
+import { WHATSAPP_GREEN, ITEM_CATEGORIES, ITEM_BRANDS } from "../../lib/constants";
 import { api } from "../../lib/api";
 
 export function SettingsView({ settings, setSettings }: any) {
-  const [local, setLocal] = useState({ itemCategories: ITEM_CATEGORIES, ...settings });
+  const [local, setLocal] = useState({ itemCategories: ITEM_CATEGORIES, itemBrands: ITEM_BRANDS, ...settings });
   const [newCategory, setNewCategory] = useState("");
+  const [newBrand, setNewBrand] = useState("");
   const [exporting, setExporting] = useState<"json" | "excel" | null>(null);
   const [exportError, setExportError] = useState("");
   const set = (k: string, v: any) => setLocal((s: any) => ({ ...s, [k]: v }));
@@ -35,6 +36,15 @@ export function SettingsView({ settings, setSettings }: any) {
     setNewCategory("");
   };
   const removeCategory = (name: string) => set("itemCategories", categories.filter((c) => c !== name));
+
+  const brands: string[] = local.itemBrands?.length ? local.itemBrands : ITEM_BRANDS;
+  const addBrand = () => {
+    const name = newBrand.trim();
+    if (!name || brands.some((b) => b.toLowerCase() === name.toLowerCase())) return;
+    set("itemBrands", [...brands, name]);
+    setNewBrand("");
+  };
+  const removeBrand = (name: string) => set("itemBrands", brands.filter((b) => b !== name));
 
   return (
     <div className="space-y-4 px-5 pb-28">
@@ -67,6 +77,31 @@ export function SettingsView({ settings, setSettings }: any) {
             className="flex-1 rounded-xl border border-line px-3 py-2.5 text-sm"
           />
           <button type="button" onClick={addCategory} disabled={!newCategory.trim()}
+            className="inline-flex items-center gap-1 rounded-xl bg-brand-500 px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-40">
+            <Plus size={14} /> Add
+          </button>
+        </div>
+      </Card>
+      <Card className="space-y-3">
+        <h3 className="text-sm font-bold text-ink">Item brands</h3>
+        <p className="text-xs text-ink/40">Used to filter and tag items on the Items page. Removing a brand here won't change items already tagged with it.</p>
+        <div className="flex flex-wrap gap-2">
+          {brands.map((b) => (
+            <span key={b} className="inline-flex items-center gap-1.5 rounded-full bg-paper px-3 py-1.5 text-xs font-semibold text-ink/70">
+              {b}
+              <button type="button" onClick={() => removeBrand(b)} className="text-ink/30 hover:text-bad-500"><X size={12} /></button>
+            </span>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input
+            value={newBrand}
+            onChange={(e) => setNewBrand(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addBrand(); } }}
+            placeholder="New brand name"
+            className="flex-1 rounded-xl border border-line px-3 py-2.5 text-sm"
+          />
+          <button type="button" onClick={addBrand} disabled={!newBrand.trim()}
             className="inline-flex items-center gap-1 rounded-xl bg-brand-500 px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-40">
             <Plus size={14} /> Add
           </button>

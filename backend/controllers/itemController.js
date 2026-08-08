@@ -37,6 +37,7 @@ base.create = async (req, res, next) => {
       stock: Number(v.stock || 0),
       lowStock: Number(v.lowStock || 5),
       category: v.category || "Others",
+      brand: v.brand || "",
       trackingMode: v.trackingMode === "box" ? "box" : "unit",
       piecesPerBox: Number(v.piecesPerBox || 0),
     });

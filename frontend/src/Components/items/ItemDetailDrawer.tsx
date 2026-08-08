@@ -56,7 +56,7 @@ export function ItemDetailDrawer({ item, open, onClose, currency, purchases, est
             <span className="font-display text-sm font-semibold">{(item.name || "?").slice(0, 2).toUpperCase()}</span>
           </div>
           <h3 className="font-display text-xl font-medium text-ink">{item.name}</h3>
-          <p className="text-xs text-ink/40">{item.category || "Others"}</p>
+          <p className="text-xs text-ink/40">{item.category || "Others"}{item.brand ? ` · ${item.brand}` : ""}</p>
 
           <div className="mt-3 divide-y divide-line/70">
             <div className="flex items-center justify-between py-3 text-sm">

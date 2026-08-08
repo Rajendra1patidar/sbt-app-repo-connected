@@ -41,7 +41,7 @@ import { SettingsView } from "./views/SettingsView";
 import { ShareReportView } from "./views/ShareReportView";
 import { VendorsView } from "./views/VendorsView";
 import { VendorScorecardView } from "./views/VendorScorecardView";
-import { ITEM_CATEGORIES, LOW_STOCK_DEFAULT, WHATSAPP_GREEN } from "../lib/constants";
+import { ITEM_BRANDS, ITEM_CATEGORIES, ITEM_UNITS, LOW_STOCK_DEFAULT, WHATSAPP_GREEN } from "../lib/constants";
 import { waLink } from "../lib/contactLinks";
 import { fmtDate, fmtMoney, today } from "../lib/format";
 
@@ -152,6 +152,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   const overdueCount = activeEstimates.filter((i: any) => i.status === "Due" && i.dueDate && new Date(i.dueDate) < new Date()).length;
   const data = { customers, items, orders, estimates: activeEstimates, invoices: activeEstimates, challans, expenses, payments, labourSessions, purchases, vendors };
   const itemCategories = settings.itemCategories?.length ? settings.itemCategories : ITEM_CATEGORIES;
+  const itemBrands = settings.itemBrands?.length ? settings.itemBrands : ITEM_BRANDS;
 
   /* ---- route table (replaces the old `switch (view)` in renderView) ---- */
   const routes = (
@@ -162,7 +163,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
           onSelectCustomer={(id: string) => navigate(`/customers/${id}`)} />
       } />
       <Route path="/customers/:customerId" element={<CustomerDetailRoute />} />
-      <Route path="/items" element={<ItemsView items={items} categories={itemCategories} openModal={openModal} currency={settings.currency} removeItem={removeItem} purchases={purchases} estimates={activeEstimates} />} />
+      <Route path="/items" element={<ItemsView items={items} categories={itemCategories} brands={itemBrands} openModal={openModal} currency={settings.currency} removeItem={removeItem} purchases={purchases} estimates={activeEstimates} />} />
       <Route path="/orders" element={<OrdersView orders={orders} items={items} vendors={vendors} categories={itemCategories} currency={settings.currency} openModal={openModal} payOrder={payOrder} removeOrder={removeOrder} />} />
       <Route path="/vendors" element={<VendorsView vendors={vendors} purchases={purchases} currency={settings.currency} openModal={openModal} removeVendor={removeVendor} />} />
       <Route path="/purchases" element={<PurchasesView purchases={purchases} vendors={vendors} items={items} currency={settings.currency} openModal={openModal} removePurchase={removePurchase} />} />
@@ -235,11 +236,12 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       return <FieldModal title={editingItem ? "Edit Item" : "New Item"} fields={[
         { key: "name",          label: "Item name",           required: true, placeholder: "Web design service" },
         { key: "category",      label: "Category",            type: "select", options: itemCategories.map((c: string) => ({ value: c, label: c })), required: true },
+        { key: "brand",         label: "Brand",                type: "select", options: [{ value: "", label: "No brand" }, ...itemBrands.map((b: string) => ({ value: b, label: b }))] },
         { key: "sellingPrice",  label: "Selling price",       type: "number", required: true, placeholder: "0.00" },
         editingItem
           ? { key: "purchasePrice", label: "Avg. purchase cost", type: "number", readOnly: true, helpText: "Auto-calculated from your Purchases — record a Purchase to update it." }
           : { key: "purchasePrice", label: "Opening purchase price", type: "number", placeholder: "0.00", helpText: "Starting cost estimate — future Purchases will roll this forward automatically." },
-        { key: "unit",          label: "Unit",                placeholder: "hr / pc / job" },
+        { key: "unit",          label: "Unit",                type: "datalist", options: ITEM_UNITS, placeholder: "kg / pc / bundle" },
         { key: "stock",         label: editingItem ? "Stock (qty)" : "Opening stock (qty)", type: "number", placeholder: "0" },
         { key: "lowStock",      label: "Low stock alert at",  type: "number", placeholder: `${LOW_STOCK_DEFAULT}` },
         { key: "trackingMode",  label: "Track by",            type: "toggle", options: [{ value: "unit", label: "Units" }, { value: "box", label: "Box" }] },
@@ -247,11 +249,12 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         { key: "vendorId",      label: "Preferred vendor (for reorder suggestions)", type: "select", options: vendorOptions },
       ]} initial={editingItem ? {
         id: editingItem.id, name: editingItem.name, category: editingItem.category || "Others",
+        brand: editingItem.brand || "",
         sellingPrice: editingItem.sellingPrice ?? editingItem.price ?? 0, purchasePrice: editingItem.purchasePrice,
         unit: editingItem.unit, stock: editingItem.stock, lowStock: editingItem.lowStock ?? LOW_STOCK_DEFAULT,
         trackingMode: editingItem.trackingMode || "unit", piecesPerBox: editingItem.piecesPerBox || 0,
         vendorId: editingItem.vendorId || "",
-      } : { category: "Others", trackingMode: "unit", piecesPerBox: 0 }} onClose={closeModal} onSave={saveItem} />;
+      } : { category: "Others", brand: "", trackingMode: "unit", piecesPerBox: 0 }} onClose={closeModal} onSave={saveItem} />;
     }
 
     if (type === "expense") return <FieldModal title="Record Expense" fields={[

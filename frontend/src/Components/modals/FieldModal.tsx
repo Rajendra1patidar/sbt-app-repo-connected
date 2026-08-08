@@ -50,6 +50,15 @@ export function FieldModal({ title, fields, initial, onClose, onSave, danger }: 
                 <textarea value={values[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)}
                   rows={3} placeholder={f.placeholder}
                   className="w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400" />
+              ) : f.type === "datalist" ? (
+                <>
+                  <input list={`${f.key}-options`} type="text" value={values[f.key] ?? ""}
+                    onChange={(e) => set(f.key, e.target.value)} placeholder={f.placeholder}
+                    className="w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400" />
+                  <datalist id={`${f.key}-options`}>
+                    {f.options.map((o: any) => <option key={o} value={o} />)}
+                  </datalist>
+                </>
               ) : f.type === "location" ? (
                 <div className="flex gap-2">
                   <input type="text" value={values[f.key] ?? ""}

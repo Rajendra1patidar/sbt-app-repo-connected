@@ -11,6 +11,7 @@ const itemSchema = new mongoose.Schema(
     stock: { type: Number, default: 0, min: [0, "Stock can't go negative"] },
     lowStock: { type: Number, default: 5, min: [0, "Low-stock threshold can't be negative"] },
     category: { type: String, trim: true, default: "Others" },
+    brand: { type: String, trim: true, default: "" },
     trackingMode: { type: String, enum: ["unit", "box"], default: "unit" },
     piecesPerBox: { type: Number, default: 0, min: [0, "Pieces per box can't be negative"] },
     // soft-delete: an item used on any historical estimate/purchase can't be hard-deleted

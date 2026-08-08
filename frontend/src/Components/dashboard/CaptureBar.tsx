@@ -162,10 +162,15 @@ export function CaptureBar({ items, customers, vendors, currency, saveDocument, 
           const item = picked.item ?? pending.item;
           const customer = picked.customer ?? pending.customer;
           const rate = pending.rate ?? (pending.amount ? pending.amount / pending.qty : (item.sellingPrice ?? item.price ?? 0));
-          const total = pending.amount ?? rate * pending.qty;
+          const subtotal = pending.amount ?? rate * pending.qty;
+          // Server rejects a discount that exceeds the line's own subtotal —
+          // clamp here too so a misheard/misread discount can't silently fail
+          // the whole estimate at save time.
+          const discountAmount = Math.min(pending.discountAmount ?? 0, subtotal);
+          const total = subtotal - discountAmount;
           const doc = await saveDocument("estimate", {
             customerId: customer.id, date: today(), dueDate: today(),
-            lines: [{ itemId: item.id, qty: pending.qty, rate }], total, status: "Due",
+            lines: [{ itemId: item.id, qty: pending.qty, rate, discountAmount }], total, status: "Due",
           });
           showToast(`Estimate created for ${customer.name} · ${fmtMoney(total, currency)}`, doc?.id ? { undo: () => undoEstimate(doc.id), duration: 6000 } : undefined);
           break;
@@ -286,9 +291,16 @@ function PreviewCard({ pending, picked, setPicked, currency, busy, onConfirm, on
     const item = picked.item ?? pending.item;
     const customer = picked.customer ?? pending.customer;
     const rate = pending.rate ?? (pending.amount ? pending.amount / pending.qty : (item.sellingPrice ?? item.price ?? 0));
-    const total = pending.amount ?? rate * pending.qty;
+    const subtotal = pending.amount ?? rate * pending.qty;
+    const discountAmount = Math.min(pending.discountAmount ?? 0, subtotal);
+    const total = subtotal - discountAmount;
     title = "New sale";
-    lines = [`${pending.qty} × ${item.name} → ${customer.name}`, `${fmtMoney(total, currency)} · ${fmtMoney(rate, currency)}/unit`];
+    lines = [
+      `${pending.qty} × ${item.name} → ${customer.name}`,
+      discountAmount > 0
+        ? `${fmtMoney(total, currency)} (${fmtMoney(subtotal, currency)} − ${fmtMoney(discountAmount, currency)} discount) · ${fmtMoney(rate, currency)}/unit`
+        : `${fmtMoney(total, currency)} · ${fmtMoney(rate, currency)}/unit`,
+    ];
     warning = pending.priceWarning;
   } else if (pending.kind === "purchase") {
     const item = picked.item ?? pending.item;

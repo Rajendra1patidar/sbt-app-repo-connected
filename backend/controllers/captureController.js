@@ -33,6 +33,7 @@ const CAPTURE_SCHEMA = {
     qty: { type: "number", nullable: true },
     rate: { type: "number", nullable: true },
     amount: { type: "number", nullable: true },
+    discountAmount: { type: "number", nullable: true },
     category: { type: "string", nullable: true },
     vendor: { type: "string", nullable: true },
   },
@@ -55,7 +56,7 @@ ${line(vendors, ["_id", "name"])}
 The note: "${text}"
 
 Return JSON matching exactly ONE of these shapes, based on what the note describes:
-{"kind":"sale","itemId":<id string or null>,"itemName":<string>,"customerId":<id string or null>,"customerName":<string>,"qty":<number>,"rate":<number or null>,"amount":<number or null>}
+{"kind":"sale","itemId":<id string or null>,"itemName":<string>,"customerId":<id string or null>,"customerName":<string>,"qty":<number>,"rate":<number or null>,"amount":<number or null>,"discountAmount":<number or null>}
 {"kind":"purchase","itemId":<id string or null>,"itemName":<string>,"vendorId":<id string or null>,"vendorName":<string>,"qty":<number>,"rate":<number or null>}
 {"kind":"payment","customerId":<id string or null>,"customerName":<string>,"amount":<number>}
 {"kind":"expense","category":<short string>,"amount":<number>,"vendor":<string or null>}
@@ -64,8 +65,9 @@ Return JSON matching exactly ONE of these shapes, based on what the note describ
 Rules:
 - Only fill an id when you're genuinely confident it's that exact known item/customer/vendor — fuzzy spelling, typos, and Hindi-English mixed names are fine to match, but a name with no real match in the lists above must get id: null. Never invent an id.
 - "rate" is a PER-UNIT price, signalled by words like "at", "@", "each", "/bag", "/unit". A bare trailing number with none of those words is the TOTAL "amount" instead — never fill both rate and amount from the same number.
+- "discountAmount" is a FLAT rupee amount taken off the whole line's subtotal (qty × rate), signalled by words like "discount", "less", "off", "chhoot", "kam kiya". It is only ever present on a sale. Never subtract it yourself from rate or amount — return it as its own field, unadjusted. If no discount is mentioned, use null, not 0.
 - If the note doesn't clearly describe a sale, purchase, payment, or expense, return {"kind":"unknown"} rather than guessing.
-- qty, amount, and rate must be plain numbers with no currency symbols, commas, or units attached.`;
+- qty, amount, rate, and discountAmount must be plain numbers with no currency symbols, commas, or units attached.`;
 }
 
 /** Best-effort strip of ```json ... ``` fences some models add despite being told not to. */

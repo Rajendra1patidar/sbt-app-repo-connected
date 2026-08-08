@@ -9,8 +9,8 @@
 export interface MatchCandidate { entity: any; score: number }
 
 export type CaptureAction =
-  | { kind: "sale"; item: any; customer: any; qty: number; amount?: number; rate?: number; itemCandidates: MatchCandidate[]; customerCandidates: MatchCandidate[]; priceWarning?: string; source?: "ai" }
-  | { kind: "sale_needs_review"; itemName: string; customerName: string; qty: number; amount?: number; rate?: number; item: any; customer: any; source?: "ai" }
+  | { kind: "sale"; item: any; customer: any; qty: number; amount?: number; rate?: number; discountAmount?: number; itemCandidates: MatchCandidate[]; customerCandidates: MatchCandidate[]; priceWarning?: string; source?: "ai" }
+  | { kind: "sale_needs_review"; itemName: string; customerName: string; qty: number; amount?: number; rate?: number; discountAmount?: number; item: any; customer: any; source?: "ai" }
   | { kind: "purchase"; item: any; vendor: any; qty: number; rate?: number; itemCandidates: MatchCandidate[]; vendorCandidates: MatchCandidate[]; priceWarning?: string; source?: "ai" }
   | { kind: "purchase_needs_review"; itemName: string; vendorName: string; qty: number; rate?: number; item: any; vendor: any; source?: "ai" }
   | { kind: "payment"; customer: any; amount: number; customerCandidates: MatchCandidate[]; source?: "ai" }
@@ -45,6 +45,7 @@ export interface AiCaptureResult {
   customerId?: string | null; customerName?: string;
   vendorId?: string | null; vendorName?: string;
   qty?: number; rate?: number | null; amount?: number | null;
+  discountAmount?: number | null;
   category?: string; vendor?: string | null;
 }
 
@@ -62,12 +63,13 @@ export function actionFromAiResult(result: AiCaptureResult | null | undefined, c
     const qty = Number(result.qty) || 0;
     const rate = result.rate != null ? Number(result.rate) : undefined;
     const amount = result.amount != null ? Number(result.amount) : undefined;
+    const discountAmount = result.discountAmount != null ? Number(result.discountAmount) : undefined;
     if (item && customer && qty > 0) {
       const effectiveRate = rate ?? (amount ? amount / qty : (item.sellingPrice ?? item.price));
       const priceWarning = checkPriceSanity(effectiveRate, item.sellingPrice ?? item.price, "unit");
-      return { kind: "sale", item, customer, qty, amount, rate, itemCandidates: [{ entity: item, score: 3 }], customerCandidates: [{ entity: customer, score: 3 }], priceWarning, source: "ai" };
+      return { kind: "sale", item, customer, qty, amount, rate, discountAmount, itemCandidates: [{ entity: item, score: 3 }], customerCandidates: [{ entity: customer, score: 3 }], priceWarning, source: "ai" };
     }
-    return { kind: "sale_needs_review", itemName: result.itemName || "that item", customerName: result.customerName || "that customer", qty, amount, rate, item, customer, source: "ai" };
+    return { kind: "sale_needs_review", itemName: result.itemName || "that item", customerName: result.customerName || "that customer", qty, amount, rate, discountAmount, item, customer, source: "ai" };
   }
 
   if (result.kind === "purchase") {
@@ -264,7 +266,7 @@ function stripWords(text: string, words: string[]): string {
   return out;
 }
 
-function extractNumbers(text: string, claimedDigitWords: string[]): { qty?: number; amount?: number; rate?: number } {
+function extractNumbers(text: string, claimedDigitWords: string[]): { qty?: number; amount?: number; rate?: number; discountAmount?: number } {
   // \b before rs/inr matters: without it "rs" also matches inside ordinary
   // words like "Brothers" or "Traders" (both end in "...rs"), which would
   // misread the *next* number in the sentence as a currency amount.
@@ -272,12 +274,17 @@ function extractNumbers(text: string, claimedDigitWords: string[]): { qty?: numb
   const explicitAmount = moneyMatch ? numFromMoney(moneyMatch[1]) : undefined;
   const rateMatch = text.match(/\b(?:rate|at|@)\s*(?:₹|\brs\.?|\binr)?\s*([\d,]+(?:\.\d+)?)\s*(?:each|\/\s*(?:unit|bag|pc))?/i);
   const rate = rateMatch ? numFromMoney(rateMatch[1]) : undefined;
+  // Flat ₹ discount, either word order: "discount of 15" / "15 rs discount off".
+  const discountMatch = text.match(
+    /(?:\b(?:discount|less|off)\b\s*(?:of)?\s*(?:₹|\brs\.?|\binr)?\s*([\d,]+(?:\.\d+)?))|(?:([\d,]+(?:\.\d+)?)\s*(?:₹|\brs\.?|\binr)?\s*\b(?:discount|off)\b)/i
+  );
+  const discountAmount = discountMatch ? numFromMoney(discountMatch[1] || discountMatch[2]) : undefined;
 
   const allNums = [...text.matchAll(/\d[\d,]*(?:\.\d+)?/g)].map((mm) => mm[0]);
   // numbers baked into a matched item's own name (e.g. the "12" in "12mm Saria")
   // aren't a quantity or amount — drop them before picking qty/amount
   const itemNums = new Set(claimedDigitWords.filter((w) => /^\d+$/.test(w)));
-  const claimed = new Set([explicitAmount, rate].filter((v) => v !== undefined).map(String));
+  const claimed = new Set([explicitAmount, rate, discountAmount].filter((v) => v !== undefined).map(String));
   const candidateNums = allNums
     .filter((n) => !itemNums.has(n.replace(/,/g, "")))
     .filter((n) => !claimed.has(n.replace(/,/g, "")));
@@ -292,7 +299,7 @@ function extractNumbers(text: string, claimedDigitWords: string[]): { qty?: numb
   } else if (candidateNums.length === 1) {
     qty = Number(candidateNums[0].replace(/,/g, ""));
   }
-  return { qty, amount, rate };
+  return { qty, amount, rate, discountAmount };
 }
 
 const SALE_VERBS = /\b(sold|sell|billed|bill|gave|give|invoiced)\b/i;
@@ -345,7 +352,7 @@ function parseLoose(text: string, ctx: { items: any[]; customers: any[]; vendors
   const { candidates: itemCandidates, claimedWords: itemWords } = findMentions(text, ctx.items, (i) => i.name);
   const reduced = stripWords(text, itemWords);
   const { candidates: customerCandidates } = findMentions(reduced, ctx.customers, (c) => c.name);
-  const { qty, amount, rate } = extractNumbers(text, itemWords);
+  const { qty, amount, rate, discountAmount } = extractNumbers(text, itemWords);
   if (!qty || (!isSale && !itemCandidates.length)) return null;
   const item = itemCandidates[0]?.entity ?? null;
   const customer = customerCandidates[0]?.entity ?? null;
@@ -357,8 +364,8 @@ function parseLoose(text: string, ctx: { items: any[]; customers: any[]; vendors
   if (item && customer) {
     const effectiveRate = rate ?? (effectiveAmount ? effectiveAmount / qty : (item.sellingPrice ?? item.price));
     const priceWarning = checkPriceSanity(effectiveRate, item.sellingPrice ?? item.price, "unit");
-    return { kind: "sale", item, customer, qty, amount: effectiveAmount, rate, itemCandidates, customerCandidates, priceWarning };
+    return { kind: "sale", item, customer, qty, amount: effectiveAmount, rate, discountAmount, itemCandidates, customerCandidates, priceWarning };
   }
-  if (isSale) return { kind: "sale_needs_review", itemName, customerName, qty, amount: effectiveAmount, rate, item, customer };
+  if (isSale) return { kind: "sale_needs_review", itemName, customerName, qty, amount: effectiveAmount, rate, discountAmount, item, customer };
   return null;
 }

@@ -79,7 +79,7 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
       </div>
 
       <CaptureBar
-        items={items} customers={customers} vendors={vendors}
+        items={items} customers={customers} vendors={vendors} currency={settings.currency}
         saveDocument={saveDocument} savePayment={savePayment} savePurchase={savePurchase} saveCustomer={saveCustomer}
         openModal={openModal} showToast={showToast}
       />

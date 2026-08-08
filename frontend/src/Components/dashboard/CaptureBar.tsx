@@ -357,13 +357,13 @@ function PreviewCard({ pending, picked, setPicked, currency, busy, onConfirm, on
 
       {pending.kind === "sale" && (
         <>
-          <CandidatePicker label="item" candidates={pending.itemCandidates} selected={picked.item} nameOf={(e) => e.name} onPick={(e) => setPicked((p: any) => ({ ...p, item: e }))} />
+          <CandidatePicker label="item" candidates={pending.itemCandidates} selected={picked.item} nameOf={(e) => e.brand ? `${e.name} (${e.brand})` : e.name} onPick={(e) => setPicked((p: any) => ({ ...p, item: e }))} />
           <CandidatePicker label="customer" candidates={pending.customerCandidates} selected={picked.customer} nameOf={(e) => e.name} onPick={(e) => setPicked((p: any) => ({ ...p, customer: e }))} />
         </>
       )}
       {pending.kind === "purchase" && (
         <>
-          <CandidatePicker label="item" candidates={pending.itemCandidates} selected={picked.item} nameOf={(e) => e.name} onPick={(e) => setPicked((p: any) => ({ ...p, item: e }))} />
+          <CandidatePicker label="item" candidates={pending.itemCandidates} selected={picked.item} nameOf={(e) => e.brand ? `${e.name} (${e.brand})` : e.name} onPick={(e) => setPicked((p: any) => ({ ...p, item: e }))} />
           <CandidatePicker label="vendor" candidates={pending.vendorCandidates} selected={picked.vendor} nameOf={(e) => e.name} onPick={(e) => setPicked((p: any) => ({ ...p, vendor: e }))} />
         </>
       )}

@@ -47,8 +47,8 @@ function buildPrompt(text, items, customers, vendors) {
   const line = (list, fields) => list.map((x) => fields.map((f) => x[f] ?? "").join("|")).join("\n") || "(none)";
   return `You parse a short free-text note from an Indian building-materials trading business into ONE structured action. Reply with ONLY a single raw JSON object — no markdown fences, no explanation, no extra text.
 
-Known items (id|name|sellingPrice|purchasePrice):
-${line(items, ["_id", "name", "sellingPrice", "purchasePrice"])}
+Known items (id|name|brand|sellingPrice|purchasePrice):
+${line(items, ["_id", "name", "brand", "sellingPrice", "purchasePrice"])}
 
 Known customers (id|name):
 ${line(customers, ["_id", "name"])}
@@ -67,6 +67,7 @@ Return JSON matching exactly ONE of these shapes, based on what the note describ
 
 Rules:
 - Only fill an id when you're genuinely confident it's that exact known item/customer/vendor — fuzzy spelling, typos, and Hindi-English mixed names are fine to match, but a name with no real match in the lists above must get id: null. Never invent an id.
+- An item mention may reference its brand instead of (or alongside) its name — e.g. "kamdhenu 10mm" should match an item whose brand column is "Kamdhenu" and name is "10mm ..." even though the words aren't in that order. Match on the combination of name and brand together.
 - "rate" is a PER-UNIT price, signalled by words like "at", "@", "each", "/bag", "/unit". A bare trailing number with none of those words is the TOTAL "amount" instead — never fill both rate and amount from the same number.
 - "discountAmount" is a FLAT rupee amount taken off the item line's own subtotal (qty × rate), signalled by words like "discount", "less", "off", "chhoot", "kam kiya". Never subtract it yourself from rate or amount — return it as its own field, unadjusted.
 - "labourCost" and "freightCost" are FLAT rupee charges added to the whole estimate on top of the item line(s) — not per unit, not part of the item's rate. "labourCost" is signalled by "labour cost", "labour", "majdoori". "freightCost" is signalled by "freight" (note: often misspelled "fright" or "frieght" — treat those the same), "transport", "bhada".
@@ -90,7 +91,7 @@ exports.parse = async (req, res, next) => {
     }
 
     const [items, customers, vendors] = await Promise.all([
-      Item.find({ owner: req.userId }).select("name sellingPrice purchasePrice").lean(),
+      Item.find({ owner: req.userId }).select("name brand sellingPrice purchasePrice").lean(),
       Customer.find({ owner: req.userId }).select("name").lean(),
       Vendor.find({ owner: req.userId }).select("name").lean(),
     ]);

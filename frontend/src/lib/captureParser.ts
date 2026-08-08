@@ -22,6 +22,11 @@ export type CaptureAction =
 
 const numFromMoney = (s?: string) => (s ? Number(s.replace(/[₹,\s]/g, "")) : undefined);
 
+/** Item match key: name plus brand, so a mention of the brand alone (e.g.
+ *  "kamdhenu saria") can find the item even if "Kamdhenu" isn't part of the
+ *  item's own name field. */
+const itemLabel = (i: any) => [i.name, i.brand].filter(Boolean).join(" ");
+
 /** Flags a wildly implausible per-unit rate against the item's known price,
  *  e.g. someone meant "300 each" but the parser read "300 total" for 2 bags
  *  and landed on ₹150/bag when cement never sells anywhere near that. Doesn't
@@ -163,7 +168,7 @@ export function parseCapture(raw: string, ctx: { items: any[]; customers: any[];
     const num = numFromMoney(m[5]);
     const amount = isRate ? undefined : num;
     const rate = isRate ? num : undefined;
-    const itemCandidates = bestMatches(itemName, ctx.items, (i) => i.name);
+    const itemCandidates = bestMatches(itemName, ctx.items, itemLabel);
     const customerCandidates = bestMatches(customerName, ctx.customers, (c) => c.name);
     const item = itemCandidates[0]?.entity ?? null;
     const customer = customerCandidates[0]?.entity ?? null;
@@ -182,7 +187,7 @@ export function parseCapture(raw: string, ctx: { items: any[]; customers: any[];
     const itemName = m[2].trim();
     const vendorName = m[3].trim();
     const rate = numFromMoney(m[4]);
-    const itemCandidates = bestMatches(itemName, ctx.items, (i) => i.name);
+    const itemCandidates = bestMatches(itemName, ctx.items, itemLabel);
     const vendorCandidates = bestMatches(vendorName, ctx.vendors, (v) => v.name);
     const item = itemCandidates[0]?.entity ?? null;
     const vendor = vendorCandidates[0]?.entity ?? null;
@@ -353,7 +358,7 @@ function parseLoose(text: string, ctx: { items: any[]; customers: any[]; vendors
   }
 
   if (isPurchase) {
-    const { candidates: itemCandidates, claimedWords: itemWords } = findMentions(text, ctx.items, (i) => i.name);
+    const { candidates: itemCandidates, claimedWords: itemWords } = findMentions(text, ctx.items, itemLabel);
     const reduced = stripWords(text, itemWords);
     const { candidates: vendorCandidates } = findMentions(reduced, ctx.vendors, (v) => v.name);
     const { qty, rate, amount } = extractNumbers(text, itemWords);
@@ -373,7 +378,7 @@ function parseLoose(text: string, ctx: { items: any[]; customers: any[]; vendors
   // Default to a sale whenever there's an explicit sale verb, OR — for the
   // dash-separated shorthand "Patel Traders — 40 bags cement, 22500" — when
   // there's no verb at all but a customer, item, and quantity all resolve.
-  const { candidates: itemCandidates, claimedWords: itemWords } = findMentions(text, ctx.items, (i) => i.name);
+  const { candidates: itemCandidates, claimedWords: itemWords } = findMentions(text, ctx.items, itemLabel);
   const reduced = stripWords(text, itemWords);
   const { candidates: customerCandidates } = findMentions(reduced, ctx.customers, (c) => c.name);
   const { qty, amount, rate, discountAmount, labourCost, freightCost } = extractNumbers(text, itemWords);

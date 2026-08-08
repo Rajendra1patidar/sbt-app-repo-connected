@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
-import { ArrowUp, Check, X } from "lucide-react";
-import { parseCapture, CaptureAction, MatchCandidate } from "../../lib/captureParser";
+import { ArrowUp, Check, Sparkles, X } from "lucide-react";
+import { parseCapture, actionFromAiResult, CaptureAction, MatchCandidate } from "../../lib/captureParser";
 import { fmtMoney, today } from "../../lib/format";
 import { api } from "../../lib/api";
 import { useAppStore } from "../../store/useAppStore";
@@ -111,10 +111,25 @@ export function CaptureBar({ items, customers, vendors, currency, saveDocument, 
     resetAll();
   };
 
-  const submit = () => {
+  const submit = async () => {
     const text = value.trim();
     if (!text || busy || pending) return;
-    const action = parseCapture(text, { items, customers, vendors });
+    let action = parseCapture(text, { items, customers, vendors });
+    if (action.kind === "unknown") {
+      // The regex parser has a fixed vocabulary — anything it can't confidently
+      // read falls back to the AI parser (Gemini) before giving up entirely,
+      // so unusual phrasing still has a shot at working.
+      setBusy(true);
+      try {
+        const { action: aiResult } = await api.capture.parse(text);
+        action = actionFromAiResult(aiResult, { items, customers, vendors });
+      } catch (err: any) {
+        showToast(err?.message || "Couldn't parse that — try one of the examples below.");
+        setBusy(false);
+        return;
+      }
+      setBusy(false);
+    }
     if (action.kind === "add_customer" && action.existing) {
       showToast(`"${action.existing.name}" already exists — opening their edit form`);
       openModal("customer", { editingCustomer: action.existing });
@@ -199,8 +214,8 @@ export function CaptureBar({ items, customers, vendors, currency, saveDocument, 
               disabled={busy}
               className="flex-1 bg-transparent border-none outline-none text-[15px] text-[#F5F3EE] placeholder:text-[#6b6f78]"
             />
-            <span className="hidden sm:inline-block whitespace-nowrap rounded-md border border-[#333844] px-1.5 py-0.5 font-mono text-[10px] text-[#7d818a]">
-              ↵ enter
+            <span className={`hidden sm:inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 font-mono text-[10px] ${busy ? "border-orange-500/40 text-orange-300" : "border-[#333844] text-[#7d818a]"}`}>
+              {busy ? <><Sparkles size={10} className="animate-pulse" /> thinking…</> : "↵ enter"}
             </span>
           </div>
           <div className="relative flex flex-wrap gap-2">
@@ -287,7 +302,14 @@ function PreviewCard({ pending, picked, setPicked, currency, busy, onConfirm, on
   return (
     <div className="relative flex flex-col gap-3">
       <div>
-        <p className="text-[10.5px] font-semibold uppercase tracking-wide text-[#7d818a]">{title} — confirm?</p>
+        <p className="text-[10.5px] font-semibold uppercase tracking-wide text-[#7d818a] flex items-center gap-1.5">
+          {title} — confirm?
+          {pending.source === "ai" && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-orange-500/40 bg-orange-500/10 px-1.5 py-0.5 text-[9.5px] font-semibold normal-case tracking-normal text-orange-300">
+              <Sparkles size={9} /> AI
+            </span>
+          )}
+        </p>
         <p className="mt-1 text-[15px] font-semibold text-white">{lines[0]}</p>
         {lines[1] && <p className="font-mono text-[13px] text-[#c9cdd6]">{lines[1]}</p>}
       </div>

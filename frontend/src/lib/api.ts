@@ -169,6 +169,14 @@ export const api = {
   payments: crud("/api/payments"),
   contractors: crud("/api/contractors"),
 
+  capture: {
+    // AI fallback for the quick-capture bar — only called when the local
+    // regex parser can't confidently read what was typed. Backend resolves
+    // item/customer/vendor ids itself (it has the DB), so this only ever
+    // sends the raw typed line, nothing else.
+    parse: (text: string) => request("/api/capture/parse", { method: "POST", body: JSON.stringify({ text }) }),
+  },
+
   vendors: {
     ...crud("/api/vendors"),
     findDuplicate: (name: string, phone: string) =>

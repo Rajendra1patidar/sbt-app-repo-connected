@@ -9,13 +9,13 @@
 export interface MatchCandidate { entity: any; score: number }
 
 export type CaptureAction =
-  | { kind: "sale"; item: any; customer: any; qty: number; amount?: number; rate?: number; itemCandidates: MatchCandidate[]; customerCandidates: MatchCandidate[]; priceWarning?: string }
-  | { kind: "sale_needs_review"; itemName: string; customerName: string; qty: number; amount?: number; rate?: number; item: any; customer: any }
-  | { kind: "purchase"; item: any; vendor: any; qty: number; rate?: number; itemCandidates: MatchCandidate[]; vendorCandidates: MatchCandidate[]; priceWarning?: string }
-  | { kind: "purchase_needs_review"; itemName: string; vendorName: string; qty: number; rate?: number; item: any; vendor: any }
-  | { kind: "payment"; customer: any; amount: number; customerCandidates: MatchCandidate[] }
-  | { kind: "payment_needs_review"; customerName: string; amount: number }
-  | { kind: "expense"; category: string; amount: number; vendor?: string }
+  | { kind: "sale"; item: any; customer: any; qty: number; amount?: number; rate?: number; itemCandidates: MatchCandidate[]; customerCandidates: MatchCandidate[]; priceWarning?: string; source?: "ai" }
+  | { kind: "sale_needs_review"; itemName: string; customerName: string; qty: number; amount?: number; rate?: number; item: any; customer: any; source?: "ai" }
+  | { kind: "purchase"; item: any; vendor: any; qty: number; rate?: number; itemCandidates: MatchCandidate[]; vendorCandidates: MatchCandidate[]; priceWarning?: string; source?: "ai" }
+  | { kind: "purchase_needs_review"; itemName: string; vendorName: string; qty: number; rate?: number; item: any; vendor: any; source?: "ai" }
+  | { kind: "payment"; customer: any; amount: number; customerCandidates: MatchCandidate[]; source?: "ai" }
+  | { kind: "payment_needs_review"; customerName: string; amount: number; source?: "ai" }
+  | { kind: "expense"; category: string; amount: number; vendor?: string; source?: "ai" }
   | { kind: "new_estimate"; customer: any }
   | { kind: "add_customer"; name: string; location?: string; existing?: any }
   | { kind: "unknown"; text: string };
@@ -28,11 +28,75 @@ const numFromMoney = (s?: string) => (s ? Number(s.replace(/[₹,\s]/g, "")) : u
  *  block anything — just a warning shown on the preview card so the person
  *  can catch a misread before confirming, not a hard validation rule (prices
  *  do legitimately vary, discounts happen, etc). */
-function checkPriceSanity(rate: number | undefined, expected: number | undefined, unitLabel: string): string | undefined {
+export function checkPriceSanity(rate: number | undefined, expected: number | undefined, unitLabel: string): string | undefined {
   if (!rate || !expected || expected <= 0) return undefined;
   if (rate < expected * 0.4) return `₹${rate.toLocaleString("en-IN")}/${unitLabel} looks low — usual price is ₹${expected.toLocaleString("en-IN")}/${unitLabel}. Check if the amount typed was a total, not a rate.`;
   if (rate > expected * 2.5) return `₹${rate.toLocaleString("en-IN")}/${unitLabel} looks high — usual price is ₹${expected.toLocaleString("en-IN")}/${unitLabel}.`;
   return undefined;
+}
+
+/** Shape returned by the backend's /api/capture/parse (an LLM call) — see
+ *  captureController.js. The backend resolves item/customer/vendor ids
+ *  itself against the same owner's data, so this side just needs to look
+ *  those ids up in the store's already-loaded lists. */
+export interface AiCaptureResult {
+  kind: "sale" | "purchase" | "payment" | "expense" | "unknown";
+  itemId?: string | null; itemName?: string;
+  customerId?: string | null; customerName?: string;
+  vendorId?: string | null; vendorName?: string;
+  qty?: number; rate?: number | null; amount?: number | null;
+  category?: string; vendor?: string | null;
+}
+
+/** Converts an AI parse result into the same CaptureAction shape the regex
+ *  parser produces, so the capture bar's preview/confirm/undo UI doesn't
+ *  need to know or care which path produced it. A missing/unmatched id
+ *  falls back to the same "_needs_review" flow as a regex miss. */
+export function actionFromAiResult(result: AiCaptureResult | null | undefined, ctx: { items: any[]; customers: any[]; vendors: any[] }): CaptureAction {
+  const findById = (id: string | null | undefined, pool: any[]) => (id ? pool.find((x) => x.id === id) ?? null : null);
+  if (!result || result.kind === "unknown") return { kind: "unknown", text: "" };
+
+  if (result.kind === "sale") {
+    const item = findById(result.itemId, ctx.items);
+    const customer = findById(result.customerId, ctx.customers);
+    const qty = Number(result.qty) || 0;
+    const rate = result.rate != null ? Number(result.rate) : undefined;
+    const amount = result.amount != null ? Number(result.amount) : undefined;
+    if (item && customer && qty > 0) {
+      const effectiveRate = rate ?? (amount ? amount / qty : (item.sellingPrice ?? item.price));
+      const priceWarning = checkPriceSanity(effectiveRate, item.sellingPrice ?? item.price, "unit");
+      return { kind: "sale", item, customer, qty, amount, rate, itemCandidates: [{ entity: item, score: 3 }], customerCandidates: [{ entity: customer, score: 3 }], priceWarning, source: "ai" };
+    }
+    return { kind: "sale_needs_review", itemName: result.itemName || "that item", customerName: result.customerName || "that customer", qty, amount, rate, item, customer, source: "ai" };
+  }
+
+  if (result.kind === "purchase") {
+    const item = findById(result.itemId, ctx.items);
+    const vendor = findById(result.vendorId, ctx.vendors);
+    const qty = Number(result.qty) || 0;
+    const rate = result.rate != null ? Number(result.rate) : undefined;
+    if (item && vendor && qty > 0) {
+      const effectiveRate = rate ?? item.purchasePrice;
+      const priceWarning = checkPriceSanity(effectiveRate, item.purchasePrice, "unit");
+      return { kind: "purchase", item, vendor, qty, rate, itemCandidates: [{ entity: item, score: 3 }], vendorCandidates: [{ entity: vendor, score: 3 }], priceWarning, source: "ai" };
+    }
+    return { kind: "purchase_needs_review", itemName: result.itemName || "that item", vendorName: result.vendorName || "that vendor", qty, rate, item, vendor, source: "ai" };
+  }
+
+  if (result.kind === "payment") {
+    const customer = findById(result.customerId, ctx.customers);
+    const amount = Number(result.amount) || 0;
+    if (customer && amount > 0) return { kind: "payment", customer, amount, customerCandidates: [{ entity: customer, score: 3 }], source: "ai" };
+    return { kind: "payment_needs_review", customerName: result.customerName || "that customer", amount, source: "ai" };
+  }
+
+  if (result.kind === "expense") {
+    const amount = Number(result.amount) || 0;
+    const category = (result.category || "").trim();
+    if (amount > 0 && category) return { kind: "expense", category, amount, vendor: result.vendor || undefined, source: "ai" };
+  }
+
+  return { kind: "unknown", text: "" };
 }
 
 /** All candidates whose score is within 1 point of the best score, sorted best-first.

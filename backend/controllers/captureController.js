@@ -100,11 +100,6 @@ exports.parse = async (req, res, next) => {
             responseMimeType: "application/json",
             responseSchema: CAPTURE_SCHEMA,
             temperature: 0,
-            // Ignored by Gemini models, respected by Gemma 4: this is a
-            // one-shot classification, not a reasoning task, so keep
-            // thinking off for lower latency. "low"/"off" both work
-            // depending on model size — "low" is the safe default.
-            thinkingConfig: { thinkingLevel: "low" },
           },
         }),
       });

@@ -7,6 +7,8 @@ import { CaptureBar } from "../dashboard/CaptureBar";
 import { BalanceBeam } from "../dashboard/BalanceBeam";
 import { ActivityRiver } from "../dashboard/ActivityRiver";
 import { AlertStrip, buildDashboardAlerts } from "../dashboard/AlertStrip";
+import { DueThisWeek } from "../dashboard/DueThisWeek";
+import { ContractorPodium } from "../dashboard/ContractorPodium";
 
 /* ---- Dashboard ---- */
 
@@ -67,7 +69,8 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
   const refundsMonth = refundPayments.filter((p: any) => monthKey(p.date) === thisMonthKey).reduce((s: number, p: any) => s + Math.abs(Number(p.amount)), 0);
 
   return (
-    <div className="space-y-5 px-5 pb-28">
+    <div className="pb-28 lg:grid lg:grid-cols-[1fr_320px] lg:items-start lg:gap-5 lg:px-5">
+    <div className="space-y-5 px-5 lg:px-0">
       <AlertStrip alerts={buildDashboardAlerts({ lowStockItems, overdueEstimates, overdueAmount, payable, currency: settings.currency, go })} />
 
       <div className="pt-1">
@@ -246,6 +249,12 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
           </ul>
         </Card>
       )}
+    </div>
+
+    <div className="mt-5 space-y-4 px-5 lg:mt-0 lg:px-0">
+      <DueThisWeek estimates={estimates} customers={customers} currency={settings.currency} go={go} />
+      <ContractorPodium estimates={estimates} items={items} go={go} />
+    </div>
     </div>
   );
 }

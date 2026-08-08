@@ -1,0 +1,57 @@
+import React, { useMemo } from "react";
+import { fmtNum } from "../../lib/format";
+import { estimatePoints, sariaToPoints } from "../../lib/points";
+
+const BAR_COLORS = [
+  "linear-gradient(180deg,#EA6B2E,#D9500F)", // 1st — orange
+  "linear-gradient(180deg,#4C86D6,#2F5AA8)", // 2nd — blue
+  "linear-gradient(180deg,#4C86D6,#2F5AA8)",
+  "linear-gradient(180deg,#4C86D6,#2F5AA8)",
+];
+
+export function ContractorPodium({ estimates, items, go }: any) {
+  const ranking = useMemo(() => {
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const byName: Record<string, number> = {};
+    (estimates || []).forEach((e: any) => {
+      const name = (e.contractorName || "").trim();
+      if (!name || String(e.date || "").slice(0, 7) !== monthKey) return;
+      const pts = estimatePoints(e, items).points;
+      byName[name] = (byName[name] || 0) + pts;
+    });
+    return Object.entries(byName)
+      .map(([name, points]) => ({ name, points }))
+      .filter((r) => r.points > 0)
+      .sort((a, b) => b.points - a.points)
+      .slice(0, 4);
+  }, [estimates, items]);
+
+  const maxPts = Math.max(1, ...ranking.map((r) => r.points));
+
+  return (
+    <div className="rounded-card bg-card border border-line shadow-card overflow-hidden">
+      <div className="flex items-baseline justify-between px-4 pt-3.5 pb-1 border-b border-line">
+        <h2 className="font-display text-[13.5px] font-medium text-ink">Contractor rank</h2>
+        <button onClick={() => go?.("contractors")} className="font-mono text-[10px] text-ink/40 hover:text-brand-500">/scorecard</button>
+      </div>
+      {ranking.length === 0 ? (
+        <p className="px-4 py-6 text-center text-[12.5px] text-ink/40">No contractor points yet this month.</p>
+      ) : (
+        <div className="flex items-end gap-2.5 px-4 pb-4 pt-3" style={{ height: 128 }}>
+          {ranking.map((r, i) => {
+            const heightPx = Math.max(18, (r.points / maxPts) * 76);
+            return (
+              <button key={r.name} onClick={() => go?.("contractors")} className="flex flex-1 flex-col items-center gap-1.5">
+                <span className={`flex h-[17px] w-[17px] items-center justify-center rounded-full font-mono text-[9px] font-semibold ${i === 0 ? "bg-orange-500 text-white" : "bg-paper text-ink/40"}`}>{i + 1}</span>
+                <div className="w-full rounded-t-[6px] rounded-b-[2px] transition-all duration-500 ease-out" style={{ height: heightPx, background: BAR_COLORS[i] }} />
+                <span className="text-center text-[9.5px] font-semibold leading-tight text-ink truncate max-w-full">{r.name}</span>
+                <span className="font-mono text-[9px] text-ink/40">{fmtNum(r.points)}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -14,7 +14,7 @@ export function FieldModal({ title, fields, initial, onClose, onSave, danger }: 
   
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
-      <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-6 shadow-xl">
+      <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display text-lg font-bold text-ink">{title}</h3>
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
@@ -38,7 +38,7 @@ export function FieldModal({ title, fields, initial, onClose, onSave, danger }: 
                       onClick={() => set(f.key, o.value)}
                       className={`flex-1 rounded-full px-3 py-2 text-xs font-semibold transition ${
                         values[f.key] === o.value
-                          ? "bg-white text-brand-600 shadow-sm"
+                          ? "bg-card text-brand-600 shadow-sm"
                           : "bg-paper text-ink/70 hover:text-ink"
                       }`}
                     >

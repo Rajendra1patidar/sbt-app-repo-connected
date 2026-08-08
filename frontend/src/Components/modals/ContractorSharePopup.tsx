@@ -3,7 +3,7 @@ import { MessageSquare, Printer } from "lucide-react";
 export function ContractorSharePopup({ title, onFormat, onCancel }: any) {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/50 p-4">
-      <div className="w-full max-w-xs rounded-3xl bg-white p-6 shadow-xl">
+      <div className="w-full max-w-xs rounded-3xl bg-card p-6 shadow-xl">
         <h3 className="font-display text-lg font-bold text-ink">Share {title}</h3>
         <p className="mt-1 text-sm text-ink/50">Choose what to include, then how to send it.</p>
         <div className="mt-5 space-y-4">

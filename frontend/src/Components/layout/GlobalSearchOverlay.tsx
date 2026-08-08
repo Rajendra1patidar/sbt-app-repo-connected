@@ -27,8 +27,8 @@ export function GlobalSearchOverlay({ customers, items, estimates, currency, onS
 
   return (
     <div className="fixed inset-0 z-50 bg-ink/40">
-      <div className="mx-auto max-w-lg bg-white h-full sm:h-auto sm:mt-16 sm:rounded-3xl sm:shadow-xl overflow-y-auto">
-        <div className="sticky top-0 flex items-center gap-2 border-b border-line bg-white p-4">
+      <div className="mx-auto max-w-lg bg-card h-full sm:h-auto sm:mt-16 sm:rounded-3xl sm:shadow-xl overflow-y-auto">
+        <div className="sticky top-0 flex items-center gap-2 border-b border-line bg-card p-4">
           <Search size={18} className="text-ink/40 shrink-0" />
           <input
             autoFocus

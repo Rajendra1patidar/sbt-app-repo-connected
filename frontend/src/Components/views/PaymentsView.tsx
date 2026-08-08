@@ -90,7 +90,7 @@ export function PaymentsView({ payments, customers, currency, openModal, removeP
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by customer or estimate number..."
-          className="w-full rounded-xl border border-line bg-white py-2.5 pl-9 pr-3 text-sm"
+          className="w-full rounded-xl border border-line bg-card py-2.5 pl-9 pr-3 text-sm"
         />
       </div>
       {activeList.length === 0

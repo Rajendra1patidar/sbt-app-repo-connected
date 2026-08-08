@@ -239,14 +239,14 @@ export function DocumentList({ type, docs, customers, items, currency, openModal
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by customer, location or notes..."
-              className="w-full rounded-xl border border-line bg-white py-2.5 pl-9 pr-3 text-sm"
+              className="w-full rounded-xl border border-line bg-card py-2.5 pl-9 pr-3 text-sm"
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {[["all", "All"], ["due", "Due"], ["paid", "Paid"], ["returned", "Returned items"]].map(([key, label]) => (
               <button key={key} onClick={() => setStatusFilter(key)} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${statusFilter === key ? "bg-brand-500 text-white" : "bg-paper text-ink/70"}`}>
                 {label}
-                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-extrabold ${statusFilter === key ? "bg-white/25" : "bg-ink/10"}`}>{filterCounts[key]}</span>
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-extrabold ${statusFilter === key ? "bg-card/25" : "bg-ink/10"}`}>{filterCounts[key]}</span>
               </button>
             ))}
             {deletedCount > 0 && (
@@ -255,7 +255,7 @@ export function DocumentList({ type, docs, customers, items, currency, openModal
                 className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${showDeleted ? "bg-bad-500 text-white" : "bg-paper text-ink/70"}`}
               >
                 <Trash2 size={12} /> {showDeleted ? "Hide" : "Show"} deleted
-                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-extrabold ${showDeleted ? "bg-white/25" : "bg-ink/10"}`}>{deletedCount}</span>
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-extrabold ${showDeleted ? "bg-card/25" : "bg-ink/10"}`}>{deletedCount}</span>
               </button>
             )}
             {weekGroups.length > 1 && (

@@ -12,7 +12,7 @@ export function AdvancedBillingView({ autoReminder, setAutoReminder, overdueCoun
             <p className="mt-1 text-sm text-ink/40">Show a banner for overdue estimates with one-tap WhatsApp messaging.</p>
           </div>
           <button onClick={() => setAutoReminder((v: boolean) => !v)} className={`h-7 w-12 shrink-0 rounded-full p-0.5 transition ${autoReminder ? "bg-good-500" : "bg-paper"}`}>
-            <span className={`block h-6 w-6 rounded-full bg-white transition ${autoReminder ? "translate-x-5" : "translate-x-0"}`} />
+            <span className={`block h-6 w-6 rounded-full bg-card transition ${autoReminder ? "translate-x-5" : "translate-x-0"}`} />
           </button>
         </div>
         {autoReminder && <p className="mt-3 rounded-xl bg-good-50 px-3 py-2 text-xs font-semibold text-good-700">Enabled — {overdueCount} overdue estimate{overdueCount !== 1 ? "s" : ""} will be flagged.</p>}

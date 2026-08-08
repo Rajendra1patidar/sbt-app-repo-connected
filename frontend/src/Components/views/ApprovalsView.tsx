@@ -58,7 +58,7 @@ export function ApprovalsView({ currency }: { currency: string }) {
             key={t}
             onClick={() => setTab(t)}
             className={`rounded-pill px-4 py-2 text-xs font-semibold transition-colors ${
-              tab === t ? "bg-brand-500 text-white" : "bg-white border border-line text-ink/60"
+              tab === t ? "bg-brand-500 text-white" : "bg-card border border-line text-ink/60"
             }`}
           >
             {t === "pending" ? "Pending" : "All"}

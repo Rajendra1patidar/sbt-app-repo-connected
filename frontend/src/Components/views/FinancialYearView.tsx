@@ -149,7 +149,7 @@ export function FinancialYearView({ currency }: any) {
 
       {confirmYear && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
-          <div className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl bg-white p-6 shadow-xl">
+          <div className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl bg-card p-6 shadow-xl">
             <div className="mb-3 flex items-center gap-2 text-bad-600">
               <AlertTriangle size={18} />
               <h3 className="font-display text-lg font-bold text-ink">Close this financial year?</h3>

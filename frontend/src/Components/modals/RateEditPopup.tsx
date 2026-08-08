@@ -7,7 +7,7 @@ export function RateEditPopup({ itemName, listPrice, rate, onCancel, onReset, on
   const isOverridden = Number(rate) !== Number(listPrice);
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-ink/40 p-4">
-      <div className="w-full sm:max-w-xs rounded-3xl bg-white p-5 shadow-xl">
+      <div className="w-full sm:max-w-xs rounded-3xl bg-card p-5 shadow-xl">
         <h3 className="font-display text-base font-bold text-ink">Edit rate</h3>
         <p className="mb-4 mt-0.5 text-xs text-ink/50">{itemName} — this estimate only</p>
 

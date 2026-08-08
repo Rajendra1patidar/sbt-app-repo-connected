@@ -266,7 +266,7 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
         <div className="mb-2 flex items-center justify-between">
           <span className="text-xs font-semibold text-ink/50">Include "Other" work?</span>
           <button type="button" onClick={() => setOtherIncluded((v) => !v)} className={`h-6 w-11 shrink-0 rounded-full p-0.5 transition ${otherIncluded ? "bg-warn-500" : "bg-paper"}`}>
-            <span className={`block h-5 w-5 rounded-full bg-white transition ${otherIncluded ? "translate-x-5" : "translate-x-0"}`} />
+            <span className={`block h-5 w-5 rounded-full bg-card transition ${otherIncluded ? "translate-x-5" : "translate-x-0"}`} />
           </button>
         </div>
         {otherIncluded && (

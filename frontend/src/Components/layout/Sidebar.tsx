@@ -7,7 +7,7 @@ export function Sidebar({ open, onClose, active, onNav, settings, onSignOut }: a
   return (
     <>
       {open && <div onClick={onClose} className="fixed inset-0 z-30 bg-ink/40 backdrop-blur-[1px] md:hidden animate-fade-in" />}
-      <aside className={`fixed z-40 inset-y-0 left-0 w-72 transform bg-white border-r border-line transition-transform duration-300 ease-out md:translate-x-0 md:static md:z-0 ${open ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside className={`fixed z-40 inset-y-0 left-0 w-72 transform bg-card border-r border-line transition-transform duration-300 ease-out md:translate-x-0 md:static md:z-0 ${open ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex h-full flex-col overflow-y-auto px-5 py-6">
           <div className="flex items-center justify-between md:hidden mb-2">
             <span className="text-sm font-semibold text-ink/40">Menu</span>

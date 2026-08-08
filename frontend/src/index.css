@@ -2,16 +2,40 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-paper: 245 243 238;   /* #F5F3EE */
+  --color-ink: 23 26 33;        /* #171A21 */
+  --color-line: 230 226 216;    /* #E6E2D8 */
+  --color-card: 255 255 255;    /* #FFFFFF */
+  --color-sidebar: 255 255 255; /* matches card in light mode */
+}
+
+[data-theme="dark"] {
+  --color-paper: 14 16 19;      /* #0E1013 */
+  --color-ink: 242 241 236;     /* #F2F1EC */
+  --color-line: 38 42 49;       /* #262A31 */
+  --color-card: 24 27 32;       /* #181B20 */
+  --color-sidebar: 10 12 15;    /* #0A0C0F */
+}
+
 * {
   box-sizing: border-box;
+}
+
+html {
+  color-scheme: light;
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 body {
   margin: 0;
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
-  background-color: #F5F3EE;
-  color: #171A21;
+  background-color: rgb(var(--color-paper));
+  color: rgb(var(--color-ink));
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 ::-webkit-scrollbar { width: 0; height: 0; }

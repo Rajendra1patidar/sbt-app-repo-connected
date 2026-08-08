@@ -149,13 +149,13 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   // counts, or any other aggregate/lookup surface
   const activeEstimates = estimates.filter((i: any) => !i.deleted);
   const overdueCount = activeEstimates.filter((i: any) => i.status === "Due" && i.dueDate && new Date(i.dueDate) < new Date()).length;
-  const data = { customers, items, orders, estimates: activeEstimates, invoices: activeEstimates, challans, expenses, payments, labourSessions };
+  const data = { customers, items, orders, estimates: activeEstimates, invoices: activeEstimates, challans, expenses, payments, labourSessions, purchases, vendors };
   const itemCategories = settings.itemCategories?.length ? settings.itemCategories : ITEM_CATEGORIES;
 
   /* ---- route table (replaces the old `switch (view)` in renderView) ---- */
   const routes = (
     <Routes>
-      <Route path="/" element={<Dashboard data={data} settings={settings} openModal={openModal} go={goToView} reorderSuggestions={reorderSuggestions} />} />
+      <Route path="/" element={<Dashboard data={data} settings={settings} openModal={openModal} go={goToView} reorderSuggestions={reorderSuggestions} saveDocument={saveDocument} savePayment={savePayment} savePurchase={savePurchase} showToast={showToast} />} />
       <Route path="/customers" element={
         <CustomersView customers={customers} estimates={activeEstimates} openModal={openModal} removeCustomer={removeCustomer}
           onSelectCustomer={(id: string) => navigate(`/customers/${id}`)} />
@@ -199,7 +199,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <Route path="/share-report" element={<ShareReportView invoices={activeEstimates} items={items} customers={customers} currency={settings.currency} settings={settings} />} />
       <Route path="/billing" element={<AdvancedBillingView autoReminder={autoReminder} setAutoReminder={setAutoReminder} overdueCount={overdueCount} settings={settings} />} />
       <Route path="/settings" element={<SettingsView settings={settings} setSettings={saveSettings} />} />
-      <Route path="*" element={<Dashboard data={data} settings={settings} openModal={openModal} go={goToView} reorderSuggestions={reorderSuggestions} />} />
+      <Route path="*" element={<Dashboard data={data} settings={settings} openModal={openModal} go={goToView} reorderSuggestions={reorderSuggestions} saveDocument={saveDocument} savePayment={savePayment} savePurchase={savePurchase} showToast={showToast} />} />
     </Routes>
   );
 
@@ -318,7 +318,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       return <ChallanModal onClose={closeModal} onSave={saveChallan} />;
 
     if (type === "estimate")
-      return <DocumentModal type={type} customers={customers} items={items} estimates={activeEstimates} editingDoc={payload?.editingDoc} onClose={closeModal} onSave={(v: any) => saveDocument(type, v)} />;
+      return <DocumentModal type={type} customers={customers} items={items} estimates={activeEstimates} editingDoc={payload?.editingDoc} prefillCustomerId={payload?.customerId} onClose={closeModal} onSave={(v: any) => saveDocument(type, v)} />;
 
     if (type === "payment") {
       return <PaymentAllocationModal
@@ -421,7 +421,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
           {toast.undo && (
             <button
               onClick={() => { toast.undo?.(); useAppStore.getState().clearToast(); }}
-              className="shrink-0 rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold hover:bg-white/25"
+              className="shrink-0 rounded-full bg-card/15 px-3 py-1.5 text-xs font-bold hover:bg-card/25"
             >
               Undo
             </button>

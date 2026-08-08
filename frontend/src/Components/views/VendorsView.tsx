@@ -61,7 +61,7 @@ export function VendorsView({ vendors, purchases, currency, openModal, removeVen
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name or phone..."
-            className="w-full rounded-xl border border-line bg-white py-2.5 pl-9 pr-3 text-sm"
+            className="w-full rounded-xl border border-line bg-card py-2.5 pl-9 pr-3 text-sm"
           />
         </div>
       )}
@@ -101,7 +101,7 @@ export function VendorsView({ vendors, purchases, currency, openModal, removeVen
                         {unpaidPurchasesFor(v.id).map((p: any) => {
                           const remaining = Math.round((Number(p.amount) - Number(p.amountPaid)) * 100) / 100;
                           return (
-                            <li key={p.id} className="flex items-center justify-between rounded-xl border border-line bg-white px-3 py-2">
+                            <li key={p.id} className="flex items-center justify-between rounded-xl border border-line bg-card px-3 py-2">
                               <div className="min-w-0">
                                 <p className="text-sm font-semibold text-ink truncate">{fmtDate(p.date)}</p>
                                 <p className="text-xs text-ink/40">{fmtMoney(p.amount, currency)} total · {fmtMoney(remaining, currency)} remaining</p>

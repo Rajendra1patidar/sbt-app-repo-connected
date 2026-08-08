@@ -68,7 +68,7 @@ export function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
 
   return (
     <div className="flex h-screen items-center justify-center bg-paper px-4">
-      <form onSubmit={submit} className="w-full max-w-sm rounded-card bg-white p-7 shadow-card border border-line/70">
+      <form onSubmit={submit} className="w-full max-w-sm rounded-card bg-card p-7 shadow-card border border-line/70">
         <div className="mb-5 flex flex-col items-center text-center">
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-500 font-display text-lg font-semibold text-white">SBT</div>
           <h1 className="font-display text-xl font-semibold text-ink">

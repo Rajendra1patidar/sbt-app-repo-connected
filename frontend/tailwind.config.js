@@ -1,12 +1,6 @@
 /** @type {import('tailwindcss').Config} */
-function themeColor(varName) {
-  return ({ opacityValue }) =>
-    opacityValue === undefined ? `rgb(var(${varName}))` : `rgb(var(${varName}) / ${opacityValue})`;
-}
-
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
-  darkMode: ["selector", '[data-theme="dark"]'],
   theme: {
     extend: {
       fontFamily: {
@@ -15,14 +9,9 @@ export default {
         mono: ["IBM Plex Mono", "ui-monospace", "monospace"],
       },
       colors: {
-        paper: themeColor("--color-paper"),
-        ink: themeColor("--color-ink"),
-        line: themeColor("--color-line"),
-        card: themeColor("--color-card"),
-        sidebar: themeColor("--color-sidebar"),
-        sidebarText: themeColor("--color-sidebar-text"),
-        sidebarLine: themeColor("--color-sidebar-line"),
-        sidebarHeading: themeColor("--color-sidebar-heading"),
+        paper: "#F5F3EE",
+        ink: "#171A21",
+        line: "#E6E2D8",
         brand: {
           50: "#EAF1FB", 100: "#D3E3F7", 200: "#A8C7EF", 300: "#78A6E3",
           400: "#4C86D6", 500: "#2F5AA8", 600: "#22437F", 700: "#1B3563",

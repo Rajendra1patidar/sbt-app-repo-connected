@@ -88,7 +88,7 @@ export function FinancialYearView({ currency }: any) {
         <PillButton onClick={() => setCreating(true)}><Plus size={16} /> Open Financial Year</PillButton>
       </div>
 
-      {toast && <div className="rounded-xl bg-ink px-3 py-2 text-xs font-semibold text-paper">{toast}</div>}
+      {toast && <div className="rounded-xl bg-ink px-3 py-2 text-xs font-semibold text-white">{toast}</div>}
 
       {creating && (
         <Card className="border border-brand-100">
@@ -129,7 +129,7 @@ export function FinancialYearView({ currency }: any) {
                 )}
               </div>
               {!y.closed && (
-                <button onClick={() => setConfirmCloseId(y.id)} className="inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-xs font-semibold text-paper">
+                <button onClick={() => setConfirmCloseId(y.id)} className="inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-xs font-semibold text-white">
                   <Lock size={12} /> Close Year
                 </button>
               )}
@@ -149,7 +149,7 @@ export function FinancialYearView({ currency }: any) {
 
       {confirmYear && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
-          <div className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl bg-card p-6 shadow-xl">
+          <div className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl bg-white p-6 shadow-xl">
             <div className="mb-3 flex items-center gap-2 text-bad-600">
               <AlertTriangle size={18} />
               <h3 className="font-display text-lg font-bold text-ink">Close this financial year?</h3>

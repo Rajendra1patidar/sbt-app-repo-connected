@@ -3,17 +3,11 @@ import { AlertCircle, AlertTriangle, ArrowDownToLine, BarChart3, Receipt, Rotate
 import { Badge, Card, EmptyState, PillButton } from "../common/UIPrimitives";
 import { CATEGORY_COLORS, LOW_STOCK_DEFAULT } from "../../lib/constants";
 import { fmtDate, fmtMoney, fmtNum, today, round2 } from "../../lib/format";
-import { CaptureBar } from "../dashboard/CaptureBar";
-import { BalanceBeam } from "../dashboard/BalanceBeam";
-import { ActivityRiver } from "../dashboard/ActivityRiver";
-import { AlertStrip, buildDashboardAlerts } from "../dashboard/AlertStrip";
-import { DueThisWeek } from "../dashboard/DueThisWeek";
-import { ContractorPodium } from "../dashboard/ContractorPodium";
 
 /* ---- Dashboard ---- */
 
-export function Dashboard({ data, settings, openModal, go, reorderSuggestions, saveDocument, savePayment, savePurchase, saveCustomer, showToast }: any) {
-  const { customers, estimates, expenses, items, payments, purchases, vendors } = data;
+export function Dashboard({ data, settings, openModal, go, reorderSuggestions }: any) {
+  const { customers, estimates, expenses, items, payments } = data;
   const [tab, setTab] = useState("estimates");
   const outstanding = round2(estimates.filter((i: any) => i.status !== "Paid").reduce((s: number, i: any) => s + (Number(i.total || 0) - Number(i.amountPaid || 0)), 0));
   const overdueEstimates = estimates.filter((i: any) => i.status !== "Paid" && i.dueDate && new Date(i.dueDate) < new Date());
@@ -24,10 +18,6 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
   const catTotal = round2(catEntries.reduce((s, [, v]) => s + v, 0));
   const lowStockItems = items.filter((it: any) => (it.stock ?? 0) <= (it.lowStock ?? LOW_STOCK_DEFAULT));
   const paceSuggestionByItem = new Map<string, any>((reorderSuggestions || []).filter((s: any) => s.mode === "pace").map((s: any) => [s.itemId, s]));
-
-  const stockValue = round2(items.filter((it: any) => !it.deleted).reduce((s: number, it: any) => s + Number(it.stock || 0) * Number(it.purchasePrice || it.sellingPrice || it.price || 0), 0));
-  const payable = round2((purchases || []).reduce((s: number, p: any) => s + Math.max(0, Number(p.amount || 0) - Number(p.amountPaid || 0)), 0));
-  const tiedUp = round2(stockValue + payable);
 
   const quickActions = [
     { label: "New Estimate", icon: Receipt, bg: "bg-brand-50", fg: "text-brand-500", action: () => openModal("estimate") },
@@ -69,26 +59,13 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
   const refundsMonth = refundPayments.filter((p: any) => monthKey(p.date) === thisMonthKey).reduce((s: number, p: any) => s + Math.abs(Number(p.amount)), 0);
 
   return (
-    <div className="pb-28 lg:grid lg:grid-cols-[1fr_320px] lg:items-start lg:gap-5 lg:px-5">
-    <div className="space-y-5 px-5 lg:px-0">
-      <AlertStrip alerts={buildDashboardAlerts({ lowStockItems, overdueEstimates, overdueAmount, payable, currency: settings.currency, go })} />
-
+    <div className="space-y-5 px-5 pb-28">
       <div className="pt-1">
         <h1 className="font-display text-2xl font-semibold text-ink">Welcome, {settings.ownerName}</h1>
         <p className="text-sm text-ink/40">Here's where the business stands today</p>
       </div>
 
-      <CaptureBar
-        items={items} customers={customers} vendors={vendors} currency={settings.currency}
-        saveDocument={saveDocument} savePayment={savePayment} savePurchase={savePurchase} saveCustomer={saveCustomer}
-        openModal={openModal} showToast={showToast}
-      />
-
-      <BalanceBeam receivable={outstanding} tiedUp={tiedUp} currency={settings.currency} />
-
-      <ActivityRiver estimates={estimates} payments={payments} expenses={expenses} purchases={purchases} currency={settings.currency} />
-
-      <div className="flex rounded-2xl bg-card border border-line p-1">
+      <div className="flex rounded-2xl bg-white border border-line p-1">
         <button onClick={() => setSegment("receivable")}
           className={`flex-1 rounded-xl py-2 text-sm font-semibold transition-all duration-150 ${segment === "receivable" ? "bg-paper text-ink shadow-sm" : "text-ink/40"}`}>Receivable</button>
         <button onClick={() => setSegment("collected")}
@@ -129,7 +106,7 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
                 const paceSuggestion = paceSuggestionByItem.get(it.id);
                 const suggestedQty = paceSuggestion ? Math.max(1, paceSuggestion.suggestedQty) : Math.max(1, threshold * 2 - (it.stock ?? 0));
                 return (
-                  <div key={it.id} className="flex items-center justify-between rounded-xl bg-card/70 px-3 py-2">
+                  <div key={it.id} className="flex items-center justify-between rounded-xl bg-white/70 px-3 py-2">
                     <p className="text-xs font-semibold text-warn-700">
                       {it.name} ({fmtNum(it.stock ?? 0)} left{paceSuggestion?.daysLeft != null ? ` · ~${paceSuggestion.daysLeft}d left` : ""})
                     </p>
@@ -249,12 +226,6 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
           </ul>
         </Card>
       )}
-    </div>
-
-    <div className="mt-5 space-y-4 px-5 lg:mt-0 lg:px-0">
-      <DueThisWeek estimates={estimates} customers={customers} currency={settings.currency} go={go} />
-      <ContractorPodium estimates={estimates} items={items} go={go} />
-    </div>
     </div>
   );
 }

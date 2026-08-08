@@ -5,20 +5,13 @@ import { Pagination } from "../common/Pagination";
 import { usePagination } from "../../hooks/usePagination";
 import { ITEM_CATEGORIES, LOW_STOCK_DEFAULT, PAGE_SIZE } from "../../lib/constants";
 import { fmtMoney, fmtNum } from "../../lib/format";
-import { StockTreemap } from "../items/StockTreemap";
-import { ItemDetailDrawer } from "../items/ItemDetailDrawer";
 
 /* ---- Items (with stock display) ---- */
 
-export function ItemsView({ items, categories, openModal, removeItem, currency, purchases, estimates }: any) {
+export function ItemsView({ items, categories, openModal, removeItem, currency }: any) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
-  const [drawerItem, setDrawerItem] = useState<any>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const cats = categories?.length ? categories : ITEM_CATEGORIES;
-
-  const openDrawer = (it: any) => { setDrawerItem(it); setDrawerOpen(true); };
-  const closeDrawer = () => setDrawerOpen(false);
 
   const filtered = items.filter((it: any) => {
     if (it.deleted) return false;
@@ -40,7 +33,7 @@ export function ItemsView({ items, categories, openModal, removeItem, currency, 
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search items..."
-          className="w-full rounded-xl border border-line bg-card py-2.5 pl-9 pr-3 text-sm"
+          className="w-full rounded-xl border border-line bg-white py-2.5 pl-9 pr-3 text-sm"
         />
       </div>
       <div className="flex flex-wrap gap-2">
@@ -48,9 +41,6 @@ export function ItemsView({ items, categories, openModal, removeItem, currency, 
           <button key={c} onClick={() => setCategory(c)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${category === c ? "bg-brand-500 text-white" : "bg-paper text-ink/70"}`}>{c}</button>
         ))}
       </div>
-
-      {filtered.length > 0 && <StockTreemap items={filtered} currency={currency} onSelect={openDrawer} />}
-
       {items.length === 0
         ? <Card><EmptyState text="Add items you sell." cta="New Item" onCta={() => openModal("item")} /></Card>
         : filtered.length === 0
@@ -60,7 +50,7 @@ export function ItemsView({ items, categories, openModal, removeItem, currency, 
           const threshold = it.lowStock ?? LOW_STOCK_DEFAULT;
           const isLow = (it.stock ?? 0) <= threshold;
           return (
-            <Card key={it.id} className="flex items-center justify-between gap-2 cursor-pointer" onClick={() => openDrawer(it)}>
+            <Card key={it.id} className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-semibold text-ink truncate">{it.name}</p>
@@ -74,8 +64,8 @@ export function ItemsView({ items, categories, openModal, removeItem, currency, 
                   <p className="text-xs text-ink/40">Sell: <span className="font-bold text-ink">{fmtMoney(it.sellingPrice ?? it.price, currency)}</span></p>
                   {it.purchasePrice > 0 && <p className="text-xs text-ink/40">Buy: <span className="font-semibold text-ink/70">{fmtMoney(it.purchasePrice, currency)}</span></p>}
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); openModal("item", { editingItem: it }); }} className="rounded-full p-2 text-ink/40 hover:bg-paper"><Pencil size={16} /></button>
-                <button onClick={(e) => { e.stopPropagation(); removeItem(it.id); }} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
+                <button onClick={() => openModal("item", { editingItem: it })} className="rounded-full p-2 text-ink/40 hover:bg-paper"><Pencil size={16} /></button>
+                <button onClick={() => removeItem(it.id)} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
               </div>
             </Card>
           );
@@ -83,8 +73,6 @@ export function ItemsView({ items, categories, openModal, removeItem, currency, 
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} />
         </>
       }
-
-      <ItemDetailDrawer item={drawerItem} open={drawerOpen} onClose={closeDrawer} currency={currency} purchases={purchases} estimates={estimates} openModal={openModal} />
     </div>
   );
 }

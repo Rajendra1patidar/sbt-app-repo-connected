@@ -31,7 +31,7 @@ export function RowActionMenu({ actions }: { actions: RowAction[] }) {
       {open && (
         <>
           <div className="fixed inset-0 z-[55]" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-10 z-[56] min-w-[168px] overflow-hidden rounded-2xl border border-line bg-card shadow-xl animate-pop-in">
+          <div className="absolute right-0 top-10 z-[56] min-w-[168px] overflow-hidden rounded-2xl border border-line bg-white shadow-xl animate-pop-in">
             {actions.map((a) => {
               const Icon = a.icon;
               const cls = `flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm font-semibold ${

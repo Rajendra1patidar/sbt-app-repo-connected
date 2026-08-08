@@ -110,7 +110,7 @@ export function LocationPickerModal({ initialAddress, initialLat, initialLng, on
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-ink/50 p-0 sm:p-4">
-      <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card p-6 shadow-xl">
+      <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display text-lg font-bold text-ink">Pick location on map</h3>
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
@@ -131,10 +131,10 @@ export function LocationPickerModal({ initialAddress, initialLat, initialLng, on
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search for an address or place..."
-                className="w-full rounded-xl border border-line bg-card py-2.5 pl-9 pr-3 text-sm"
+                className="w-full rounded-xl border border-line bg-white py-2.5 pl-9 pr-3 text-sm"
               />
               {suggestions.length > 0 && (
-                <div className="absolute left-0 right-0 top-full mt-1 z-10 rounded-xl border border-line bg-card shadow-lg overflow-hidden">
+                <div className="absolute left-0 right-0 top-full mt-1 z-10 rounded-xl border border-line bg-white shadow-lg overflow-hidden">
                   {suggestions.map((s, i) => (
                     <button
                       key={i}

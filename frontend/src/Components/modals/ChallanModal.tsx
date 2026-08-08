@@ -33,7 +33,7 @@ export function ChallanModal({ onClose, onSave }: any) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
-      <div className="w-full sm:max-w-xl max-h-[93vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card p-6 shadow-xl space-y-5">
+      <div className="w-full sm:max-w-xl max-h-[93vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-6 shadow-xl space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between">
           <h3 className="font-display text-lg font-bold text-ink">New Delivery Challan</h3>
@@ -112,14 +112,14 @@ export function ChallanModal({ onClose, onSave }: any) {
         <div className={`rounded-2xl border p-4 space-y-3 ${!feeVerified && deliveryFee ? "border-warn-400 bg-warn-50" : "border-line bg-paper"}`}>
           <div>
             <label className={labelCls}>Delivery Fee</label>
-            <input type="number" value={deliveryFee} onChange={(e) => setDeliveryFee(e.target.value)} placeholder="0.00" className={`w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-card ${!feeVerified && deliveryFee ? "border-warn-400" : "border-line"}`} />
+            <input type="number" value={deliveryFee} onChange={(e) => setDeliveryFee(e.target.value)} placeholder="0.00" className={`w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white ${!feeVerified && deliveryFee ? "border-warn-400" : "border-line"}`} />
           </div>
           <button
             type="button"
             onClick={() => setFeeVerified((v) => !v)}
             className="flex items-center gap-2.5 w-full rounded-xl px-3 py-2.5 transition select-none"
           >
-            <span className={`w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center transition ${feeVerified ? "border-good-500 bg-good-500" : "border-line bg-card"}`}>
+            <span className={`w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center transition ${feeVerified ? "border-good-500 bg-good-500" : "border-line bg-white"}`}>
               {feeVerified && <Check size={11} className="text-white" />}
             </span>
             <span className={`text-sm font-medium ${feeVerified ? "text-good-700" : "text-ink/70"}`}>Verify delivery fee</span>

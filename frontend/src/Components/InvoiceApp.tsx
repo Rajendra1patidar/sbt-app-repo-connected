@@ -22,6 +22,7 @@ import { ApprovalsView } from "./views/ApprovalsView";
 import { ContractorScorecardView } from "./views/ContractorScorecardView";
 import { CustomerCreditView } from "./views/CustomerCreditView";
 import { CashFlowForecastView } from "./views/CashFlowForecastView";
+import { BankReconciliationView } from "./views/BankReconciliationView";
 import { CustomerDetailView } from "./views/CustomerDetailView";
 import { CustomersView } from "./views/CustomersView";
 import { Dashboard } from "./views/Dashboard";
@@ -149,19 +150,19 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   // counts, or any other aggregate/lookup surface
   const activeEstimates = estimates.filter((i: any) => !i.deleted);
   const overdueCount = activeEstimates.filter((i: any) => i.status === "Due" && i.dueDate && new Date(i.dueDate) < new Date()).length;
-  const data = { customers, items, orders, estimates: activeEstimates, invoices: activeEstimates, challans, expenses, payments, labourSessions, purchases, vendors };
+  const data = { customers, items, orders, estimates: activeEstimates, invoices: activeEstimates, challans, expenses, payments, labourSessions };
   const itemCategories = settings.itemCategories?.length ? settings.itemCategories : ITEM_CATEGORIES;
 
   /* ---- route table (replaces the old `switch (view)` in renderView) ---- */
   const routes = (
     <Routes>
-      <Route path="/" element={<Dashboard data={data} settings={settings} openModal={openModal} go={goToView} reorderSuggestions={reorderSuggestions} saveDocument={saveDocument} savePayment={savePayment} savePurchase={savePurchase} saveCustomer={saveCustomer} showToast={showToast} />} />
+      <Route path="/" element={<Dashboard data={data} settings={settings} openModal={openModal} go={goToView} reorderSuggestions={reorderSuggestions} />} />
       <Route path="/customers" element={
         <CustomersView customers={customers} estimates={activeEstimates} openModal={openModal} removeCustomer={removeCustomer}
           onSelectCustomer={(id: string) => navigate(`/customers/${id}`)} />
       } />
       <Route path="/customers/:customerId" element={<CustomerDetailRoute />} />
-      <Route path="/items" element={<ItemsView items={items} categories={itemCategories} openModal={openModal} currency={settings.currency} removeItem={removeItem} purchases={purchases} estimates={activeEstimates} />} />
+      <Route path="/items" element={<ItemsView items={items} categories={itemCategories} openModal={openModal} currency={settings.currency} removeItem={removeItem} />} />
       <Route path="/orders" element={<OrdersView orders={orders} items={items} vendors={vendors} categories={itemCategories} currency={settings.currency} openModal={openModal} payOrder={payOrder} removeOrder={removeOrder} />} />
       <Route path="/vendors" element={<VendorsView vendors={vendors} purchases={purchases} currency={settings.currency} openModal={openModal} removeVendor={removeVendor} />} />
       <Route path="/purchases" element={<PurchasesView purchases={purchases} vendors={vendors} items={items} currency={settings.currency} openModal={openModal} removePurchase={removePurchase} />} />
@@ -195,11 +196,12 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <Route path="/vendor-scorecard" element={<VendorScorecardView currency={settings.currency} />} />
       <Route path="/customer-credit" element={<CustomerCreditView currency={settings.currency} />} />
       <Route path="/cash-flow-forecast" element={<CashFlowForecastView currency={settings.currency} />} />
+      <Route path="/bank-reconciliation" element={<BankReconciliationView currency={settings.currency} />} />
       <Route path="/reports" element={<ReportsView data={data} currency={settings.currency} settings={settings} />} />
       <Route path="/share-report" element={<ShareReportView invoices={activeEstimates} items={items} customers={customers} currency={settings.currency} settings={settings} />} />
       <Route path="/billing" element={<AdvancedBillingView autoReminder={autoReminder} setAutoReminder={setAutoReminder} overdueCount={overdueCount} settings={settings} />} />
       <Route path="/settings" element={<SettingsView settings={settings} setSettings={saveSettings} />} />
-      <Route path="*" element={<Dashboard data={data} settings={settings} openModal={openModal} go={goToView} reorderSuggestions={reorderSuggestions} saveDocument={saveDocument} savePayment={savePayment} savePurchase={savePurchase} saveCustomer={saveCustomer} showToast={showToast} />} />
+      <Route path="*" element={<Dashboard data={data} settings={settings} openModal={openModal} go={goToView} reorderSuggestions={reorderSuggestions} />} />
     </Routes>
   );
 
@@ -318,7 +320,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       return <ChallanModal onClose={closeModal} onSave={saveChallan} />;
 
     if (type === "estimate")
-      return <DocumentModal type={type} customers={customers} items={items} estimates={activeEstimates} editingDoc={payload?.editingDoc} prefillCustomerId={payload?.customerId} onClose={closeModal} onSave={(v: any) => saveDocument(type, v)} />;
+      return <DocumentModal type={type} customers={customers} items={items} estimates={activeEstimates} editingDoc={payload?.editingDoc} onClose={closeModal} onSave={(v: any) => saveDocument(type, v)} />;
 
     if (type === "payment") {
       return <PaymentAllocationModal
@@ -371,8 +373,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 
   return (
     <div className="flex h-screen bg-paper font-sans text-ink">
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} active={view} onNav={goToView} settings={settings} onSignOut={onSignOut}
-        estimates={activeEstimates} items={items} overdueCount={overdueCount} />
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} active={view} onNav={goToView} settings={settings} onSignOut={onSignOut} />
       <div className="flex-1 overflow-y-auto pb-24 md:pb-0">
         <Topbar onMenu={() => setSidebarOpen(true)} settings={settings} view={view} onOpenSearch={() => setGlobalSearchOpen(true)} />
         {routes}
@@ -422,7 +423,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
           {toast.undo && (
             <button
               onClick={() => { toast.undo?.(); useAppStore.getState().clearToast(); }}
-              className="shrink-0 rounded-full bg-card/15 px-3 py-1.5 text-xs font-bold hover:bg-card/25"
+              className="shrink-0 rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold hover:bg-white/25"
             >
               Undo
             </button>

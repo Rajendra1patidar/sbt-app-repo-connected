@@ -21,7 +21,7 @@ function ItemInfoModal({ item, orders, onClose }: any) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
-      <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl bg-card p-6 shadow-xl">
+      <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl bg-white p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display text-lg font-bold text-ink">{item.name}</h3>
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
@@ -78,7 +78,7 @@ function ReorderSuggestionsCard({ suggestions }: any) {
               <a
                 href={waLink(s.vendor.phone, `Hi ${s.vendor.name}, I'd like to order ${fmtNum(s.suggestedQty)} ${s.unit || "unit"} of ${s.name}.`)}
                 target="_blank" rel="noreferrer"
-                className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-line bg-card px-3 py-1.5 text-xs font-semibold text-ink/80"
+                className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink/80"
               >
                 Message {s.vendor.name} on WhatsApp
               </a>
@@ -173,8 +173,8 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
                     <p className={`font-display text-xl font-bold ${(it.stock ?? 0) === 0 ? "text-bad-600" : "text-warn-600"}`}>{fmtNum(it.stock ?? 0)}</p>
                     <p className="text-xs text-ink/40">in stock</p>
                   </div>
-                  <button onClick={() => setInfoFor(it.id)} className="rounded-full p-2 text-ink/40 hover:bg-card"><Info size={15} /></button>
-                  <button onClick={() => openModal("item", { editingItem: it })} className="rounded-full p-2 text-ink/40 hover:bg-card"><Pencil size={15} /></button>
+                  <button onClick={() => setInfoFor(it.id)} className="rounded-full p-2 text-ink/40 hover:bg-white"><Info size={15} /></button>
+                  <button onClick={() => openModal("item", { editingItem: it })} className="rounded-full p-2 text-ink/40 hover:bg-white"><Pencil size={15} /></button>
                 </div>
               </li>
             ))}

@@ -108,7 +108,7 @@ export function SearchableSelect({ options, value, onChange, placeholder }: any)
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between rounded-xl border border-line bg-card px-3 py-2.5 text-left text-sm"
+        className="flex w-full items-center justify-between rounded-xl border border-line bg-white px-3 py-2.5 text-left text-sm"
       >
         <span className={selected ? "truncate text-ink" : "truncate text-ink/40"}>
           {selected ? selected.label : (placeholder || "Select...")}
@@ -116,8 +116,8 @@ export function SearchableSelect({ options, value, onChange, placeholder }: any)
         <ChevronDown size={15} className="ml-2 shrink-0 text-ink/40" />
       </button>
       {open && (
-        <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-xl border border-line bg-card shadow-lg">
-          <div className="sticky top-0 flex items-center gap-2 border-b border-line bg-card p-2">
+        <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-xl border border-line bg-white shadow-lg">
+          <div className="sticky top-0 flex items-center gap-2 border-b border-line bg-white p-2">
             <Search size={14} className="shrink-0 text-ink/40" />
             <input
               ref={inputRef}

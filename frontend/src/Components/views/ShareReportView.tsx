@@ -78,7 +78,7 @@ export function ShareReportView({ invoices, items, customers, currency, settings
                 <span>Item</span><span className="text-center">Qty</span><span className="text-right">Amount</span>
               </div>
               {rows.map((r, i) => (
-                <div key={i} className={`grid grid-cols-3 px-4 py-2.5 text-sm ${i % 2 === 0 ? "bg-card" : "bg-paper"}`}>
+                <div key={i} className={`grid grid-cols-3 px-4 py-2.5 text-sm ${i % 2 === 0 ? "bg-white" : "bg-paper"}`}>
                   <span className="font-medium text-ink truncate">{r.name}</span>
                   <span className="text-center text-ink/70">{fmtNum(r.qty)}</span>
                   <span className="text-right font-semibold text-ink">{currency}{r.amount.toFixed(2)}</span>

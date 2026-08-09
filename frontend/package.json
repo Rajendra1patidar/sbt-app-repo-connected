@@ -2,6 +2,7 @@
   "name": "shree-balaji-traders",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "chmod +x node_modules/.bin/* && tsc && vite build",

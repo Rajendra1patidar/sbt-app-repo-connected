@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { BrowserRouter } from "react-router-dom";
 import { api } from "./lib/api";
-import { AuthScreen } from "./Components/AuthScreen";
-import { InvoiceApp } from "./Components/InvoiceApp";
+import { AuthScreen } from "./components/AuthScreen";
+import { InvoiceApp } from "./components/InvoiceApp";
 
 export default function App() {
   const [authed, setAuthed] = useState<boolean>(!!api.getToken());

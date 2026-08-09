@@ -1,18 +1,28 @@
-import { CheckCircle2, Phone, X } from "lucide-react";
+import { Phone, Printer, X } from "lucide-react";
 import { Badge } from "../common/UIPrimitives";
 import { fmtDate, fmtMoney, fmtNum } from "../../lib/format";
 import { estimatePoints } from "../../lib/points";
 import { WHATSAPP_GREEN } from "../../lib/constants";
 
-export function ViewEstimateModal({ doc, customers, items, currency, onClose, onMarkPaid, onShareInvoice }: any) {
+export function ViewEstimateModal({ doc, customers, items, currency, onClose, onPrint, onShareInvoice }: any) {
   if (!doc) return null;
   const customer = customers.find((c: any) => c.id === doc.customerId);
   const itemById = (id: string) => items.find((it: any) => it.id === id);
-  const itemsGrossSubtotal = (doc.lines || []).reduce((s: number, ln: any) => s + Number(ln.qty || 0) * Number(ln.rate || 0), 0);
-  const itemsDiscountTotal = (doc.lines || []).reduce((s: number, ln: any) => s + Number(ln.discountAmount || 0), 0);
   const pts = estimatePoints(doc, items);
   const balance = Number(doc.total || 0) - Number(doc.amountPaid || 0);
-  const isPaid = doc.status === "Paid";
+
+  // matches the wording/coloring already used on the printed slip and the
+  // WhatsApp share image, so the in-app view, the print, and the share image
+  // all describe the same estimate the same way
+  const isOverdue = doc.status === "Due" && doc.dueDate && new Date(doc.dueDate) < new Date();
+  const statusLabel = doc.isAdvanceBooking ? "Advance Booked"
+    : doc.status === "Paid" ? "Paid"
+    : doc.status === "Partially Paid" ? "Partially Paid"
+    : doc.status === "Accepted" ? "Accepted"
+    : isOverdue ? "Overdue" : "Due";
+  const statusColorClass = doc.status === "Paid" ? "text-good-600"
+    : doc.status === "Partially Paid" || doc.isAdvanceBooking || doc.status === "Accepted" ? "text-brand-600"
+    : isOverdue ? "text-bad-600" : "text-warn-600";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
@@ -74,41 +84,55 @@ export function ViewEstimateModal({ doc, customers, items, currency, onClose, on
           )}
 
           <div>
-            <p className="mb-2 text-xs font-semibold text-ink/50">Items</p>
-            <div className="space-y-2">
-              {(doc.lines || []).map((ln: any, i: number) => {
-                const it = itemById(ln.itemId);
-                const gross = Number(ln.qty || 0) * Number(ln.rate || 0);
-                const discount = Number(ln.discountAmount || 0);
-                return (
-                  <div key={i} className="flex items-center justify-between rounded-xl border border-line bg-paper/60 px-3 py-2 text-sm">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-ink">{it?.name || ln.name || "Item"}</p>
-                      <p className="text-xs text-ink/40">{fmtNum(ln.qty)} × {fmtMoney(ln.rate, currency)}{discount > 0 ? ` · Discount ${fmtMoney(discount, currency)}` : ""}</p>
+            <p className="mb-2 text-xs font-semibold text-ink/50">Bill</p>
+            {/* Styled to match the printed slip and WhatsApp share image — same
+                header/divider/dotted-row/total layout — so what he sees here is
+                what the customer actually gets. */}
+            <div className="rounded-2xl border border-dashed border-line bg-paper/40 p-4">
+              <div className="flex items-baseline justify-between">
+                <span className="text-sm font-bold text-ink">{customer?.name || "Customer"}</span>
+                <span className="text-sm font-bold text-ink">{fmtDate(doc.date)}</span>
+              </div>
+              {customer?.location && <p className="mt-0.5 text-xs text-ink/50">{customer.location}</p>}
+              <div className="my-3 border-t-2 border-ink/80" />
+
+              <div className="space-y-1.5">
+                {(doc.lines || []).map((ln: any, i: number) => {
+                  const it = itemById(ln.itemId);
+                  const gross = Number(ln.qty || 0) * Number(ln.rate || 0);
+                  const discount = Number(ln.discountAmount || 0);
+                  return (
+                    <div key={i}>
+                      <div className="flex items-center justify-between border-b border-dotted border-line pb-1.5 text-sm">
+                        <span className="text-ink/80">{it?.name || ln.name || "Item"} × {fmtNum(ln.qty)}</span>
+                        <span className="font-semibold text-ink">{fmtMoney(gross, currency)}</span>
+                      </div>
+                      {discount > 0 && (
+                        <div className="flex items-center justify-between border-b border-dotted border-line py-1 text-xs text-ink/40">
+                          <span>Discount</span><span>-{fmtMoney(discount, currency)}</span>
+                        </div>
+                      )}
                     </div>
-                    <p className="font-semibold text-ink">{fmtMoney(gross - discount, currency)}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+                  );
+                })}
+                {Number(doc.freightCost || 0) > 0 && (
+                  <div className="flex items-center justify-between border-b border-dotted border-line pb-1.5 text-sm text-ink/70"><span>Freight</span><span>{fmtMoney(doc.freightCost, currency)}</span></div>
+                )}
+                {Number(doc.labourCost || 0) > 0 && (
+                  <div className="flex items-center justify-between border-b border-dotted border-line pb-1.5 text-sm text-ink/70"><span>Labour</span><span>{fmtMoney(doc.labourCost, currency)}</span></div>
+                )}
+                {Number(doc.previousDue || 0) > 0 && (
+                  <div className="flex items-center justify-between border-b border-dotted border-line pb-1.5 text-sm text-ink/70"><span>Previous due</span><span>{fmtMoney(doc.previousDue, currency)}</span></div>
+                )}
+              </div>
 
-          {doc.notes && (
-            <div>
-              <p className="mb-1 text-xs font-semibold text-ink/50">Notes</p>
-              <p className="rounded-xl bg-paper px-3 py-2 text-sm text-ink/70">{doc.notes}</p>
-            </div>
-          )}
+              <div className="mt-3 flex items-center justify-between border-t-2 border-ink/80 pt-2">
+                <span className="text-sm font-bold text-ink">Total</span>
+                <span className="font-display text-lg font-bold text-ink">{fmtMoney(doc.total, currency)}</span>
+              </div>
 
-          <div className="space-y-1 rounded-xl bg-paper px-4 py-3">
-            <div className="flex items-center justify-between text-xs font-semibold text-ink/50"><span>Items subtotal</span><span>{fmtMoney(itemsGrossSubtotal, currency)}</span></div>
-            {itemsDiscountTotal > 0 && <div className="flex items-center justify-between text-xs text-bad-600"><span>Discount</span><span>-{fmtMoney(itemsDiscountTotal, currency)}</span></div>}
-            {Number(doc.freightCost || 0) > 0 && <div className="flex items-center justify-between text-xs text-ink/50"><span>Freight</span><span>{fmtMoney(doc.freightCost, currency)}</span></div>}
-            {Number(doc.labourCost || 0) > 0 && <div className="flex items-center justify-between text-xs text-ink/50"><span>Labour</span><span>{fmtMoney(doc.labourCost, currency)}</span></div>}
-            {Number(doc.previousDue || 0) > 0 && <div className="flex items-center justify-between text-xs text-ink/50"><span>Previous due</span><span>{fmtMoney(doc.previousDue, currency)}</span></div>}
-            <div className="flex items-center justify-between pt-1">
-              <span className="text-sm font-semibold text-ink/50">Total</span>
-              <span className="font-display text-lg font-bold text-ink">{fmtMoney(doc.total, currency)}</span>
+              {doc.notes && <p className="mt-2 text-xs italic text-ink/50">{doc.notes}</p>}
+              <p className={`mt-2 text-right text-xs font-bold ${statusColorClass}`}>{statusLabel}</p>
             </div>
           </div>
 
@@ -170,12 +194,12 @@ export function ViewEstimateModal({ doc, customers, items, currency, onClose, on
           >
             <Phone size={14} /> Call
           </a>
-          {!isPaid && onMarkPaid && (
+          {onPrint && (
             <button
-              onClick={() => onMarkPaid(doc)}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-good-500 py-3 text-xs font-bold text-white active:scale-[0.97]"
+              onClick={() => onPrint(doc)}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-brand-600 py-3 text-xs font-bold text-white active:scale-[0.97]"
             >
-              <CheckCircle2 size={14} /> Mark paid
+              <Printer size={14} /> Print
             </button>
           )}
         </div>

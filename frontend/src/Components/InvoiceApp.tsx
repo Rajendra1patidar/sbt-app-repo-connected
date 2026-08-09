@@ -213,7 +213,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     if (!modal) return null;
     const { type, payload } = modal;
     if (type === "viewEstimate") return <ViewEstimateModal doc={payload?.doc} customers={customers} items={items} currency={settings.currency} onClose={closeModal}
-      onMarkPaid={(doc: any) => { updateDocStatus("estimate", doc.id, "Paid"); closeModal(); }}
+      onPrint={printEstimate}
       onShareInvoice={(doc: any) => { closeModal(); setShareInvoice(doc); }} />;
 
     if (type === "customer") {

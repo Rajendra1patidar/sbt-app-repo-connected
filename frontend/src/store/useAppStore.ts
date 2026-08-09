@@ -71,6 +71,8 @@ interface AppState {
   fetchNotifications: () => Promise<void>;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
+  clearNotification: (id: string) => void;
+  clearAllNotifications: () => void;
 
   saveCustomer: (v: any) => Promise<any>;
   quickAddCustomer: (v: any) => Promise<any>;
@@ -245,6 +247,15 @@ export const useAppStore = create<AppState>()((set, get) => ({
   markAllNotificationsRead: () => {
     set((state) => ({ notifications: state.notifications.map((n) => ({ ...n, read: true })) }));
     api.notifications.markAllRead().catch(() => { /* same as above */ });
+  },
+  clearNotification: (id) => {
+    // optimistic removal — worst case a stale one reappears on the next fetch
+    set((state) => ({ notifications: state.notifications.filter((n) => n.id !== id) }));
+    api.notifications.remove(id).catch(() => { /* non-critical */ });
+  },
+  clearAllNotifications: () => {
+    set({ notifications: [] });
+    api.notifications.clearAll().catch(() => { /* non-critical */ });
   },
 
   // ---- internal helpers (not part of the public interface, but attached via closures below) ----

@@ -46,3 +46,24 @@ exports.markAllRead = async (req, res, next) => {
     next(err);
   }
 };
+
+// DELETE /api/notifications/:id
+exports.remove = async (req, res, next) => {
+  try {
+    const doc = await Notification.findOneAndDelete({ _id: req.params.id, owner: req.userId });
+    if (!doc) return res.status(404).json({ message: "Not found" });
+    res.json({ message: "Deleted" });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// DELETE /api/notifications — clears the whole feed for this owner
+exports.clearAll = async (req, res, next) => {
+  try {
+    await Notification.deleteMany({ owner: req.userId });
+    res.json({ message: "Cleared" });
+  } catch (err) {
+    next(err);
+  }
+};

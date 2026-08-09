@@ -9,6 +9,14 @@ const BAR_COLORS = [
   "linear-gradient(180deg,#4C86D6,#2F5AA8)",
 ];
 
+// Bar height is capped rather than tied to a fixed-height outer box: with only
+// a couple of contractors ranked, letting the container grow to fit its own
+// content (badge + bar + name + points) means nothing overflows the card
+// regardless of how many rows come back, instead of a tall bar poking past a
+// hard-coded box height.
+const MAX_BAR_HEIGHT = 64;
+const MIN_BAR_HEIGHT = 14;
+
 export function ContractorPodium({ estimates, items, go }: any) {
   const ranking = useMemo(() => {
     const now = new Date();
@@ -38,13 +46,17 @@ export function ContractorPodium({ estimates, items, go }: any) {
       {ranking.length === 0 ? (
         <p className="px-4 py-6 text-center text-[12.5px] text-ink/40">No contractor points yet this month.</p>
       ) : (
-        <div className="flex items-end gap-2.5 px-4 pb-4 pt-3" style={{ height: 128 }}>
+        // justify-center (not flex-1 columns) so a couple of ranked contractors
+        // stay compact instead of stretching their bars to fill the full width
+        <div className="flex items-end justify-center gap-6 px-4 pb-4 pt-4">
           {ranking.map((r, i) => {
-            const heightPx = Math.max(18, (r.points / maxPts) * 76);
+            const heightPx = Math.max(MIN_BAR_HEIGHT, (r.points / maxPts) * MAX_BAR_HEIGHT);
             return (
-              <button key={r.name} onClick={() => go?.("contractors")} className="flex flex-1 flex-col items-center gap-1.5">
-                <span className={`flex h-[17px] w-[17px] items-center justify-center rounded-full font-mono text-[9px] font-semibold ${i === 0 ? "bg-orange-500 text-white" : "bg-paper text-ink/40"}`}>{i + 1}</span>
-                <div className="w-full rounded-t-[6px] rounded-b-[2px] transition-all duration-500 ease-out" style={{ height: heightPx, background: BAR_COLORS[i] }} />
+              <button key={r.name} onClick={() => go?.("contractors")} className="flex w-16 flex-col items-center gap-1.5">
+                <span className={`flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-full font-mono text-[9px] font-semibold ${i === 0 ? "bg-orange-500 text-white" : "bg-paper text-ink/40"}`}>{i + 1}</span>
+                <div className="flex w-full items-end" style={{ height: MAX_BAR_HEIGHT }}>
+                  <div className="w-full rounded-t-[6px] rounded-b-[2px] transition-all duration-500 ease-out" style={{ height: heightPx, background: BAR_COLORS[i] }} />
+                </div>
                 <span className="text-center text-[9.5px] font-semibold leading-tight text-ink truncate max-w-full">{r.name}</span>
                 <span className="font-mono text-[9px] text-ink/40">{fmtNum(r.points)}</span>
               </button>

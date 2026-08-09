@@ -244,6 +244,8 @@ export const api = {
     unreadCount: () => request("/api/notifications/unread-count"),
     markRead: (id: string) => request(`/api/notifications/${id}/read`, { method: "PATCH" }),
     markAllRead: () => request("/api/notifications/mark-all-read", { method: "PATCH" }),
+    remove: (id: string) => request(`/api/notifications/${id}`, { method: "DELETE" }),
+    clearAll: () => request("/api/notifications", { method: "DELETE" }),
   },
 
   approvals: {

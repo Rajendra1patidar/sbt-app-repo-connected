@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, CreditCard, FileText, Package, ShieldAlert, TrendingDown, Users } from "lucide-react";
+import { Bell, CreditCard, FileText, Package, ShieldAlert, TrendingDown, Users, X } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 
 /* ---- Notification bell: badge + dropdown inbox, backed by useAppStore ---- */
@@ -54,7 +54,7 @@ function timeAgo(iso: string) {
 
 export function NotificationBell() {
   const navigate = useNavigate();
-  const { notifications, fetchNotifications, markNotificationRead, markAllNotificationsRead } = useAppStore();
+  const { notifications, fetchNotifications, markNotificationRead, markAllNotificationsRead, clearNotification, clearAllNotifications } = useAppStore();
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -83,6 +83,11 @@ export function NotificationBell() {
     setOpen(false);
   }
 
+  function handleClear(e: React.MouseEvent, id: string) {
+    e.stopPropagation(); // don't trigger the row's own onClick (mark-read + navigate)
+    clearNotification(id);
+  }
+
   return (
     <div className="relative" ref={panelRef}>
       <button
@@ -101,11 +106,18 @@ export function NotificationBell() {
         <div className="absolute right-0 top-12 z-30 w-80 max-w-[90vw] rounded-2xl border border-line bg-card shadow-xl overflow-hidden">
           <div className="flex items-center justify-between border-b border-line px-4 py-3">
             <p className="text-sm font-semibold text-ink">Notifications</p>
-            {unreadCount > 0 && (
-              <button onClick={markAllNotificationsRead} className="text-xs font-medium text-brand-600 hover:underline">
-                Mark all read
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {unreadCount > 0 && (
+                <button onClick={markAllNotificationsRead} className="text-xs font-medium text-brand-600 hover:underline">
+                  Mark all read
+                </button>
+              )}
+              {notifications.length > 0 && (
+                <button onClick={clearAllNotifications} className="text-xs font-medium text-ink/40 hover:text-bad-600 hover:underline">
+                  Clear all
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="max-h-96 overflow-y-auto">
@@ -115,10 +127,13 @@ export function NotificationBell() {
             {notifications.map((n) => {
               const Icon = ICONS[n.type] || Bell;
               return (
-                <button
+                <div
                   key={n.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => handleSelect(n)}
-                  className={`flex w-full items-start gap-3 border-b border-line/60 px-4 py-3 text-left transition-colors hover:bg-paper ${n.read ? "" : "bg-brand-50/40"}`}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSelect(n); } }}
+                  className={`group flex w-full cursor-pointer items-start gap-3 border-b border-line/60 px-4 py-3 text-left transition-colors hover:bg-paper ${n.read ? "" : "bg-brand-50/40"}`}
                 >
                   <div className={`mt-0.5 rounded-full p-1.5 ${n.read ? "bg-ink/5 text-ink/40" : "bg-brand-100 text-brand-600"}`}>
                     <Icon size={14} />
@@ -129,7 +144,15 @@ export function NotificationBell() {
                     <p className="mt-1 text-[11px] text-ink/30">{timeAgo(n.createdAt)}</p>
                   </div>
                   {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-500" />}
-                </button>
+                  <button
+                    type="button"
+                    aria-label="Clear notification"
+                    onClick={(e) => handleClear(e, n.id)}
+                    className="mt-0.5 shrink-0 rounded-full p-1 text-ink/20 opacity-0 transition-opacity hover:bg-bad-50 hover:text-bad-600 group-hover:opacity-100"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
               );
             })}
           </div>

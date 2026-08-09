@@ -73,6 +73,7 @@ interface AppState {
   markAllNotificationsRead: () => void;
 
   saveCustomer: (v: any) => Promise<any>;
+  quickAddCustomer: (v: any) => Promise<any>;
   removeCustomer: (id: string) => void;
   saveItem: (v: any) => Promise<void>;
   removeItem: (id: string) => void;
@@ -281,6 +282,24 @@ export const useAppStore = create<AppState>()((set, get) => ({
     } catch (err) { onApiError(get, err, "Failed to save customer"); }
   },
 
+  // Same duplicate-check + create as saveCustomer, but built for the quick-add
+  // popup inside the estimate/challan form: it must NOT call closeModal() (that
+  // would close the document form the person is in the middle of filling out),
+  // and it hands the new customer straight back so the caller can select it.
+  quickAddCustomer: async (v) => {
+    const { customers, showToast } = get();
+    const normName = (s: string) => (s || "").trim().toLowerCase();
+    const normPhone = (s: string) => (s || "").replace(/\D/g, "");
+    const isDuplicate = customers.some((c) => normName(c.name) === normName(v.name) && normPhone(c.phone) === normPhone(v.phone));
+    if (isDuplicate) { showToast("A customer with this name and phone number already exists"); return null; }
+    try {
+      const doc = await api.customers.create(v);
+      set((state) => ({ customers: [doc, ...state.customers] }));
+      showToast("Customer added");
+      return doc;
+    } catch (err) { onApiError(get, err, "Failed to add customer"); return null; }
+  },
+
   removeCustomer: (id) => {
     const { customers } = get();
     const c = customers.find((x) => x.id === id);
@@ -477,17 +496,41 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const { doc, lowStock } = await api.documents(type as any).create(payload, idempotencyKey);
       set((state) => ({ [key]: [doc, ...state[key]] } as any));
 
+      let partialPaymentFailed = false;
       if (type === "estimate") {
         if (v.rolledEstimateIds && v.rolledEstimateIds.length) {
           set((state) => ({
             estimates: state.estimates.map((e) => (v.rolledEstimateIds.includes(e.id) ? { ...e, status: "Paid" } : e)),
           }));
         }
+
+        // customer paid part of the total up front — record it the same way a
+        // normal partial payment against an invoice is recorded (Payment row +
+        // ledger post + amountPaid/status recalc on the estimate), rather than
+        // duplicating that accounting logic here.
+        if (v.partialAmountPaid && Number(v.partialAmountPaid) > 0) {
+          try {
+            const { payment, invoice } = await api.payments.create({
+              customerId: v.customerId, invoiceId: doc.id, amount: Number(v.partialAmountPaid), date: v.date, method: "Cash",
+            });
+            set((state) => ({
+              payments: [payment, ...state.payments],
+              estimates: invoice ? state.estimates.map((e) => (e.id === invoice.id ? invoice : e)) : state.estimates,
+            }));
+          } catch (err) {
+            partialPaymentFailed = true;
+          }
+        }
+
         /* stock was deducted server-side — pull the fresh numbers */
         const freshItems = await api.items.list();
         set({ items: freshItems });
-        if (lowStock && lowStock.length > 0) {
+        if (partialPaymentFailed) {
+          showToast(`${doc.number} created, but the partial payment couldn't be recorded — add it from Payments.`);
+        } else if (lowStock && lowStock.length > 0) {
           showToast(`⚠️ Low stock: ${lowStock.map((i: any) => `${i.name} (${fmtNum(i.stock)} left)`).join(", ")}`);
+        } else if (v.partialAmountPaid && Number(v.partialAmountPaid) > 0) {
+          showToast(`${doc.number} created — partial payment recorded`);
         } else {
           showToast(`${doc.number} created`);
         }

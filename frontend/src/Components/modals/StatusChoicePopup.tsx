@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { CheckCircle2, Clock, PackageCheck } from "lucide-react";
+import { CheckCircle2, Clock, PackageCheck, Wallet } from "lucide-react";
 import { fmtMoney } from "../../lib/format";
 
 const CHOICES = [
@@ -7,6 +7,11 @@ const CHOICES = [
     key: "paid", status: "Paid", advance: false,
     icon: CheckCircle2, iconBg: "bg-good-50", iconFg: "text-good-500",
     title: "Paid", desc: "Customer has paid in full",
+  },
+  {
+    key: "partial", status: "Due", advance: false,
+    icon: Wallet, iconBg: "bg-brand-50", iconFg: "text-brand-500",
+    title: "Partial Payment", desc: "Customer is paying part of it now",
   },
   {
     key: "due", status: "Due", advance: false,
@@ -22,7 +27,12 @@ const CHOICES = [
 
 export function StatusChoicePopup({ total, currency, onChoose, onCancel }: any) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [partialAmount, setPartialAmount] = useState("");
   const choice = CHOICES.find((c) => c.key === selected);
+  const isPartial = selected === "partial";
+  const partialNum = Number(partialAmount || 0);
+  const partialValid = !isPartial || (partialNum > 0 && partialNum < total);
+  const canConfirm = !!choice && (!isPartial || partialValid);
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/50 p-4">
@@ -61,13 +71,33 @@ export function StatusChoicePopup({ total, currency, onChoose, onCancel }: any) 
           })}
         </div>
 
+        {isPartial && (
+          <div className="mt-3 rounded-2xl border border-line bg-paper/60 p-3">
+            <label className="mb-1 block text-xs font-semibold text-ink/50">Amount received now</label>
+            <input
+              type="number" min="0" max={total} autoFocus
+              value={partialAmount}
+              onChange={(e) => setPartialAmount(e.target.value)}
+              placeholder="0"
+              className="w-full rounded-xl border border-line px-3 py-2.5 text-sm"
+            />
+            <div className="mt-2 flex items-center justify-between text-xs">
+              <span className="text-ink/50">Balance due</span>
+              <span className="font-semibold text-ink/80">{fmtMoney(Math.max(total - partialNum, 0), currency)}</span>
+            </div>
+            {partialAmount !== "" && !partialValid && (
+              <p className="mt-1 text-[11px] text-bad-600">Enter an amount more than 0 and less than {fmtMoney(total, currency)}.</p>
+            )}
+          </div>
+        )}
+
         <div className="mt-5 flex gap-2">
           <button onClick={onCancel} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/50">
             Back to editing
           </button>
           <button
-            onClick={() => choice && onChoose(choice.status, choice.advance)}
-            disabled={!choice}
+            onClick={() => choice && canConfirm && onChoose(choice.status, choice.advance, isPartial ? partialNum : undefined)}
+            disabled={!canConfirm}
             className="flex-1 rounded-full bg-brand-500 py-3 text-sm font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98]"
           >
             Confirm

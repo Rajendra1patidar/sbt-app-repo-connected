@@ -3,11 +3,12 @@ import { AlertTriangle, Pencil, Plus, Trash2, X } from "lucide-react";
 import { SearchableSelect } from "../common/SearchableSelect";
 import { RateEditPopup } from "./RateEditPopup";
 import { StatusChoicePopup } from "./StatusChoicePopup";
+import { QuickAddCustomerPopup } from "./QuickAddCustomerPopup";
 import { fmtMoney, today, round2 } from "../../lib/format";
 import { InvoiceLine } from "../../types/index";
 import { api } from "../../lib/api";
 
-export function DocumentModal({ type, customers, items, estimates, editingDoc, prefillCustomerId, onClose, onSave }: any) {
+export function DocumentModal({ type, customers, items, estimates, editingDoc, prefillCustomerId, onClose, onSave, onQuickAddCustomer }: any) {
   const isEditing = !!editingDoc;
   // deleted items shouldn't be pickable for a new line, but an existing line that
   // already references one (from before it was deleted) still needs to resolve
@@ -16,7 +17,11 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, p
   const [customerId, setCustomerId] = useState(editingDoc?.customerId || prefillCustomerId || customers[0]?.id || "");
   const [date, setDate] = useState(editingDoc?.date ? String(editingDoc.date).slice(0, 10) : today());
   const [dueDate, setDueDate] = useState(editingDoc?.dueDate ? String(editingDoc.dueDate).slice(0, 10) : today());
-  const [lines, setLines] = useState<InvoiceLine[]>(editingDoc?.lines?.length ? editingDoc.lines.map((ln: InvoiceLine) => ({ ...ln })) : [{ itemId: activeItems[0]?.id || "", qty: 1, rate: activeItems[0]?.sellingPrice || 0, discountAmount: 0 }]);
+  // a brand-new document starts with one blank line — no item pre-selected — so
+  // a new estimate never silently carries over whatever item happened to be
+  // first in the list (e.g. the most recently added item); the person has to
+  // actively pick an item for every line.
+  const [lines, setLines] = useState<InvoiceLine[]>(editingDoc?.lines?.length ? editingDoc.lines.map((ln: InvoiceLine) => ({ ...ln })) : [{ itemId: "", qty: 1, rate: 0, discountAmount: 0 }]);
   const [notes, setNotes] = useState(editingDoc?.notes || "");
   const [rateEditIndex, setRateEditIndex] = useState<number | null>(null);
   const [freightCost, setFreightCost] = useState(editingDoc?.freightCost ? String(editingDoc.freightCost) : "");
@@ -29,6 +34,8 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, p
   const [destinationTouched, setDestinationTouched] = useState(!!editingDoc?.destination);
   const [pendingSave, setPendingSave] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [addingCustomer, setAddingCustomer] = useState(false);
   // soft credit-limit warning: only checked for brand-new estimates (not edits), and
   // only surfaces if the customer has a creditLimit set at all
   const [customerOutstanding, setCustomerOutstanding] = useState<number | null>(null);
@@ -57,7 +64,7 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, p
   const knownContractors = Array.from(new Set((estimates || []).map((e: any) => e.contractorName).filter(Boolean))) as string[];
   const knownDestinations = Array.from(new Set((estimates || []).map((e: any) => e.destination).filter(Boolean))) as string[];
 
-  const addLine = () => setLines((l) => [...l, { itemId: activeItems[0]?.id || "", qty: 1, rate: activeItems[0]?.sellingPrice || 0, discountAmount: 0 }]);
+  const addLine = () => setLines((l) => [...l, { itemId: "", qty: 1, rate: 0, discountAmount: 0 }]);
   const updateLine = (i: number, patch: any) => setLines((l) => l.map((ln, idx) => idx === i ? { ...ln, ...patch } : ln));
   const setLineItem = (i: number, itemId: string) => {
     const it = activeItems.find((it: any) => it.id === itemId);
@@ -99,6 +106,17 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, p
     ...(isEditing ? { id: editingDoc.id, updatedAt: editingDoc.updatedAt } : {}),
   });
 
+  const handleQuickAddCustomer = async (v: any) => {
+    if (!onQuickAddCustomer) return;
+    setAddingCustomer(true);
+    try {
+      const customer = await onQuickAddCustomer(v);
+      if (customer) { setCustomerId(customer.id); setShowAddCustomer(false); }
+    } finally {
+      setAddingCustomer(false);
+    }
+  };
+
   const handleSaveClick = () => {
     if (!canSave || saving) return;
     // new estimates ask Due/Paid before actually saving; edits keep the existing status as-is
@@ -114,12 +132,19 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, p
           <h3 className="font-display text-lg font-bold text-ink">{titleMap[type]}</h3>
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
-        {customers.length === 0 ? <p className="text-sm text-ink/50">Add a customer first.</p>
+        {customers.length === 0 && !onQuickAddCustomer ? <p className="text-sm text-ink/50">Add a customer first.</p>
           : activeItems.length === 0 ? <p className="text-sm text-ink/50">Add an item first.</p>
           : (
           <div className="space-y-4">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-ink/50">Customer *</label>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="block text-xs font-semibold text-ink/50">Customer *</label>
+                {onQuickAddCustomer && (
+                  <button type="button" onClick={() => setShowAddCustomer(true)} className="flex items-center gap-1 text-xs font-semibold text-brand-600">
+                    <Plus size={13} /> New customer
+                  </button>
+                )}
+              </div>
               <SearchableSelect
                 options={customers.map((c: any) => ({ value: c.id, label: c.name }))}
                 value={customerId}
@@ -297,14 +322,21 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, p
           />
         );
       })()}
+      {showAddCustomer && (
+        <QuickAddCustomerPopup
+          saving={addingCustomer}
+          onCancel={() => setShowAddCustomer(false)}
+          onSave={handleQuickAddCustomer}
+        />
+      )}
       {pendingSave && (
         <StatusChoicePopup
           total={pendingSave.total}
           currency=""
-          onChoose={(status: string, isAdvanceBooking: boolean) => {
+          onChoose={(status: string, isAdvanceBooking: boolean, partialAmountPaid?: number) => {
             if (saving) return;
             setSaving(true);
-            Promise.resolve(onSave({ ...pendingSave, status, isAdvanceBooking })).finally(() => setSaving(false));
+            Promise.resolve(onSave({ ...pendingSave, status, isAdvanceBooking, ...(partialAmountPaid ? { partialAmountPaid } : {}) })).finally(() => setSaving(false));
             setPendingSave(null);
           }}
           onCancel={() => setPendingSave(null)}

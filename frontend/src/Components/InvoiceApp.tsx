@@ -63,7 +63,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     reorderSuggestions, toast, modal, confirmDeleteFor, shareInvoice, autoReminder, printSide,
     fetchAll, setOnSignOut, showToast, openModal, closeModal, cancelConfirmDelete,
     togglePrintSide, setAutoReminder, setShareInvoice,
-    saveCustomer, removeCustomer, saveItem, removeItem, saveExpense, removeExpense,
+    saveCustomer, quickAddCustomer, removeCustomer, saveItem, removeItem, saveExpense, removeExpense,
     saveVendor, removeVendor, savePurchase, removePurchase,
     saveVendorPayment, savePurchasePayment, saveDocument, removeDoc, restoreDoc, updateDocStatus,
     savePayment, savePaymentSplit, saveReturn, saveDelivery, removePayment, saveOrder, removeOrder,
@@ -325,7 +325,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       return <ChallanModal onClose={closeModal} onSave={saveChallan} />;
 
     if (type === "estimate")
-      return <DocumentModal type={type} customers={customers} items={items} estimates={activeEstimates} editingDoc={payload?.editingDoc} prefillCustomerId={payload?.customerId} onClose={closeModal} onSave={(v: any) => saveDocument(type, v)} />;
+      return <DocumentModal type={type} customers={customers} items={items} estimates={activeEstimates} editingDoc={payload?.editingDoc} prefillCustomerId={payload?.customerId} onClose={closeModal} onSave={(v: any) => saveDocument(type, v)} onQuickAddCustomer={quickAddCustomer} />;
 
     if (type === "payment") {
       return <PaymentAllocationModal

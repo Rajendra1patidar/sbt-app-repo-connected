@@ -30,7 +30,7 @@ export function OrderModal({ items, vendors, currency, onClose, onSave, prefill 
             <div>
               <label className="mb-1 block text-xs font-semibold text-ink/50">Item *</label>
               <SearchableSelect
-                options={items.map((it: any) => ({ value: it.id, label: `${it.name} (current stock: ${it.stock ?? 0})` }))}
+                options={items.map((it: any) => ({ value: it.id, label: `${it.name} (current stock: ${it.stock ?? 0})`, keywords: it.category || "" }))}
                 value={itemId}
                 onChange={setItemId}
                 placeholder="Select item"

@@ -15,12 +15,18 @@ function normalize(s: string) {
 // substring hit buried in the middle of an unrelated label: exact match first,
 // then "starts with", then "a word inside the label starts with it", then any
 // substring match. Ties keep the original list order.
-function matchRank(label: string, q: string): number {
+// `extra` folds in fields that should be searchable but aren't shown in the
+// label itself (e.g. an item's category) — a category-only match still ranks,
+// just behind a name match, so typing "saria" surfaces every saria item even
+// though "Saria" only appears in their category, not their individual names.
+function matchRank(label: string, extra: string, q: string): number {
   const l = normalize(label);
   if (l === q) return 0;
   if (l.startsWith(q)) return 1;
   if (l.split(/[\s,()-]+/).some((word) => word.startsWith(q))) return 2;
   if (l.includes(q)) return 3;
+  const x = normalize(extra);
+  if (x && (x === q || x.split(/[\s,()-]+/).some((word) => word.startsWith(q)) || x.includes(q))) return 4;
   return -1;
 }
 
@@ -50,7 +56,7 @@ export function SearchableSelect({ options, value, onChange, placeholder }: any)
     const q = normalize(query.trim());
     if (!q) return options;
     return options
-      .map((o: any) => ({ o, rank: matchRank(o.label, q) }))
+      .map((o: any) => ({ o, rank: matchRank(o.label, o.keywords || "", q) }))
       .filter((x: any) => x.rank !== -1)
       .sort((a: any, b: any) => a.rank - b.rank)
       .map((x: any) => x.o);
@@ -144,6 +150,12 @@ export function SearchableSelect({ options, value, onChange, placeholder }: any)
                   } ${i === activeIndex ? "bg-paper" : ""}`}
                 >
                   {highlight(o.label, q)}
+                  {/* the label itself didn't contain the query but the item's category
+                      did (e.g. typing "saria" for an item just named "Kamdhenu 10mm") —
+                      show the category so it's clear why this row matched */}
+                  {o.keywords && q && !normalize(o.label).includes(q) && normalize(o.keywords).includes(q) && (
+                    <span className="ml-1.5 text-xs font-normal text-ink/40">— {o.keywords}</span>
+                  )}
                 </button>
               ))
             )}

@@ -176,7 +176,7 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, p
                   return (
                     <div key={i} className="rounded-xl border border-line bg-paper/60 p-2">
                       <SearchableSelect
-                        options={(it?.deleted ? [...activeItems, it] : activeItems).map((opt: any) => ({ value: opt.id, label: opt.deleted ? `${opt.name} (deleted)` : `${opt.name} (stock: ${opt.stock ?? 0})` }))}
+                        options={(it?.deleted ? [...activeItems, it] : activeItems).map((opt: any) => ({ value: opt.id, label: opt.deleted ? `${opt.name} (deleted)` : `${opt.name} (stock: ${opt.stock ?? 0})`, keywords: opt.category || "" }))}
                         value={ln.itemId}
                         onChange={(v: string) => setLineItem(i, v)}
                         placeholder="Select item"

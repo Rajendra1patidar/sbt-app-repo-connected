@@ -13,7 +13,9 @@ export function GlobalSearchOverlay({ customers, items, estimates, currency, onS
     c.name.toLowerCase().includes(query) || (c.location || "").toLowerCase().includes(query) || (c.phone || "").includes(query)
   ).slice(0, 6) : [];
 
-  const matchedItems = query ? items.filter((it: any) => it.name.toLowerCase().includes(query)).slice(0, 6) : [];
+  const matchedItems = query ? items.filter((it: any) =>
+    it.name.toLowerCase().includes(query) || (it.category || "").toLowerCase().includes(query) || (it.brand || "").toLowerCase().includes(query)
+  ).slice(0, 6) : [];
 
   const matchedEstimates = query ? estimates.filter((e: any) => {
     const cust = customers.find((c: any) => c.id === e.customerId);
@@ -68,7 +70,7 @@ export function GlobalSearchOverlay({ customers, items, estimates, currency, onS
                   <button key={it.id} onClick={() => onSelectItem(it.id)} className="w-full flex items-center justify-between rounded-xl bg-paper px-3 py-2.5 text-left">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-ink">{it.name}</p>
-                      <p className="text-xs text-ink/40">Stock: {fmtNum(it.stock ?? 0)}</p>
+                      <p className="text-xs text-ink/40">{it.category ? `${it.category} · ` : ""}Stock: {fmtNum(it.stock ?? 0)}</p>
                     </div>
                     <ArrowRight size={14} className="text-ink/30" />
                   </button>

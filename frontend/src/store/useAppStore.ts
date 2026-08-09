@@ -51,7 +51,6 @@ interface AppState {
   confirmDeleteFor: ConfirmDelete;
   shareInvoice: any;
   autoReminder: boolean;
-  printSide: "left" | "right";
 
   // Set once by InvoiceApp on mount so 401s anywhere in the store can sign the user out.
   onSignOut: (() => void) | null;
@@ -64,7 +63,6 @@ interface AppState {
   closeModal: () => void;
   confirmThenDelete: (label: string, description: string | undefined, doDelete: () => void) => void;
   cancelConfirmDelete: () => void;
-  togglePrintSide: () => void;
   setAutoReminder: (v: boolean) => void;
   setShareInvoice: (inv: any) => void;
   refreshReorderSuggestions: () => Promise<void>;
@@ -142,7 +140,6 @@ export const useAppStore = create<AppState>()((set, get) => ({
   confirmDeleteFor: null,
   shareInvoice: null,
   autoReminder: false,
-  printSide: typeof window !== "undefined" && localStorage.getItem("sbt_print_side") === "right" ? "right" : "left",
 
   onSignOut: null,
   setOnSignOut: (fn) => set({ onSignOut: fn }),
@@ -215,13 +212,6 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
   cancelConfirmDelete: () => set({ confirmDeleteFor: null }),
 
-  togglePrintSide: () => {
-    set((state) => {
-      const next = state.printSide === "left" ? "right" : "left";
-      localStorage.setItem("sbt_print_side", next);
-      return { printSide: next };
-    });
-  },
   setAutoReminder: (v) => set({ autoReminder: v }),
   setShareInvoice: (inv) => set({ shareInvoice: inv }),
 

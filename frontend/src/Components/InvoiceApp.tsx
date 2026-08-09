@@ -60,9 +60,9 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   const {
     loading, loadError, settings, customers, items, orders, estimates, challans,
     expenses, payments, labourSessions, labourWorkers, contractors, vendors, purchases,
-    reorderSuggestions, toast, modal, confirmDeleteFor, shareInvoice, autoReminder, printSide,
+    reorderSuggestions, toast, modal, confirmDeleteFor, shareInvoice, autoReminder,
     fetchAll, setOnSignOut, showToast, openModal, closeModal, cancelConfirmDelete,
-    togglePrintSide, setAutoReminder, setShareInvoice,
+    setAutoReminder, setShareInvoice,
     saveCustomer, quickAddCustomer, removeCustomer, saveItem, removeItem, saveExpense, removeExpense,
     saveVendor, removeVendor, savePurchase, removePurchase,
     saveVendorPayment, savePurchasePayment, saveDocument, removeDoc, restoreDoc, updateDocStatus,
@@ -80,9 +80,15 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   const printEstimate = (invoice: any) => {
     const customer = customers.find((c) => c.id === invoice.customerId);
     const lines = invoice.lines || [];
-    const COMPACT_MAX_LINES = 12; // beyond this, a quarter-strip can't stay readable — use a fresh full page instead
-    const compact = lines.length <= COMPACT_MAX_LINES;
-    const rowFont = lines.length <= 4 ? 8.5 : lines.length <= 8 ? 7.5 : 6.5;
+
+    // Fixed width matches the pre-cut strip (half of an A4 sheet, cut lengthwise:
+    // 210mm / 2 = 105mm / 4.13in). Only the height varies per estimate.
+    const SLIP_WIDTH_MM = 105;
+    const MIN_HEIGHT_MM = 127; // 5in — HP M1005 custom-media floor
+    const MAX_HEIGHT_MM = 297; // 11.69in — a full-length strip
+
+    const rowFont = lines.length <= 4 ? 9.5 : lines.length <= 8 ? 9 : lines.length <= 14 ? 8.5 : 8;
+    const rowLineMm = lines.length <= 8 ? 4.5 : 4;
 
     const rowsHtml = lines.map((ln: any) => {
       const it = items.find((i) => i.id === ln.itemId);
@@ -93,12 +99,15 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       const discountHtml = discount > 0 ? `<div class="ln" style="opacity:.65"><span class="ln-name">Discount</span><span class="ln-amt">-${fmtMoney(discount, settings.currency)}</span></div>` : "";
       return `<div class="ln"><span class="ln-name">${name} × ${qty} @ ${fmtMoney(rate, settings.currency)}</span><span class="ln-amt">${fmtMoney(qty * rate, settings.currency)}</span></div>${discountHtml}`;
     }).join("");
+    const discountLineCount = lines.filter((ln: any) => Number(ln.discountAmount || 0) > 0).length;
 
-    const extrasHtml = [
+    const extraRows = [
       Number(invoice.freightCost || 0) > 0 ? `<div class="ln"><span>Freight</span><span>${fmtMoney(invoice.freightCost, settings.currency)}</span></div>` : "",
       Number(invoice.labourCost || 0) > 0 ? `<div class="ln"><span>Labour</span><span>${fmtMoney(invoice.labourCost, settings.currency)}</span></div>` : "",
       Number(invoice.previousDue || 0) > 0 ? `<div class="ln"><span>Previous due</span><span>${fmtMoney(invoice.previousDue, settings.currency)}</span></div>` : "",
-    ].join("");
+    ];
+    const extraRowCount = extraRows.filter(Boolean).length;
+    const extrasHtml = extraRows.join("");
 
     const statusNote = invoice.isAdvanceBooking
       ? "Advance Booked"
@@ -128,34 +137,46 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <div class="stat">${statusNote}</div>
     `;
 
+    // ---- estimate the printed height in mm so the page (and the cut strip) is
+    // only as long as this specific estimate needs, never a full fixed sheet ----
+    const notesLines = invoice.notes ? Math.ceil(String(invoice.notes).length / 46) : 0;
+    let estHeightMm =
+      6 /* top margin */ + 8 /* box top+bottom padding */ +
+      4.5 /* header row */ + (customer?.location ? 4 : 0) /* place row */ + 3 /* divider */ +
+      (lines.length + discountLineCount + extraRowCount) * rowLineMm +
+      6 /* total row */ +
+      (amountPaid > 0 ? 10 : 0) /* paid + balance rows */ +
+      (notesLines * 3.2) +
+      5 /* status row */ +
+      6 /* bottom safety margin */;
+    estHeightMm = Math.min(MAX_HEIGHT_MM, Math.max(MIN_HEIGHT_MM, Math.ceil(estHeightMm)));
+    const heightInches = (estHeightMm / 25.4).toFixed(1);
+
     const w = window.open("", "_blank", "width=480,height=680");
     if (!w) { showToast("Please allow pop-ups to print."); return; }
     w.document.write(`<!doctype html><html><head><title>${invoice.number}</title><style>
-      @page { size: A4; margin: 0; }
+      @page { size: ${SLIP_WIDTH_MM}mm ${estHeightMm}mm; margin: 0; }
       * { box-sizing: border-box; }
       body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #0f172a; }
-      .box {
-        position: absolute; top: 6mm; ${compact ? (printSide === "left" ? "left: 6mm;" : "left: 111mm;") : "left: 10mm; right: 10mm;"}
-        width: ${compact ? "93mm" : "auto"};
-        padding: ${compact ? "3mm" : "8mm"};
-        border: 0.25mm dashed #cbd5e1;
-      }
+      .box { width: ${SLIP_WIDTH_MM}mm; padding: 4mm; }
       .hd { display: flex; justify-content: space-between; align-items: baseline; }
-      .name { font-weight: 700; font-size: ${compact ? "8px" : "13px"}; }
-      .doc { font-weight: 700; font-size: ${compact ? "8px" : "13px"}; }
-      .place { font-size: ${compact ? "8px" : "13px"}; color: #64748b; margin-top: ${compact ? "0.3mm" : "0.5mm"}; }
-      .divider { border-bottom: 0.3mm solid #0f172a; margin: ${compact ? "1.5mm 0" : "3mm 0"}; }
-      .lines { }
-      .ln { display: flex; justify-content: space-between; font-size: ${compact ? rowFont + "px" : "12px"}; padding: ${compact ? "0.4mm 0" : "1.5mm 0"}; border-bottom: 0.15mm dotted #e2e8f0; }
-      .tot { display: flex; justify-content: space-between; font-weight: 700; font-size: ${compact ? "8.5px" : "14px"}; border-top: 0.3mm solid #0f172a; margin-top: ${compact ? "1mm" : "2mm"}; padding-top: ${compact ? "1mm" : "2mm"}; }
-      .paid { font-weight: 600; color: #16a34a; border-bottom: none; margin-top: ${compact ? "0.5mm" : "1mm"}; }
+      .name { font-weight: 700; font-size: 10px; }
+      .doc { font-weight: 700; font-size: 10px; }
+      .place { font-size: 9px; color: #64748b; margin-top: 0.4mm; }
+      .divider { border-bottom: 0.3mm solid #0f172a; margin: 2mm 0; }
+      .ln { display: flex; justify-content: space-between; font-size: ${rowFont}px; padding: 0.5mm 0; border-bottom: 0.15mm dotted #e2e8f0; }
+      .tot { display: flex; justify-content: space-between; font-weight: 700; font-size: 11px; border-top: 0.3mm solid #0f172a; margin-top: 1.5mm; padding-top: 1.5mm; }
+      .paid { font-weight: 600; color: #16a34a; border-bottom: none; margin-top: 0.5mm; }
       .tot.bal { border-top: none; margin-top: 0; padding-top: 0; color: #dc2626; }
-      .notes { font-size: ${compact ? "6.5px" : "10px"}; color: #475569; margin-top: ${compact ? "1mm" : "2mm"}; font-style: italic; word-break: break-word; }
-      .stat { text-align: right; font-size: ${compact ? "6.5px" : "10px"}; color: #d97706; margin-top: ${compact ? "0.5mm" : "1.5mm"}; font-weight: 700; }
+      .notes { font-size: 7.5px; color: #475569; margin-top: 1.5mm; font-style: italic; word-break: break-word; }
+      .stat { text-align: right; font-size: 7.5px; color: #d97706; margin-top: 1mm; font-weight: 700; }
     </style></head><body><div class="box">${bodyHtml}</div></body></html>`);
     w.document.close();
-    w.onload = () => { w.focus(); w.print(); };
-    if (compact) togglePrintSide();
+    w.onload = () => {
+      w.focus();
+      w.alert(`Cut this strip to about ${heightInches}in (${estHeightMm}mm) tall before printing.\n\nStrip width stays fixed at 4.13in (105mm) — only the length changes.`);
+      w.print();
+    };
   };
 
   // deleted estimates are soft-deleted and voided — they stay in `estimates` for the
@@ -188,10 +209,6 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <Route path="/estimates" element={
         <div className="px-5 pt-1">
           {autoReminder && overdueCount > 0 && <div className="mb-3 rounded-2xl bg-warn-50 px-4 py-3 text-sm font-semibold text-warn-700 flex items-center gap-2"><AlertCircle size={16} /> {overdueCount} estimate{overdueCount !== 1 ? "s" : ""} overdue.</div>}
-          <div className="mb-3 flex items-center justify-between rounded-2xl bg-paper px-4 py-2.5 text-xs text-ink/50">
-            <span>Next print → <b className="text-ink/80">top-{printSide}</b> corner</span>
-            <button onClick={togglePrintSide} className="font-semibold text-brand-600">Switch side ⇄</button>
-          </div>
           <div className="-mx-5">
             <DocumentList type="estimate" docs={estimates} customers={customers} items={items} currency={settings.currency} openModal={openModal}
               initialStatusFilter={searchParams.get("filter") || undefined}

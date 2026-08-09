@@ -131,6 +131,19 @@ export function ViewEstimateModal({ doc, customers, items, currency, onClose, on
                 <span className="font-display text-lg font-bold text-ink">{fmtMoney(doc.total, currency)}</span>
               </div>
 
+              {Number(doc.amountPaid || 0) > 0 && (
+                <>
+                  <div className="mt-1.5 flex items-center justify-between text-sm">
+                    <span className="text-ink/60">Paid</span>
+                    <span className="font-semibold text-good-600">{fmtMoney(doc.amountPaid, currency)}</span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between text-sm">
+                    <span className="font-bold text-ink">Balance due</span>
+                    <span className={`font-display text-base font-bold ${balance > 0 ? "text-bad-600" : "text-good-600"}`}>{fmtMoney(balance, currency)}</span>
+                  </div>
+                </>
+              )}
+
               {doc.notes && <p className="mt-2 text-xs italic text-ink/50">{doc.notes}</p>}
               <p className={`mt-2 text-right text-xs font-bold ${statusColorClass}`}>{statusLabel}</p>
             </div>

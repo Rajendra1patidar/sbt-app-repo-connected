@@ -104,7 +104,16 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       ? "Advance Booked"
       : invoice.status === "Paid"
       ? "Paid"
+      : invoice.status === "Partially Paid"
+      ? "Partially Paid"
       : "Due";
+
+    const amountPaid = Number(invoice.amountPaid || 0);
+    const balanceDue = Number(invoice.total || 0) - amountPaid;
+    const paidHtml = amountPaid > 0 ? `
+      <div class="ln paid"><span>Paid</span><span>${fmtMoney(amountPaid, settings.currency)}</span></div>
+      <div class="tot bal"><span>Balance due</span><span>${fmtMoney(balanceDue, settings.currency)}</span></div>
+    ` : "";
 
     const notesHtml = invoice.notes ? `<div class="notes">${invoice.notes}</div>` : "";
 
@@ -114,6 +123,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <div class="divider"></div>
       <div class="lines">${rowsHtml}${extrasHtml}</div>
       <div class="tot"><span>Total</span><span>${fmtMoney(invoice.total, settings.currency)}</span></div>
+      ${paidHtml}
       ${notesHtml}
       <div class="stat">${statusNote}</div>
     `;
@@ -138,6 +148,8 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       .lines { }
       .ln { display: flex; justify-content: space-between; font-size: ${compact ? rowFont + "px" : "12px"}; padding: ${compact ? "0.4mm 0" : "1.5mm 0"}; border-bottom: 0.15mm dotted #e2e8f0; }
       .tot { display: flex; justify-content: space-between; font-weight: 700; font-size: ${compact ? "8.5px" : "14px"}; border-top: 0.3mm solid #0f172a; margin-top: ${compact ? "1mm" : "2mm"}; padding-top: ${compact ? "1mm" : "2mm"}; }
+      .paid { font-weight: 600; color: #16a34a; border-bottom: none; margin-top: ${compact ? "0.5mm" : "1mm"}; }
+      .tot.bal { border-top: none; margin-top: 0; padding-top: 0; color: #dc2626; }
       .notes { font-size: ${compact ? "6.5px" : "10px"}; color: #475569; margin-top: ${compact ? "1mm" : "2mm"}; font-style: italic; word-break: break-word; }
       .stat { text-align: right; font-size: ${compact ? "6.5px" : "10px"}; color: #d97706; margin-top: ${compact ? "0.5mm" : "1.5mm"}; font-weight: 700; }
     </style></head><body><div class="box">${bodyHtml}</div></body></html>`);

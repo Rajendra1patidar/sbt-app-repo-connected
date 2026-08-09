@@ -2,6 +2,7 @@ const cron = require("node-cron");
 const { runReconciliationCheck } = require("./reconciliationJob");
 const { runReorderCheck } = require("./reorderCheckJob");
 const { runCreditCheck } = require("./creditCheckJob");
+const { runDailyReport } = require("./dailyReportJob");
 
 /**
  * Every scheduled/background job starts here — kept separate from server.js
@@ -56,6 +57,25 @@ function start() {
     }
   });
   console.log(`scheduler: credit-risk check scheduled (${creditSchedule})`);
+
+  // 8 PM IST — shortly after a 7 PM store close. Timezone is passed explicitly
+  // here (unlike the jobs above) because Render's servers run UTC by default;
+  // without it this would fire at 8 PM UTC (1:30 AM IST) instead.
+  const dailyReportSchedule = process.env.DAILY_REPORT_CRON || "0 20 * * *";
+  cron.schedule(
+    dailyReportSchedule,
+    async () => {
+      console.log("scheduler: running daily report...");
+      try {
+        const summary = await runDailyReport();
+        console.log(`scheduler: daily report done — ${summary.checked} owner(s) checked, ${summary.sent} sent.`);
+      } catch (err) {
+        console.error("scheduler: daily report crashed:", err.message);
+      }
+    },
+    { timezone: "Asia/Kolkata" }
+  );
+  console.log(`scheduler: daily report scheduled (${dailyReportSchedule}, Asia/Kolkata)`);
 }
 
 module.exports = { start };

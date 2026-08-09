@@ -4,11 +4,19 @@ import { Badge, Card, EmptyState, PillButton } from "../common/UIPrimitives";
 import { CATEGORY_COLORS, LOW_STOCK_DEFAULT } from "../../lib/constants";
 import { fmtDate, fmtMoney, fmtNum, today, round2 } from "../../lib/format";
 import { CaptureBar } from "../dashboard/CaptureBar";
-import { BalanceBeam } from "../dashboard/BalanceBeam";
 import { ActivityRiver } from "../dashboard/ActivityRiver";
 import { AlertStrip, buildDashboardAlerts } from "../dashboard/AlertStrip";
 import { DueThisWeek } from "../dashboard/DueThisWeek";
 import { ContractorPodium } from "../dashboard/ContractorPodium";
+import { TransactionDetailModal, DetailRow } from "../dashboard/TransactionDetailModal";
+
+/* Sales chart period options, shown as a segmented control above the chart. */
+const SALES_PERIODS: { key: "3m" | "6m" | "1y"; label: string; months: number }[] = [
+  { key: "3m", label: "3 months", months: 3 },
+  { key: "6m", label: "6 months", months: 6 },
+  { key: "1y", label: "1 year", months: 12 },
+];
+const SALES_CATEGORY_OPTIONS = ["All", "Saria", "Cement", "Kasta", "CPVC", "UPVC", "Others"];
 
 /* ---- Dashboard ---- */
 
@@ -25,9 +33,7 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
   const lowStockItems = items.filter((it: any) => (it.stock ?? 0) <= (it.lowStock ?? LOW_STOCK_DEFAULT));
   const paceSuggestionByItem = new Map<string, any>((reorderSuggestions || []).filter((s: any) => s.mode === "pace").map((s: any) => [s.itemId, s]));
 
-  const stockValue = round2(items.filter((it: any) => !it.deleted).reduce((s: number, it: any) => s + Number(it.stock || 0) * Number(it.purchasePrice || it.sellingPrice || it.price || 0), 0));
   const payable = round2((purchases || []).reduce((s: number, p: any) => s + Math.max(0, Number(p.amount || 0) - Number(p.amountPaid || 0)), 0));
-  const tiedUp = round2(stockValue + payable);
 
   const quickActions = [
     { label: "New Estimate", icon: Receipt, bg: "bg-brand-50", fg: "text-brand-500", action: () => openModal("estimate") },
@@ -41,30 +47,76 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
 
   const refundPayments = (payments || []).filter((p: any) => Number(p.amount) < 0);
   const returnsForList = refundPayments.map((p: any) => ({
-    id: p.id, number: `Refund — ${p.invoiceNumber || "—"}`, date: p.date, total: Math.abs(Number(p.amount)),
+    id: p.id, number: `Refund — ${p.invoiceNumber || "—"}`, date: p.date, total: Math.abs(Number(p.amount)), _payment: p,
   }));
   const recentMap: any = { estimates, expenses, returns: returnsForList };
   const recent = recentMap[tab].slice(0, 5);
 
-  // ---- Monthly sales (last 6 months, from estimate dates) ----
+  // Row detail popup for Recent transactions (estimates open the full ViewEstimateModal
+  // via openModal; expenses/returns don't have a dedicated modal yet, so they use this
+  // lightweight read-only popup instead).
+  const [rowDetail, setRowDetail] = useState<{ title: string; subtitle?: string; rows: DetailRow[]; accent?: "brand" | "good" | "bad" | "warn" } | null>(null);
+  const customerName = (id: string) => (customers || []).find((c: any) => c.id === id)?.name || "Unknown customer";
+  const openRecentRow = (r: any) => {
+    if (tab === "estimates") { openModal("viewEstimate", { doc: r }); return; }
+    if (tab === "expenses") {
+      setRowDetail({
+        title: "Expense", subtitle: r.category, accent: "bad",
+        rows: [
+          { label: "Category", value: r.category || "—" },
+          { label: "Vendor", value: r.vendor || "—" },
+          { label: "Date", value: fmtDate(r.date) },
+          { label: "Amount", value: fmtMoney(r.amount || 0, settings.currency), emphasis: true },
+        ],
+      });
+      return;
+    }
+    // returns
+    const p = r._payment;
+    setRowDetail({
+      title: "Refund", subtitle: r.number, accent: "bad",
+      rows: [
+        { label: "Customer", value: customerName(p?.customerId) },
+        { label: "Against estimate", value: p?.invoiceNumber || "—" },
+        { label: "Date", value: fmtDate(r.date) },
+        { label: "Refunded", value: fmtMoney(r.total || 0, settings.currency), emphasis: true },
+      ],
+    });
+  };
+
+  // ---- Monthly sales, with a period toggle (3 / 6 / 12 months) and an
+  // optional category filter that sums matching line items instead of the
+  // estimate's grand total, so e.g. picking "Saria" only counts saria lines
+  // even on a mixed-item estimate. ----
+  const [salesPeriod, setSalesPeriod] = useState<"3m" | "6m" | "1y">("6m");
+  const [salesCategory, setSalesCategory] = useState<string>("All");
+  const salesMonthsCount = SALES_PERIODS.find((p) => p.key === salesPeriod)?.months ?? 6;
+  const itemCategoryById = new Map<string, string>(items.map((it: any) => [it.id, it.category || "Others"]));
+  const lineTotal = (ln: any) => Number(ln.qty || 0) * Number(ln.rate || 0) - Number(ln.discountAmount || 0);
+  const estimateAmountForCategory = (e: any) => {
+    if (salesCategory === "All") return Number(e.total || 0);
+    return (e.lines || []).filter((ln: any) => itemCategoryById.get(ln.itemId) === salesCategory).reduce((s: number, ln: any) => s + lineTotal(ln), 0);
+  };
+
   const monthKey = (d?: string) => (d || "").slice(0, 7); // "YYYY-MM"
   const now = new Date();
-  const months = Array.from({ length: 6 }, (_, idx) => {
-    const dt = new Date(now.getFullYear(), now.getMonth() - (5 - idx), 1);
-    return { key: `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`, label: dt.toLocaleDateString("en-IN", { month: "short" }) };
+  const months = Array.from({ length: salesMonthsCount }, (_, idx) => {
+    const dt = new Date(now.getFullYear(), now.getMonth() - (salesMonthsCount - 1 - idx), 1);
+    return { key: `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`, label: dt.toLocaleDateString("en-IN", { month: "short", ...(salesMonthsCount > 6 ? { year: "2-digit" } : {}) }) };
   });
   const salesByMonth = months.map((m) => ({
     ...m,
-    total: estimates.filter((e: any) => monthKey(e.date) === m.key).reduce((s: number, e: any) => s + Number(e.total || 0), 0),
+    total: estimates.filter((e: any) => monthKey(e.date) === m.key).reduce((s: number, e: any) => s + estimateAmountForCategory(e), 0),
   }));
   const maxSale = Math.max(1, ...salesByMonth.map((m) => m.total));
   const hasSales = salesByMonth.some((m) => m.total > 0);
 
-  // ---- Today / this-month sales vs refunds ----
+  // ---- Today / this-month sales vs refunds (always all-category, unaffected
+  // by the chart's category filter — these summarize the whole business). ----
   const todayKey = today();
   const thisMonthKey = monthKey(now.toISOString());
   const todaySales = estimates.filter((e: any) => e.date === todayKey).reduce((s: number, e: any) => s + Number(e.total || 0), 0);
-  const monthSales = salesByMonth[salesByMonth.length - 1]?.total || 0;
+  const monthSales = estimates.filter((e: any) => monthKey(e.date) === thisMonthKey).reduce((s: number, e: any) => s + Number(e.total || 0), 0);
   const refundsToday = refundPayments.filter((p: any) => p.date === todayKey).reduce((s: number, p: any) => s + Math.abs(Number(p.amount)), 0);
   const refundsMonth = refundPayments.filter((p: any) => monthKey(p.date) === thisMonthKey).reduce((s: number, p: any) => s + Math.abs(Number(p.amount)), 0);
 
@@ -84,9 +136,7 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
         openModal={openModal} showToast={showToast}
       />
 
-      <BalanceBeam receivable={outstanding} tiedUp={tiedUp} currency={settings.currency} />
-
-      <ActivityRiver estimates={estimates} payments={payments} expenses={expenses} purchases={purchases} currency={settings.currency} />
+      <ActivityRiver estimates={estimates} payments={payments} expenses={expenses} purchases={purchases} customers={customers} vendors={vendors} items={items} currency={settings.currency} />
 
       <div className="flex rounded-2xl bg-card border border-line p-1">
         <button onClick={() => setSegment("receivable")}
@@ -163,7 +213,7 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
           </div>
           <p className="mt-1 text-sm text-bad-500">{overdueEstimates.length} estimate{overdueEstimates.length !== 1 ? "s" : ""} past due date.</p>
           <p className="mt-3 font-display text-2xl font-semibold text-bad-700">{fmtMoney(overdueAmount, settings.currency)}</p>
-          <PillButton className="mt-4 !bg-bad-500 hover:!bg-bad-700" onClick={() => go("estimates")}>View overdue estimates</PillButton>
+          <PillButton className="mt-4 !bg-bad-500 hover:!bg-bad-700" onClick={() => go("estimates", "filter=overdue")}>View overdue estimates</PillButton>
         </Card>
       )}
 
@@ -188,18 +238,38 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
       </Card>
 
       <Card>
-        <div className="mb-4 flex items-center gap-2 text-ink/70">
-          <BarChart3 size={16} className="text-brand-500" /> <h3 className="font-display text-base font-semibold">Sales, last 6 months</h3>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-ink/70">
+            <BarChart3 size={16} className="text-brand-500" /> <h3 className="font-display text-base font-semibold">Sales, last {SALES_PERIODS.find((p) => p.key === salesPeriod)?.label}</h3>
+          </div>
+          <div className="flex gap-0.5 rounded-pill bg-paper p-0.5">
+            {SALES_PERIODS.map((p) => (
+              <button key={p.key} onClick={() => setSalesPeriod(p.key)}
+                className={`rounded-pill px-2.5 py-1 text-[10.5px] font-semibold transition-colors ${salesPeriod === p.key ? "bg-card text-ink shadow-card" : "text-ink/40"}`}>
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
+
+        <div className="mb-4 flex flex-wrap gap-1.5">
+          {SALES_CATEGORY_OPTIONS.map((c) => (
+            <button key={c} onClick={() => setSalesCategory(c)}
+              className={`rounded-pill border px-2.5 py-1 text-[11px] font-semibold transition-colors ${salesCategory === c ? "border-brand-500 bg-brand-50 text-brand-700" : "border-line text-ink/50"}`}>
+              {c}
+            </button>
+          ))}
+        </div>
+
         {!hasSales ? (
-          <p className="text-sm text-ink/40">No estimates yet in the last 6 months.</p>
+          <p className="text-sm text-ink/40">No estimates{salesCategory !== "All" ? ` for ${salesCategory}` : ""} in the last {SALES_PERIODS.find((p) => p.key === salesPeriod)?.label}.</p>
         ) : (
-          <div className="flex items-end justify-between gap-2" style={{ height: 150 }}>
+          <div className="flex items-end justify-between gap-1.5 overflow-x-auto" style={{ height: 150 }}>
             {salesByMonth.map((m) => (
-              <div key={m.key} className="flex h-full flex-1 flex-col items-center justify-end gap-1.5">
-                <span className="text-[10px] font-semibold leading-tight text-ink/50">{m.total > 0 ? fmtMoney(m.total, settings.currency) : ""}</span>
+              <div key={m.key} className="flex h-full min-w-[28px] flex-1 flex-col items-center justify-end gap-1.5">
+                <span className="text-[9.5px] font-semibold leading-tight text-ink/50">{m.total > 0 ? fmtMoney(m.total, settings.currency) : ""}</span>
                 <div className="w-full rounded-t-lg bg-brand-500 transition-all duration-500 ease-out" style={{ height: `${Math.max(3, (m.total / maxSale) * 100)}px` }} />
-                <span className="text-xs font-medium text-ink/40">{m.label}</span>
+                <span className="text-[10.5px] font-medium text-ink/40">{m.label}</span>
               </div>
             ))}
           </div>
@@ -221,9 +291,14 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
         ) : (
           <ul className="divide-y divide-line">
             {recent.map((r: any, i: number) => (
-              <li key={r.id} style={{ animationDelay: `${i * 25}ms` }} className="animate-row-in flex items-center justify-between gap-2 py-3 text-sm">
-                <div className="min-w-0"><p className="font-semibold text-ink truncate">{r.number || r.category}</p><p className="text-xs text-ink/40 truncate">{fmtDate(r.date)}</p></div>
-                <div className="text-right shrink-0"><p className="font-mono font-semibold text-ink">{fmtMoney(r.total ?? r.amount, settings.currency)}</p>{r.status && <Badge status={r.status} />}</div>
+              <li key={r.id} style={{ animationDelay: `${i * 25}ms` }}>
+                <button
+                  onClick={() => openRecentRow(r)}
+                  className="animate-row-in flex w-full items-center justify-between gap-2 py-3 text-sm text-left transition-colors hover:bg-paper/60 rounded-lg -mx-1 px-1"
+                >
+                  <div className="min-w-0"><p className="font-semibold text-ink truncate">{r.number || r.category}</p><p className="text-xs text-ink/40 truncate">{fmtDate(r.date)}</p></div>
+                  <div className="text-right shrink-0"><p className="font-mono font-semibold text-ink">{fmtMoney(r.total ?? r.amount, settings.currency)}</p>{r.status && <Badge status={r.status} />}</div>
+                </button>
               </li>
             ))}
           </ul>
@@ -255,6 +330,16 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
       <DueThisWeek estimates={estimates} customers={customers} currency={settings.currency} go={go} />
       <ContractorPodium estimates={estimates} items={items} go={go} />
     </div>
+
+    {rowDetail && (
+      <TransactionDetailModal
+        title={rowDetail.title}
+        subtitle={rowDetail.subtitle}
+        rows={rowDetail.rows}
+        accent={rowDetail.accent}
+        onClose={() => setRowDetail(null)}
+      />
+    )}
     </div>
   );
 }

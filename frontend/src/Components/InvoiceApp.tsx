@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AlertCircle, Loader2, Phone } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import { pathForView, viewForPath } from "../lib/routes";
@@ -50,8 +50,9 @@ import { fmtDate, fmtMoney, today } from "../lib/format";
 export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const view = viewForPath(location.pathname);
-  const goToView = (id: string) => navigate(pathForView(id));
+  const goToView = (id: string, query?: string) => navigate(pathForView(id) + (query ? `?${query}` : ""));
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
@@ -181,6 +182,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
           </div>
           <div className="-mx-5">
             <DocumentList type="estimate" docs={estimates} customers={customers} items={items} currency={settings.currency} openModal={openModal}
+              initialStatusFilter={searchParams.get("filter") || undefined}
               removeDoc={(id: string) => removeDoc("estimate", id)}
               restoreDoc={restoreDoc}
               updateStatus={(id: string, s: string) => updateDocStatus("estimate", id, s)}

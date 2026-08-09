@@ -24,10 +24,27 @@ export type CaptureAction =
 
 const numFromMoney = (s?: string) => (s ? Number(s.replace(/[₹,\s]/g, "")) : undefined);
 
-/** Item match key: name plus brand, so a mention of the brand alone (e.g.
- *  "kamdhenu saria") can find the item even if "Kamdhenu" isn't part of the
+/** Item match key: name plus brand plus category, so a mention of the brand
+ *  alone (e.g. "kamdhenu saria") or the category alone (e.g. "sold 10 saria
+ *  to Ashish") can find the item even when that word isn't part of the
  *  item's own name field. */
-const itemLabel = (i: any) => [i.name, i.brand].filter(Boolean).join(" ");
+const itemLabel = (i: any) => [i.name, i.brand, i.category].filter(Boolean).join(" ");
+
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** True if `needle` appears inside `haystack` as a whole token — i.e. not
+ *  sitting in the middle of a longer run of letters/digits. Plain
+ *  `.includes()` would wrongly match "10mm" inside "110mm" (CPVC/UPVC pipe
+ *  names like "110mm Block Flow" contain "10mm" as a raw substring), which
+ *  is exactly the bug that made a saria search surface unrelated pipe
+ *  fittings. Requiring a boundary on both sides fixes that while still
+ *  matching "10mm" inside "kamdhenu 10mm" (space-bounded) fine.
+ */
+function includesToken(haystack: string, needle: string): boolean {
+  if (!needle) return false;
+  const re = new RegExp(`(^|[^a-z0-9])${escapeRegExp(needle)}([^a-z0-9]|$)`, "i");
+  return re.test(haystack);
+}
 
 /** Estimates belonging to a customer that still have returnable qty of a
  *  given item — most recent first. "Returnable" = line qty minus whatever's
@@ -161,14 +178,14 @@ function bestMatches(name: string, pool: any[], keyFn: (x: any) => string): Matc
     let score = 0;
     if (label === q) score = 3;
     else if (label.startsWith(q) || q.startsWith(label)) score = 2;
-    else if (label.includes(q) || q.includes(label)) score = 1;
+    else if (includesToken(label, q) || includesToken(q, label)) score = 1;
     if (score > 0) scored.push({ entity, score });
   }
   scored.sort((a, b) => b.score - a.score);
   if (scored.length === 0) return [];
   if (scored[0].score === 3) return [scored[0]]; // exact match — unambiguous
   const top = scored[0].score;
-  return scored.filter((s) => s.score >= top - 1).slice(0, 4);
+  return scored.filter((s) => s.score >= top - 1).slice(0, 6);
 }
 
 function bestMatch(name: string, pool: any[], keyFn: (x: any) => string): any {

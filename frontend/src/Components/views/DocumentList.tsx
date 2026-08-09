@@ -9,9 +9,9 @@ import { fmtDate, fmtMoney } from "../../lib/format";
 
 /* ---- DocumentList ---- */
 
-export function DocumentList({ type, docs, customers, items, currency, openModal, removeDoc, restoreDoc, updateStatus, recordPayment, onShareInvoice, onPrint, onView, onReturn, onDeliver }: any) {
+export function DocumentList({ type, docs, customers, items, currency, openModal, removeDoc, restoreDoc, updateStatus, recordPayment, onShareInvoice, onPrint, onView, onReturn, onDeliver, initialStatusFilter }: any) {
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all"); // all | due | paid | returned
+  const [statusFilter, setStatusFilter] = useState(initialStatusFilter || "all"); // all | due | overdue | paid | returned
   const [showDeleted, setShowDeleted] = useState(false);
   // Estimates are grouped into calendar-week-style buckets that reset on the
   // 1st of each month (Jul 1–7, Jul 8–14, ...) so labels stay predictable
@@ -58,6 +58,15 @@ export function DocumentList({ type, docs, customers, items, currency, openModal
   };
   const toggleWeek = (k: string, currentlyCollapsed: boolean) => persistCollapsedWeeks({ ...collapsedWeeks, [k]: !currentlyCollapsed });
 
+  // Keep the filter in sync if the caller passes a fresh initialStatusFilter
+  // while this component is already mounted (e.g. tapping "View overdue
+  // estimates" on the dashboard while already sitting on /estimates).
+  const lastInitialFilter = React.useRef(initialStatusFilter);
+  if (initialStatusFilter && initialStatusFilter !== lastInitialFilter.current) {
+    lastInitialFilter.current = initialStatusFilter;
+    if (statusFilter !== initialStatusFilter) setStatusFilter(initialStatusFilter);
+  }
+
   // docs already arrive newest-first from the API (and stay that way as new ones are prepended locally)
   let visibleDocs = docs;
   let searchedDocs = docs;
@@ -77,8 +86,9 @@ export function DocumentList({ type, docs, customers, items, currency, openModal
       });
     }
     visibleDocs = searchedDocs;
-    // deleted estimates are void — they never count toward due/paid/returned, only "All"
+    // deleted estimates are void — they never count toward due/overdue/paid/returned, only "All"
     if (statusFilter === "due") visibleDocs = visibleDocs.filter((d: any) => !d.deleted && d.status !== "Paid");
+    else if (statusFilter === "overdue") visibleDocs = visibleDocs.filter((d: any) => !d.deleted && d.status !== "Paid" && d.dueDate && new Date(d.dueDate) < new Date());
     else if (statusFilter === "paid") visibleDocs = visibleDocs.filter((d: any) => !d.deleted && d.status === "Paid");
     else if (statusFilter === "returned") visibleDocs = visibleDocs.filter((d: any) => !d.deleted && (d.returns || []).length > 0);
   }
@@ -86,6 +96,7 @@ export function DocumentList({ type, docs, customers, items, currency, openModal
   const filterCounts: Record<string, number> = {
     all: searchedDocs.length,
     due: searchedDocs.filter((d: any) => !d.deleted && d.status !== "Paid").length,
+    overdue: searchedDocs.filter((d: any) => !d.deleted && d.status !== "Paid" && d.dueDate && new Date(d.dueDate) < new Date()).length,
     paid: searchedDocs.filter((d: any) => !d.deleted && d.status === "Paid").length,
     returned: searchedDocs.filter((d: any) => !d.deleted && (d.returns || []).length > 0).length,
   };
@@ -243,7 +254,7 @@ export function DocumentList({ type, docs, customers, items, currency, openModal
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {[["all", "All"], ["due", "Due"], ["paid", "Paid"], ["returned", "Returned items"]].map(([key, label]) => (
+            {[["all", "All"], ["due", "Due"], ["overdue", "Overdue"], ["paid", "Paid"], ["returned", "Returned items"]].map(([key, label]) => (
               <button key={key} onClick={() => setStatusFilter(key)} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${statusFilter === key ? "bg-brand-500 text-white" : "bg-paper text-ink/70"}`}>
                 {label}
                 <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-extrabold ${statusFilter === key ? "bg-card/25" : "bg-ink/10"}`}>{filterCounts[key]}</span>

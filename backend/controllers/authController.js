@@ -1,7 +1,8 @@
-const jwt = require("jsonwebtoken");
+﻿const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Settings = require("../models/Settings");
 const { sendMail } = require("../utils/mailer");
+const { findOwnerUsers } = require("../utils/ownerAccounts");
 
 function signToken(id) {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "30d" });
@@ -11,6 +12,13 @@ function signToken(id) {
 // Creates the owner account. Intended to be called once during setup.
 exports.register = async (req, res, next) => {
   try {
+    const existingOwners = await findOwnerUsers();
+    if (existingOwners.length > 0) {
+      return res.status(403).json({
+        message: "Registration is closed. Contact the business owner for access.",
+      });
+    }
+
     const { email, pin, name } = req.body;
     if (!email || !pin) {
       return res.status(400).json({ message: "Email and PIN are required" });
@@ -61,7 +69,7 @@ exports.login = async (req, res, next) => {
 };
 
 // POST /api/auth/change-pin  { currentPin, newPin }  (protected)
-// Uses req.actorId, not req.userId — same reasoning as /me above. Getting
+// Uses req.actorId, not req.userId â€” same reasoning as /me above. Getting
 // this wrong here is worse than a cosmetic mismatch: for a staff login,
 // req.userId resolves to the *owner's* account, so comparing/overwriting
 // pinHash against req.userId would check the owner's PIN and could silently
@@ -155,7 +163,7 @@ exports.resetPin = async (req, res, next) => {
 };
 
 // GET /api/auth/me  (protected)
-// Uses req.actorId — the account that actually logged in — not req.userId,
+// Uses req.actorId â€” the account that actually logged in â€” not req.userId,
 // which for a staff login is deliberately resolved to the *owner's* id
 // everywhere else (see middleware/auth.js) so data queries stay scoped
 // correctly. "Who am I" needs the real logged-in identity, not that scope.
@@ -170,7 +178,7 @@ exports.me = async (req, res, next) => {
 };
 
 // POST /api/auth/staff  { email, pin, name }  (owner only)
-// Creates a second login that shares the owner's business data — see
+// Creates a second login that shares the owner's business data â€” see
 // middleware/auth.js for how a staff login's requests get scoped to the
 // owner's data instead of a separate empty account.
 exports.createStaff = async (req, res, next) => {

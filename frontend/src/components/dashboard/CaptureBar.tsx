@@ -21,14 +21,15 @@ type PendingAction = Extract<CaptureAction, { kind: "sale" | "purchase" | "payme
 const PREVIEWABLE: PendingAction["kind"][] = ["sale", "purchase", "payment", "return", "expense", "add_customer"];
 
 // A "sale" doesn't just get a single preview/confirm — it walks through a
-// full invoice: item & customer first, then discount, labour, freight, and
-// contractor one at a time, then a final paid/partial/due choice. Each step
-// is skippable (a plain "Skip" moves on with 0 / blank), and any value the
-// parser already pulled out of the typed sentence (e.g. "...discount 500...")
-// pre-fills that step instead of being asked again from scratch.
-type SaleWizardStep = "review" | "discount" | "labour" | "freight" | "contractor";
-const SALE_STEP_ORDER: SaleWizardStep[] = ["review", "discount", "labour", "freight", "contractor"];
-interface SaleExtras { discountAmount?: number; labourCost?: number; freightCost?: number; contractorName?: string }
+// full invoice: item & customer first, then price, discount, labour,
+// freight, and contractor one at a time, then a final paid/partial/due
+// choice. Each step is skippable (a plain "Skip" moves on with 0 / blank),
+// and any value the parser already pulled out of the typed sentence (e.g.
+// "...discount 500...") pre-fills that step instead of being asked again
+// from scratch.
+type SaleWizardStep = "review" | "price" | "discount" | "labour" | "freight" | "contractor";
+const SALE_STEP_ORDER: SaleWizardStep[] = ["review", "price", "discount", "labour", "freight", "contractor"];
+interface SaleExtras { rate?: number; discountAmount?: number; labourCost?: number; freightCost?: number; contractorName?: string }
 
 /* ---- Undo helpers for the capture bar's toast ----
  * These call the API directly and patch the store's state by hand, rather
@@ -181,8 +182,13 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, sav
       // gave us (e.g. "...discount 500 labour 200...") so those steps just
       // need a tap to confirm instead of being re-typed.
       if (p.kind === "sale") {
+        // Only pre-fill if the typed sentence itself gave an explicit rate/
+        // amount — otherwise leave it blank and let the price step fall back
+        // to the *finally selected* item's own price (picking a different
+        // item/customer candidate happens after this, on the review step).
+        const parsedRate = p.rate ?? (p.amount ? p.amount / p.qty : undefined);
         setSaleExtras({
-          discountAmount: p.discountAmount, labourCost: p.labourCost,
+          rate: parsedRate, discountAmount: p.discountAmount, labourCost: p.labourCost,
           freightCost: p.freightCost, contractorName: p.contractorName,
         });
       }
@@ -198,8 +204,14 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, sav
     if (pending?.kind !== "sale") return null;
     const item = picked.item ?? pending.item;
     const customer = picked.customer ?? pending.customer;
-    const rate = pending.rate ?? (pending.amount ? pending.amount / pending.qty : (item.sellingPrice ?? item.price ?? 0));
-    const subtotal = pending.amount ?? rate * pending.qty;
+    const defaultRate = pending.rate ?? (pending.amount ? pending.amount / pending.qty : (item.sellingPrice ?? item.price ?? 0));
+    const rate = saleExtras.rate ?? defaultRate;
+    // If the person hasn't touched the price step, and the typed sentence
+    // gave an exact total (rather than a per-unit rate), use that total
+    // as-is rather than rate × qty — avoids introducing rounding drift from
+    // dividing amount/qty back out. Once the price step is edited, the
+    // entered rate is what drives the subtotal.
+    const subtotal = (saleExtras.rate === undefined && pending.amount !== undefined) ? pending.amount : rate * pending.qty;
     // Server rejects a discount that exceeds the line's own subtotal — clamp
     // here too so a misheard/misread discount can't silently fail the whole
     // estimate at save time.
@@ -210,12 +222,12 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, sav
     // labour/freight are flat charges on the whole estimate (not the item
     // line) — same total formula the estimate form itself uses.
     const total = (subtotal - discountAmount) + labourCost + freightCost;
-    return { item, customer, rate, subtotal, discountAmount, labourCost, freightCost, contractorName, total };
+    return { item, customer, rate, qty: pending.qty, subtotal, discountAmount, labourCost, freightCost, contractorName, total };
   };
 
-  // Item & customer step confirmed — move into the discount → labour →
-  // freight → contractor walk-through instead of saving right away.
-  const startSaleWizard = () => setSaleStep("discount");
+  // Item & customer step confirmed — move into the price → discount → labour
+  // → freight → contractor walk-through instead of saving right away.
+  const startSaleWizard = () => setSaleStep("price");
 
   const saleStepBack = () => {
     const idx = SALE_STEP_ORDER.indexOf(saleStep);
@@ -513,6 +525,7 @@ function PreviewCard({ pending, picked, setPicked, currency, busy, onConfirm, on
 }
 
 const SALE_STEP_META: Record<Exclude<SaleWizardStep, "review">, { title: string; hint: string }> = {
+  price: { title: "Confirm the price", hint: "Rate per unit — edit it if this sale is at a different price." },
   discount: { title: "Any discount?", hint: "Leave it blank and skip if there isn't one." },
   labour: { title: "Any labour cost?", hint: "A flat labour charge to add on top of the item total." },
   freight: { title: "Any freight / transport cost?", hint: "Delivery or transport charge to add on top." },
@@ -520,24 +533,32 @@ const SALE_STEP_META: Record<Exclude<SaleWizardStep, "review">, { title: string;
 };
 
 /** The step-by-step invoice walk-through shown after a "sale" capture's
- *  item & customer are confirmed: discount → labour → freight → contractor,
- *  one question at a time, each skippable. The final paid/partial/due choice
+ *  item & customer are confirmed: price → discount → labour → freight →
+ *  contractor, one question at a time, each skippable (except price, which
+ *  always needs a value — it's pre-filled with the item's own rate so a
+ *  plain Continue accepts the default). The final paid/partial/due choice
  *  is handled separately by StatusChoicePopup once this card's last step
  *  is passed. */
 function SaleWizardCard({ step, extras, setExtras, totals, currency, onBack, onNext, onCancel }: {
   step: Exclude<SaleWizardStep, "review">;
   extras: SaleExtras;
   setExtras: React.Dispatch<React.SetStateAction<SaleExtras>>;
-  totals: { item: any; customer: any; subtotal: number; discountAmount: number; labourCost: number; freightCost: number; contractorName: string; total: number } | null;
+  totals: { item: any; customer: any; rate: number; qty: number; subtotal: number; discountAmount: number; labourCost: number; freightCost: number; contractorName: string; total: number } | null;
   currency: string;
   onBack: () => void;
   onNext: () => void;
   onCancel: () => void;
 }) {
   const meta = SALE_STEP_META[step];
-  const isAmountStep = step === "discount" || step === "labour" || step === "freight";
-  const field: "discountAmount" | "labourCost" | "freightCost" | "contractorName" =
-    step === "discount" ? "discountAmount" : step === "labour" ? "labourCost" : step === "freight" ? "freightCost" : "contractorName";
+  const isAmountStep = step === "price" || step === "discount" || step === "labour" || step === "freight";
+  const field: "rate" | "discountAmount" | "labourCost" | "freightCost" | "contractorName" =
+    step === "price" ? "rate" : step === "discount" ? "discountAmount" : step === "labour" ? "labourCost" : step === "freight" ? "freightCost" : "contractorName";
+  // Price always has a real value to show (the item's own rate, or whatever
+  // was already typed/edited) — everything else defaults to blank until the
+  // person types something.
+  const amountValue = field === "rate"
+    ? (extras.rate ?? totals?.rate ?? 0)
+    : (extras[field as "discountAmount" | "labourCost" | "freightCost"] as number | undefined) ?? "";
 
   const skip = () => {
     setExtras((e) => ({ ...e, [field]: isAmountStep ? undefined : "" }));
@@ -555,7 +576,10 @@ function SaleWizardCard({ step, extras, setExtras, totals, currency, onBack, onN
 
       {totals && (
         <p className="font-mono text-[12px] text-[#7d818a]">
-          Running total: <span className="text-[#c9cdd6]">{fmtMoney(totals.total, currency)}</span>
+          {step === "price" ? "Subtotal at this price: " : "Running total: "}
+          <span className="text-[#c9cdd6]">
+            {fmtMoney(step === "price" ? (Number(amountValue) || 0) * totals.qty : totals.total, currency)}
+          </span>
         </p>
       )}
 
@@ -564,12 +588,13 @@ function SaleWizardCard({ step, extras, setExtras, totals, currency, onBack, onN
           <span className="text-[15px] text-[#c9cdd6]">₹</span>
           <input
             type="number" min="0" inputMode="decimal" autoFocus
-            value={(extras[field as "discountAmount" | "labourCost" | "freightCost"] as number | undefined) ?? ""}
+            value={amountValue}
             onChange={(e) => setExtras((ex) => ({ ...ex, [field]: e.target.value === "" ? undefined : Number(e.target.value) }))}
             onKeyDown={(e) => { if (e.key === "Enter") onNext(); }}
             placeholder="0"
             className="flex-1 rounded-lg border border-[#333844] bg-[#1c2028] px-3 py-2.5 text-[15px] text-white outline-none focus:border-orange-500"
           />
+          {step === "price" && <span className="text-[12px] text-[#7d818a] whitespace-nowrap">/ unit</span>}
         </div>
       ) : (
         <input
@@ -589,12 +614,14 @@ function SaleWizardCard({ step, extras, setExtras, totals, currency, onBack, onN
         >
           Back
         </button>
-        <button
-          onClick={skip}
-          className="flex items-center justify-center gap-1.5 rounded-pill border border-[#333844] px-4 py-2.5 text-[13px] font-semibold text-[#c9cdd6] hover:border-[#454b58]"
-        >
-          Skip
-        </button>
+        {step !== "price" && (
+          <button
+            onClick={skip}
+            className="flex items-center justify-center gap-1.5 rounded-pill border border-[#333844] px-4 py-2.5 text-[13px] font-semibold text-[#c9cdd6] hover:border-[#454b58]"
+          >
+            Skip
+          </button>
+        )}
         <button
           onClick={onNext}
           className="flex flex-1 items-center justify-center gap-1.5 rounded-pill bg-orange-500 py-2.5 text-[13px] font-semibold text-white hover:bg-orange-600"

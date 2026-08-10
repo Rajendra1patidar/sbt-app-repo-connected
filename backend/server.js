@@ -28,6 +28,7 @@ const approvalRoutes = require("./routes/approvalRoutes");
 const bankStatementRoutes = require("./routes/bankStatementRoutes");
 const captureRoutes = require("./routes/captureRoutes");
 const { registerListeners } = require("./listeners");
+const cronRoutes = require("./routes/cronRoutes");
 const scheduler = require("./jobs/scheduler");
 const app = express();
 // Render (and most PaaS hosts) sit the app behind one reverse proxy that sets
@@ -74,6 +75,8 @@ const authLimiter = rateLimit({
 app.use("/api/auth", authLimiter);
 // ---- health check (used by Railway / uptime monitors) ----
 app.get("/api/health", (req, res) => res.json({ status: "ok", time: new Date().toISOString() }));
+// ---- cron trigger (own secret-based auth, not JWT) ----
+app.use("/api/cron", cronRoutes);
 // ---- public routes ----
 app.use("/api/auth", authRoutes);
 // ---- protected routes (require Bearer JWT) ----

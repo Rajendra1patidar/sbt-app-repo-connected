@@ -4,6 +4,7 @@ import { parseCapture, actionFromAiResult, CaptureAction, MatchCandidate } from 
 import { fmtMoney, today } from "../../lib/format";
 import { api } from "../../lib/api";
 import { useAppStore } from "../../store/useAppStore";
+import { StatusChoicePopup } from "../modals/StatusChoicePopup";
 
 const CHIPS = [
   { label: "Sold cement", fill: "Sold 40 bags OPC Cement to " },
@@ -18,6 +19,16 @@ const CHIPS = [
 // Kinds that get a preview-and-confirm step before anything is written.
 type PendingAction = Extract<CaptureAction, { kind: "sale" | "purchase" | "payment" | "return" | "expense" | "add_customer" }>;
 const PREVIEWABLE: PendingAction["kind"][] = ["sale", "purchase", "payment", "return", "expense", "add_customer"];
+
+// A "sale" doesn't just get a single preview/confirm — it walks through a
+// full invoice: item & customer first, then discount, labour, freight, and
+// contractor one at a time, then a final paid/partial/due choice. Each step
+// is skippable (a plain "Skip" moves on with 0 / blank), and any value the
+// parser already pulled out of the typed sentence (e.g. "...discount 500...")
+// pre-fills that step instead of being asked again from scratch.
+type SaleWizardStep = "review" | "discount" | "labour" | "freight" | "contractor";
+const SALE_STEP_ORDER: SaleWizardStep[] = ["review", "discount", "labour", "freight", "contractor"];
+interface SaleExtras { discountAmount?: number; labourCost?: number; freightCost?: number; contractorName?: string }
 
 /* ---- Undo helpers for the capture bar's toast ----
  * These call the API directly and patch the store's state by hand, rather
@@ -80,6 +91,12 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, sav
   const [pending, setPending] = useState<PendingAction | null>(null);
   // User's picks when a name matched more than one record — keyed by entity type.
   const [picked, setPicked] = useState<{ item?: any; customer?: any; vendor?: any; doc?: any }>({});
+  // Sale-only invoice wizard: which step we're on, the discount/labour/freight/
+  // contractor values collected along the way, and whether the final
+  // paid/partial/due popup is showing.
+  const [saleStep, setSaleStep] = useState<SaleWizardStep>("review");
+  const [saleExtras, setSaleExtras] = useState<SaleExtras>({});
+  const [showStatusPopup, setShowStatusPopup] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const fill = (text: string) => {
@@ -87,7 +104,10 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, sav
     inputRef.current?.focus();
   };
 
-  const resetAll = () => { setValue(""); setPending(null); setPicked({}); };
+  const resetAll = () => {
+    setValue(""); setPending(null); setPicked({});
+    setSaleStep("review"); setSaleExtras({}); setShowStatusPopup(false);
+  };
 
   const runImmediate = async (action: CaptureAction) => {
     switch (action.kind) {
@@ -155,10 +175,78 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, sav
       return;
     }
     if (PREVIEWABLE.includes(action.kind as any)) {
-      setPending(action as PendingAction);
+      const p = action as PendingAction;
+      setPending(p);
+      // Pre-fill the invoice wizard with anything the typed sentence already
+      // gave us (e.g. "...discount 500 labour 200...") so those steps just
+      // need a tap to confirm instead of being re-typed.
+      if (p.kind === "sale") {
+        setSaleExtras({
+          discountAmount: p.discountAmount, labourCost: p.labourCost,
+          freightCost: p.freightCost, contractorName: p.contractorName,
+        });
+      }
       return;
     }
     runImmediate(action);
+  };
+
+  // Shared math for the sale wizard — used both by the live step previews
+  // and by the final save, so what the person sees while stepping through
+  // is exactly what gets written.
+  const saleTotals = () => {
+    if (pending?.kind !== "sale") return null;
+    const item = picked.item ?? pending.item;
+    const customer = picked.customer ?? pending.customer;
+    const rate = pending.rate ?? (pending.amount ? pending.amount / pending.qty : (item.sellingPrice ?? item.price ?? 0));
+    const subtotal = pending.amount ?? rate * pending.qty;
+    // Server rejects a discount that exceeds the line's own subtotal — clamp
+    // here too so a misheard/misread discount can't silently fail the whole
+    // estimate at save time.
+    const discountAmount = Math.min(saleExtras.discountAmount ?? 0, subtotal);
+    const labourCost = saleExtras.labourCost ?? 0;
+    const freightCost = saleExtras.freightCost ?? 0;
+    const contractorName = saleExtras.contractorName || "";
+    // labour/freight are flat charges on the whole estimate (not the item
+    // line) — same total formula the estimate form itself uses.
+    const total = (subtotal - discountAmount) + labourCost + freightCost;
+    return { item, customer, rate, subtotal, discountAmount, labourCost, freightCost, contractorName, total };
+  };
+
+  // Item & customer step confirmed — move into the discount → labour →
+  // freight → contractor walk-through instead of saving right away.
+  const startSaleWizard = () => setSaleStep("discount");
+
+  const saleStepBack = () => {
+    const idx = SALE_STEP_ORDER.indexOf(saleStep);
+    if (idx > 0) setSaleStep(SALE_STEP_ORDER[idx - 1]);
+  };
+  const saleStepNext = () => {
+    const idx = SALE_STEP_ORDER.indexOf(saleStep);
+    if (idx < SALE_STEP_ORDER.length - 1) setSaleStep(SALE_STEP_ORDER[idx + 1]);
+    else setShowStatusPopup(true); // contractor was the last step — ask paid/partial/due
+  };
+
+  // Final step: paid in full, partial, due, or an advance booking. Only then
+  // does anything actually get written.
+  const finalizeSale = async (status: string, isAdvanceBooking: boolean, partialAmountPaid?: number) => {
+    const totals = saleTotals();
+    if (pending?.kind !== "sale" || !totals || busy) return;
+    setBusy(true);
+    try {
+      const { item, customer, rate, discountAmount, labourCost, freightCost, contractorName, total } = totals;
+      const doc = await saveDocument("estimate", {
+        customerId: customer.id, date: today(), dueDate: today(),
+        lines: [{ itemId: item.id, qty: pending.qty, rate, discountAmount }], total, status,
+        labourCost, freightCost, contractorName, isAdvanceBooking,
+        ...(partialAmountPaid ? { partialAmountPaid } : {}),
+      });
+      showToast(`Estimate created for ${customer.name} · ${fmtMoney(total, currency)}`, doc?.id ? { undo: () => undoEstimate(doc.id), duration: 6000 } : undefined);
+      resetAll();
+    } finally {
+      setBusy(false);
+      setShowStatusPopup(false);
+    }
   };
 
   const confirm = async () => {
@@ -166,28 +254,6 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, sav
     setBusy(true);
     try {
       switch (pending.kind) {
-        case "sale": {
-          const item = picked.item ?? pending.item;
-          const customer = picked.customer ?? pending.customer;
-          const rate = pending.rate ?? (pending.amount ? pending.amount / pending.qty : (item.sellingPrice ?? item.price ?? 0));
-          const subtotal = pending.amount ?? rate * pending.qty;
-          // Server rejects a discount that exceeds the line's own subtotal —
-          // clamp here too so a misheard/misread discount can't silently fail
-          // the whole estimate at save time.
-          const discountAmount = Math.min(pending.discountAmount ?? 0, subtotal);
-          const labourCost = pending.labourCost ?? 0;
-          const freightCost = pending.freightCost ?? 0;
-          // labour/freight are flat charges on the whole estimate (not the item
-          // line) — same total formula the estimate form itself uses.
-          const total = (subtotal - discountAmount) + labourCost + freightCost;
-          const doc = await saveDocument("estimate", {
-            customerId: customer.id, date: today(), dueDate: today(),
-            lines: [{ itemId: item.id, qty: pending.qty, rate, discountAmount }], total, status: "Due",
-            labourCost, freightCost, contractorName: pending.contractorName || "",
-          });
-          showToast(`Estimate created for ${customer.name} · ${fmtMoney(total, currency)}`, doc?.id ? { undo: () => undoEstimate(doc.id), duration: 6000 } : undefined);
-          break;
-        }
         case "purchase": {
           const item = picked.item ?? pending.item;
           const vendor = picked.vendor ?? pending.vendor;
@@ -228,7 +294,11 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, sav
     }
   };
 
-  const cancel = () => { setPending(null); setPicked({}); inputRef.current?.focus(); };
+  const cancel = () => {
+    setPending(null); setPicked({});
+    setSaleStep("review"); setSaleExtras({}); setShowStatusPopup(false);
+    inputRef.current?.focus();
+  };
 
   return (
     <div className="relative overflow-hidden rounded-card bg-sidebar p-5 flex flex-col gap-3.5 shadow-card">
@@ -265,6 +335,17 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, sav
             ))}
           </div>
         </>
+      ) : pending.kind === "sale" && saleStep !== "review" ? (
+        <SaleWizardCard
+          step={saleStep}
+          extras={saleExtras}
+          setExtras={setSaleExtras}
+          totals={saleTotals()}
+          currency={currency}
+          onBack={saleStepBack}
+          onNext={saleStepNext}
+          onCancel={cancel}
+        />
       ) : (
         <PreviewCard
           pending={pending}
@@ -272,8 +353,17 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, sav
           setPicked={setPicked}
           currency={currency}
           busy={busy}
-          onConfirm={confirm}
+          onConfirm={pending.kind === "sale" ? startSaleWizard : confirm}
           onCancel={cancel}
+        />
+      )}
+
+      {showStatusPopup && (
+        <StatusChoicePopup
+          total={saleTotals()?.total ?? 0}
+          currency={currency}
+          onChoose={finalizeSale}
+          onCancel={() => setShowStatusPopup(false)}
         />
       )}
     </div>
@@ -362,7 +452,7 @@ function PreviewCard({ pending, picked, setPicked, currency, busy, onConfirm, on
     <div className="relative flex flex-col gap-3">
       <div>
         <p className="text-[10.5px] font-semibold uppercase tracking-wide text-[#7d818a] flex items-center gap-1.5">
-          {title} — confirm?
+          {title} {pending.kind === "sale" ? "— item & customer right?" : "— confirm?"}
           {pending.source === "ai" && (
             <span className="inline-flex items-center gap-1 rounded-full border border-orange-500/40 bg-orange-500/10 px-1.5 py-0.5 text-[9.5px] font-semibold normal-case tracking-normal text-orange-300">
               <Sparkles size={9} /> AI
@@ -408,7 +498,7 @@ function PreviewCard({ pending, picked, setPicked, currency, busy, onConfirm, on
           disabled={busy}
           className="flex flex-1 items-center justify-center gap-1.5 rounded-pill bg-orange-500 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-orange-600 disabled:opacity-50"
         >
-          <Check size={15} /> {busy ? "Saving…" : "Confirm"}
+          <Check size={15} /> {busy ? "Saving…" : pending.kind === "sale" ? "Next →" : "Confirm"}
         </button>
         <button
           onClick={onCancel}
@@ -416,6 +506,107 @@ function PreviewCard({ pending, picked, setPicked, currency, busy, onConfirm, on
           className="flex items-center justify-center gap-1.5 rounded-pill border border-[#333844] px-4 py-2.5 text-[13px] font-semibold text-[#c9cdd6] hover:border-[#454b58] disabled:opacity-50"
         >
           <X size={15} /> Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const SALE_STEP_META: Record<Exclude<SaleWizardStep, "review">, { title: string; hint: string }> = {
+  discount: { title: "Any discount?", hint: "Leave it blank and skip if there isn't one." },
+  labour: { title: "Any labour cost?", hint: "A flat labour charge to add on top of the item total." },
+  freight: { title: "Any freight / transport cost?", hint: "Delivery or transport charge to add on top." },
+  contractor: { title: "Contractor name?", hint: "Who's this job or delivery for — optional." },
+};
+
+/** The step-by-step invoice walk-through shown after a "sale" capture's
+ *  item & customer are confirmed: discount → labour → freight → contractor,
+ *  one question at a time, each skippable. The final paid/partial/due choice
+ *  is handled separately by StatusChoicePopup once this card's last step
+ *  is passed. */
+function SaleWizardCard({ step, extras, setExtras, totals, currency, onBack, onNext, onCancel }: {
+  step: Exclude<SaleWizardStep, "review">;
+  extras: SaleExtras;
+  setExtras: React.Dispatch<React.SetStateAction<SaleExtras>>;
+  totals: { item: any; customer: any; subtotal: number; discountAmount: number; labourCost: number; freightCost: number; contractorName: string; total: number } | null;
+  currency: string;
+  onBack: () => void;
+  onNext: () => void;
+  onCancel: () => void;
+}) {
+  const meta = SALE_STEP_META[step];
+  const isAmountStep = step === "discount" || step === "labour" || step === "freight";
+  const field: "discountAmount" | "labourCost" | "freightCost" | "contractorName" =
+    step === "discount" ? "discountAmount" : step === "labour" ? "labourCost" : step === "freight" ? "freightCost" : "contractorName";
+
+  const skip = () => {
+    setExtras((e) => ({ ...e, [field]: isAmountStep ? undefined : "" }));
+    onNext();
+  };
+
+  return (
+    <div className="relative flex flex-col gap-3">
+      <div>
+        <p className="text-[10.5px] font-semibold uppercase tracking-wide text-[#7d818a]">
+          Invoice for {totals?.customer?.name} — {meta.title}
+        </p>
+        <p className="mt-1 text-[12px] text-[#9a9ea8]">{meta.hint}</p>
+      </div>
+
+      {totals && (
+        <p className="font-mono text-[12px] text-[#7d818a]">
+          Running total: <span className="text-[#c9cdd6]">{fmtMoney(totals.total, currency)}</span>
+        </p>
+      )}
+
+      {isAmountStep ? (
+        <div className="flex items-center gap-2">
+          <span className="text-[15px] text-[#c9cdd6]">₹</span>
+          <input
+            type="number" min="0" inputMode="decimal" autoFocus
+            value={(extras[field as "discountAmount" | "labourCost" | "freightCost"] as number | undefined) ?? ""}
+            onChange={(e) => setExtras((ex) => ({ ...ex, [field]: e.target.value === "" ? undefined : Number(e.target.value) }))}
+            onKeyDown={(e) => { if (e.key === "Enter") onNext(); }}
+            placeholder="0"
+            className="flex-1 rounded-lg border border-[#333844] bg-[#1c2028] px-3 py-2.5 text-[15px] text-white outline-none focus:border-orange-500"
+          />
+        </div>
+      ) : (
+        <input
+          type="text" autoFocus
+          value={(extras.contractorName as string | undefined) ?? ""}
+          onChange={(e) => setExtras((ex) => ({ ...ex, contractorName: e.target.value }))}
+          onKeyDown={(e) => { if (e.key === "Enter") onNext(); }}
+          placeholder="Contractor name"
+          className="rounded-lg border border-[#333844] bg-[#1c2028] px-3 py-2.5 text-[15px] text-white outline-none focus:border-orange-500"
+        />
+      )}
+
+      <div className="relative flex gap-2 pt-0.5">
+        <button
+          onClick={onBack}
+          className="flex items-center justify-center gap-1.5 rounded-pill border border-[#333844] px-4 py-2.5 text-[13px] font-semibold text-[#c9cdd6] hover:border-[#454b58]"
+        >
+          Back
+        </button>
+        <button
+          onClick={skip}
+          className="flex items-center justify-center gap-1.5 rounded-pill border border-[#333844] px-4 py-2.5 text-[13px] font-semibold text-[#c9cdd6] hover:border-[#454b58]"
+        >
+          Skip
+        </button>
+        <button
+          onClick={onNext}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-pill bg-orange-500 py-2.5 text-[13px] font-semibold text-white hover:bg-orange-600"
+        >
+          <Check size={15} /> {step === "contractor" ? "Continue → payment" : "Continue"}
+        </button>
+        <button
+          onClick={onCancel}
+          className="flex items-center justify-center rounded-pill border border-[#333844] px-3 py-2.5 text-[#c9cdd6] hover:border-[#454b58]"
+          aria-label="Cancel"
+        >
+          <X size={15} />
         </button>
       </div>
     </div>

@@ -99,7 +99,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       const qty = Number(ln.qty || 0);
       const rate = ln.rate ?? it?.sellingPrice ?? 0;
       const discount = Number(ln.discountAmount || 0);
-      const discountHtml = discount > 0 ? `<div class="ln" style="opacity:.65"><span class="ln-name">Discount</span><span class="ln-amt">-${fmtMoney(discount, settings.currency)}</span></div>` : "";
+      const discountHtml = discount > 0 ? `<div class="ln" style="font-weight:400"><span class="ln-name">Discount</span><span class="ln-amt">-${fmtMoney(discount, settings.currency)}</span></div>` : "";
       return `<div class="ln"><span class="ln-name">${name} - ${qty} &times; ${fmtMoney(rate, settings.currency)}</span><span class="ln-amt">${fmtMoney(qty * rate, settings.currency)}</span></div>${discountHtml}`;
     }).join("");
     const discountLineCount = lines.filter((ln: any) => Number(ln.discountAmount || 0) > 0).length;
@@ -166,20 +166,20 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       @page { size: ${SLIP_WIDTH_MM}mm ${MAX_HEIGHT_MM}mm; margin: 0; }
       * { box-sizing: border-box; }
       html, body { margin: 0; padding: 0; width: ${SLIP_WIDTH_MM}mm; }
-      body { font-family: Arial, Helvetica, sans-serif; color: #0f172a; }
+      body { font-family: Arial, Helvetica, sans-serif; color: #000; }
       .page { width: ${SLIP_WIDTH_MM}mm; height: ${MAX_HEIGHT_MM}mm; position: relative; }
       .box { width: ${SLIP_WIDTH_MM}mm; padding: 4mm 3.5mm 3mm; position: absolute; top: 0; left: 0; }
       .hd { display: flex; justify-content: space-between; align-items: baseline; }
       .name { font-weight: 700; font-size: 12px; }
       .doc { font-weight: 700; font-size: 12px; }
-      .place { font-size: 10.5px; color: #64748b; margin-top: 0.4mm; }
-      .divider { border-bottom: 0.35mm solid #0f172a; margin: 2.2mm 0; }
-      .ln { display: flex; justify-content: space-between; font-size: ${rowFont}px; padding: 0.7mm 0; border-bottom: 0.15mm dotted #e2e8f0; }
-      .tot { display: flex; justify-content: space-between; font-weight: 700; font-size: 13px; border-top: 0.35mm solid #0f172a; margin-top: 1.8mm; padding-top: 1.8mm; }
-      .paid { font-weight: 600; color: #16a34a; border-bottom: none; margin-top: 0.6mm; }
-      .tot.bal { border-top: none; margin-top: 0; padding-top: 0; color: #dc2626; }
-      .notes { font-size: 9px; color: #475569; margin-top: 1.8mm; font-style: italic; word-break: break-word; }
-      .stat { text-align: right; font-size: 9px; color: #d97706; margin-top: 1.2mm; font-weight: 700; }
+      .place { font-size: 10.5px; font-weight: 700; color: #000; margin-top: 0.4mm; }
+      .divider { border-bottom: 0.4mm solid #000; margin: 2.2mm 0; }
+      .ln { display: flex; justify-content: space-between; font-size: ${rowFont}px; font-weight: 700; padding: 0.7mm 0; border-bottom: 0.15mm dotted #000; }
+      .tot { display: flex; justify-content: space-between; font-weight: 700; font-size: 13px; border-top: 0.45mm solid #000; margin-top: 1.8mm; padding-top: 1.8mm; }
+      .paid { font-weight: 700; color: #000; border-bottom: none; margin-top: 0.6mm; }
+      .tot.bal { border-top: none; margin-top: 0; padding-top: 0; color: #000; }
+      .notes { font-size: 9px; font-weight: 700; color: #000; margin-top: 1.8mm; font-style: italic; word-break: break-word; }
+      .stat { text-align: right; font-size: 9px; color: #000; margin-top: 1.2mm; font-weight: 700; text-decoration: underline; }
     </style></head><body><div class="page"><div class="box">${bodyHtml}</div></div></body></html>`);
     w.document.close();
     w.onload = () => {

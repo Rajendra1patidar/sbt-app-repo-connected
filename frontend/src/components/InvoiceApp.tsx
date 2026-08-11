@@ -83,8 +83,10 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     const lines = invoice.lines || [];
 
     // Fixed width matches the pre-cut strip (half of an A4 sheet, cut lengthwise:
-    // 210mm / 2 = 105mm / 4.13in). Only the height varies per estimate.
-    const SLIP_WIDTH_MM = 105;
+    // 210mm / 2 = 105mm / 4.13in), trimmed 1mm to 104mm so the HP M1005's own
+    // unprintable-area margin never clips the right edge of the content.
+    // Only the height varies per estimate.
+    const SLIP_WIDTH_MM = 104;
     const MIN_HEIGHT_MM = 127; // 5in — HP M1005 custom-media floor
     const MAX_HEIGHT_MM = 297; // 11.69in — a full-length strip
 
@@ -142,14 +144,14 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     // only as long as this specific estimate needs, never a full fixed sheet ----
     const notesLines = invoice.notes ? Math.ceil(String(invoice.notes).length / 46) : 0;
     let estHeightMm =
-      6 /* top margin */ + 8 /* box top+bottom padding */ +
+      5 /* box top+bottom padding (2.5mm each) */ +
       4.5 /* header row */ + (customer?.location ? 4 : 0) /* place row */ + 3 /* divider */ +
       (lines.length + discountLineCount + extraRowCount) * rowLineMm +
       6 /* total row */ +
       (amountPaid > 0 ? 10 : 0) /* paid + balance rows */ +
       (notesLines * 3.2) +
       5 /* status row */ +
-      6 /* bottom safety margin */;
+      3 /* bottom safety margin */;
     estHeightMm = Math.min(MAX_HEIGHT_MM, Math.max(MIN_HEIGHT_MM, Math.ceil(estHeightMm)));
     const heightInches = (estHeightMm / 25.4).toFixed(1);
 
@@ -158,8 +160,9 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     w.document.write(`<!doctype html><html><head><title>${invoice.number}</title><style>
       @page { size: ${SLIP_WIDTH_MM}mm ${estHeightMm}mm; margin: 0; }
       * { box-sizing: border-box; }
-      body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #0f172a; }
-      .box { width: ${SLIP_WIDTH_MM}mm; padding: 4mm; }
+      html, body { margin: 0; padding: 0; width: ${SLIP_WIDTH_MM}mm; }
+      body { font-family: Arial, Helvetica, sans-serif; color: #0f172a; }
+      .box { width: ${SLIP_WIDTH_MM}mm; padding: 2.5mm 3mm; }
       .hd { display: flex; justify-content: space-between; align-items: baseline; }
       .name { font-weight: 700; font-size: 10px; }
       .doc { font-weight: 700; font-size: 10px; }
@@ -175,7 +178,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     w.document.close();
     w.onload = () => {
       w.focus();
-      w.alert(`Cut this strip to about ${heightInches}in (${estHeightMm}mm) tall before printing.\n\nStrip width stays fixed at 4.13in (105mm) — only the length changes.`);
+      w.alert(`Cut this strip to about ${heightInches}in (${estHeightMm}mm) tall before printing.\n\nStrip width stays fixed at 4.09in (104mm) — only the length changes.\n\nIn the print dialog, set Margins to "None" and turn off "Headers and footers" so the page starts flush at the top.`);
       w.print();
     };
   };

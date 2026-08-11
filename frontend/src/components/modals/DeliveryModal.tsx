@@ -2,8 +2,6 @@ import React, { useState } from "react";
 import { X } from "lucide-react";
 import { bookingLineProgress } from "../../lib/bookingLogic";
 
-/* ---- InvoiceShareModal ---- */
-
 export function DeliveryModal({ doc, items, onClose, onSave }: any) {
   const rows = bookingLineProgress(doc)
     .filter((r: any) => r.remaining > 0)
@@ -29,24 +27,36 @@ export function DeliveryModal({ doc, items, onClose, onSave }: any) {
         {rows.length === 0 ? (
           <p className="text-sm text-ink/50">Everything booked on this estimate has already been collected.</p>
         ) : (
-          <div className="space-y-3">
-            {rows.map((r: any) => (
-              <div key={r.itemId} className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-ink">{r.name}</p>
-                  <p className="text-xs text-ink/40">
-                    {r.remaining} of {r.booked} remaining
-                    {r.delivered > 0 ? ` · ${r.delivered} collected so far` : ""}
-                  </p>
+          <>
+            <div className="hidden sm:grid mb-1 grid-cols-[1fr_72px_88px] gap-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-ink/35">
+              <span>Item</span><span>Collect</span><span className="text-right">Remaining</span>
+            </div>
+            <div className="space-y-2">
+              {rows.map((r: any) => (
+                <div key={r.itemId} className="rounded-xl border border-line bg-paper/60 p-2.5 sm:grid sm:grid-cols-[1fr_72px_88px] sm:gap-2 sm:items-center">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-ink truncate">{r.name}</p>
+                    <p className="text-xs text-ink/40">
+                      {r.remaining} of {r.booked} remaining
+                      {r.delivered > 0 ? ` · ${r.delivered} collected so far` : ""}
+                    </p>
+                  </div>
+                  <div className="mt-2 sm:mt-0">
+                    <span className="mb-0.5 block text-[10px] font-semibold text-ink/35 sm:hidden">Collecting now</span>
+                    <input
+                      type="number" min="0" max={r.remaining} placeholder="0"
+                      value={qtyMap[r.itemId] || ""} onChange={(e) => setQty(r.itemId, e.target.value)}
+                      className="w-full sm:w-16 rounded-xl border border-line px-2 py-2 text-sm text-center"
+                    />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between sm:mt-0 sm:block sm:text-right">
+                    <span className="text-[10px] font-semibold text-ink/35 sm:hidden">Remaining</span>
+                    <span className="font-display text-sm font-bold text-ink tabular-nums">{r.remaining}</span>
+                  </div>
                 </div>
-                <input
-                  type="number" min="0" max={r.remaining} placeholder="0"
-                  value={qtyMap[r.itemId] || ""} onChange={(e) => setQty(r.itemId, e.target.value)}
-                  className="w-16 rounded-xl border border-line px-2 py-2 text-sm text-center"
-                />
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </>
         )}
 
         <div className="mt-6 flex gap-3">

@@ -37,30 +37,46 @@ export function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
         {returnableLines.length === 0 ? (
           <p className="text-sm text-ink/50">Every item on this estimate has already been returned.</p>
         ) : (
-          <div className="space-y-3">
-            {returnableLines.map((l: any) => (
-              <div key={l.itemId} className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-ink">{l.name}</p>
-                  <p className="text-xs text-ink/40">
-                    {l.qty - l.returned} available to return · {fmtMoney(l.rate, currency)} each
-                    {l.returned > 0 ? ` · ${l.returned} already returned` : ""}
-                  </p>
-                </div>
-                <input
-                  type="number" min="0" max={l.qty - l.returned} placeholder="0"
-                  value={qtyMap[l.itemId] || ""} onChange={(e) => setQty(l.itemId, e.target.value)}
-                  className="w-16 rounded-xl border border-line px-2 py-2 text-sm text-center"
-                />
-              </div>
-            ))}
-          </div>
+          <>
+            <div className="hidden sm:grid mb-1 grid-cols-[1fr_72px_96px] gap-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-ink/35">
+              <span>Item</span><span>Qty</span><span className="text-right">Refund</span>
+            </div>
+            <div className="space-y-2">
+              {returnableLines.map((l: any) => {
+                const qty = Math.min(Number(qtyMap[l.itemId] || 0), l.qty - l.returned);
+                const lineRefund = round2(qty * l.rate);
+                return (
+                  <div key={l.itemId} className="rounded-xl border border-line bg-paper/60 p-2.5 sm:grid sm:grid-cols-[1fr_72px_96px] sm:gap-2 sm:items-center">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-ink truncate">{l.name}</p>
+                      <p className="text-xs text-ink/40">
+                        {l.qty - l.returned} available · {fmtMoney(l.rate, currency)} each
+                        {l.returned > 0 ? ` · ${l.returned} already returned` : ""}
+                      </p>
+                    </div>
+                    <div className="mt-2 sm:mt-0">
+                      <span className="mb-0.5 block text-[10px] font-semibold text-ink/35 sm:hidden">Qty to return</span>
+                      <input
+                        type="number" min="0" max={l.qty - l.returned} placeholder="0"
+                        value={qtyMap[l.itemId] || ""} onChange={(e) => setQty(l.itemId, e.target.value)}
+                        className="w-full sm:w-16 rounded-xl border border-line px-2 py-2 text-sm text-center"
+                      />
+                    </div>
+                    <div className="mt-2 flex items-center justify-between sm:mt-0 sm:block sm:text-right">
+                      <span className="text-[10px] font-semibold text-ink/35 sm:hidden">Refund</span>
+                      <span className="font-display text-sm font-bold text-ink tabular-nums">{lineRefund > 0 ? fmtMoney(lineRefund, currency) : "—"}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
 
         {refundTotal > 0 && (
-          <div className="mt-4 flex items-center justify-between rounded-xl bg-bad-50 px-3 py-2.5">
+          <div className="mt-4 flex items-center justify-between rounded-xl bg-bad-50 px-4 py-3">
             <span className="text-sm font-semibold text-bad-600">Refund due</span>
-            <span className="font-display text-base font-bold text-bad-700">{fmtMoney(refundTotal, currency)}</span>
+            <span className="font-display text-lg font-bold text-bad-700">{fmtMoney(refundTotal, currency)}</span>
           </div>
         )}
 

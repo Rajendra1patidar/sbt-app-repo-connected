@@ -74,6 +74,7 @@ interface AppState {
 
   saveCustomer: (v: any) => Promise<any>;
   quickAddCustomer: (v: any) => Promise<any>;
+  quickAddItem: (v: any) => Promise<any>;
   removeCustomer: (id: string) => void;
   saveItem: (v: any) => Promise<void>;
   removeItem: (id: string) => void;
@@ -82,6 +83,7 @@ interface AppState {
   saveVendor: (v: any) => Promise<void>;
   removeVendor: (id: string) => void;
   savePurchase: (v: any) => Promise<any>;
+  savePurchaseBatch: (v: any) => Promise<any>;
   removePurchase: (id: string) => void;
   saveVendorPayment: (v: any) => Promise<void>;
   savePurchasePayment: (v: any) => Promise<void>;
@@ -301,6 +303,24 @@ export const useAppStore = create<AppState>()((set, get) => ({
     } catch (err) { onApiError(get, err, "Failed to add customer"); return null; }
   },
 
+  // Same duplicate-check + create as saveItem, but built for the quick-add popup
+  // inside the estimate form: it must NOT call closeModal() (that would close the
+  // estimate form the person is in the middle of filling out), and it hands the
+  // new item straight back so the caller can drop it onto a line.
+  quickAddItem: async (v) => {
+    const { items, showToast, refreshReorderSuggestions } = get();
+    const normName = (s: string) => (s || "").trim().toLowerCase();
+    const isDuplicate = items.some((it) => !it.deleted && normName(it.name) === normName(v.name));
+    if (isDuplicate) { showToast("An item with this name already exists"); return null; }
+    try {
+      const doc = await api.items.create(v);
+      set((state) => ({ items: [doc, ...state.items] }));
+      showToast("Item added");
+      refreshReorderSuggestions();
+      return doc;
+    } catch (err) { onApiError(get, err, "Failed to add item"); return null; }
+  },
+
   removeCustomer: (id) => {
     const { customers } = get();
     const c = customers.find((x) => x.id === id);
@@ -400,6 +420,39 @@ export const useAppStore = create<AppState>()((set, get) => ({
       closeModal();
       refreshReorderSuggestions();
       return purchase;
+    } catch (err) { onApiError(get, err, "Failed to record purchase"); }
+  },
+
+  // The New Purchase form lets you enter several items from one vendor visit
+  // in one sitting, but the Purchase schema is still one-item-per-record (see
+  // the comment in Purchase.js), so this creates one record per line — same
+  // vendor/date/notes on each — via the existing single-item endpoint, one
+  // at a time so two lines for the same item never race on the same
+  // item's stock update.
+  savePurchaseBatch: async (v) => {
+    const { showToast, closeModal, refreshReorderSuggestions } = get();
+    try {
+      const created: any[] = [];
+      let currentItems = get().items;
+      for (const line of v.lines) {
+        const { purchase, item } = await api.purchases.create({
+          vendorId: v.vendorId,
+          itemId: line.itemId,
+          qty: Number(line.qty),
+          rate: Number(line.rate),
+          date: v.date || today(),
+          paymentStatus: line.paymentStatus || "unpaid",
+          amountPaid: line.amountPaid ? Number(line.amountPaid) : undefined,
+          notes: v.notes,
+        });
+        created.push(purchase);
+        if (item) currentItems = currentItems.map((x) => (x.id === item.id ? item : x));
+      }
+      set({ purchases: [...created.slice().reverse(), ...get().purchases], items: currentItems });
+      showToast(created.length > 1 ? `${created.length} purchases recorded` : "Purchase recorded");
+      closeModal();
+      refreshReorderSuggestions();
+      return created;
     } catch (err) { onApiError(get, err, "Failed to record purchase"); }
   },
 

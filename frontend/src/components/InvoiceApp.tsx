@@ -15,6 +15,7 @@ import { FieldModal } from "./modals/FieldModal";
 import { InvoiceShareModal } from "./modals/InvoiceShareModal";
 import { OrderModal } from "./modals/OrderModal";
 import { PaymentAllocationModal } from "./modals/PaymentAllocationModal";
+import { PurchaseModal } from "./modals/PurchaseModal";
 import { ReturnModal } from "./modals/ReturnModal";
 import { ViewEstimateModal } from "./modals/ViewEstimateModal";
 import { AdvancedBillingView } from "./views/AdvancedBillingView";
@@ -63,8 +64,8 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     reorderSuggestions, toast, modal, confirmDeleteFor, shareInvoice, autoReminder,
     fetchAll, setOnSignOut, showToast, openModal, closeModal, cancelConfirmDelete,
     setAutoReminder, setShareInvoice,
-    saveCustomer, quickAddCustomer, removeCustomer, saveItem, removeItem, saveExpense, removeExpense,
-    saveVendor, removeVendor, savePurchase, removePurchase,
+    saveCustomer, quickAddCustomer, quickAddItem, removeCustomer, saveItem, removeItem, saveExpense, removeExpense,
+    saveVendor, removeVendor, savePurchase, savePurchaseBatch, removePurchase,
     saveVendorPayment, savePurchasePayment, saveDocument, removeDoc, restoreDoc, updateDocStatus,
     savePayment, savePaymentSplit, saveReturn, saveDelivery, removePayment, saveOrder, removeOrder,
     payOrder, saveOrderPayment, saveLabourSession, removeLabourSession, saveContractorPhone,
@@ -302,21 +303,8 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       { key: "notes",    label: "Notes",               type: "textarea", placeholder: "Optional" },
     ]} onClose={closeModal} onSave={saveVendor} />;
 
-    if (type === "purchase") {
-      const vendorOptions = vendors.map((v: any) => ({ value: v.id, label: v.name }));
-      const itemOptions = items.map((i: any) => ({ value: i.id, label: i.name }));
-      return <FieldModal title="New Purchase" fields={[
-        { key: "vendorId",      label: "Vendor",              type: "select", options: vendorOptions, required: true },
-        { key: "itemId",        label: "Item",                type: "select", options: itemOptions, required: true },
-        { key: "qty",           label: "Quantity",            type: "number", required: true, placeholder: "0" },
-        { key: "rate",          label: "Rate per unit",       type: "number", required: true, placeholder: "0.00" },
-        { key: "date",          label: "Date",                type: "date" },
-        { key: "paymentStatus", label: "Payment status",      type: "toggle", options: [{ value: "unpaid", label: "Unpaid" }, { value: "partial", label: "Partial" }, { value: "paid", label: "Paid" }] },
-        { key: "amountPaid",    label: "Amount paid now",     type: "number", placeholder: "0.00", showIf: (v: any) => v.paymentStatus === "partial" },
-        { key: "notes",         label: "Notes",               type: "textarea", placeholder: "Optional" },
-      ]} initial={{ date: today(), paymentStatus: "unpaid", itemId: payload?.itemId, vendorId: payload?.vendorId, qty: payload?.qty }} onClose={closeModal}
-        onSave={(v: any) => savePurchase(v)} />;
-    }
+    if (type === "purchase")
+      return <PurchaseModal vendors={vendors} items={items} onClose={closeModal} onSave={savePurchaseBatch} onQuickAddItem={quickAddItem} />;
 
     if (type === "vendorPayment") {
       return <FieldModal title={`Pay ${payload?.vendorName || "Vendor"} (unallocated)`} fields={[
@@ -354,7 +342,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       return <ChallanModal onClose={closeModal} onSave={saveChallan} />;
 
     if (type === "estimate")
-      return <DocumentModal type={type} customers={customers} items={items} estimates={activeEstimates} editingDoc={payload?.editingDoc} prefillCustomerId={payload?.customerId} onClose={closeModal} onSave={(v: any) => saveDocument(type, v)} onQuickAddCustomer={quickAddCustomer} />;
+      return <DocumentModal type={type} customers={customers} items={items} estimates={activeEstimates} editingDoc={payload?.editingDoc} prefillCustomerId={payload?.customerId} onClose={closeModal} onSave={(v: any) => saveDocument(type, v)} onQuickAddCustomer={quickAddCustomer} onQuickAddItem={quickAddItem} />;
 
     if (type === "payment") {
       return <PaymentAllocationModal

@@ -18,14 +18,29 @@ const router = express.Router();
  * body / your cron-job.org history), and a non-200 status shows up there
  * as a visible failure instead of silently vanishing into server logs only.
  */
-router.post("/run", requireCronSecret, async (req, res) => {
-  try {
-    const outcome = await runAllJobs();
-    res.json({ status: "ok", ...outcome });
-  } catch (err) {
-    console.error("cronRoutes: /run crashed unexpectedly:", err.message);
-    res.status(500).json({ status: "error", message: err.message });
+router.post(
+  "/run",
+  // Logged before auth on purpose: if a future run goes wrong again, this
+  // line alone proves the request reached the app at all, regardless of
+  // what happens afterward (auth failure, crash, or an aborted response
+  // that never fires morgan's normal "finish"-based log line).
+  (req, res, next) => {
+    console.log(`cronRoutes: /run hit at ${new Date().toISOString()}`);
+    next();
+  },
+  requireCronSecret,
+  async (req, res) => {
+    try {
+      const outcome = await runAllJobs();
+      const body = { status: "ok", ...outcome };
+      const payload = JSON.stringify(body);
+      console.log(`cronRoutes: /run responding with ${Buffer.byteLength(payload)} bytes`);
+      res.type("application/json").send(payload);
+    } catch (err) {
+      console.error("cronRoutes: /run crashed unexpectedly:", err.message);
+      res.status(500).json({ status: "error", message: err.message });
+    }
   }
-});
+);
 
 module.exports = router;

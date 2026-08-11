@@ -100,7 +100,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       const rate = ln.rate ?? it?.sellingPrice ?? 0;
       const discount = Number(ln.discountAmount || 0);
       const discountHtml = discount > 0 ? `<div class="ln" style="opacity:.65"><span class="ln-name">Discount</span><span class="ln-amt">-${fmtMoney(discount, settings.currency)}</span></div>` : "";
-      return `<div class="ln"><span class="ln-name">${name} × ${qty} @ ${fmtMoney(rate, settings.currency)}</span><span class="ln-amt">${fmtMoney(qty * rate, settings.currency)}</span></div>${discountHtml}`;
+      return `<div class="ln"><span class="ln-name">${name} - ${qty} &times; ${fmtMoney(rate, settings.currency)}</span><span class="ln-amt">${fmtMoney(qty * rate, settings.currency)}</span></div>${discountHtml}`;
     }).join("");
     const discountLineCount = lines.filter((ln: any) => Number(ln.discountAmount || 0) > 0).length;
 
@@ -149,7 +149,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     // top — that's what was causing the content to print mid-strip. ----
     const notesLines = invoice.notes ? Math.ceil(String(invoice.notes).length / 46) : 0;
     let estHeightMm =
-      6 /* box top+bottom padding (3mm each) */ +
+      7 /* box top+bottom padding (4mm + 3mm) */ +
       5.5 /* header row */ + (customer?.location ? 4.5 : 0) /* place row */ + 3.5 /* divider */ +
       (lines.length + discountLineCount + extraRowCount) * rowLineMm +
       7 /* total row */ +
@@ -159,7 +159,6 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       4 /* cut-line clearance */;
     estHeightMm = Math.min(MAX_HEIGHT_MM, Math.max(MIN_HEIGHT_MM, Math.ceil(estHeightMm)));
     const heightInches = (estHeightMm / 25.4).toFixed(1);
-    const showCutLine = estHeightMm < MAX_HEIGHT_MM;
 
     const w = window.open("", "_blank", "width=480,height=680");
     if (!w) { showToast("Please allow pop-ups to print."); return; }
@@ -169,7 +168,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       html, body { margin: 0; padding: 0; width: ${SLIP_WIDTH_MM}mm; }
       body { font-family: Arial, Helvetica, sans-serif; color: #0f172a; }
       .page { width: ${SLIP_WIDTH_MM}mm; height: ${MAX_HEIGHT_MM}mm; position: relative; }
-      .box { width: ${SLIP_WIDTH_MM}mm; padding: 3mm 3.5mm; position: absolute; top: 0; left: 0; }
+      .box { width: ${SLIP_WIDTH_MM}mm; padding: 4mm 3.5mm 3mm; position: absolute; top: 0; left: 0; }
       .hd { display: flex; justify-content: space-between; align-items: baseline; }
       .name { font-weight: 700; font-size: 12px; }
       .doc { font-weight: 700; font-size: 12px; }
@@ -181,13 +180,11 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       .tot.bal { border-top: none; margin-top: 0; padding-top: 0; color: #dc2626; }
       .notes { font-size: 9px; color: #475569; margin-top: 1.8mm; font-style: italic; word-break: break-word; }
       .stat { text-align: right; font-size: 9px; color: #d97706; margin-top: 1.2mm; font-weight: 700; }
-      .cut { position: absolute; left: 0; right: 0; top: ${estHeightMm}mm; border-top: 0.4mm dashed #94a3b8; text-align: center; }
-      .cut span { position: relative; top: -2.2mm; background: #fff; padding: 0 2mm; font-size: 7px; color: #94a3b8; letter-spacing: 0.3px; }
-    </style></head><body><div class="page"><div class="box">${bodyHtml}</div>${showCutLine ? `<div class="cut"><span>CUT HERE — ${heightInches}in</span></div>` : ""}</div></body></html>`);
+    </style></head><body><div class="page"><div class="box">${bodyHtml}</div></div></body></html>`);
     w.document.close();
     w.onload = () => {
       w.focus();
-      w.alert(`This prints on the full 11.69in strip. A dashed "cut here" line marks ${heightInches}in (${estHeightMm}mm) — trim the blank tail off after printing.\n\nStrip width stays fixed at 4.09in (104mm).\n\nIn the print dialog, set Paper size to your saved 104x297mm custom size, Margins to "None", and turn off "Headers and footers".`);
+      w.alert(`This prints on the full 11.69in strip. Trim it to about ${heightInches}in (${estHeightMm}mm) tall — the rest of the strip below that is blank.\n\nStrip width stays fixed at 4.09in (104mm).\n\nIn the print dialog, set Paper size to your saved 104x297mm custom size, Margins to "None", and turn off "Headers and footers".`);
       w.print();
     };
   };

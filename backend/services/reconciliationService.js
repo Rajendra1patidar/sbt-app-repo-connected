@@ -4,6 +4,14 @@ const Purchase = require("../models/Purchase");
 const Document = require("../models/Document");
 const Expense = require("../models/Expense");
 const { mapExpenseAccount } = require("../controllers/expenseController");
+const { INCOME_ACCOUNTS, LIABILITY_ACCOUNTS } = require("./ledgerService");
+
+// Accounts whose natural/increasing balance is a CREDIT (income, liability).
+// Everything else here (Stock, Funds, AccountsReceivable, COGS, expenses) is
+// debit-normal. This must mirror ledgerService's own P&L/balance-sheet math
+// (e.g. `sales = credit - debit`), or this check compares source totals
+// against a sign-flipped ledger total and reports a false drift every time.
+const CREDIT_NORMAL_ACCOUNTS = [...INCOME_ACCOUNTS, ...LIABILITY_ACCOUNTS];
 
 // Same reasoning as ledgerService.toOwnerId: aggregate() pipelines skip Mongoose's
 // automatic string->ObjectId casting, so owner has to be cast by hand here too.
@@ -41,7 +49,11 @@ async function ledgerNet(owner, { sourceType, account, startDate, endDate }) {
   ]);
   const debit = rows[0]?.debit || 0;
   const credit = rows[0]?.credit || 0;
-  return round2(debit - credit);
+  // Debit-normal accounts increase on debit (debit - credit); credit-normal
+  // accounts (Sales, VendorPayable, ...) increase on credit, so the sign has
+  // to flip or a healthy ledger reads as a mismatch against a positive
+  // source total every time.
+  return CREDIT_NORMAL_ACCOUNTS.includes(account) ? round2(credit - debit) : round2(debit - credit);
 }
 
 function buildCheck(name, sourceTotal, ledgerTotal, note) {

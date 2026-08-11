@@ -88,10 +88,10 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     // Only the height varies per estimate.
     const SLIP_WIDTH_MM = 104;
     const MIN_HEIGHT_MM = 127; // 5in — HP M1005 custom-media floor
-    const MAX_HEIGHT_MM = 297; // 11.69in — a full-length strip
+    const MAX_HEIGHT_MM = 297; // 11.69in — matches the fixed strip loaded in the tray
 
-    const rowFont = lines.length <= 4 ? 9.5 : lines.length <= 8 ? 9 : lines.length <= 14 ? 8.5 : 8;
-    const rowLineMm = lines.length <= 8 ? 4.5 : 4;
+    const rowFont = lines.length <= 4 ? 11.5 : lines.length <= 8 ? 11 : lines.length <= 14 ? 10 : 9.5;
+    const rowLineMm = lines.length <= 8 ? 5.5 : 5;
 
     const rowsHtml = lines.map((ln: any) => {
       const it = items.find((i) => i.id === ln.itemId);
@@ -140,45 +140,54 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <div class="stat">${statusNote}</div>
     `;
 
-    // ---- estimate the printed height in mm so the page (and the cut strip) is
-    // only as long as this specific estimate needs, never a full fixed sheet ----
+    // ---- estimate the CONTENT height in mm — used only to draw a "cut here"
+    // line and to tell the user how much to trim. The @page itself is always
+    // declared at the full MAX_HEIGHT_MM (see below) so it exactly matches the
+    // fixed-length strip physically loaded in the tray. If the declared page
+    // were shorter than what's actually loaded, the printer driver centers
+    // the short page on the longer physical sheet instead of starting at the
+    // top — that's what was causing the content to print mid-strip. ----
     const notesLines = invoice.notes ? Math.ceil(String(invoice.notes).length / 46) : 0;
     let estHeightMm =
-      5 /* box top+bottom padding (2.5mm each) */ +
-      4.5 /* header row */ + (customer?.location ? 4 : 0) /* place row */ + 3 /* divider */ +
+      6 /* box top+bottom padding (3mm each) */ +
+      5.5 /* header row */ + (customer?.location ? 4.5 : 0) /* place row */ + 3.5 /* divider */ +
       (lines.length + discountLineCount + extraRowCount) * rowLineMm +
-      6 /* total row */ +
-      (amountPaid > 0 ? 10 : 0) /* paid + balance rows */ +
-      (notesLines * 3.2) +
-      5 /* status row */ +
-      3 /* bottom safety margin */;
+      7 /* total row */ +
+      (amountPaid > 0 ? 11 : 0) /* paid + balance rows */ +
+      (notesLines * 3.6) +
+      5.5 /* status row */ +
+      4 /* cut-line clearance */;
     estHeightMm = Math.min(MAX_HEIGHT_MM, Math.max(MIN_HEIGHT_MM, Math.ceil(estHeightMm)));
     const heightInches = (estHeightMm / 25.4).toFixed(1);
+    const showCutLine = estHeightMm < MAX_HEIGHT_MM;
 
     const w = window.open("", "_blank", "width=480,height=680");
     if (!w) { showToast("Please allow pop-ups to print."); return; }
     w.document.write(`<!doctype html><html><head><title>${invoice.number}</title><style>
-      @page { size: ${SLIP_WIDTH_MM}mm ${estHeightMm}mm; margin: 0; }
+      @page { size: ${SLIP_WIDTH_MM}mm ${MAX_HEIGHT_MM}mm; margin: 0; }
       * { box-sizing: border-box; }
       html, body { margin: 0; padding: 0; width: ${SLIP_WIDTH_MM}mm; }
       body { font-family: Arial, Helvetica, sans-serif; color: #0f172a; }
-      .box { width: ${SLIP_WIDTH_MM}mm; padding: 2.5mm 3mm; }
+      .page { width: ${SLIP_WIDTH_MM}mm; height: ${MAX_HEIGHT_MM}mm; position: relative; }
+      .box { width: ${SLIP_WIDTH_MM}mm; padding: 3mm 3.5mm; position: absolute; top: 0; left: 0; }
       .hd { display: flex; justify-content: space-between; align-items: baseline; }
-      .name { font-weight: 700; font-size: 10px; }
-      .doc { font-weight: 700; font-size: 10px; }
-      .place { font-size: 9px; color: #64748b; margin-top: 0.4mm; }
-      .divider { border-bottom: 0.3mm solid #0f172a; margin: 2mm 0; }
-      .ln { display: flex; justify-content: space-between; font-size: ${rowFont}px; padding: 0.5mm 0; border-bottom: 0.15mm dotted #e2e8f0; }
-      .tot { display: flex; justify-content: space-between; font-weight: 700; font-size: 11px; border-top: 0.3mm solid #0f172a; margin-top: 1.5mm; padding-top: 1.5mm; }
-      .paid { font-weight: 600; color: #16a34a; border-bottom: none; margin-top: 0.5mm; }
+      .name { font-weight: 700; font-size: 12px; }
+      .doc { font-weight: 700; font-size: 12px; }
+      .place { font-size: 10.5px; color: #64748b; margin-top: 0.4mm; }
+      .divider { border-bottom: 0.35mm solid #0f172a; margin: 2.2mm 0; }
+      .ln { display: flex; justify-content: space-between; font-size: ${rowFont}px; padding: 0.7mm 0; border-bottom: 0.15mm dotted #e2e8f0; }
+      .tot { display: flex; justify-content: space-between; font-weight: 700; font-size: 13px; border-top: 0.35mm solid #0f172a; margin-top: 1.8mm; padding-top: 1.8mm; }
+      .paid { font-weight: 600; color: #16a34a; border-bottom: none; margin-top: 0.6mm; }
       .tot.bal { border-top: none; margin-top: 0; padding-top: 0; color: #dc2626; }
-      .notes { font-size: 7.5px; color: #475569; margin-top: 1.5mm; font-style: italic; word-break: break-word; }
-      .stat { text-align: right; font-size: 7.5px; color: #d97706; margin-top: 1mm; font-weight: 700; }
-    </style></head><body><div class="box">${bodyHtml}</div></body></html>`);
+      .notes { font-size: 9px; color: #475569; margin-top: 1.8mm; font-style: italic; word-break: break-word; }
+      .stat { text-align: right; font-size: 9px; color: #d97706; margin-top: 1.2mm; font-weight: 700; }
+      .cut { position: absolute; left: 0; right: 0; top: ${estHeightMm}mm; border-top: 0.4mm dashed #94a3b8; text-align: center; }
+      .cut span { position: relative; top: -2.2mm; background: #fff; padding: 0 2mm; font-size: 7px; color: #94a3b8; letter-spacing: 0.3px; }
+    </style></head><body><div class="page"><div class="box">${bodyHtml}</div>${showCutLine ? `<div class="cut"><span>CUT HERE — ${heightInches}in</span></div>` : ""}</div></body></html>`);
     w.document.close();
     w.onload = () => {
       w.focus();
-      w.alert(`Cut this strip to about ${heightInches}in (${estHeightMm}mm) tall before printing.\n\nStrip width stays fixed at 4.09in (104mm) — only the length changes.\n\nIn the print dialog, set Margins to "None" and turn off "Headers and footers" so the page starts flush at the top.`);
+      w.alert(`This prints on the full 11.69in strip. A dashed "cut here" line marks ${heightInches}in (${estHeightMm}mm) — trim the blank tail off after printing.\n\nStrip width stays fixed at 4.09in (104mm).\n\nIn the print dialog, set Paper size to your saved 104x297mm custom size, Margins to "None", and turn off "Headers and footers".`);
       w.print();
     };
   };

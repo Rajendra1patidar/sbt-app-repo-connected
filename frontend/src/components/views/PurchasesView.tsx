@@ -5,11 +5,13 @@ import { Pagination } from "../common/Pagination";
 import { usePagination } from "../../hooks/usePagination";
 import { PAGE_SIZE } from "../../lib/constants";
 import { fmtDate, fmtMoney, fmtNum } from "../../lib/format";
+import { TransactionDetailModal, DetailRow } from "../dashboard/TransactionDetailModal";
 
 /* ---- Purchases ---- */
 
 export function PurchasesView({ purchases, vendors, items, currency, openModal, removePurchase }: any) {
   const [search, setSearch] = useState("");
+  const [detail, setDetail] = useState<{ title: string; subtitle?: string; rows: DetailRow[]; accent?: "brand" | "good" | "bad" | "warn" } | null>(null);
 
   const vendorName = (id: string) => vendors.find((v: any) => v.id === id)?.name || "Unknown vendor";
   const itemName = (id: string) => items.find((i: any) => i.id === id)?.name || "Unknown item";
@@ -22,6 +24,27 @@ export function PurchasesView({ purchases, vendors, items, currency, openModal, 
 
   const statusBadge = (status: string) => (status === "paid" ? "Paid" : status === "partial" ? "Partially Paid" : "Due");
   const round2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
+
+  const openPurchaseDetail = (p: any) => {
+    const remaining = round2((p.amount || 0) - (p.amountPaid || 0));
+    setDetail({
+      title: `Purchase · ${p.paymentStatus === "paid" ? "Paid" : p.paymentStatus === "partial" ? "Partially Paid" : "Due"}`,
+      subtitle: itemName(p.itemId),
+      accent: p.paymentStatus === "paid" ? "good" : p.paymentStatus === "partial" ? "warn" : "bad",
+      rows: [
+        { label: "Item", value: itemName(p.itemId) },
+        { label: "Vendor", value: vendorName(p.vendorId) },
+        { label: "Quantity", value: fmtNum(p.qty) },
+        { label: "Rate", value: fmtMoney(p.rate || 0, currency) },
+        { label: "Date", value: fmtDate(p.date) },
+        ...(p.notes ? [{ label: "Notes", value: p.notes }] : []),
+        { label: "Payment status", value: statusBadge(p.paymentStatus) },
+        { label: "Amount paid", value: fmtMoney(p.amountPaid || 0, currency) },
+        { label: remaining > 0 ? "Remaining" : "Status", value: remaining > 0 ? fmtMoney(remaining, currency) : "Fully paid" },
+        { label: "Amount", value: fmtMoney(p.amount || 0, currency), emphasis: true },
+      ],
+    });
+  };
 
   return (
     <div className="space-y-3 px-5 pb-28">
@@ -53,7 +76,7 @@ export function PurchasesView({ purchases, vendors, items, currency, openModal, 
       ) : (
         <>
           {pageItems.map((p: any) => (
-            <Card key={p.id} className="flex items-center justify-between gap-2">
+            <Card key={p.id} className="flex items-center justify-between gap-2" onClick={() => openPurchaseDetail(p)}>
               <div className="flex items-center gap-3 min-w-0">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600"><PackagePlus size={18} /></div>
                 <div className="min-w-0">
@@ -68,18 +91,27 @@ export function PurchasesView({ purchases, vendors, items, currency, openModal, 
                 </div>
                 {p.paymentStatus !== "paid" && (
                   <button
-                    onClick={() => openModal("purchasePayment", { purchaseId: p.id, vendorName: vendorName(p.vendorId), remaining: round2(p.amount - p.amountPaid) })}
+                    onClick={(e) => { e.stopPropagation(); openModal("purchasePayment", { purchaseId: p.id, vendorName: vendorName(p.vendorId), remaining: round2(p.amount - p.amountPaid) }); }}
                     className="inline-flex items-center gap-1 rounded-full bg-brand-500 px-2.5 py-1.5 text-xs font-semibold text-white"
                   >
                     <IndianRupee size={12} /> Pay
                   </button>
                 )}
-                <button onClick={() => removePurchase(p.id)} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
+                <button onClick={(e) => { e.stopPropagation(); removePurchase(p.id); }} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
               </div>
             </Card>
           ))}
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} />
         </>
+      )}
+      {detail && (
+        <TransactionDetailModal
+          title={detail.title}
+          subtitle={detail.subtitle}
+          rows={detail.rows}
+          accent={detail.accent}
+          onClose={() => setDetail(null)}
+        />
       )}
     </div>
   );

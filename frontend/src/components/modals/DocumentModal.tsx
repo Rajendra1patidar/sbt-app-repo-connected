@@ -222,9 +222,6 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, p
                   </button>
                 )}
               </div>
-              <div className="hidden sm:grid mb-1 grid-cols-[2.1fr_64px_92px_84px_92px_28px] gap-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-ink/35">
-                <span>Item</span><span>Qty</span><span>Rate</span><span>Disc.</span><span className="text-right">Amount</span><span />
-              </div>
               <div className="space-y-2">
                 {lines.map((ln, i) => {
                   const it = itemById(ln.itemId);
@@ -232,46 +229,51 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, p
                   const lineGross = Number(ln.qty || 0) * Number(ln.rate || 0);
                   const lineDiscount = Number(ln.discountAmount || 0);
                   const lineSubtotal = lineGross - lineDiscount;
+                  const exceedsStock = it && Number(ln.qty) > (it.stock ?? 0);
                   return (
-                    <div key={i} className="rounded-xl border border-line bg-paper/60 p-2 sm:grid sm:grid-cols-[2.1fr_64px_92px_84px_92px_28px] sm:gap-2 sm:items-center">
-                      <SearchableSelect
-                        options={(it?.deleted ? [...activeItems, it] : activeItems).map((opt: any) => ({ value: opt.id, label: opt.deleted ? `${opt.name} (deleted)` : `${opt.name} (stock: ${opt.stock ?? 0})`, keywords: opt.category || "" }))}
-                        value={ln.itemId}
-                        onChange={(v: string) => setLineItem(i, v)}
-                        placeholder="Select item"
-                      />
-                      <div className="mt-2 sm:mt-0">
-                        <span className="mb-0.5 block text-[10px] font-semibold text-ink/35 sm:hidden">Qty</span>
-                        <input type="number" min="1" value={ln.qty} onChange={(e) => updateLine(i, { qty: e.target.value })} className="w-full rounded-xl border border-line px-2 py-2 text-sm" />
-                      </div>
-                      {type === "estimate" ? (
-                        <div className="mt-2 sm:mt-0">
-                          <span className="mb-0.5 block text-[10px] font-semibold text-ink/35 sm:hidden">Rate</span>
-                          <button type="button" onClick={() => setRateEditIndex(i)}
-                            className={`relative flex w-full items-center justify-between gap-1.5 rounded-xl border px-2.5 py-2 text-sm font-semibold tabular-nums ${isOverridden ? "border-warn-200 bg-warn-50 text-warn-700" : "border-brand-100 bg-brand-50 text-brand-700"}`}>
-                            <span className="truncate">{fmtMoney(Number(ln.rate || 0), "")}</span>
-                            <Pencil size={11} className="shrink-0 opacity-70" />
-                            {isOverridden && <span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-warn-500" />}
-                          </button>
-                        </div>
-                      ) : <div />}
-                      {type === "estimate" ? (
-                        <div className="mt-2 sm:mt-0">
-                          <span className="mb-0.5 block text-[10px] font-semibold text-ink/35 sm:hidden">Discount</span>
-                          <input
-                            type="number" min="0" max={lineGross || undefined} value={ln.discountAmount || ""}
-                            onChange={(e) => updateLine(i, { discountAmount: e.target.value })}
-                            placeholder="0" className="w-full rounded-xl border border-line px-2 py-2 text-sm"
+                    <div key={i} className="rounded-xl border border-line bg-paper/60 p-2.5">
+                      <div className="mb-2.5 flex items-center gap-2 border-b border-line/70 pb-2.5">
+                        <div className="min-w-0 flex-1">
+                          <SearchableSelect
+                            options={(it?.deleted ? [...activeItems, it] : activeItems).map((opt: any) => ({ value: opt.id, label: opt.deleted ? `${opt.name} (deleted)` : `${opt.name} (stock: ${opt.stock ?? 0})`, keywords: opt.category || "" }))}
+                            value={ln.itemId}
+                            onChange={(v: string) => setLineItem(i, v)}
+                            placeholder="Select item"
                           />
                         </div>
-                      ) : <div />}
-                      <div className="mt-2 flex items-center justify-between sm:mt-0 sm:block sm:text-right">
-                        <span className="text-[10px] font-semibold text-ink/35 sm:hidden">Amount</span>
-                        <span className="font-display text-sm font-bold text-ink tabular-nums">{fmtMoney(lineSubtotal, "")}</span>
+                        {exceedsStock && <span title="Exceeds stock" className="shrink-0"><AlertTriangle size={14} className="text-warn-500" /></span>}
+                        {lines.length > 1 && <button onClick={() => removeLine(i)} className="shrink-0 rounded-full p-1.5 text-bad-500 hover:bg-bad-50"><Trash2 size={15} /></button>}
                       </div>
-                      <div className="mt-1 flex items-center justify-end gap-1.5 sm:mt-0">
-                        {it && Number(ln.qty) > (it.stock ?? 0) && <span title="Exceeds stock"><AlertTriangle size={14} className="text-warn-500 shrink-0" /></span>}
-                        {lines.length > 1 && <button onClick={() => removeLine(i)} className="rounded-full p-1.5 text-bad-500 hover:bg-bad-50"><Trash2 size={15} /></button>}
+                      <div className={`grid gap-1.5 ${type === "estimate" ? "grid-cols-4" : "grid-cols-2"}`}>
+                        <div>
+                          <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink/35">Qty</span>
+                          <input type="number" min="1" value={ln.qty} onChange={(e) => updateLine(i, { qty: e.target.value })} className="w-full rounded-lg border border-line px-2 py-1.5 text-sm" />
+                        </div>
+                        {type === "estimate" && (
+                          <div>
+                            <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink/35">Rate</span>
+                            <button type="button" onClick={() => setRateEditIndex(i)}
+                              className={`relative flex w-full items-center justify-between gap-1 rounded-lg border px-2 py-1.5 text-sm font-semibold tabular-nums ${isOverridden ? "border-warn-200 bg-warn-50 text-warn-700" : "border-brand-100 bg-brand-50 text-brand-700"}`}>
+                              <span className="truncate">{fmtMoney(Number(ln.rate || 0), "")}</span>
+                              <Pencil size={11} className="shrink-0 opacity-70" />
+                              {isOverridden && <span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-warn-500" />}
+                            </button>
+                          </div>
+                        )}
+                        {type === "estimate" && (
+                          <div>
+                            <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink/35">Disc.</span>
+                            <input
+                              type="number" min="0" max={lineGross || undefined} value={ln.discountAmount || ""}
+                              onChange={(e) => updateLine(i, { discountAmount: e.target.value })}
+                              placeholder="0" className="w-full rounded-lg border border-line px-2 py-1.5 text-sm"
+                            />
+                          </div>
+                        )}
+                        <div>
+                          <span className="mb-0.5 block text-right text-[10px] font-semibold uppercase tracking-wide text-ink/35">Amount</span>
+                          <div className="py-1.5 text-right font-display text-sm font-bold text-ink tabular-nums">{fmtMoney(lineSubtotal, "")}</div>
+                        </div>
                       </div>
                     </div>
                   );

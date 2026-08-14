@@ -10,16 +10,37 @@ jobs:
   trigger-cron:
     runs-on: ubuntu-latest
     steps:
-      - name: Call /api/cron/run
+      - name: Wake up the Render instance (if asleep)
         run: |
-          response=$(curl -s -o response.json -w "%{http_code}" -X POST \
-            "${{ secrets.SBT_API_URL }}/api/cron/run" \
-            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json")
-          echo "HTTP status: $response"
-          echo "Response body:"
-          cat response.json
-          if [ "$response" -ne 200 ]; then
-            echo "Cron call failed with status $response"
-            exit 1
-          fi
+          # First request may just wake a fully-stopped free-tier instance and
+          # return a 404/error itself, rather than being queued until boot
+          # finishes. This call's result is intentionally ignored - it's only
+          # here to trigger the wake-up, not to report success/failure.
+          curl -s -o /dev/null "${{ secrets.SBT_API_URL }}/api/health" || true
+
+      - name: Wait for instance to finish booting
+        run: sleep 30
+
+      - name: Call /api/cron/run (with retries)
+        run: |
+          max_attempts=4
+          attempt=1
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "Attempt $attempt of $max_attempts..."
+            response=$(curl -s -o response.json -w "%{http_code}" -X POST \
+              "${{ secrets.SBT_API_URL }}/api/cron/run" \
+              -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
+              -H "Content-Type: application/json")
+            echo "HTTP status: $response"
+            echo "Response body:"
+            cat response.json
+            if [ "$response" -eq 200 ]; then
+              echo "Cron call succeeded."
+              exit 0
+            fi
+            echo "Attempt $attempt failed with status $response, retrying in 20s..."
+            attempt=$((attempt + 1))
+            sleep 20
+          done
+          echo "Cron call failed after $max_attempts attempts."
+          exit 1

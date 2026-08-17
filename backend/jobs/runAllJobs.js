@@ -2,9 +2,10 @@ const { runReconciliationCheck } = require("./reconciliationJob");
 const { runReorderCheck } = require("./reorderCheckJob");
 const { runCreditCheck } = require("./creditCheckJob");
 const { runDailyReport } = require("./dailyReportJob");
+const { runBackupJob } = require("./backupJob");
 
 /**
- * Single place that actually runs all four jobs in sequence. Shared by:
+ * Single place that actually runs all five jobs in sequence. Shared by:
  *   - jobs/scheduler.js  (in-process node-cron, for local dev)
  *   - routes/cronRoutes.js -> POST /api/cron/run  (external trigger, for prod)
  * so there's exactly one implementation of "what a run consists of" no
@@ -67,6 +68,16 @@ async function runAllJobs() {
     } catch (err) {
       console.error("runAllJobs: daily report crashed:", err.message);
       results.dailyReport = { error: err.message };
+    }
+
+    try {
+      results.backup = await runBackupJob();
+      console.log(
+        `runAllJobs: backup job done — ${results.backup.skipped ? `skipped (${results.backup.reason})` : `sent (${results.backup.sizeBytes} bytes)`}.`
+      );
+    } catch (err) {
+      console.error("runAllJobs: backup job crashed:", err.message);
+      results.backup = { error: err.message };
     }
 
     console.log("runAllJobs: consolidated run finished.");

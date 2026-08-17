@@ -19,14 +19,17 @@ function getTransporter() {
   return transporter;
 }
 
-async function sendMail({ to, subject, text, html }) {
+async function sendMail({ to, subject, text, html, attachments }) {
   const t = getTransporter();
   if (!t) {
-    console.log(`[mailer] SMTP not configured — would have sent to ${to}:\nSubject: ${subject}\n${text}`);
+    const attachNote = attachments?.length
+      ? ` (with ${attachments.length} attachment(s): ${attachments.map((a) => a.filename).join(", ")})`
+      : "";
+    console.log(`[mailer] SMTP not configured — would have sent to ${to}${attachNote}:\nSubject: ${subject}\n${text}`);
     return { devFallback: true };
   }
   const from = process.env.EMAIL_FROM || process.env.SMTP_USER;
-  return t.sendMail({ from, to, subject, text, html });
+  return t.sendMail({ from, to, subject, text, html, attachments });
 }
 
 module.exports = { sendMail };

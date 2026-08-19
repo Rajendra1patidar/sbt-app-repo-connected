@@ -13,6 +13,7 @@ const LabourSession = require("../models/LabourSession");
 const FinancialYear = require("../models/FinancialYear");
 const Settings = require("../models/Settings");
 const StockMovement = require("../models/StockMovement");
+const StockAdjustment = require("../models/StockAdjustment");
 
 // Every owner-scoped collection in the app. Kept in one place so JSON export,
 // Excel export, and any future "wipe my account" / import tooling all agree
@@ -36,6 +37,7 @@ const COLLECTIONS = [
   { key: "financialYears", model: FinancialYear },
   { key: "settings", model: Settings },
   { key: "stockMovements", model: StockMovement },
+  { key: "stockAdjustments", model: StockAdjustment },
 ];
 
 async function loadAll(owner) {

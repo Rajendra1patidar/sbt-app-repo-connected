@@ -1,9 +1,11 @@
 import React, { useState } from "react";
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Info, Pencil, Printer, ShoppingBag, TrendingDown, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, ClipboardList, Info, Pencil, Printer, ShoppingBag, TrendingDown, X } from "lucide-react";
 import { Card } from "../common/UIPrimitives";
 import { ITEM_CATEGORIES, LOW_STOCK_DEFAULT } from "../../lib/constants";
 import { fmtNum } from "../../lib/format";
 import { waLink } from "../../lib/contactLinks";
+import { StockTakeModal } from "../modals/StockTakeModal";
 
 function ItemInfoModal({ item, orders, onClose }: any) {
   const stockBreakdown = (it: any): string => {
@@ -90,10 +92,11 @@ function ReorderSuggestionsCard({ suggestions }: any) {
   );
 }
 
-export function ToDoTrackingView({ items, settings, categories, orders, openModal, reorderSuggestions }: any) {
+export function ToDoTrackingView({ items, settings, categories, orders, openModal, reorderSuggestions, applyStockAdjustments }: any) {
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [category, setCategory] = useState("All");
   const [infoFor, setInfoFor] = useState<string | null>(null);
+  const [stockTakeOpen, setStockTakeOpen] = useState(false);
   const cats = categories?.length ? categories : ITEM_CATEGORIES;
 
   const lowItems = items.filter((it: any) => (it.stock ?? 0) <= (it.lowStock ?? LOW_STOCK_DEFAULT));
@@ -143,6 +146,22 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
 
   return (
     <div className="space-y-4 px-5 pb-28">
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => setStockTakeOpen(true)}
+          className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-line bg-card px-4 py-2.5 text-sm font-semibold text-ink/80"
+        >
+          <ClipboardList size={16} /> Stock take
+        </button>
+        <Link
+          to="/stock-adjustments"
+          className="inline-flex items-center justify-center gap-2 rounded-full border border-line bg-card px-4 py-2.5 text-sm font-semibold text-ink/60"
+        >
+          History
+        </Link>
+      </div>
 
       <ReorderSuggestionsCard suggestions={reorderSuggestions} />
 
@@ -236,6 +255,9 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
 
       {selectedItem && (
         <ItemInfoModal item={selectedItem} orders={orders || []} onClose={() => setInfoFor(null)} />
+      )}
+      {stockTakeOpen && (
+        <StockTakeModal items={items} applyStockAdjustments={applyStockAdjustments} onClose={() => setStockTakeOpen(false)} />
       )}
     </div>
   );

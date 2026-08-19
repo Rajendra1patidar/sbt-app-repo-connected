@@ -30,6 +30,7 @@ import { DocumentList } from "./views/DocumentList";
 import { ExpensesView } from "./views/ExpensesView";
 import { FinancialYearView } from "./views/FinancialYearView";
 import { ToDoTrackingView } from "./views/InventoryView";
+import { StockAdjustmentHistoryView } from "./views/StockAdjustmentHistoryView";
 import { ItemsView } from "./views/ItemsView";
 import { LabourTrackingView } from "./views/LabourTrackingView";
 import { LedgerReportsView } from "./views/LedgerReportsView";
@@ -69,7 +70,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     saveVendorPayment, savePurchasePayment, saveDocument, removeDoc, restoreDoc, updateDocStatus,
     savePayment, savePaymentSplit, saveReturn, saveDelivery, removePayment, saveOrder, removeOrder,
     payOrder, saveOrderPayment, saveLabourSession, removeLabourSession, saveContractorPhone,
-    saveSettings, saveChallan, recordPaymentFor,
+    saveSettings, saveChallan, recordPaymentFor, applyStockAdjustments,
   } = useAppStore();
 
   useEffect(() => {
@@ -207,7 +208,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
           onSelectCustomer={(id: string) => navigate(`/customers/${id}`)} />
       } />
       <Route path="/customers/:customerId" element={<CustomerDetailRoute />} />
-      <Route path="/items" element={<ItemsView items={items} categories={itemCategories} brands={itemBrands} openModal={openModal} currency={settings.currency} removeItem={removeItem} purchases={purchases} estimates={activeEstimates} />} />
+      <Route path="/items" element={<ItemsView items={items} categories={itemCategories} brands={itemBrands} openModal={openModal} currency={settings.currency} removeItem={removeItem} purchases={purchases} estimates={activeEstimates} applyStockAdjustments={applyStockAdjustments} />} />
       <Route path="/orders" element={<OrdersView orders={orders} items={items} vendors={vendors} categories={itemCategories} currency={settings.currency} openModal={openModal} payOrder={payOrder} removeOrder={removeOrder} />} />
       <Route path="/vendors" element={<VendorsView vendors={vendors} purchases={purchases} currency={settings.currency} openModal={openModal} removeVendor={removeVendor} />} />
       <Route path="/purchases" element={<PurchasesView purchases={purchases} vendors={vendors} items={items} currency={settings.currency} openModal={openModal} removePurchase={removePurchase} />} />
@@ -233,7 +234,8 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       } />
       <Route path="/payments" element={<PaymentsView payments={payments} customers={customers} currency={settings.currency} openModal={openModal} removePayment={removePayment} estimates={activeEstimates} />} />
       <Route path="/expenses" element={<ExpensesView expenses={expenses} currency={settings.currency} openModal={openModal} removeExpense={removeExpense} />} />
-      <Route path="/inventory" element={<ToDoTrackingView items={items} settings={settings} categories={itemCategories} orders={orders} openModal={openModal} reorderSuggestions={reorderSuggestions} />} />
+      <Route path="/inventory" element={<ToDoTrackingView items={items} settings={settings} categories={itemCategories} orders={orders} openModal={openModal} reorderSuggestions={reorderSuggestions} applyStockAdjustments={applyStockAdjustments} />} />
+      <Route path="/stock-adjustments" element={<StockAdjustmentHistoryView items={items} currency={settings.currency} />} />
       <Route path="/labour" element={<LabourTrackingView sessions={labourSessions} knownWorkers={labourWorkers} onSave={saveLabourSession} onRemove={removeLabourSession} currency={settings.currency} estimates={activeEstimates} items={items} customers={customers} />} />
       <Route path="/contractors" element={<ContractorScorecardView estimates={activeEstimates} items={items} currency={settings.currency} contractors={contractors} onSavePhone={saveContractorPhone} showToast={showToast} />} />
       <Route path="/vendor-scorecard" element={<VendorScorecardView currency={settings.currency} />} />

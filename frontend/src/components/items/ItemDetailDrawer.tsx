@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { X } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { CheckCircle2, Loader2, X } from "lucide-react";
 import { LOW_STOCK_DEFAULT } from "../../lib/constants";
 import { fmtMoney, fmtNum, today } from "../../lib/format";
 
@@ -14,8 +14,22 @@ function last7Days(): string[] {
   return out;
 }
 
-export function ItemDetailDrawer({ item, open, onClose, currency, purchases, estimates, openModal }: any) {
+export function ItemDetailDrawer({ item, items, open, onClose, currency, purchases, estimates, openModal, applyStockAdjustments }: any) {
   const days = useMemo(() => last7Days(), []);
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  const [newStock, setNewStock] = useState("");
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  // `item` is a snapshot taken at the moment the drawer was opened, so after
+  // a quick adjustment updates the store, this drawer would otherwise keep
+  // showing the stale "before" stock until closed and reopened. Resolving
+  // against the live `items` list (when available) keeps the drawer itself
+  // in sync with what was just adjusted.
+  const liveItem = useMemo(() => {
+    if (!item) return item;
+    return (items || []).find((it: any) => it.id === item.id) || item;
+  }, [item, items]);
 
   const movement = useMemo(() => {
     if (!item) return [];
@@ -32,9 +46,9 @@ export function ItemDetailDrawer({ item, open, onClose, currency, purchases, est
 
   if (!item) return null;
 
-  const threshold = item.lowStock ?? LOW_STOCK_DEFAULT;
-  const stock = Number(item.stock || 0);
-  const unitCost = Number(item.purchasePrice || item.sellingPrice || item.price || 0);
+  const threshold = liveItem.lowStock ?? LOW_STOCK_DEFAULT;
+  const stock = Number(liveItem.stock || 0);
+  const unitCost = Number(liveItem.purchasePrice || liveItem.sellingPrice || liveItem.price || 0);
   const value = stock * unitCost;
   const isBad = stock <= threshold;
   const isWarn = !isBad && stock <= threshold * 1.5;
@@ -45,6 +59,21 @@ export function ItemDetailDrawer({ item, open, onClose, currency, purchases, est
   const maxAbs = Math.max(1, ...movement.map((m) => Math.abs(m.net)));
   const suggestedQty = Math.max(1, threshold * 2 - stock);
 
+  const openAdjust = () => {
+    setNewStock(String(stock));
+    setReason("");
+    setAdjustOpen(true);
+  };
+
+  const submitAdjust = async () => {
+    const n = Number(newStock);
+    if (Number.isNaN(n) || n < 0 || !applyStockAdjustments) return;
+    setSubmitting(true);
+    await applyStockAdjustments([{ itemId: liveItem.id, newStock: n, reason: reason || undefined }], reason || "Manual adjustment");
+    setSubmitting(false);
+    setAdjustOpen(false);
+  };
+
   return (
     <>
       {open && <div onClick={onClose} className="fixed inset-0 z-[70] bg-ink/40 backdrop-blur-[1px] animate-fade-in" />}
@@ -53,15 +82,20 @@ export function ItemDetailDrawer({ item, open, onClose, currency, purchases, est
           <button onClick={onClose} className="mb-4 self-end rounded-full bg-paper p-1.5 hover:bg-line/50"><X size={16} /></button>
 
           <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl text-white" style={{ background: iconBg }}>
-            <span className="font-display text-sm font-semibold">{(item.name || "?").slice(0, 2).toUpperCase()}</span>
+            <span className="font-display text-sm font-semibold">{(liveItem.name || "?").slice(0, 2).toUpperCase()}</span>
           </div>
-          <h3 className="font-display text-xl font-medium text-ink">{item.name}</h3>
-          <p className="text-xs text-ink/40">{item.category || "Others"}{item.brand ? ` · ${item.brand}` : ""}</p>
+          <h3 className="font-display text-xl font-medium text-ink">{liveItem.name}</h3>
+          <p className="text-xs text-ink/40">{liveItem.category || "Others"}{liveItem.brand ? ` · ${liveItem.brand}` : ""}</p>
 
           <div className="mt-3 divide-y divide-line/70">
             <div className="flex items-center justify-between py-3 text-sm">
               <span className="text-ink/60">On hand</span>
-              <span className="font-mono font-semibold text-ink">{fmtNum(stock)} {item.unit || "unit"}</span>
+              <span className="flex items-center gap-2">
+                <span className="font-mono font-semibold text-ink">{fmtNum(stock)} {liveItem.unit || "unit"}</span>
+                {applyStockAdjustments && (
+                  <button onClick={openAdjust} className="text-xs font-semibold text-brand-500">Adjust</button>
+                )}
+              </span>
             </div>
             <div className="flex items-center justify-between py-3 text-sm">
               <span className="text-ink/60">Stock value</span>
@@ -72,6 +106,35 @@ export function ItemDetailDrawer({ item, open, onClose, currency, purchases, est
               <span className={`font-semibold text-right ${statusColor}`}>{statusLabel}</span>
             </div>
           </div>
+
+          {adjustOpen && (
+            <div className="mt-3 rounded-xl border border-line bg-paper p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-ink/60">Correct stock to</p>
+                <button onClick={() => setAdjustOpen(false)} className="text-ink/30 hover:text-bad-500"><X size={13} /></button>
+              </div>
+              <input
+                type="number"
+                value={newStock}
+                onChange={(e) => setNewStock(e.target.value)}
+                className="w-full rounded-lg border border-line px-3 py-2 text-sm font-semibold"
+              />
+              <input
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Reason (optional) — e.g. Physical count, Damage"
+                className="w-full rounded-lg border border-line px-3 py-2 text-xs"
+              />
+              <button
+                onClick={submitAdjust}
+                disabled={submitting || newStock.trim() === "" || Number.isNaN(Number(newStock))}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-500 py-2 text-xs font-semibold text-white disabled:opacity-40"
+              >
+                {submitting ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+                Save correction
+              </button>
+            </div>
+          )}
 
           <div className="mt-4 text-[10.5px] font-semibold uppercase tracking-wide text-ink/40">Last 7 days movement</div>
           <div className="mt-3 flex h-[70px] items-end gap-1.5">
@@ -90,7 +153,7 @@ export function ItemDetailDrawer({ item, open, onClose, currency, purchases, est
           </div>
 
           <button
-            onClick={() => { openModal("order", { itemId: item.id, qty: suggestedQty }); onClose(); }}
+            onClick={() => { openModal("order", { itemId: liveItem.id, qty: suggestedQty }); onClose(); }}
             className="mt-auto rounded-xl bg-ink py-3.5 text-sm font-semibold text-paper"
           >
             Create purchase order

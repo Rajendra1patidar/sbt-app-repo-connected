@@ -223,6 +223,14 @@ export const api = {
     update: (v: any) => request("/api/settings", { method: "PUT", body: JSON.stringify(v) }),
   },
 
+  stockAdjustments: {
+    list: (itemId?: string) => request(`/api/stock-adjustments${itemId ? `?itemId=${itemId}` : ""}`),
+    create: (v: { itemId: string; newStock: number; reason?: string; date?: string }) =>
+      request("/api/stock-adjustments", { method: "POST", body: JSON.stringify(v) }),
+    bulk: (v: { lines: { itemId: string; newStock: number; reason?: string }[]; reason?: string; date?: string }) =>
+      request("/api/stock-adjustments/bulk", { method: "POST", body: JSON.stringify(v) }),
+  },
+
   dataExport: {
     toJson: () => downloadFile("/api/export/json", "sbt-export.json"),
     toExcel: () => downloadFile("/api/export/excel", "sbt-export.xlsx"),

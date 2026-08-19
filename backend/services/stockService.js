@@ -161,6 +161,55 @@ async function recordReturnIn({ owner, itemId, qty, rate, sourceType, sourceId, 
   return { item, movement, cogsReversal: round2(Number(qty) * Number(rate)) };
 }
 
+/**
+ * Corrects an item's stock to a physically-counted quantity (e.g. after a
+ * stock take), instead of adding/removing a known delta like the other
+ * record* functions. Unlike a manual `$set` on Item.stock, this still writes
+ * a StockMovement row so the audit trail and Stock Valuation report stay in
+ * sync with the correction — and it does NOT touch the weighted-average
+ * purchasePrice, since a count correction isn't a purchase at a new price.
+ * Returns null (no movement written) if the counted quantity matches what
+ * the books already show.
+ */
+async function recordAdjustment({ owner, itemId, newStock, sourceId, date, session }) {
+  const result = await atomicItemUpdate(
+    owner,
+    itemId,
+    (item) => {
+      const oldStock = round2(item.stock) || 0;
+      const target = round2(newStock);
+      return { changes: { stock: target }, extra: { oldStock, delta: round2(target - oldStock) } };
+    },
+    session
+  );
+  if (!result) throw new Error("Item not found for stock adjustment");
+  const { item, extra } = result;
+  if (extra.delta === 0) return null; // counted quantity already matches the books
+
+  const direction = extra.delta > 0 ? "in" : "out";
+  const rate = round2(item.purchasePrice) || 0;
+
+  const [movement] = await StockMovement.create(
+    [
+      {
+        owner,
+        itemId,
+        direction,
+        qty: Math.abs(extra.delta),
+        rate,
+        balanceQty: item.stock,
+        balanceValue: round2(item.stock * rate),
+        sourceType: "Adjustment",
+        sourceId,
+        date,
+      },
+    ],
+    { session: session || undefined }
+  );
+
+  return { item, movement, oldStock: extra.oldStock, delta: extra.delta, valueChange: round2(extra.delta * rate) };
+}
+
 /** Current total value of all stock on hand, per item and overall. */
 async function stockValuation(owner) {
   const items = await Item.find({ owner, deleted: { $ne: true } });
@@ -175,4 +224,4 @@ async function stockValuation(owner) {
   return { rows, totalValue };
 }
 
-module.exports = { recordStockIn, recordStockOut, recordReturnIn, stockValuation };
+module.exports = { recordStockIn, recordStockOut, recordReturnIn, recordAdjustment, stockValuation };

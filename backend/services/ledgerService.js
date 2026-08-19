@@ -15,7 +15,7 @@ const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 const ASSET_ACCOUNTS = ["Funds", "AccountsReceivable", "Stock"];
 const LIABILITY_ACCOUNTS = ["VendorPayable"];
-const INCOME_ACCOUNTS = ["Sales"];
+const INCOME_ACCOUNTS = ["Sales", "OtherIncome"];
 const EXPENSE_ACCOUNTS = ["COGS", "Freight", "Labour", "OtherExpense"];
 const EQUITY_ACCOUNTS = ["Capital"];
 

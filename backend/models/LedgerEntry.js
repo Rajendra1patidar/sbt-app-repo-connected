@@ -26,6 +26,7 @@ const ledgerEntrySchema = new mongoose.Schema(
         "Freight",
         "Labour",
         "OtherExpense",
+        "OtherIncome", // e.g. a stock take turning up more of an item than the books showed
         "Capital", // owner's equity / drawings
       ],
       index: true,
@@ -37,7 +38,7 @@ const ledgerEntrySchema = new mongoose.Schema(
     // Which real-world transaction caused this posting
     sourceType: {
       type: String,
-      enum: ["Estimate", "Payment", "Expense", "Purchase", "Return", "Order", "Opening", "Manual"],
+      enum: ["Estimate", "Payment", "Expense", "Purchase", "Return", "Order", "Opening", "Manual", "Adjustment"],
       required: true,
     },
     sourceId: { type: mongoose.Schema.Types.ObjectId, required: true },

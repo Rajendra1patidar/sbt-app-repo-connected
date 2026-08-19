@@ -45,6 +45,7 @@ export const NAV = [
   { id: "expenses",   label: "Expenses",             icon: Wallet, section: "Documents" },
 
   { id: "todo",       label: "Inventory",            icon: ClipboardList, section: "Insights" },
+  { id: "stockAdjustments", label: "Stock Adjustments", icon: ClipboardList, section: "Insights" },
   { id: "labour",     label: "Labour Tracking",      icon: HardHat, section: "Insights" },
   { id: "contractors", label: "Contractor Scorecard", icon: Award, section: "Insights" },
   { id: "vendorScorecard", label: "Vendor Scorecard", icon: Building2, section: "Insights" },

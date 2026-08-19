@@ -104,6 +104,7 @@ interface AppState {
   removeLabourSession: (id: string) => void;
   saveContractorPhone: (name: string, phone: string) => Promise<void>;
   saveSettings: (s: any) => Promise<void>;
+  applyStockAdjustments: (lines: { itemId: string; newStock: number; reason?: string }[], reason?: string) => Promise<any>;
   saveChallan: (v: any) => Promise<void>;
   recordPaymentFor: (invoice: any) => void;
 }
@@ -845,6 +846,38 @@ export const useAppStore = create<AppState>()((set, get) => ({
       });
       showToast("Contractor number saved");
     } catch (err) { onApiError(get, err, "Failed to save contractor number"); }
+  },
+
+  // Applies a reviewed stock-take batch. Each successfully-changed line comes
+  // back with the full updated item doc, which we splice into state directly
+  // — no need to refetch the whole item list. Partial failures are normal
+  // here (one bad line shouldn't block the rest), so this returns the raw
+  // per-line results for the Stock Take screen to render, rather than
+  // treating anything less than 100% success as an error.
+  applyStockAdjustments: async (lines, reason) => {
+    const { showToast, refreshReorderSuggestions } = get();
+    try {
+      const result = await api.stockAdjustments.bulk({ lines, reason });
+      const updatedById = new Map<string, any>();
+      for (const r of result.results) {
+        if (r.ok && r.changed && r.item) updatedById.set(r.item.id, r.item);
+      }
+      if (updatedById.size) {
+        set((state) => ({
+          items: state.items.map((it) => updatedById.get(it.id) || it),
+        }));
+      }
+      showToast(
+        result.failed > 0
+          ? `Stock take applied: ${result.succeeded}/${result.total} lines (${result.failed} failed)`
+          : `Stock take applied to ${result.succeeded} item${result.succeeded === 1 ? "" : "s"}`
+      );
+      refreshReorderSuggestions();
+      return result;
+    } catch (err) {
+      onApiError(get, err, "Failed to apply stock take");
+      return null;
+    }
   },
 
   saveSettings: async (s) => {

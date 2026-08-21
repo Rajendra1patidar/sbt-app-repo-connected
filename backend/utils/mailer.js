@@ -15,6 +15,14 @@ function getTransporter() {
     port: Number(SMTP_PORT) || 587,
     secure: Number(SMTP_PORT) === 465,
     auth: { user: SMTP_USER, pass: SMTP_PASS },
+    // Render's free tier has flaky/no IPv6 egress. Without this, Node's
+    // default DNS resolution can hand nodemailer an IPv6 address for the
+    // SMTP host, which then fails with ENETUNREACH or hangs until it
+    // times out. Forcing IPv4 here avoids both failure modes.
+    family: 4,
+    connectionTimeout: 15000, // fail fast (15s) instead of hanging on a bad route
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
   });
   return transporter;
 }

@@ -12,8 +12,34 @@ const itemSchema = new mongoose.Schema(
     lowStock: { type: Number, default: 5, min: [0, "Low-stock threshold can't be negative"] },
     category: { type: String, trim: true, default: "Others" },
     brand: { type: String, trim: true, default: "" },
-    trackingMode: { type: String, enum: ["unit", "box"], default: "unit" },
+    trackingMode: { type: String, enum: ["unit", "box", "weight"], default: "unit" },
     piecesPerBox: { type: Number, default: 0, min: [0, "Pieces per box can't be negative"] },
+
+    // --- Weight-mode fields (trackingMode: "weight") ---
+    // Used for items like door frames / window frames that are counted in
+    // pieces but sold and billed in kilograms, where no two pieces of the
+    // same size weigh exactly the same. `stock` (pieces) stays the physical
+    // count; `stockKg` is tracked independently — never derived from
+    // `stock`, since the piece->kg ratio isn't fixed. `avgWeightPerPiece` is
+    // a rolling weighted average kept for estimates, reorder math, and
+    // anomaly-checking only; it is never used to compute real stock deltas.
+    size: { type: String, trim: true, default: "" },
+    stockKg: { type: Number, default: 0, min: [0, "Stock (kg) can't go negative"] },
+    avgWeightPerPiece: { type: Number, default: 0, min: [0, "Average weight can't be negative"] },
+
+    // Per-godown breakdown. `stock`/`stockKg` above remain the aggregate
+    // (sum across every godown) so every existing read path — reports, low
+    // stock alerts, dashboards — keeps working unchanged; this array is the
+    // source of truth for "how much is where", consulted by anything that
+    // needs to dispatch from or transfer between specific locations.
+    stockByGodown: [
+      {
+        godownId: { type: mongoose.Schema.Types.ObjectId, ref: "Godown", required: true },
+        stock: { type: Number, default: 0 },
+        stockKg: { type: Number, default: 0 },
+        _id: false,
+      },
+    ],
     // soft-delete: an item used on any historical estimate/purchase can't be hard-deleted
     // without breaking that document's line items — deleting instead flags it, hides it
     // from pickers/lists, and blocks it from being selected on new documents, while

@@ -14,10 +14,11 @@ function last7Days(): string[] {
   return out;
 }
 
-export function ItemDetailDrawer({ item, items, open, onClose, currency, purchases, estimates, openModal, applyStockAdjustments }: any) {
+export function ItemDetailDrawer({ item, items, godowns, open, onClose, currency, purchases, estimates, openModal, applyStockAdjustments }: any) {
   const days = useMemo(() => last7Days(), []);
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [newStock, setNewStock] = useState("");
+  const [newStockKg, setNewStockKg] = useState("");
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -47,20 +48,26 @@ export function ItemDetailDrawer({ item, items, open, onClose, currency, purchas
   if (!item) return null;
 
   const threshold = liveItem.lowStock ?? LOW_STOCK_DEFAULT;
+  const isWeight = liveItem.trackingMode === "weight";
   const stock = Number(liveItem.stock || 0);
+  const stockKg = Number(liveItem.stockKg || 0);
   const unitCost = Number(liveItem.purchasePrice || liveItem.sellingPrice || liveItem.price || 0);
-  const value = stock * unitCost;
-  const isBad = stock <= threshold;
-  const isWarn = !isBad && stock <= threshold * 1.5;
+  // For weight-mode items, purchasePrice is ₹/kg (see stockService), so value
+  // is costed against stockKg, not the piece count.
+  const value = (isWeight ? stockKg : stock) * unitCost;
+  const gateStock = isWeight ? stockKg : stock;
+  const isBad = gateStock <= threshold;
+  const isWarn = !isBad && gateStock <= threshold * 1.5;
   const statusLabel = isBad ? "Below reorder line — order recommended" : isWarn ? "Watch — approaching reorder line" : "Healthy";
   const statusColor = isBad ? "text-bad-600" : isWarn ? "text-warn-600" : "text-good-600";
   const iconBg = isBad ? "#B23A2E" : isWarn ? "#B27B1E" : "#2E7D5B";
 
   const maxAbs = Math.max(1, ...movement.map((m) => Math.abs(m.net)));
-  const suggestedQty = Math.max(1, threshold * 2 - stock);
+  const suggestedQty = Math.max(1, threshold * 2 - gateStock);
 
   const openAdjust = () => {
     setNewStock(String(stock));
+    setNewStockKg(String(stockKg));
     setReason("");
     setAdjustOpen(true);
   };
@@ -68,8 +75,16 @@ export function ItemDetailDrawer({ item, items, open, onClose, currency, purchas
   const submitAdjust = async () => {
     const n = Number(newStock);
     if (Number.isNaN(n) || n < 0 || !applyStockAdjustments) return;
+    let nKg: number | undefined;
+    if (isWeight) {
+      nKg = Number(newStockKg);
+      if (Number.isNaN(nKg) || nKg < 0) return;
+    }
     setSubmitting(true);
-    await applyStockAdjustments([{ itemId: liveItem.id, newStock: n, reason: reason || undefined }], reason || "Manual adjustment");
+    await applyStockAdjustments(
+      [{ itemId: liveItem.id, newStock: n, newStockKg: nKg, reason: reason || undefined }],
+      reason || "Manual adjustment"
+    );
     setSubmitting(false);
     setAdjustOpen(false);
   };
@@ -91,12 +106,34 @@ export function ItemDetailDrawer({ item, items, open, onClose, currency, purchas
             <div className="flex items-center justify-between py-3 text-sm">
               <span className="text-ink/60">On hand</span>
               <span className="flex items-center gap-2">
-                <span className="font-mono font-semibold text-ink">{fmtNum(stock)} {liveItem.unit || "unit"}</span>
+                <span className="font-mono font-semibold text-ink">
+                  {isWeight ? `${fmtNum(stockKg)}kg / ${fmtNum(stock)}pc` : `${fmtNum(stock)} ${liveItem.unit || "unit"}`}
+                </span>
                 {applyStockAdjustments && (
                   <button onClick={openAdjust} className="text-xs font-semibold text-brand-500">Adjust</button>
                 )}
               </span>
             </div>
+            {godowns && godowns.length > 1 && (liveItem.stockByGodown || []).length > 0 && (
+              <div className="py-2.5 text-sm">
+                <span className="mb-1.5 block text-xs font-semibold text-ink/40">By location</span>
+                <div className="space-y-1">
+                  {liveItem.stockByGodown
+                    .filter((g: any) => g.stock > 0 || g.stockKg > 0)
+                    .map((g: any) => {
+                      const gd = godowns.find((x: any) => x.id === String(g.godownId));
+                      return (
+                        <div key={String(g.godownId)} className="flex items-center justify-between text-xs">
+                          <span className="text-ink/60">{gd?.name || "Unknown godown"}</span>
+                          <span className="font-mono font-medium text-ink">
+                            {isWeight ? `${fmtNum(g.stockKg || 0)}kg / ${fmtNum(g.stock || 0)}pc` : `${fmtNum(g.stock || 0)} ${liveItem.unit || "unit"}`}
+                          </span>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
             <div className="flex items-center justify-between py-3 text-sm">
               <span className="text-ink/60">Stock value</span>
               <span className="font-mono font-semibold text-ink">{fmtMoney(value, currency)}</span>
@@ -113,12 +150,26 @@ export function ItemDetailDrawer({ item, items, open, onClose, currency, purchas
                 <p className="text-xs font-semibold text-ink/60">Correct stock to</p>
                 <button onClick={() => setAdjustOpen(false)} className="text-ink/30 hover:text-bad-500"><X size={13} /></button>
               </div>
-              <input
-                type="number"
-                value={newStock}
-                onChange={(e) => setNewStock(e.target.value)}
-                className="w-full rounded-lg border border-line px-3 py-2 text-sm font-semibold"
-              />
+              <div>
+                {isWeight && <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-ink/35">Pieces</p>}
+                <input
+                  type="number"
+                  value={newStock}
+                  onChange={(e) => setNewStock(e.target.value)}
+                  className="w-full rounded-lg border border-line px-3 py-2 text-sm font-semibold"
+                />
+              </div>
+              {isWeight && (
+                <div>
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-ink/35">Weight (kg) — re-weigh, don't estimate</p>
+                  <input
+                    type="number"
+                    value={newStockKg}
+                    onChange={(e) => setNewStockKg(e.target.value)}
+                    className="w-full rounded-lg border border-line px-3 py-2 text-sm font-semibold"
+                  />
+                </div>
+              )}
               <input
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
@@ -127,7 +178,7 @@ export function ItemDetailDrawer({ item, items, open, onClose, currency, purchas
               />
               <button
                 onClick={submitAdjust}
-                disabled={submitting || newStock.trim() === "" || Number.isNaN(Number(newStock))}
+                disabled={submitting || newStock.trim() === "" || Number.isNaN(Number(newStock)) || (isWeight && (newStockKg.trim() === "" || Number.isNaN(Number(newStockKg))))}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-500 py-2 text-xs font-semibold text-white disabled:opacity-40"
               >
                 {submitting ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}

@@ -23,6 +23,16 @@ const purchaseSchema = new mongoose.Schema(
     vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "Vendor" }, // optional for "order" (may not know the vendor yet); enforced as required by the controller for "manual"
 
     qty: { type: Number, required: true, min: 0.001 },
+    // For weight-mode items only: the actual weighed kg received alongside
+    // `qty` pieces. Kept independent of qty — never derived from it — since
+    // per-piece weight varies batch to batch. `rate` for these items is
+    // ₹/kg and is applied against qtyKg, not qty, for costing.
+    qtyKg: { type: Number, min: [0, "Weight can't be negative"] },
+    // Which godown this stock was received into. Optional — omitting it
+    // falls back to the owner's default godown (see stockService.resolveGodownId),
+    // so purchases made before Godowns existed, or by owners who never set
+    // one up, keep working unchanged.
+    godownId: { type: mongoose.Schema.Types.ObjectId, ref: "Godown" },
     rate: { type: Number, default: 0, min: [0, "Rate can't be negative"] },
     amount: { type: Number, default: 0, min: [0, "Amount can't be negative"] },
     amountPaid: { type: Number, default: 0, min: [0, "Amount paid can't be negative"] },

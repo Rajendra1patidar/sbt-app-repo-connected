@@ -26,12 +26,13 @@ const PAYMENT_CHOICES = [
   { key: "paid", label: "Paid", desc: "Paid in full" },
 ] as const;
 
-type PurchaseLine = { itemId: string; qty: number | string; rate: number | string };
+type PurchaseLine = { itemId: string; qty: number | string; qtyKg?: number | string; rate: number | string };
 
-export function PurchaseModal({ vendors, items, onClose, onSave, onQuickAddItem }: any) {
+export function PurchaseModal({ vendors, items, godowns, onClose, onSave, onQuickAddItem }: any) {
   const activeItems = items.filter((it: any) => !it.deleted);
   const [vendorId, setVendorId] = useState(vendors[0]?.id || "");
   const [date, setDate] = useState(today());
+  const [godownId, setGodownId] = useState(godowns?.find((g: any) => g.isDefault)?.id || godowns?.[0]?.id || "");
   const [lines, setLines] = useState<PurchaseLine[]>([{ itemId: "", qty: 1, rate: 0 }]);
   const [notes, setNotes] = useState("");
   const [paymentChoice, setPaymentChoice] = useState<typeof PAYMENT_CHOICES[number]["key"]>("unpaid");
@@ -45,7 +46,11 @@ export function PurchaseModal({ vendors, items, onClose, onSave, onQuickAddItem 
   const removeLine = (i: number) => setLines((l) => l.filter((_, idx) => idx !== i));
   const itemById = (id: string) => activeItems.find((it: any) => it.id === id);
 
-  const lineAmounts = lines.map((ln) => round2(Number(ln.qty || 0) * Number(ln.rate || 0)));
+  const lineAmounts = lines.map((ln, i) => {
+    const it = itemById(ln.itemId);
+    const isWeight = it?.trackingMode === "weight";
+    return round2((isWeight ? Number(ln.qtyKg || 0) : Number(ln.qty || 0)) * Number(ln.rate || 0));
+  });
   const total = round2(lineAmounts.reduce((s, a) => s + a, 0));
 
   const isPartialChoice = paymentChoice === "partial";
@@ -53,7 +58,13 @@ export function PurchaseModal({ vendors, items, onClose, onSave, onQuickAddItem 
   const partialValid = !isPartialChoice || (amountPaidNum > 0 && amountPaidNum < total);
   const balanceAfter = paymentChoice === "paid" ? 0 : paymentChoice === "partial" ? round2(Math.max(total - amountPaidNum, 0)) : total;
 
-  const canSave = vendorId && lines.length > 0 && lines.every((l) => l.itemId && Number(l.qty) > 0) && total > 0 && partialValid && !saving;
+  const canSave = vendorId && lines.length > 0 &&
+    lines.every((l) => {
+      if (!l.itemId || !(Number(l.qty) > 0)) return false;
+      const it = itemById(l.itemId);
+      return it?.trackingMode !== "weight" || Number(l.qtyKg) > 0;
+    }) &&
+    total > 0 && partialValid && !saving;
 
   // splits one batch-level "amount paid now" across lines proportionally to
   // each line's own amount, so the sum across lines always matches exactly
@@ -88,9 +99,10 @@ export function PurchaseModal({ vendors, items, onClose, onSave, onQuickAddItem 
     setSaving(true);
     const perLinePaid = splitAmountPaid();
     const payload = {
-      vendorId, date, notes,
+      vendorId, date, notes, godownId: godownId || undefined,
       lines: lines.map((ln, i) => ({
-        itemId: ln.itemId, qty: Number(ln.qty), rate: Number(ln.rate || 0),
+        itemId: ln.itemId, qty: Number(ln.qty), qtyKg: itemById(ln.itemId)?.trackingMode === "weight" ? Number(ln.qtyKg || 0) : undefined,
+        rate: Number(ln.rate || 0), godownId: godownId || undefined,
         paymentStatus: paymentChoice, amountPaid: perLinePaid[i],
       })),
     };
@@ -123,6 +135,15 @@ export function PurchaseModal({ vendors, items, onClose, onSave, onQuickAddItem 
               </div>
             </div>
 
+            {godowns && godowns.length > 1 && (
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink/50">Receiving into</label>
+                <select value={godownId} onChange={(e) => setGodownId(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm">
+                  {godowns.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              </div>
+            )}
+
             <div className="border-t border-line pt-4">
               <div className="mb-2 flex items-center justify-between">
                 <label className="block text-xs font-semibold text-ink/50">Items *</label>
@@ -138,28 +159,37 @@ export function PurchaseModal({ vendors, items, onClose, onSave, onQuickAddItem 
               <div className="space-y-2">
                 {lines.map((ln, i) => {
                   const it = itemById(ln.itemId);
+                  const isWeight = it?.trackingMode === "weight";
                   return (
-                    <div key={i} className="rounded-xl border border-line bg-paper/60 p-2 sm:grid sm:grid-cols-[2.4fr_80px_110px_110px_28px] sm:gap-2 sm:items-center">
-                      <SearchableSelect
-                        options={activeItems.map((opt: any) => ({ value: opt.id, label: `${opt.name} (stock: ${opt.stock ?? 0})`, keywords: opt.category || "" }))}
-                        value={ln.itemId} onChange={(v: string) => updateLine(i, { itemId: v, rate: itemById(v)?.purchasePrice || itemById(v)?.sellingPrice || 0 })}
-                        placeholder="Select item"
-                      />
-                      <div className="mt-2 sm:mt-0">
-                        <span className="mb-0.5 block text-[10px] font-semibold text-ink/35 sm:hidden">Qty</span>
-                        <input type="number" min="1" value={ln.qty} onChange={(e) => updateLine(i, { qty: e.target.value })} className="w-full rounded-xl border border-line px-2 py-2 text-sm" />
+                    <div key={i} className="rounded-xl border border-line bg-paper/60 p-2">
+                      <div className="sm:grid sm:grid-cols-[2.4fr_80px_110px_110px_28px] sm:gap-2 sm:items-center">
+                        <SearchableSelect
+                          options={activeItems.map((opt: any) => ({ value: opt.id, label: `${opt.name} (stock: ${opt.trackingMode === "weight" ? `${opt.stockKg ?? 0}kg` : opt.stock ?? 0})`, keywords: opt.category || "" }))}
+                          value={ln.itemId} onChange={(v: string) => updateLine(i, { itemId: v, rate: itemById(v)?.purchasePrice || itemById(v)?.sellingPrice || 0 })}
+                          placeholder="Select item"
+                        />
+                        <div className="mt-2 sm:mt-0">
+                          <span className="mb-0.5 block text-[10px] font-semibold text-ink/35 sm:hidden">{isWeight ? "Pieces" : "Qty"}</span>
+                          <input type="number" min="1" value={ln.qty} onChange={(e) => updateLine(i, { qty: e.target.value })} className="w-full rounded-xl border border-line px-2 py-2 text-sm" />
+                        </div>
+                        <div className="mt-2 sm:mt-0">
+                          <span className="mb-0.5 block text-[10px] font-semibold text-ink/35 sm:hidden">Rate{isWeight ? "/kg" : ""}</span>
+                          <input type="number" min="0" value={ln.rate} onChange={(e) => updateLine(i, { rate: e.target.value })} className="w-full rounded-xl border border-line px-2 py-2 text-sm" />
+                        </div>
+                        <div className="mt-2 flex items-center justify-between sm:mt-0 sm:block sm:text-right">
+                          <span className="text-[10px] font-semibold text-ink/35 sm:hidden">Amount</span>
+                          <span className="font-display text-sm font-bold text-ink tabular-nums">{fmtMoney(lineAmounts[i], "")}</span>
+                        </div>
+                        <div className="mt-1 flex items-center justify-end sm:mt-0">
+                          {lines.length > 1 && <button onClick={() => removeLine(i)} className="rounded-full p-1.5 text-bad-500 hover:bg-bad-50"><Trash2 size={15} /></button>}
+                        </div>
                       </div>
-                      <div className="mt-2 sm:mt-0">
-                        <span className="mb-0.5 block text-[10px] font-semibold text-ink/35 sm:hidden">Rate</span>
-                        <input type="number" min="0" value={ln.rate} onChange={(e) => updateLine(i, { rate: e.target.value })} className="w-full rounded-xl border border-line px-2 py-2 text-sm" />
-                      </div>
-                      <div className="mt-2 flex items-center justify-between sm:mt-0 sm:block sm:text-right">
-                        <span className="text-[10px] font-semibold text-ink/35 sm:hidden">Amount</span>
-                        <span className="font-display text-sm font-bold text-ink tabular-nums">{fmtMoney(lineAmounts[i], "")}</span>
-                      </div>
-                      <div className="mt-1 flex items-center justify-end sm:mt-0">
-                        {lines.length > 1 && <button onClick={() => removeLine(i)} className="rounded-full p-1.5 text-bad-500 hover:bg-bad-50"><Trash2 size={15} /></button>}
-                      </div>
+                      {isWeight && (
+                        <div className="mt-2">
+                          <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink/35">Weight received (kg) — re-weigh, don't estimate</span>
+                          <input type="number" min="0.01" step="0.01" value={ln.qtyKg ?? ""} onChange={(e) => updateLine(i, { qtyKg: e.target.value })} placeholder="0" className="w-full rounded-xl border border-line px-2 py-2 text-sm" />
+                        </div>
+                      )}
                     </div>
                   );
                 })}

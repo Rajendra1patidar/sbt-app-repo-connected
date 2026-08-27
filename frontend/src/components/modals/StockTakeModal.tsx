@@ -9,6 +9,10 @@ interface RowState {
   match: StockTakeMatch;
   itemId: string | null; // editable — starts as match.item?.id, "" means "skip this line"
   newStock: string; // editable text, starts as match.qty
+  // Weight-mode items only: the paste format gives one number per line (read
+  // into newStock as the piece count), so the kg recount has no source to
+  // parse from — it's always entered manually here, never guessed.
+  newStockKg: string;
 }
 
 export function StockTakeModal({ items, onClose, applyStockAdjustments }: any) {
@@ -24,7 +28,7 @@ export function StockTakeModal({ items, onClose, applyStockAdjustments }: any) {
     setRows(
       matched
         .filter((m) => m.qty !== null) // a line with no readable number can't be applied — drop it silently, it's usually a header/blank
-        .map((m) => ({ match: m, itemId: m.item?.id || null, newStock: String(m.qty) }))
+        .map((m) => ({ match: m, itemId: m.item?.id || null, newStock: String(m.qty), newStockKg: "" }))
     );
     setStep("review");
   };
@@ -35,17 +39,29 @@ export function StockTakeModal({ items, onClose, applyStockAdjustments }: any) {
   const setRowStock = (idx: number, v: string) => {
     setRows((rs) => rs.map((r, i) => (i === idx ? { ...r, newStock: v } : r)));
   };
+  const setRowStockKg = (idx: number, v: string) => {
+    setRows((rs) => rs.map((r, i) => (i === idx ? { ...r, newStockKg: v } : r)));
+  };
   const removeRow = (idx: number) => setRows((rs) => rs.filter((_, i) => i !== idx));
 
   const itemById = useMemo(() => new Map<string, any>(items.map((it: any) => [it.id, it])), [items]);
 
+  const isRowWeight = (r: RowState) => (r.itemId ? itemById.get(r.itemId)?.trackingMode === "weight" : false);
+  const rowReady = (r: RowState) =>
+    !!r.itemId && r.newStock.trim() !== "" && !Number.isNaN(Number(r.newStock)) &&
+    (!isRowWeight(r) || (r.newStockKg.trim() !== "" && !Number.isNaN(Number(r.newStockKg))));
+
   const unmatchedCount = rows.filter((r) => !r.itemId).length;
-  const readyCount = rows.filter((r) => r.itemId && r.newStock.trim() !== "" && !Number.isNaN(Number(r.newStock))).length;
+  const readyCount = rows.filter(rowReady).length;
 
   const submit = async () => {
     const lines = rows
-      .filter((r) => r.itemId && r.newStock.trim() !== "" && !Number.isNaN(Number(r.newStock)))
-      .map((r) => ({ itemId: r.itemId as string, newStock: Number(r.newStock) }));
+      .filter(rowReady)
+      .map((r) => ({
+        itemId: r.itemId as string,
+        newStock: Number(r.newStock),
+        newStockKg: isRowWeight(r) ? Number(r.newStockKg) : undefined,
+      }));
     if (!lines.length) return;
     setSubmitting(true);
     const res = await applyStockAdjustments(lines, "Stock take");
@@ -95,8 +111,11 @@ export function StockTakeModal({ items, onClose, applyStockAdjustments }: any) {
             <div className="overflow-y-auto space-y-2 pr-1">
               {rows.map((r, idx) => {
                 const currentItem = r.itemId ? itemById.get(r.itemId) : null;
+                const isWeight = currentItem?.trackingMode === "weight";
                 const oldStock = currentItem?.stock ?? null;
+                const oldStockKg = currentItem?.stockKg ?? null;
                 const delta = currentItem && r.newStock.trim() !== "" ? Number(r.newStock) - (oldStock ?? 0) : null;
+                const deltaKg = isWeight && r.newStockKg.trim() !== "" ? Number(r.newStockKg) - (oldStockKg ?? 0) : null;
                 return (
                   <div key={idx} className={`rounded-xl border px-3 py-2.5 ${r.itemId ? "border-line" : "border-warn-300 bg-warn-50"}`}>
                     <div className="flex items-start justify-between gap-2">
@@ -121,13 +140,31 @@ export function StockTakeModal({ items, onClose, applyStockAdjustments }: any) {
                         type="number"
                         value={r.newStock}
                         onChange={(e) => setRowStock(idx, e.target.value)}
+                        placeholder={isWeight ? "pieces" : undefined}
                         className="w-20 rounded-lg border border-line px-2 py-1.5 text-xs font-semibold text-right"
                       />
                     </div>
+                    {isWeight && (
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <span className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-ink/35">Weight (kg) — re-weigh</span>
+                        <input
+                          type="number"
+                          value={r.newStockKg}
+                          onChange={(e) => setRowStockKg(idx, e.target.value)}
+                          placeholder="kg"
+                          className="w-20 rounded-lg border border-line px-2 py-1.5 text-xs font-semibold text-right"
+                        />
+                      </div>
+                    )}
                     {currentItem && (
                       <p className={`mt-1 text-xs ${delta === 0 ? "text-ink/30" : delta! > 0 ? "text-good-600" : "text-bad-600"}`}>
-                        {fmtNum(oldStock ?? 0)} → {r.newStock || "?"} {r.match.item?.unit || currentItem.unit || ""}
+                        {fmtNum(oldStock ?? 0)} → {r.newStock || "?"} {isWeight ? "pc" : r.match.item?.unit || currentItem.unit || ""}
                         {delta !== null && delta !== 0 ? ` (${delta > 0 ? "+" : ""}${fmtNum(delta)})` : ""}
+                      </p>
+                    )}
+                    {isWeight && deltaKg !== null && (
+                      <p className={`text-xs ${deltaKg === 0 ? "text-ink/30" : deltaKg > 0 ? "text-good-600" : "text-bad-600"}`}>
+                        {fmtNum(oldStockKg ?? 0)}kg → {r.newStockKg}kg{deltaKg !== 0 ? ` (${deltaKg > 0 ? "+" : ""}${fmtNum(deltaKg)}kg)` : ""}
                       </p>
                     )}
                   </div>

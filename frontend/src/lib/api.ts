@@ -185,6 +185,12 @@ export const api = {
     recordPayment: (id: string, v: any) => request(`/api/vendors/${id}/payments`, { method: "POST", body: JSON.stringify(v) }),
   },
 
+  godowns: {
+    ...crud("/api/godowns"),
+    setDefault: (id: string) => request(`/api/godowns/${id}/set-default`, { method: "PUT" }),
+    transfer: (v: any) => request(`/api/inventory/transfer`, { method: "POST", body: JSON.stringify(v) }),
+  },
+
   purchases: { ...crud("/api/purchases"), recordPayment: (id: string, v: any) => request(`/api/purchases/${id}/payments`, { method: "POST", body: JSON.stringify(v) }) },
 
   ledger: {
@@ -241,6 +247,7 @@ export const api = {
   reports: {
     summary: () => request("/api/reports/summary"),
     reorderSuggestions: () => request("/api/reports/reorder-suggestions"),
+    deadStock: () => request("/api/reports/dead-stock"),
     arAging: (asOfDate?: string) => request(`/api/reports/ar-aging${asOfDate ? `?asOfDate=${asOfDate}` : ""}`),
     customerCredit: () => request("/api/reports/customer-credit"),
     vendorScorecard: () => request("/api/reports/vendor-scorecard"),

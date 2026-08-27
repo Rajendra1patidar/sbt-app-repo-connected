@@ -4,24 +4,40 @@ import { fmtMoney, round2 } from "../../lib/format";
 
 export function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
   const alreadyReturned: Record<string, number> = {};
-  for (const r of doc.returns || []) alreadyReturned[r.itemId] = (alreadyReturned[r.itemId] || 0) + r.qty;
+  const alreadyReturnedPieces: Record<string, number> = {};
+  for (const r of doc.returns || []) {
+    alreadyReturned[r.itemId] = (alreadyReturned[r.itemId] || 0) + r.qty;
+    alreadyReturnedPieces[r.itemId] = (alreadyReturnedPieces[r.itemId] || 0) + Number(r.piecesQty || 0);
+  }
 
   const returnableLines = (doc.lines || [])
-    .map((l: any) => ({
-      itemId: l.itemId,
-      rate: l.rate,
-      qty: l.qty,
-      returned: alreadyReturned[l.itemId] || 0,
-      name: items.find((it: any) => it.id === l.itemId)?.name || "Item",
-    }))
-    .filter((l: any) => l.qty - l.returned > 0);
+    .map((l: any) => {
+      const it = items.find((i: any) => i.id === l.itemId);
+      return {
+        itemId: l.itemId,
+        rate: l.rate,
+        qty: l.qty,
+        piecesQty: l.piecesQty,
+        returned: alreadyReturned[l.itemId] || 0,
+        returnedPieces: alreadyReturnedPieces[l.itemId] || 0,
+        isWeight: it?.trackingMode === "weight",
+        name: it?.name || "Item",
+      };
+    })
+    .filter((l: any) => l.qty - l.returned > 0 || (l.isWeight && Number(l.piecesQty || 0) - l.returnedPieces > 0));
 
   const [qtyMap, setQtyMap] = useState<Record<string, string>>({});
+  const [piecesMap, setPiecesMap] = useState<Record<string, string>>({});
   const setQty = (itemId: string, v: string) => setQtyMap((m) => ({ ...m, [itemId]: v }));
+  const setPieces = (itemId: string, v: string) => setPiecesMap((m) => ({ ...m, [itemId]: v }));
 
   const lines = returnableLines
-    .map((l: any) => ({ ...l, returnQty: Math.min(Number(qtyMap[l.itemId] || 0), l.qty - l.returned) }))
-    .filter((l: any) => l.returnQty > 0);
+    .map((l: any) => ({
+      ...l,
+      returnQty: Math.min(Number(qtyMap[l.itemId] || 0), l.qty - l.returned),
+      returnPieces: l.isWeight ? Math.min(Number(piecesMap[l.itemId] || 0), Number(l.piecesQty || 0) - l.returnedPieces) : 0,
+    }))
+    .filter((l: any) => l.returnQty > 0 && (!l.isWeight || l.returnPieces > 0));
   const refundTotal = round2(lines.reduce((s: number, l: any) => s + l.returnQty * l.rate, 0));
   const canSave = lines.length > 0;
 
@@ -50,12 +66,12 @@ export function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-ink truncate">{l.name}</p>
                       <p className="text-xs text-ink/40">
-                        {l.qty - l.returned} available · {fmtMoney(l.rate, currency)} each
+                        {l.qty - l.returned}{l.isWeight ? "kg" : ""} available · {fmtMoney(l.rate, currency)}{l.isWeight ? "/kg" : " each"}
                         {l.returned > 0 ? ` · ${l.returned} already returned` : ""}
                       </p>
                     </div>
                     <div className="mt-2 sm:mt-0">
-                      <span className="mb-0.5 block text-[10px] font-semibold text-ink/35 sm:hidden">Qty to return</span>
+                      <span className="mb-0.5 block text-[10px] font-semibold text-ink/35 sm:hidden">{l.isWeight ? "Kg to return" : "Qty to return"}</span>
                       <input
                         type="number" min="0" max={l.qty - l.returned} placeholder="0"
                         value={qtyMap[l.itemId] || ""} onChange={(e) => setQty(l.itemId, e.target.value)}
@@ -66,6 +82,16 @@ export function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
                       <span className="text-[10px] font-semibold text-ink/35 sm:hidden">Refund</span>
                       <span className="font-display text-sm font-bold text-ink tabular-nums">{lineRefund > 0 ? fmtMoney(lineRefund, currency) : "—"}</span>
                     </div>
+                    {l.isWeight && (
+                      <div className="col-span-full mt-2 sm:mt-1.5">
+                        <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink/35">Pieces returned</span>
+                        <input
+                          type="number" min="0" max={Number(l.piecesQty || 0) - l.returnedPieces} placeholder="0"
+                          value={piecesMap[l.itemId] || ""} onChange={(e) => setPieces(l.itemId, e.target.value)}
+                          className="w-full rounded-xl border border-line px-2 py-2 text-sm"
+                        />
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -84,7 +110,7 @@ export function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
           <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
           <button
             disabled={!canSave}
-            onClick={() => canSave && onSave(lines.map((l: any) => ({ itemId: l.itemId, qty: l.returnQty })))}
+            onClick={() => canSave && onSave(lines.map((l: any) => ({ itemId: l.itemId, qty: l.returnQty, piecesQty: l.isWeight ? l.returnPieces : undefined })))}
             className="flex-1 rounded-full bg-bad-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
           >
             Refund {refundTotal > 0 ? fmtMoney(refundTotal, currency) : ""}

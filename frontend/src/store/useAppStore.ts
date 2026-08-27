@@ -40,8 +40,10 @@ interface AppState {
   labourWorkers: string[];
   contractors: any[];
   vendors: any[];
+  godowns: any[];
   purchases: any[];
   reorderSuggestions: any[];
+  deadStock: any[];
   notifications: any[];
   role: "owner" | "staff";
 
@@ -82,6 +84,10 @@ interface AppState {
   removeExpense: (id: string) => void;
   saveVendor: (v: any) => Promise<void>;
   removeVendor: (id: string) => void;
+  saveGodown: (v: any) => Promise<void>;
+  removeGodown: (id: string) => void;
+  setDefaultGodown: (id: string) => Promise<void>;
+  transferStock: (v: { itemId: string; fromGodownId: string; toGodownId: string; qty: number; qtyKg?: number }) => Promise<void>;
   savePurchase: (v: any) => Promise<any>;
   savePurchaseBatch: (v: any) => Promise<any>;
   removePurchase: (id: string) => void;
@@ -104,7 +110,7 @@ interface AppState {
   removeLabourSession: (id: string) => void;
   saveContractorPhone: (name: string, phone: string) => Promise<void>;
   saveSettings: (s: any) => Promise<void>;
-  applyStockAdjustments: (lines: { itemId: string; newStock: number; reason?: string }[], reason?: string) => Promise<any>;
+  applyStockAdjustments: (lines: { itemId: string; newStock: number; newStockKg?: number; reason?: string }[], reason?: string) => Promise<any>;
   saveChallan: (v: any) => Promise<void>;
   recordPaymentFor: (invoice: any) => void;
 }
@@ -133,8 +139,10 @@ export const useAppStore = create<AppState>()((set, get) => ({
   labourWorkers: [],
   contractors: [],
   vendors: [],
+  godowns: [],
   purchases: [],
   reorderSuggestions: [],
+  deadStock: [],
   notifications: [],
   role: "owner",
 
@@ -150,7 +158,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   fetchAll: async () => {
     set({ loading: true, loadError: "" });
     try {
-      const [c, it, o, est, ch, ex, pay, st, ls, lw, ct, vd, pu, rs, nt, me] = await Promise.all([
+      const [c, it, o, est, ch, ex, pay, st, ls, lw, ct, vd, pu, rs, nt, me, gd, ds] = await Promise.all([
         api.customers.list(),
         api.items.list(),
         api.orders.list(),
@@ -167,6 +175,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
         api.reports.reorderSuggestions().catch(() => []),
         api.notifications.list().catch(() => []),
         api.auth.me().catch(() => ({ role: "owner" })),
+        api.godowns.list().catch(() => []),
+        api.reports.deadStock().catch(() => []),
       ]);
       set((state) => ({
         customers: c,
@@ -185,6 +195,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
         notifications: nt || [],
         role: me?.role === "staff" ? "staff" : "owner",
         settings: { ...state.settings, ...st },
+        godowns: gd || [],
+        deadStock: ds || [],
         loading: false,
       }));
     } catch (err: any) {
@@ -398,6 +410,58 @@ export const useAppStore = create<AppState>()((set, get) => ({
     scheduleDelete(set, get, "Vendor", "vendors", id, () => api.vendors.remove(id));
   },
 
+  saveGodown: async (v) => {
+    const { godowns, showToast, closeModal } = get();
+    const normName = (s: string) => (s || "").trim().toLowerCase();
+    const isDuplicate = godowns.some((g) => g.id !== v.id && normName(g.name) === normName(v.name));
+    if (isDuplicate) { showToast("A godown with this name already exists"); return; }
+    // The location field's map picker writes locationLat/locationLng
+    // (FieldModal's convention) — translate to the lat/lng the API expects.
+    const { locationLat, locationLng, ...rest } = v;
+    const payload = { ...rest, lat: locationLat !== undefined ? locationLat : v.lat, lng: locationLng !== undefined ? locationLng : v.lng };
+    try {
+      if (payload.id) {
+        const { id, ...body } = payload;
+        const doc = await api.godowns.update(id, body);
+        set((state) => ({ godowns: state.godowns.map((x) => (x.id === id ? doc : x)) }));
+        showToast("Godown updated");
+      } else {
+        const doc = await api.godowns.create(payload);
+        set((state) => ({ godowns: [...state.godowns, doc] }));
+        showToast("Godown added");
+      }
+      closeModal();
+    } catch (err) { onApiError(get, err, "Failed to save godown"); }
+  },
+
+  removeGodown: (id) => {
+    scheduleDelete(set, get, "Godown", "godowns", id, () => api.godowns.remove(id));
+  },
+
+  setDefaultGodown: async (id) => {
+    const { showToast } = get();
+    try {
+      await api.godowns.setDefault(id);
+      // The backend clears isDefault on every other godown for this owner —
+      // mirror that locally rather than trying to patch just one record.
+      set((state) => ({ godowns: state.godowns.map((g) => ({ ...g, isDefault: g.id === id })) }));
+      showToast("Default godown updated");
+    } catch (err) { onApiError(get, err, "Failed to set default godown"); }
+  },
+
+  transferStock: async (v) => {
+    const { showToast, closeModal, fetchAll } = get();
+    try {
+      await api.godowns.transfer(v);
+      showToast("Stock transferred");
+      closeModal();
+      // Both godown breakdowns live on the Item document, and there's no
+      // per-item cache-patch worth writing for a two-sided move — a full
+      // refresh keeps every screen (Item drawer, reports) consistent.
+      await fetchAll();
+    } catch (err) { onApiError(get, err, "Failed to transfer stock"); }
+  },
+
   savePurchase: async (v) => {
     const { showToast, closeModal, refreshReorderSuggestions } = get();
     try {
@@ -440,11 +504,13 @@ export const useAppStore = create<AppState>()((set, get) => ({
           vendorId: v.vendorId,
           itemId: line.itemId,
           qty: Number(line.qty),
+          qtyKg: line.qtyKg !== undefined ? Number(line.qtyKg) : undefined,
           rate: Number(line.rate),
           date: v.date || today(),
           paymentStatus: line.paymentStatus || "unpaid",
           amountPaid: line.amountPaid ? Number(line.amountPaid) : undefined,
           notes: v.notes,
+          godownId: line.godownId || v.godownId || undefined,
         });
         created.push(purchase);
         if (item) currentItems = currentItems.map((x) => (x.id === item.id ? item : x));

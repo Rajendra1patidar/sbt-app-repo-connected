@@ -89,6 +89,17 @@ function registerListeners() {
       refId: customerId,
     });
   });
+
+  eventBus.on("stock.dead-stock", async ({ owner, itemId, name, stock, stockKg, isWeight, value, lastSaleDate }) => {
+    const qtyPart = isWeight ? `${stockKg}kg (${stock}pc) sitting unsold` : `${stock} unit${stock === 1 ? "" : "s"} sitting unsold`;
+    const salePart = lastSaleDate ? `last sold ${lastSaleDate}` : "never sold since it was added";
+    await notificationService.notify(owner, {
+      type: "stock.dead-stock",
+      title: `${name} looks like dead stock`,
+      body: `${qtyPart}, worth ₹${value} — ${salePart}. Consider a clearance sale.`,
+      refId: itemId,
+    });
+  });
 }
 
 module.exports = { registerListeners };

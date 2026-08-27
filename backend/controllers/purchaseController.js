@@ -64,10 +64,12 @@ async function receiveStock(doc, { date, method, notes, session }) {
       owner: doc.owner,
       itemId: doc.itemId,
       qty: doc.qty,
+      qtyKg: doc.qtyKg,
       rate: doc.rate,
       sourceType,
       sourceId: doc._id,
       date,
+      godownId: doc.godownId,
       session,
     });
     item = stockResult.item;
@@ -102,7 +104,7 @@ async function receiveStock(doc, { date, method, notes, session }) {
     // Free/zero-cost restock (samples, gifts) — nothing to pay, but it's still
     // stock actually on hand, so bump it without any money movement.
     const stockResult = await stockService.recordStockIn({
-      owner: doc.owner, itemId: doc.itemId, qty: doc.qty, rate: 0, sourceType, sourceId: doc._id, date, session,
+      owner: doc.owner, itemId: doc.itemId, qty: doc.qty, qtyKg: doc.qtyKg, rate: 0, sourceType, sourceId: doc._id, date, godownId: doc.godownId, session,
     });
     item = stockResult.item;
   }
@@ -124,6 +126,17 @@ async function createPurchaseRecord(userId, v) {
   const item = await Item.findOne({ _id: v.itemId, owner: userId });
   if (!item) { const e = new Error("Item not found"); e.status = 400; throw e; }
 
+  // Weight-mode items (door frames / window frames sold by kg) require the
+  // actual weighed kg for this batch — never assumed from a standard weight
+  // per piece, since real pieces of the same size don't all weigh the same.
+  const isWeight = item.trackingMode === "weight";
+  const qtyKg = isWeight ? Number(v.qtyKg) : undefined;
+  if (isWeight && !(qtyKg > 0)) {
+    const e = new Error("Weight (kg) is required and must be greater than zero for this item");
+    e.status = 400;
+    throw e;
+  }
+
   let vendor = null;
   if (source === "manual") {
     // A manually-logged purchase always names a real vendor — it's a record
@@ -135,7 +148,7 @@ async function createPurchaseRecord(userId, v) {
     if (!vendor) { const e = new Error("Vendor not found"); e.status = 400; throw e; }
   }
 
-  const amount = round2(qty * rate);
+  const amount = round2((isWeight ? qtyKg : qty) * rate);
   const date = v.date || new Date().toISOString().slice(0, 10);
 
   const result = await withTransaction(async (session) => {
@@ -146,7 +159,7 @@ async function createPurchaseRecord(userId, v) {
 
       const [doc] = await Purchase.create(
         [{
-          owner: userId, itemId: item._id, vendorId: vendor._id, qty, rate, amount, date,
+          owner: userId, itemId: item._id, vendorId: vendor._id, qty, qtyKg, rate, amount, date, godownId: v.godownId || undefined,
           paymentStatus, amountPaid, notes: v.notes || "", source: "manual", status: "Pending",
         }],
         { session: session || undefined }
@@ -163,7 +176,7 @@ async function createPurchaseRecord(userId, v) {
     // free/zero-rate order, which has nothing to pay and completes now.
     const [doc] = await Purchase.create(
       [{
-        owner: userId, itemId: item._id, vendorId: vendor ? vendor._id : undefined, qty, rate, amount, date,
+        owner: userId, itemId: item._id, vendorId: vendor ? vendor._id : undefined, qty, qtyKg, rate, amount, date, godownId: v.godownId || undefined,
         notes: v.notes || "", source: "order", status: "Pending",
       }],
       { session: session || undefined }
@@ -195,7 +208,12 @@ exports.create = async (req, res, next) => {
     const v = req.body;
     const qty = Number(v.qty);
     const rate = Number(v.rate || 0);
-    const amount = round2(qty * rate);
+    // Mirrors the weight-aware amount calc in createPurchaseRecord — this is
+    // only used for the staff approval-threshold check below, but it should
+    // still reflect real money: ₹/kg × kg for weight-mode items, not pieces.
+    const thresholdItem = v.itemId ? await Item.findOne({ _id: v.itemId, owner: req.userId }) : null;
+    const isWeightForThreshold = thresholdItem?.trackingMode === "weight";
+    const amount = round2((isWeightForThreshold ? Number(v.qtyKg || 0) : qty) * rate);
     const source = v.source === "order" ? "order" : "manual";
 
     // A staff account logging a manual purchase above the configured

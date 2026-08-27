@@ -16,6 +16,14 @@ const stockAdjustmentSchema = new mongoose.Schema(
     rate: { type: Number, required: true, min: 0 }, // cost basis used for the ledger posting
     valueChange: { type: Number, required: true }, // delta * rate, signed
 
+    // Weight-mode items only: the same before/after/delta, but for stockKg.
+    // Independent of the piece fields above — a stock take on a weight-mode
+    // item counts pieces AND re-weighs them, since neither can be inferred
+    // from the other.
+    previousStockKg: { type: Number },
+    newStockKg: { type: Number },
+    deltaKg: { type: Number },
+
     reason: { type: String, trim: true, default: "Stock take" },
     // Groups every line entered in the same paste/submit together, so a bulk
     // stock take can be viewed or (in principle) reasoned about as one event.

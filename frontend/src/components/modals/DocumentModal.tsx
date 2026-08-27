@@ -21,7 +21,7 @@ const PAYMENT_CHOICES = [
   { key: "advance", label: "Advance", desc: "Paid now, collected in batches" },
 ] as const;
 
-export function DocumentModal({ type, customers, items, estimates, editingDoc, prefillCustomerId, onClose, onSave, onQuickAddCustomer, onQuickAddItem }: any) {
+export function DocumentModal({ type, customers, items, godowns, estimates, editingDoc, prefillCustomerId, onClose, onSave, onQuickAddCustomer, onQuickAddItem }: any) {
   const isEditing = !!editingDoc;
   // deleted items shouldn't be pickable for a new line, but an existing line that
   // already references one (from before it was deleted) still needs to resolve
@@ -107,7 +107,9 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, p
     estimate: isEditing ? "Edit Estimate" : "New Estimate",
     challan: isEditing ? "Edit Delivery Challan" : "New Delivery Challan",
   };
-  const canSave = customerId && lines.length > 0 && lines.every((l) => l.itemId) && partialValid;
+  const canSave = customerId && lines.length > 0 && lines.every((l) => l.itemId) &&
+    lines.every((l) => { const it = itemById(l.itemId); return it?.trackingMode !== "weight" || Number(l.piecesQty) > 0; }) &&
+    partialValid;
 
   const buildPayload = () => ({
     customerId, date, dueDate, lines, notes, total,
@@ -225,33 +227,35 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, p
               <div className="space-y-2">
                 {lines.map((ln, i) => {
                   const it = itemById(ln.itemId);
+                  const isWeight = it?.trackingMode === "weight";
                   const isOverridden = type === "estimate" && it && Number(ln.rate) !== Number(it.sellingPrice);
                   const lineGross = Number(ln.qty || 0) * Number(ln.rate || 0);
                   const lineDiscount = Number(ln.discountAmount || 0);
                   const lineSubtotal = lineGross - lineDiscount;
-                  const exceedsStock = it && Number(ln.qty) > (it.stock ?? 0);
+                  const exceedsStock = it && (isWeight ? Number(ln.qty) > (it.stockKg ?? 0) : Number(ln.qty) > (it.stock ?? 0));
+                  const exceedsPieces = it && isWeight && Number(ln.piecesQty || 0) > (it.stock ?? 0);
                   return (
                     <div key={i} className="rounded-xl border border-line bg-paper/60 p-2.5">
                       <div className="mb-2.5 flex items-center gap-2 border-b border-line/70 pb-2.5">
                         <div className="min-w-0 flex-1">
                           <SearchableSelect
-                            options={(it?.deleted ? [...activeItems, it] : activeItems).map((opt: any) => ({ value: opt.id, label: opt.deleted ? `${opt.name} (deleted)` : `${opt.name} (stock: ${opt.stock ?? 0})`, keywords: opt.category || "" }))}
+                            options={(it?.deleted ? [...activeItems, it] : activeItems).map((opt: any) => ({ value: opt.id, label: opt.deleted ? `${opt.name} (deleted)` : `${opt.name} (stock: ${opt.trackingMode === "weight" ? `${opt.stockKg ?? 0}kg / ${opt.stock ?? 0}pc` : opt.stock ?? 0})`, keywords: opt.category || "" }))}
                             value={ln.itemId}
                             onChange={(v: string) => setLineItem(i, v)}
                             placeholder="Select item"
                           />
                         </div>
-                        {exceedsStock && <span title="Exceeds stock" className="shrink-0"><AlertTriangle size={14} className="text-warn-500" /></span>}
+                        {(exceedsStock || exceedsPieces) && <span title="Exceeds stock" className="shrink-0"><AlertTriangle size={14} className="text-warn-500" /></span>}
                         {lines.length > 1 && <button onClick={() => removeLine(i)} className="shrink-0 rounded-full p-1.5 text-bad-500 hover:bg-bad-50"><Trash2 size={15} /></button>}
                       </div>
                       <div className={`grid gap-1.5 ${type === "estimate" ? "grid-cols-4" : "grid-cols-2"}`}>
                         <div>
-                          <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink/35">Qty</span>
-                          <input type="number" min="1" value={ln.qty} onChange={(e) => updateLine(i, { qty: e.target.value })} className="w-full rounded-lg border border-line px-2 py-1.5 text-sm" />
+                          <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink/35">{isWeight ? "Weight (kg)" : "Qty"}</span>
+                          <input type="number" min="0.01" step="0.01" value={ln.qty} onChange={(e) => updateLine(i, { qty: e.target.value })} className="w-full rounded-lg border border-line px-2 py-1.5 text-sm" />
                         </div>
                         {type === "estimate" && (
                           <div>
-                            <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink/35">Rate</span>
+                            <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink/35">Rate{isWeight ? "/kg" : ""}</span>
                             <button type="button" onClick={() => setRateEditIndex(i)}
                               className={`relative flex w-full items-center justify-between gap-1 rounded-lg border px-2 py-1.5 text-sm font-semibold tabular-nums ${isOverridden ? "border-warn-200 bg-warn-50 text-warn-700" : "border-brand-100 bg-brand-50 text-brand-700"}`}>
                               <span className="truncate">{fmtMoney(Number(ln.rate || 0), "")}</span>
@@ -275,6 +279,28 @@ export function DocumentModal({ type, customers, items, estimates, editingDoc, p
                           <div className="py-1.5 text-right font-display text-sm font-bold text-ink tabular-nums">{fmtMoney(lineSubtotal, "")}</div>
                         </div>
                       </div>
+                      {isWeight && (
+                        <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                          <div>
+                            <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink/35">Pieces removed</span>
+                            <input type="number" min="1" value={ln.piecesQty ?? ""} onChange={(e) => updateLine(i, { piecesQty: e.target.value })} placeholder="0" className="w-full rounded-lg border border-line px-2 py-1.5 text-sm" />
+                          </div>
+                          {Number(it?.avgWeightPerPiece) > 0 && (
+                            <div className="flex items-end pb-1.5 text-[11px] text-ink/40">
+                              avg {Number(it.avgWeightPerPiece).toFixed(2)}kg/pc — expect ~{(Number(it.avgWeightPerPiece) * Number(ln.piecesQty || 0)).toFixed(1)}kg
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {godowns && godowns.length > 1 && (
+                        <div className="mt-1.5">
+                          <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink/35">Dispatch from</span>
+                          <select value={ln.godownId || ""} onChange={(e) => updateLine(i, { godownId: e.target.value })} className="w-full rounded-lg border border-line px-2 py-1.5 text-sm">
+                            <option value="">Default godown</option>
+                            {godowns.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                          </select>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

@@ -17,6 +17,7 @@ import { OrderModal } from "./modals/OrderModal";
 import { PaymentAllocationModal } from "./modals/PaymentAllocationModal";
 import { PurchaseModal } from "./modals/PurchaseModal";
 import { ReturnModal } from "./modals/ReturnModal";
+import { TransferModal } from "./modals/TransferModal";
 import { ViewEstimateModal } from "./modals/ViewEstimateModal";
 import { AdvancedBillingView } from "./views/AdvancedBillingView";
 import { ApprovalsView } from "./views/ApprovalsView";
@@ -42,6 +43,7 @@ import { ReportsView } from "./views/ReportsView";
 import { SettingsView } from "./views/SettingsView";
 import { ShareReportView } from "./views/ShareReportView";
 import { VendorsView } from "./views/VendorsView";
+import { GodownsView } from "./views/GodownsView";
 import { VendorScorecardView } from "./views/VendorScorecardView";
 import { ITEM_BRANDS, ITEM_CATEGORIES, ITEM_UNITS, LOW_STOCK_DEFAULT, WHATSAPP_GREEN } from "../lib/constants";
 import { waLink } from "../lib/contactLinks";
@@ -61,12 +63,12 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 
   const {
     loading, loadError, settings, customers, items, orders, estimates, challans,
-    expenses, payments, labourSessions, labourWorkers, contractors, vendors, purchases,
-    reorderSuggestions, toast, modal, confirmDeleteFor, shareInvoice, autoReminder,
+    expenses, payments, labourSessions, labourWorkers, contractors, vendors, purchases, godowns,
+    reorderSuggestions, deadStock, toast, modal, confirmDeleteFor, shareInvoice, autoReminder,
     fetchAll, setOnSignOut, showToast, openModal, closeModal, cancelConfirmDelete,
     setAutoReminder, setShareInvoice,
     saveCustomer, quickAddCustomer, quickAddItem, removeCustomer, saveItem, removeItem, saveExpense, removeExpense,
-    saveVendor, removeVendor, savePurchase, savePurchaseBatch, removePurchase,
+    saveVendor, removeVendor, saveGodown, removeGodown, setDefaultGodown, transferStock, savePurchase, savePurchaseBatch, removePurchase,
     saveVendorPayment, savePurchasePayment, saveDocument, removeDoc, restoreDoc, updateDocStatus,
     savePayment, savePaymentSplit, saveReturn, saveDelivery, removePayment, saveOrder, removeOrder,
     payOrder, saveOrderPayment, saveLabourSession, removeLabourSession, saveContractorPhone,
@@ -208,9 +210,10 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
           onSelectCustomer={(id: string) => navigate(`/customers/${id}`)} />
       } />
       <Route path="/customers/:customerId" element={<CustomerDetailRoute />} />
-      <Route path="/items" element={<ItemsView items={items} categories={itemCategories} brands={itemBrands} openModal={openModal} currency={settings.currency} removeItem={removeItem} purchases={purchases} estimates={activeEstimates} applyStockAdjustments={applyStockAdjustments} />} />
+      <Route path="/items" element={<ItemsView items={items} categories={itemCategories} brands={itemBrands} openModal={openModal} currency={settings.currency} removeItem={removeItem} purchases={purchases} estimates={activeEstimates} applyStockAdjustments={applyStockAdjustments} godowns={godowns} />} />
       <Route path="/orders" element={<OrdersView orders={orders} items={items} vendors={vendors} categories={itemCategories} currency={settings.currency} openModal={openModal} payOrder={payOrder} removeOrder={removeOrder} />} />
       <Route path="/vendors" element={<VendorsView vendors={vendors} purchases={purchases} currency={settings.currency} openModal={openModal} removeVendor={removeVendor} />} />
+      <Route path="/godowns" element={<GodownsView godowns={godowns} items={items} openModal={openModal} removeGodown={removeGodown} saveGodown={saveGodown} setDefaultGodown={setDefaultGodown} />} />
       <Route path="/purchases" element={<PurchasesView purchases={purchases} vendors={vendors} items={items} currency={settings.currency} openModal={openModal} removePurchase={removePurchase} />} />
       <Route path="/approvals" element={<ApprovalsView currency={settings.currency} />} />
       <Route path="/ledger" element={<LedgerReportsView currency={settings.currency} />} />
@@ -234,7 +237,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       } />
       <Route path="/payments" element={<PaymentsView payments={payments} customers={customers} currency={settings.currency} openModal={openModal} removePayment={removePayment} estimates={activeEstimates} />} />
       <Route path="/expenses" element={<ExpensesView expenses={expenses} currency={settings.currency} openModal={openModal} removeExpense={removeExpense} />} />
-      <Route path="/inventory" element={<ToDoTrackingView items={items} settings={settings} categories={itemCategories} orders={orders} openModal={openModal} reorderSuggestions={reorderSuggestions} applyStockAdjustments={applyStockAdjustments} />} />
+      <Route path="/inventory" element={<ToDoTrackingView items={items} settings={settings} categories={itemCategories} orders={orders} openModal={openModal} reorderSuggestions={reorderSuggestions} deadStock={deadStock} applyStockAdjustments={applyStockAdjustments} />} />
       <Route path="/stock-adjustments" element={<StockAdjustmentHistoryView items={items} currency={settings.currency} />} />
       <Route path="/labour" element={<LabourTrackingView sessions={labourSessions} knownWorkers={labourWorkers} onSave={saveLabourSession} onRemove={removeLabourSession} currency={settings.currency} estimates={activeEstimates} items={items} customers={customers} />} />
       <Route path="/contractors" element={<ContractorScorecardView estimates={activeEstimates} items={items} currency={settings.currency} contractors={contractors} onSavePhone={saveContractorPhone} showToast={showToast} />} />
@@ -280,14 +283,17 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         { key: "name",          label: "Item name",           required: true, placeholder: "Web design service" },
         { key: "category",      label: "Category",            type: "select", options: itemCategories.map((c: string) => ({ value: c, label: c })), required: true },
         { key: "brand",         label: "Brand",                type: "select", options: [{ value: "", label: "No brand" }, ...itemBrands.map((b: string) => ({ value: b, label: b }))] },
-        { key: "sellingPrice",  label: "Selling price",       type: "number", required: true, placeholder: "0.00" },
+        { key: "trackingMode",  label: "Track by",            type: "toggle", options: [{ value: "unit", label: "Units" }, { value: "box", label: "Box" }, { value: "weight", label: "Weight (kg)" }] },
+        { key: "size",          label: "Size",                placeholder: "e.g. 3x4 ft", showIf: (v: any) => v.trackingMode === "weight", helpText: "Same product, different sizes — give each size its own item." },
+        { key: "sellingPrice",  label: "Selling price",       type: "number", required: true, placeholder: "0.00", showIf: (v: any) => v.trackingMode !== "weight" },
+        { key: "sellingPrice",  label: "Selling price (₹/kg)", type: "number", required: true, placeholder: "0.00", showIf: (v: any) => v.trackingMode === "weight" },
         editingItem
           ? { key: "purchasePrice", label: "Avg. purchase cost", type: "number", readOnly: true, helpText: "Auto-calculated from your Purchases — record a Purchase to update it." }
           : { key: "purchasePrice", label: "Opening purchase price", type: "number", placeholder: "0.00", helpText: "Starting cost estimate — future Purchases will roll this forward automatically." },
-        { key: "unit",          label: "Unit",                type: "datalist", options: ITEM_UNITS, placeholder: "kg / pc / bundle" },
-        { key: "stock",         label: editingItem ? "Stock (qty)" : "Opening stock (qty)", type: "number", placeholder: "0" },
+        { key: "unit",          label: "Unit",                type: "datalist", options: ITEM_UNITS, placeholder: "kg / pc / bundle", showIf: (v: any) => v.trackingMode !== "weight" },
+        { key: "stock",         label: editingItem ? "Stock (pieces)" : "Opening stock (pieces)", type: "number", placeholder: "0" },
+        { key: "stockKg",       label: editingItem ? "Stock (kg)" : "Opening stock (kg)", type: "number", placeholder: "0", showIf: (v: any) => v.trackingMode === "weight", helpText: "Weighed total — kept separate from pieces since weight per piece varies." },
         { key: "lowStock",      label: "Low stock alert at",  type: "number", placeholder: `${LOW_STOCK_DEFAULT}` },
-        { key: "trackingMode",  label: "Track by",            type: "toggle", options: [{ value: "unit", label: "Units" }, { value: "box", label: "Box" }] },
         { key: "piecesPerBox",  label: "Pieces per box",      type: "number", placeholder: "e.g. 30", required: true, showIf: (v: any) => v.trackingMode === "box" },
         { key: "vendorId",      label: "Preferred vendor (for reorder suggestions)", type: "select", options: vendorOptions },
       ]} initial={editingItem ? {
@@ -296,8 +302,9 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         sellingPrice: editingItem.sellingPrice ?? editingItem.price ?? 0, purchasePrice: editingItem.purchasePrice,
         unit: editingItem.unit, stock: editingItem.stock, lowStock: editingItem.lowStock ?? LOW_STOCK_DEFAULT,
         trackingMode: editingItem.trackingMode || "unit", piecesPerBox: editingItem.piecesPerBox || 0,
+        size: editingItem.size || "", stockKg: editingItem.stockKg || 0,
         vendorId: editingItem.vendorId || "",
-      } : { category: "Others", brand: "", trackingMode: "unit", piecesPerBox: 0 }} onClose={closeModal} onSave={saveItem} />;
+      } : { category: "Others", brand: "", trackingMode: "unit", piecesPerBox: 0, size: "", stockKg: 0 }} onClose={closeModal} onSave={saveItem} />;
     }
 
     if (type === "expense") return <FieldModal title="Record Expense" fields={[
@@ -314,8 +321,26 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       { key: "notes",    label: "Notes",               type: "textarea", placeholder: "Optional" },
     ]} onClose={closeModal} onSave={saveVendor} />;
 
+    if (type === "godown") {
+      const editingGodown = payload?.editingGodown;
+      return <FieldModal title={editingGodown ? "Edit Godown" : "New Godown"} fields={[
+        { key: "name",     label: "Godown name",        required: true, placeholder: "Main City Godown" },
+        { key: "location", label: "Location / Address",  type: "location", placeholder: "City, area or full address" },
+        { key: "manager",  label: "Manager",             placeholder: "Optional" },
+        { key: "capacity", label: "Capacity",            type: "number", placeholder: "Optional" },
+        { key: "notes",    label: "Notes",               type: "textarea", placeholder: "Optional" },
+      ]} initial={editingGodown ? {
+        id: editingGodown.id, name: editingGodown.name, location: editingGodown.location || "",
+        manager: editingGodown.manager || "", capacity: editingGodown.capacity, notes: editingGodown.notes || "",
+        locationLat: editingGodown.lat, locationLng: editingGodown.lng,
+      } : {}} onClose={closeModal} onSave={saveGodown} />;
+    }
+
+    if (type === "stockTransfer")
+      return <TransferModal items={items} godowns={godowns} onClose={closeModal} onSave={transferStock} />;
+
     if (type === "purchase")
-      return <PurchaseModal vendors={vendors} items={items} onClose={closeModal} onSave={savePurchaseBatch} onQuickAddItem={quickAddItem} />;
+      return <PurchaseModal vendors={vendors} items={items} godowns={godowns} onClose={closeModal} onSave={savePurchaseBatch} onQuickAddItem={quickAddItem} />;
 
     if (type === "vendorPayment") {
       return <FieldModal title={`Pay ${payload?.vendorName || "Vendor"} (unallocated)`} fields={[
@@ -353,7 +378,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       return <ChallanModal onClose={closeModal} onSave={saveChallan} />;
 
     if (type === "estimate")
-      return <DocumentModal type={type} customers={customers} items={items} estimates={activeEstimates} editingDoc={payload?.editingDoc} prefillCustomerId={payload?.customerId} onClose={closeModal} onSave={(v: any) => saveDocument(type, v)} onQuickAddCustomer={quickAddCustomer} onQuickAddItem={quickAddItem} />;
+      return <DocumentModal type={type} customers={customers} items={items} godowns={godowns} estimates={activeEstimates} editingDoc={payload?.editingDoc} prefillCustomerId={payload?.customerId} onClose={closeModal} onSave={(v: any) => saveDocument(type, v)} onQuickAddCustomer={quickAddCustomer} onQuickAddItem={quickAddItem} />;
 
     if (type === "payment") {
       return <PaymentAllocationModal

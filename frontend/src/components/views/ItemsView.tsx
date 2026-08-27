@@ -10,7 +10,7 @@ import { ItemDetailDrawer } from "../items/ItemDetailDrawer";
 
 /* ---- Items (with stock display) ---- */
 
-export function ItemsView({ items, categories, brands, openModal, removeItem, currency, purchases, estimates, applyStockAdjustments }: any) {
+export function ItemsView({ items, categories, brands, openModal, removeItem, currency, purchases, estimates, applyStockAdjustments, godowns }: any) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [brand, setBrand] = useState("All");
@@ -98,7 +98,7 @@ export function ItemsView({ items, categories, brands, openModal, removeItem, cu
         </>
       }
 
-      <ItemDetailDrawer item={drawerItem} items={items} open={drawerOpen} onClose={closeDrawer} currency={currency} purchases={purchases} estimates={estimates} openModal={openModal} applyStockAdjustments={applyStockAdjustments} />
+      <ItemDetailDrawer item={drawerItem} items={items} godowns={godowns} open={drawerOpen} onClose={closeDrawer} currency={currency} purchases={purchases} estimates={estimates} openModal={openModal} applyStockAdjustments={applyStockAdjustments} />
     </div>
   );
 }

@@ -121,13 +121,27 @@ async function applyEstimateEffects(owner, doc, lines, session) {
       if (!line.itemId) continue;
       const qty = Number(line.qty || 0);
       if (qty <= 0) continue;
+
+      const item = await Item.findOne({ _id: line.itemId, owner }).session(session || null);
+      const isWeight = item && item.trackingMode === "weight";
+      if (isWeight && !(Number(line.piecesQty) > 0)) {
+        const err = new Error(`"${item.name}" is billed by weight — pieces removed must be entered and greater than 0`);
+        err.status = 400;
+        throw err;
+      }
+
       const result = await stockService.recordStockOut({
         owner,
         itemId: line.itemId,
-        qty,
+        // For weight-mode items: qty is physical pieces, qtyKg is the
+        // weighed billing quantity carried on the line as `qty`. For
+        // ordinary items, qty is just the line qty as before.
+        qty: isWeight ? Number(line.piecesQty) : qty,
+        qtyKg: isWeight ? qty : undefined,
         sourceType: "Estimate",
         sourceId: doc._id,
         date: doc.date || new Date().toISOString().slice(0, 10),
+        godownId: line.godownId,
         session,
       });
       if (result) {
@@ -181,28 +195,34 @@ async function applyEstimateEffects(owner, doc, lines, session) {
 // are left untouched — they're their own historical event.
 async function reverseEstimateEffects(owner, doc, session) {
   const returnedByItem = {};
+  const returnedPiecesByItem = {};
   for (const r of doc.returns || []) {
     returnedByItem[String(r.itemId)] = (returnedByItem[String(r.itemId)] || 0) + Number(r.qty || 0);
+    returnedPiecesByItem[String(r.itemId)] = (returnedPiecesByItem[String(r.itemId)] || 0) + Number(r.piecesQty || 0);
   }
 
   for (const line of doc.lines || []) {
     if (!line.itemId) continue;
     const key = String(line.itemId);
     const toRestock = Number(line.qty || 0) - (returnedByItem[key] || 0);
-    if (toRestock <= 0) continue;
     const item = await Item.findOne({ _id: line.itemId, owner }).session(session || null);
     if (!item) continue;
+    const isWeight = item.trackingMode === "weight";
+    const toRestockPieces = isWeight ? Number(line.piecesQty || 0) - (returnedPiecesByItem[key] || 0) : 0;
+    if (toRestock <= 0 && (!isWeight || toRestockPieces <= 0)) continue;
     // recordReturnIn (not recordStockIn) on purpose — this is stock coming back
     // from an edit/delete, not a new purchase, so it shouldn't move the item's
     // weighted-average purchase cost.
     await stockService.recordReturnIn({
       owner,
       itemId: line.itemId,
-      qty: toRestock,
+      qty: isWeight ? Math.max(0, toRestockPieces) : Math.max(0, toRestock),
+      qtyKg: isWeight ? Math.max(0, toRestock) : undefined,
       rate: item.purchasePrice || 0,
       sourceType: "Estimate",
       sourceId: doc._id,
       date: new Date().toISOString().slice(0, 10),
+      godownId: line.godownId,
       session,
     });
   }
@@ -565,8 +585,10 @@ exports.addReturn = (type) => async (req, res, next) => {
 
     const result = await withTransaction(async (session) => {
       const alreadyReturned = {};
+      const returnedPiecesSoFar = {};
       for (const r of doc.returns || []) {
         alreadyReturned[String(r.itemId)] = (alreadyReturned[String(r.itemId)] || 0) + r.qty;
+        returnedPiecesSoFar[String(r.itemId)] = (returnedPiecesSoFar[String(r.itemId)] || 0) + Number(r.piecesQty || 0);
       }
 
       const newReturns = [];
@@ -586,29 +608,45 @@ exports.addReturn = (type) => async (req, res, next) => {
         if (finalQty <= 0) continue;
 
         const item = await Item.findOne({ _id: reqLine.itemId, owner: req.userId }).session(session || null);
+        const isWeight = item && item.trackingMode === "weight";
         const amount = finalQty * Number(line.rate || 0);
+
+        // For weight-mode items, pieces returned is entered separately and
+        // proportioned the same way — never derived from a fixed weight/piece
+        // ratio, since actual weight varies piece to piece.
+        let finalPieces = 0;
+        if (isWeight) {
+          const reqPieces = Number(reqLine.piecesQty || 0);
+          const piecesAlreadyReturned = returnedPiecesSoFar[String(reqLine.itemId)] || 0;
+          const maxReturnablePieces = Number(line.piecesQty || 0) - piecesAlreadyReturned;
+          finalPieces = Math.max(0, Math.min(reqPieces, maxReturnablePieces));
+        }
 
         newReturns.push({
           itemId: reqLine.itemId,
           name: item?.name || "Item",
           qty: finalQty,
+          piecesQty: isWeight ? finalPieces : undefined,
           rate: Number(line.rate || 0),
           amount,
           date,
         });
         refundTotal += amount;
         alreadyReturned[String(reqLine.itemId)] = returnedSoFar + finalQty;
+        if (isWeight) returnedPiecesSoFar[String(reqLine.itemId)] = (returnedPiecesSoFar[String(reqLine.itemId)] || 0) + finalPieces;
 
         // put the returned stock back — routed through stockService so it logs a
         // StockMovement and tells us the cost basis to reverse out of COGS
         const stockResult = await stockService.recordReturnIn({
           owner: req.userId,
           itemId: reqLine.itemId,
-          qty: finalQty,
+          qty: isWeight ? finalPieces : finalQty,
+          qtyKg: isWeight ? finalQty : undefined,
           rate: item?.purchasePrice || 0,
           sourceType: "Return",
           sourceId: doc._id,
           date,
+          godownId: line.godownId,
           session,
         });
         if (stockResult) totalCogsReversal += stockResult.cogsReversal;

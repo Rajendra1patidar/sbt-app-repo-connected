@@ -1,11 +1,12 @@
 const { runReconciliationCheck } = require("./reconciliationJob");
 const { runReorderCheck } = require("./reorderCheckJob");
+const { runDeadStockCheck } = require("./deadStockJob");
 const { runCreditCheck } = require("./creditCheckJob");
 const { runDailyReport } = require("./dailyReportJob");
 const { runBackupJob } = require("./backupJob");
 
 /**
- * Single place that actually runs all five jobs in sequence. Shared by:
+ * Single place that actually runs all six jobs in sequence. Shared by:
  *   - jobs/scheduler.js  (in-process node-cron, for local dev)
  *   - routes/cronRoutes.js -> POST /api/cron/run  (external trigger, for prod)
  * so there's exactly one implementation of "what a run consists of" no
@@ -48,6 +49,16 @@ async function runAllJobs() {
     } catch (err) {
       console.error("runAllJobs: reorder check crashed:", err.message);
       results.reorder = { error: err.message };
+    }
+
+    try {
+      results.deadStock = await runDeadStockCheck();
+      console.log(
+        `runAllJobs: dead-stock check done — ${results.deadStock.checked} owner(s) checked, ${results.deadStock.notified} new notification(s).`
+      );
+    } catch (err) {
+      console.error("runAllJobs: dead-stock check crashed:", err.message);
+      results.deadStock = { error: err.message };
     }
 
     try {

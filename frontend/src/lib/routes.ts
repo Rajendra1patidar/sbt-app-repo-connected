@@ -8,6 +8,7 @@ export const VIEW_PATHS: Record<string, string> = {
   dashboard: "/",
   customers: "/customers",
   items: "/items",
+  godowns: "/godowns",
   orders: "/orders",
   vendors: "/vendors",
   purchases: "/purchases",

@@ -1,8 +1,47 @@
 const Item = require("../models/Item");
 const StockMovement = require("../models/StockMovement");
+const Godown = require("../models/Godown");
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 const MAX_RETRIES = 5;
+
+/**
+ * Resolves which godown a stock movement should apply to. Explicit
+ * `godownId` wins; otherwise falls back to the owner's default godown. If
+ * the owner has never created a godown at all, returns null — callers treat
+ * that as "skip the per-godown breakdown", so nothing breaks for anyone who
+ * hasn't adopted the Godowns feature yet.
+ */
+async function resolveGodownId(owner, godownId, session) {
+  if (godownId) return godownId;
+  const def = await Godown.findOne({ owner, isDefault: true }).session(session || null);
+  return def ? def._id : null;
+}
+
+/**
+ * Returns a new stockByGodown array with `deltaPieces`/`deltaKg` applied to
+ * the given godown's entry (creating it if this is the item's first
+ * movement at that location). Clamped at 0 the same way the aggregate
+ * stock/stockKg fields are, so a location can't go negative even if the
+ * overall item total still has room (e.g. a bad godown selection at sale
+ * time). Never derives one unit from the other, same rule as everywhere else.
+ */
+function applyGodownDelta(item, godownId, deltaPieces, deltaKg) {
+  const gid = String(godownId);
+  const list = (item.stockByGodown || []).map((g) => ({
+    godownId: g.godownId,
+    stock: Number(g.stock) || 0,
+    stockKg: Number(g.stockKg) || 0,
+  }));
+  let entry = list.find((g) => String(g.godownId) === gid);
+  if (!entry) {
+    entry = { godownId, stock: 0, stockKg: 0 };
+    list.push(entry);
+  }
+  entry.stock = round2(Math.max(0, entry.stock + deltaPieces));
+  entry.stockKg = round2(Math.max(0, entry.stockKg + deltaKg));
+  return list;
+}
 
 /**
  * Applies `computeUpdate(item)` to an item using optimistic-concurrency
@@ -41,23 +80,48 @@ async function atomicItemUpdate(owner, itemId, computeUpdate, session) {
  * This replaces the old behaviour where purchasePrice was just a manually
  * typed number with no memory of what was actually paid batch to batch.
  */
-async function recordStockIn({ owner, itemId, qty, rate, sourceType, sourceId, date, session }) {
+async function recordStockIn({ owner, itemId, qty, qtyKg, rate, sourceType, sourceId, date, godownId, session }) {
+  const resolvedGodownId = await resolveGodownId(owner, godownId, session);
   const result = await atomicItemUpdate(
     owner,
     itemId,
     (item) => {
+      const isWeight = item.trackingMode === "weight";
       const oldStock = Number(item.stock) || 0;
+      const oldStockKg = Number(item.stockKg) || 0;
       const oldCost = Number(item.purchasePrice) || 0;
-      const oldValue = oldStock * oldCost;
-      const addedValue = Number(qty) * Number(rate);
+
       const newStock = round2(oldStock + Number(qty));
-      const newAvgCost = newStock > 0 ? (oldValue + addedValue) / newStock : Number(rate);
-      return { changes: { stock: newStock, purchasePrice: round2(newAvgCost) }, extra: null };
+      const newStockKg = isWeight ? round2(oldStockKg + Number(qtyKg || 0)) : oldStockKg;
+
+      // Weighted-average cost basis: for weight-mode items rate is ₹/kg, so
+      // value is tracked against kg, not pieces — mirrors the existing
+      // pieces-based weighted average below, just on the other unit.
+      const oldBasisQty = isWeight ? oldStockKg : oldStock;
+      const newBasisQty = isWeight ? newStockKg : newStock;
+      const addedBasisQty = isWeight ? Number(qtyKg || 0) : Number(qty);
+      const oldValue = oldBasisQty * oldCost;
+      const addedValue = addedBasisQty * Number(rate);
+      const newAvgCost = newBasisQty > 0 ? (oldValue + addedValue) / newBasisQty : Number(rate);
+
+      const changes = { stock: newStock, purchasePrice: round2(newAvgCost) };
+      if (isWeight) {
+        changes.stockKg = newStockKg;
+        // Rolling avg weight/piece — analytics only (reorder math, anomaly
+        // checks). Never used to derive stock or stockKg from each other.
+        const oldAvgWeight = Number(item.avgWeightPerPiece) || 0;
+        changes.avgWeightPerPiece =
+          newStock > 0 ? round2((oldStock * oldAvgWeight + Number(qtyKg || 0)) / newStock) : oldAvgWeight;
+      }
+      if (resolvedGodownId) {
+        changes.stockByGodown = applyGodownDelta(item, resolvedGodownId, Number(qty), isWeight ? Number(qtyKg || 0) : 0);
+      }
+      return { changes, extra: { isWeight } };
     },
     session
   );
   if (!result) throw new Error("Item not found for stock-in");
-  const { item } = result;
+  const { item, extra } = result;
 
   const [movement] = await StockMovement.create(
     [
@@ -66,9 +130,11 @@ async function recordStockIn({ owner, itemId, qty, rate, sourceType, sourceId, d
         itemId,
         direction: "in",
         qty: Number(qty),
+        qtyKg: extra.isWeight ? Number(qtyKg || 0) : undefined,
         rate: round2(rate),
         balanceQty: item.stock,
-        balanceValue: round2(item.stock * item.purchasePrice),
+        balanceKg: extra.isWeight ? item.stockKg : undefined,
+        balanceValue: round2((extra.isWeight ? item.stockKg : item.stock) * item.purchasePrice),
         sourceType,
         sourceId,
         date,
@@ -86,19 +152,34 @@ async function recordStockIn({ owner, itemId, qty, rate, sourceType, sourceId, d
  * the matching COGS ledger entry. Stock is clamped at 0 to match the app's
  * existing behaviour of never showing negative stock.
  */
-async function recordStockOut({ owner, itemId, qty, sourceType, sourceId, date, session }) {
+async function recordStockOut({ owner, itemId, qty, qtyKg, sourceType, sourceId, date, godownId, session }) {
+  const resolvedGodownId = await resolveGodownId(owner, godownId, session);
   const result = await atomicItemUpdate(
     owner,
     itemId,
     (item) => {
+      const isWeight = item.trackingMode === "weight";
       const costRate = Number(item.purchasePrice) || 0;
+      // Pieces removed is the physical-stock truth; weighed kg is the
+      // billing truth. Both are deducted independently — pieces is never
+      // computed from kg or vice versa.
       const newStock = round2(Math.max(0, (Number(item.stock) || 0) - Number(qty)));
-      return { changes: { stock: newStock }, extra: { costRate } };
+      const changes = { stock: newStock };
+      if (isWeight) {
+        changes.stockKg = round2(Math.max(0, (Number(item.stockKg) || 0) - Number(qtyKg || 0)));
+      }
+      if (resolvedGodownId) {
+        changes.stockByGodown = applyGodownDelta(item, resolvedGodownId, -Number(qty), isWeight ? -Number(qtyKg || 0) : 0);
+      }
+      return { changes, extra: { costRate, isWeight } };
     },
     session
   );
   if (!result) return null;
   const { item, extra } = result;
+
+  // COGS basis: ₹/kg × kg sold for weight-mode items, ₹/unit × pieces otherwise.
+  const cogsQty = extra.isWeight ? Number(qtyKg || 0) : Number(qty);
 
   const [movement] = await StockMovement.create(
     [
@@ -107,9 +188,11 @@ async function recordStockOut({ owner, itemId, qty, sourceType, sourceId, date, 
         itemId,
         direction: "out",
         qty: Number(qty),
+        qtyKg: extra.isWeight ? Number(qtyKg || 0) : undefined,
         rate: round2(extra.costRate),
         balanceQty: item.stock,
-        balanceValue: round2(item.stock * extra.costRate),
+        balanceKg: extra.isWeight ? item.stockKg : undefined,
+        balanceValue: round2((extra.isWeight ? item.stockKg : item.stock) * extra.costRate),
         sourceType,
         sourceId,
         date,
@@ -118,7 +201,7 @@ async function recordStockOut({ owner, itemId, qty, sourceType, sourceId, date, 
     { session: session || undefined }
   );
 
-  return { item, movement, cogsAmount: round2(Number(qty) * extra.costRate) };
+  return { item, movement, cogsAmount: round2(cogsQty * extra.costRate) };
 }
 
 /**
@@ -127,18 +210,26 @@ async function recordStockOut({ owner, itemId, qty, sourceType, sourceId, date, 
  * new purchase, it's previously-existing stock coming back, so the average
  * cost basis it left at is the average cost basis it should return at.
  */
-async function recordReturnIn({ owner, itemId, qty, rate, sourceType, sourceId, date, session }) {
+async function recordReturnIn({ owner, itemId, qty, qtyKg, rate, sourceType, sourceId, date, godownId, session }) {
+  const resolvedGodownId = await resolveGodownId(owner, godownId, session);
   const result = await atomicItemUpdate(
     owner,
     itemId,
     (item) => {
+      const isWeight = item.trackingMode === "weight";
       const newStock = round2((Number(item.stock) || 0) + Number(qty));
-      return { changes: { stock: newStock }, extra: null };
+      const changes = { stock: newStock };
+      if (isWeight) changes.stockKg = round2((Number(item.stockKg) || 0) + Number(qtyKg || 0));
+      if (resolvedGodownId) {
+        changes.stockByGodown = applyGodownDelta(item, resolvedGodownId, Number(qty), isWeight ? Number(qtyKg || 0) : 0);
+      }
+      return { changes, extra: { isWeight } };
     },
     session
   );
   if (!result) return null;
-  const { item } = result;
+  const { item, extra } = result;
+  const cogsQty = extra.isWeight ? Number(qtyKg || 0) : Number(qty);
 
   const [movement] = await StockMovement.create(
     [
@@ -147,9 +238,11 @@ async function recordReturnIn({ owner, itemId, qty, rate, sourceType, sourceId, 
         itemId,
         direction: "in",
         qty: Number(qty),
+        qtyKg: extra.isWeight ? Number(qtyKg || 0) : undefined,
         rate: round2(rate),
         balanceQty: item.stock,
-        balanceValue: round2(item.stock * (Number(item.purchasePrice) || 0)),
+        balanceKg: extra.isWeight ? item.stockKg : undefined,
+        balanceValue: round2((extra.isWeight ? item.stockKg : item.stock) * (Number(item.purchasePrice) || 0)),
         sourceType,
         sourceId,
         date,
@@ -158,7 +251,7 @@ async function recordReturnIn({ owner, itemId, qty, rate, sourceType, sourceId, 
     { session: session || undefined }
   );
 
-  return { item, movement, cogsReversal: round2(Number(qty) * Number(rate)) };
+  return { item, movement, cogsReversal: round2(cogsQty * Number(rate)) };
 }
 
 /**
@@ -171,23 +264,44 @@ async function recordReturnIn({ owner, itemId, qty, rate, sourceType, sourceId, 
  * Returns null (no movement written) if the counted quantity matches what
  * the books already show.
  */
-async function recordAdjustment({ owner, itemId, newStock, sourceId, date, session }) {
+async function recordAdjustment({ owner, itemId, newStock, newStockKg, sourceId, date, godownId, session }) {
+  const resolvedGodownId = await resolveGodownId(owner, godownId, session);
   const result = await atomicItemUpdate(
     owner,
     itemId,
     (item) => {
+      const isWeight = item.trackingMode === "weight";
       const oldStock = round2(item.stock) || 0;
       const target = round2(newStock);
-      return { changes: { stock: target }, extra: { oldStock, delta: round2(target - oldStock) } };
+      const changes = { stock: target };
+      let oldStockKg, targetKg, deltaKg;
+      if (isWeight) {
+        oldStockKg = round2(item.stockKg) || 0;
+        // If a kg recount wasn't given, leave stockKg untouched (piece-only
+        // recount) rather than guessing a kg figure from the piece delta.
+        targetKg = newStockKg === undefined || newStockKg === null ? oldStockKg : round2(newStockKg);
+        deltaKg = round2(targetKg - oldStockKg);
+        changes.stockKg = targetKg;
+      }
+      const delta = round2(target - oldStock);
+      if (resolvedGodownId) {
+        changes.stockByGodown = applyGodownDelta(item, resolvedGodownId, delta, isWeight ? deltaKg || 0 : 0);
+      }
+      return {
+        changes,
+        extra: { oldStock, delta, isWeight, oldStockKg, targetKg, deltaKg },
+      };
     },
     session
   );
   if (!result) throw new Error("Item not found for stock adjustment");
   const { item, extra } = result;
-  if (extra.delta === 0) return null; // counted quantity already matches the books
+  if (extra.delta === 0 && (!extra.isWeight || extra.deltaKg === 0)) return null; // counted qty already matches books
 
-  const direction = extra.delta > 0 ? "in" : "out";
+  const direction = extra.delta !== 0 ? (extra.delta > 0 ? "in" : "out") : extra.deltaKg > 0 ? "in" : "out";
   const rate = round2(item.purchasePrice) || 0;
+  // Value basis: kg for weight-mode items (rate is ₹/kg there), pieces otherwise.
+  const valueDelta = extra.isWeight ? extra.deltaKg : extra.delta;
 
   const [movement] = await StockMovement.create(
     [
@@ -196,9 +310,11 @@ async function recordAdjustment({ owner, itemId, newStock, sourceId, date, sessi
         itemId,
         direction,
         qty: Math.abs(extra.delta),
+        qtyKg: extra.isWeight ? Math.abs(extra.deltaKg) : undefined,
         rate,
         balanceQty: item.stock,
-        balanceValue: round2(item.stock * rate),
+        balanceKg: extra.isWeight ? item.stockKg : undefined,
+        balanceValue: round2((extra.isWeight ? item.stockKg : item.stock) * rate),
         sourceType: "Adjustment",
         sourceId,
         date,
@@ -207,7 +323,73 @@ async function recordAdjustment({ owner, itemId, newStock, sourceId, date, sessi
     { session: session || undefined }
   );
 
-  return { item, movement, oldStock: extra.oldStock, delta: extra.delta, valueChange: round2(extra.delta * rate) };
+  return {
+    item,
+    movement,
+    oldStock: extra.oldStock,
+    delta: extra.delta,
+    oldStockKg: extra.oldStockKg,
+    deltaKg: extra.deltaKg,
+    valueChange: round2(valueDelta * rate),
+  };
+}
+
+/**
+ * Moves stock from one godown to another for the same item. Total
+ * stock/stockKg on the item is unchanged — only the stockByGodown split
+ * moves — so this never touches purchasePrice or avgWeightPerPiece. Both
+ * legs are logged as StockMovement rows (direction "out" at the source,
+ * "in" at the destination) so the audit trail shows the transfer the same
+ * way it would show a sale or purchase.
+ */
+async function recordTransfer({ owner, itemId, fromGodownId, toGodownId, qty, qtyKg, sourceId, date, session }) {
+  if (String(fromGodownId) === String(toGodownId)) {
+    throw new Error("Source and destination godown must be different");
+  }
+  const result = await atomicItemUpdate(
+    owner,
+    itemId,
+    (item) => {
+      const isWeight = item.trackingMode === "weight";
+      const fromEntry = (item.stockByGodown || []).find((g) => String(g.godownId) === String(fromGodownId));
+      const available = fromEntry ? Number(fromEntry.stock) || 0 : 0;
+      const availableKg = fromEntry ? Number(fromEntry.stockKg) || 0 : 0;
+      if (Number(qty) > available || (isWeight && Number(qtyKg || 0) > availableKg)) {
+        const err = new Error(`Insufficient stock at source godown for "${item.name}"`);
+        err.status = 400;
+        throw err;
+      }
+      let list = applyGodownDelta(item, fromGodownId, -Number(qty), isWeight ? -Number(qtyKg || 0) : 0);
+      // applyGodownDelta only knows about `item`'s original array, so re-apply
+      // it against a synthetic item carrying the just-updated list for the
+      // second leg of the same move.
+      list = applyGodownDelta({ stockByGodown: list }, toGodownId, Number(qty), isWeight ? Number(qtyKg || 0) : 0);
+      return { changes: { stockByGodown: list }, extra: { isWeight } };
+    },
+    session
+  );
+  if (!result) throw new Error("Item not found for stock transfer");
+  const { item, extra } = result;
+  const rate = round2(item.purchasePrice) || 0;
+  const commonFields = {
+    owner,
+    itemId,
+    qty: Number(qty),
+    qtyKg: extra.isWeight ? Number(qtyKg || 0) : undefined,
+    rate,
+    sourceType: "Transfer",
+    sourceId,
+    date,
+  };
+  const movements = await StockMovement.create(
+    [
+      { ...commonFields, direction: "out", balanceQty: item.stock, balanceKg: extra.isWeight ? item.stockKg : undefined, balanceValue: round2((extra.isWeight ? item.stockKg : item.stock) * rate) },
+      { ...commonFields, direction: "in", balanceQty: item.stock, balanceKg: extra.isWeight ? item.stockKg : undefined, balanceValue: round2((extra.isWeight ? item.stockKg : item.stock) * rate) },
+    ],
+    { session: session || undefined }
+  );
+
+  return { item, movements };
 }
 
 /** Current total value of all stock on hand, per item and overall. */
@@ -224,4 +406,4 @@ async function stockValuation(owner) {
   return { rows, totalValue };
 }
 
-module.exports = { recordStockIn, recordStockOut, recordReturnIn, recordAdjustment, stockValuation };
+module.exports = { recordStockIn, recordStockOut, recordReturnIn, recordAdjustment, recordTransfer, resolveGodownId, stockValuation };

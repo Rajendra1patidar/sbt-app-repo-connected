@@ -4,6 +4,7 @@ const Payment = require("../models/Payment");
 const Item = require("../models/Item");
 const Customer = require("../models/Customer");
 const reorderService = require("../services/reorderService");
+const deadStockService = require("../services/deadStockService");
 const creditService = require("../services/creditService");
 const vendorScorecardService = require("../services/vendorScorecardService");
 const cashFlowService = require("../services/cashFlowService");
@@ -16,6 +17,19 @@ exports.reorderSuggestions = async (req, res, next) => {
   try {
     const suggestions = await reorderService.computeSuggestions(req.userId);
     res.json(suggestions);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/reports/dead-stock
+// Same relationship as reorderSuggestions above: the math lives in
+// deadStockService, shared with the nightly jobs/deadStockJob check, so
+// what you see here on demand can never drift from what the notification said.
+exports.deadStock = async (req, res, next) => {
+  try {
+    const items = await deadStockService.computeDeadStock(req.userId);
+    res.json(items);
   } catch (err) {
     next(err);
   }

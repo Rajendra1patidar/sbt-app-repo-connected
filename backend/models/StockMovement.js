@@ -14,6 +14,12 @@ const stockMovementSchema = new mongoose.Schema(
     qty: { type: Number, required: true, min: 0.001 },
     rate: { type: Number, required: true, min: 0 }, // cost basis per unit at time of movement
 
+    // Weight-mode items only: the weighed kg for this same movement, kept
+    // alongside `qty` (pieces) rather than derived from it. `rate` for these
+    // rows is ₹/kg and balanceValue is computed off qtyKg, not qty.
+    qtyKg: { type: Number, min: 0 },
+    balanceKg: { type: Number },
+
     // Running balance snapshot immediately after this movement, so a stock
     // valuation as of any point in time can be read directly off this row
     // instead of re-summing the whole history every time.

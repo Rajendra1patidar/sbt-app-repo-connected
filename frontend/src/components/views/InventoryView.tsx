@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, ClipboardList, Info, Pencil, Printer, ShoppingBag, TrendingDown, X } from "lucide-react";
+import { AlertTriangle, Archive, CheckCircle2, ChevronDown, ChevronUp, ClipboardList, Info, Pencil, Printer, ShoppingBag, TrendingDown, X } from "lucide-react";
 import { Card } from "../common/UIPrimitives";
 import { ITEM_CATEGORIES, LOW_STOCK_DEFAULT } from "../../lib/constants";
-import { fmtNum } from "../../lib/format";
+import { fmtMoney, fmtNum } from "../../lib/format";
 import { waLink } from "../../lib/contactLinks";
 import { StockTakeModal } from "../modals/StockTakeModal";
 
@@ -92,7 +92,35 @@ function ReorderSuggestionsCard({ suggestions }: any) {
   );
 }
 
-export function ToDoTrackingView({ items, settings, categories, orders, openModal, reorderSuggestions, applyStockAdjustments }: any) {
+function DeadStockCard({ items, currency }: any) {
+  if (!items || items.length === 0) return null;
+  return (
+    <Card>
+      <div className="mb-3 flex items-center gap-2">
+        <Archive size={18} className="text-ink/40" />
+        <h3 className="font-display text-base font-bold text-ink">Dead Stock</h3>
+        <span className="ml-auto rounded-full bg-warn-100 px-2.5 py-0.5 text-xs font-bold text-warn-700">{items.length}</span>
+      </div>
+      <p className="mb-3 text-xs text-ink/40">No sales in 90+ days — nothing is discounted or archived automatically.</p>
+      <ul className="space-y-2">
+        {items.map((d: any) => (
+          <li key={d.itemId} className="rounded-xl bg-paper px-4 py-3">
+            <div className="flex items-center justify-between">
+              <p className="font-semibold text-ink">{d.name}</p>
+              <p className="font-display text-sm font-bold text-ink/70">{fmtMoney(d.value, currency)} tied up</p>
+            </div>
+            <p className="text-xs text-ink/50">
+              {d.isWeight ? `${fmtNum(d.stockKg || 0)}kg / ${fmtNum(d.stock || 0)}pc` : `${fmtNum(d.stock || 0)} on hand`}
+              {" · "}{d.lastSaleDate ? `last sold ${d.lastSaleDate}` : "never sold"}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+export function ToDoTrackingView({ items, settings, categories, orders, openModal, reorderSuggestions, deadStock, applyStockAdjustments }: any) {
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [category, setCategory] = useState("All");
   const [infoFor, setInfoFor] = useState<string | null>(null);
@@ -164,6 +192,7 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
       </div>
 
       <ReorderSuggestionsCard suggestions={reorderSuggestions} />
+      <DeadStockCard items={deadStock} currency={settings?.currency} />
 
       {/* Low inventory alerts */}
       <Card>

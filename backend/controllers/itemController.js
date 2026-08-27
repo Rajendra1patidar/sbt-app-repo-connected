@@ -38,8 +38,11 @@ base.create = async (req, res, next) => {
       lowStock: Number(v.lowStock || 5),
       category: v.category || "Others",
       brand: v.brand || "",
-      trackingMode: v.trackingMode === "box" ? "box" : "unit",
+      trackingMode: ["box", "weight"].includes(v.trackingMode) ? v.trackingMode : "unit",
       piecesPerBox: Number(v.piecesPerBox || 0),
+      size: v.size || "",
+      stockKg: Number(v.stockKg || 0),
+      avgWeightPerPiece: Number(v.avgWeightPerPiece || 0),
     });
     res.status(201).json(doc);
   } catch (err) {

@@ -12,11 +12,12 @@ const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 //   - counted LESS than the books showed -> debit OtherExpense, credit Stock
 // Returns null if the count matches what's already on the books (no-op, not
 // an error) so callers/bulk loop can just skip it.
-async function applyOne({ owner, itemId, newStock, reason, date, batchId, session }) {
+async function applyOne({ owner, itemId, newStock, newStockKg, reason, date, batchId, session }) {
   const stockResult = await stockService.recordAdjustment({
     owner,
     itemId,
     newStock,
+    newStockKg,
     sourceId: itemId, // no separate parent doc; the item itself is what's being corrected
     date,
     session,
@@ -31,6 +32,9 @@ async function applyOne({ owner, itemId, newStock, reason, date, batchId, sessio
         previousStock: stockResult.oldStock,
         newStock: stockResult.item.stock,
         delta: stockResult.delta,
+        previousStockKg: stockResult.oldStockKg,
+        newStockKg: stockResult.item.stockKg,
+        deltaKg: stockResult.deltaKg,
         rate: stockResult.movement.rate,
         valueChange: stockResult.valueChange,
         reason: reason || "Stock take",
@@ -81,14 +85,23 @@ exports.list = async (req, res, next) => {
 // POST /api/stock-adjustments  { itemId, newStock, reason?, date? }
 exports.create = async (req, res, next) => {
   try {
-    const { itemId, newStock, reason } = req.body;
+    const { itemId, newStock, newStockKg, reason } = req.body;
     if (!itemId || newStock === undefined || newStock === null || Number(newStock) < 0) {
       return res.status(400).json({ message: "itemId and a non-negative newStock are required" });
     }
     const date = req.body.date || new Date().toISOString().slice(0, 10);
     const owner = req.userId;
     const result = await withTransaction((session) =>
-      applyOne({ owner, itemId, newStock: Number(newStock), reason, date, batchId: randomUUID(), session })
+      applyOne({
+        owner,
+        itemId,
+        newStock: Number(newStock),
+        newStockKg: newStockKg === undefined || newStockKg === null ? undefined : Number(newStockKg),
+        reason,
+        date,
+        batchId: randomUUID(),
+        session,
+      })
     );
     if (!result) return res.json({ message: "No change — counted quantity already matches stock on hand" });
     res.status(201).json(result);
@@ -115,14 +128,23 @@ exports.bulk = async (req, res, next) => {
 
     const results = [];
     for (const line of lines) {
-      const { itemId, newStock } = line || {};
+      const { itemId, newStock, newStockKg } = line || {};
       if (!itemId || newStock === undefined || newStock === null || Number(newStock) < 0) {
         results.push({ itemId, ok: false, message: "Missing or invalid itemId/newStock" });
         continue;
       }
       try {
         const result = await withTransaction((session) =>
-          applyOne({ owner, itemId, newStock: Number(newStock), reason: line.reason || reason, date, batchId, session })
+          applyOne({
+            owner,
+            itemId,
+            newStock: Number(newStock),
+            newStockKg: newStockKg === undefined || newStockKg === null ? undefined : Number(newStockKg),
+            reason: line.reason || reason,
+            date,
+            batchId,
+            session,
+          })
         );
         if (!result) {
           results.push({ itemId, ok: true, changed: false, message: "No change" });

@@ -20,6 +20,7 @@ const notificationSchema = new mongoose.Schema(
         "stock.reorder-suggested",
         "approval.requested",
         "customer.credit-risk",
+        "stock.dead-stock",
       ],
       index: true,
     },

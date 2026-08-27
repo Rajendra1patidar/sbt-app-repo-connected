@@ -4,6 +4,14 @@ const lineSchema = new mongoose.Schema(
   {
     itemId: { type: mongoose.Schema.Types.ObjectId, ref: "Item" },
     qty: { type: Number, default: 1, min: [0.001, "Line quantity must be greater than 0"] },
+    // Weight-mode items only: pieces physically removed from stock, captured
+    // independently of `qty`. For these items `qty` holds the weighed kg
+    // (so qty * rate still gives the correct billed amount, since rate is
+    // ₹/kg) — `piecesQty` is the separate, non-derived physical stock count.
+    piecesQty: { type: Number, min: [0, "Pieces can't be negative"] },
+    // Which godown this line dispatches from. Optional — falls back to the
+    // owner's default godown (see stockService.resolveGodownId).
+    godownId: { type: mongoose.Schema.Types.ObjectId, ref: "Godown" },
     rate: { type: Number, min: [0, "Line rate can't be negative"] },
     // flat ₹ discount off this line's subtotal (qty * rate). Shown as its own
     // line on the printed estimate rather than netted silently into the rate.
@@ -52,6 +60,9 @@ const documentSchema = new mongoose.Schema(
         itemId: { type: mongoose.Schema.Types.ObjectId, ref: "Item" },
         name: { type: String },
         qty: { type: Number },
+        // Weight-mode items only: pieces physically returned, independent of
+        // `qty` (which holds returned kg for these items).
+        piecesQty: { type: Number },
         rate: { type: Number },
         amount: { type: Number },
         date: { type: String },

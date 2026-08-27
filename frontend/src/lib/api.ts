@@ -23,6 +23,28 @@ function getToken() {
   return token;
 }
 
+/**
+ * Fires whenever a request comes back 401 (token missing/expired/invalid).
+ * App.tsx subscribes to this so an expired token — still sitting in
+ * localStorage from a previous session — kicks the user back to the
+ * login screen instead of leaving them stuck on a dashboard where every
+ * API call silently fails.
+ */
+type UnauthorizedListener = () => void;
+const unauthorizedListeners = new Set<UnauthorizedListener>();
+
+function onUnauthorized(listener: UnauthorizedListener) {
+  unauthorizedListeners.add(listener);
+  return () => {
+    unauthorizedListeners.delete(listener);
+  };
+}
+
+function handleUnauthorized() {
+  setToken(null);
+  for (const listener of unauthorizedListeners) listener();
+}
+
 /** Mongo docs come back as _id — the whole frontend expects `id`. */
 function normalize(value: any): any {
   if (Array.isArray(value)) return value.map(normalize);
@@ -68,7 +90,7 @@ async function request(path: string, options: RequestInit = {}) {
   }
 
   if (!res.ok) {
-    if (res.status === 401) setToken(null);
+    if (res.status === 401) handleUnauthorized();
     throw new ApiError(body?.message || `Request failed (${res.status})`, res.status);
   }
   return normalize(body);
@@ -98,7 +120,7 @@ async function downloadFile(path: string, fallbackFilename: string) {
     } catch {
       /* non-JSON error body */
     }
-    if (res.status === 401) setToken(null);
+    if (res.status === 401) handleUnauthorized();
     throw new ApiError(message, res.status);
   }
 
@@ -147,6 +169,7 @@ function documents(type: "estimate" | "challan") {
 export const api = {
   setToken,
   getToken,
+  onUnauthorized,
 
   auth: {
     register: (email: string, pin: string, name?: string) =>

@@ -167,14 +167,18 @@ async function profitAndLoss(owner, { startDate, endDate } = {}) {
   }
 
   const sales = balances.Sales.credit - balances.Sales.debit; // debit side would be a sales reversal (return)
+  const otherIncome = balances.OtherIncome.credit - balances.OtherIncome.debit; // e.g. stock-take surplus
   const cogs = balances.COGS.debit - balances.COGS.credit;
   const freight = balances.Freight.debit - balances.Freight.credit;
   const labour = balances.Labour.debit - balances.Labour.credit;
   const other = balances.OtherExpense.debit - balances.OtherExpense.credit;
 
+  // Gross profit stays trade-only (Sales - COGS); otherIncome is non-operating
+  // and is folded in below net of operating expenses instead, so it doesn't
+  // distort the gross margin figure.
   const grossProfit = round2(sales - cogs);
   const totalOperatingExpense = round2(freight + labour + other);
-  const netProfit = round2(grossProfit - totalOperatingExpense);
+  const netProfit = round2(grossProfit + otherIncome - totalOperatingExpense);
 
   return {
     startDate: startDate || null,
@@ -182,6 +186,7 @@ async function profitAndLoss(owner, { startDate, endDate } = {}) {
     sales: round2(sales),
     cogs: round2(cogs),
     grossProfit,
+    otherIncome: round2(otherIncome),
     expenses: { freight: round2(freight), labour: round2(labour), other: round2(other), total: totalOperatingExpense },
     netProfit,
   };

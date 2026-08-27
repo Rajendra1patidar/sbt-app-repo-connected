@@ -12,9 +12,11 @@
 
 jest.mock("../../models/Item");
 jest.mock("../../models/StockMovement");
+jest.mock("../../models/Godown");
 
 const Item = require("../../models/Item");
 const StockMovement = require("../../models/StockMovement");
+const Godown = require("../../models/Godown");
 const {
   recordStockIn,
   recordStockOut,
@@ -41,6 +43,11 @@ function mockFindOne(doc) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // No explicit godownId is passed in these tests, and none of them are
+  // exercising the Godowns feature — resolveGodownId() falls back to
+  // looking up the owner's default godown, so it needs a resolved value
+  // (none exists here) rather than hitting the real Godown model.
+  Godown.findOne.mockReturnValue({ session: jest.fn().mockResolvedValue(null) });
 });
 
 describe("recordStockIn", () => {

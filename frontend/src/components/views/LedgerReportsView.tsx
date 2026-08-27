@@ -187,6 +187,9 @@ export function LedgerReportsView({ currency }: any) {
               <div className="flex justify-between"><span className="text-ink/60">Sales</span><span className="font-semibold text-ink">{fmtMoney(profitAndLoss?.sales || 0, currency)}</span></div>
               <div className="flex justify-between"><span className="text-ink/60">Cost of Goods Sold</span><span className="font-semibold text-bad-600">-{fmtMoney(profitAndLoss?.cogs || 0, currency)}</span></div>
               <div className="flex justify-between border-t border-line pt-2"><span className="font-semibold text-ink">Gross Profit</span><span className="font-bold text-good-700">{fmtMoney(profitAndLoss?.grossProfit || 0, currency)}</span></div>
+              {!!profitAndLoss?.otherIncome && (
+                <div className="flex justify-between"><span className="text-ink/60">Other Income</span><span className="font-semibold text-good-700">+{fmtMoney(profitAndLoss.otherIncome, currency)}</span></div>
+              )}
               <div className="flex justify-between"><span className="text-ink/60">Freight</span><span className="text-bad-600">-{fmtMoney(profitAndLoss?.expenses?.freight || 0, currency)}</span></div>
               <div className="flex justify-between"><span className="text-ink/60">Labour</span><span className="text-bad-600">-{fmtMoney(profitAndLoss?.expenses?.labour || 0, currency)}</span></div>
               <div className="flex justify-between"><span className="text-ink/60">Other Expenses</span><span className="text-bad-600">-{fmtMoney(profitAndLoss?.expenses?.other || 0, currency)}</span></div>

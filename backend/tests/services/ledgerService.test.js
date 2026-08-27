@@ -161,9 +161,10 @@ describe("accountBalance / trialBalance", () => {
 describe("profitAndLoss", () => {
   test("computes gross and net profit from Sales/COGS/operating expense balances", async () => {
     // profitAndLoss calls accountBalance once per account in this fixed order:
-    // Sales, COGS, Freight, Labour, OtherExpense
+    // Sales, OtherIncome, COGS, Freight, Labour, OtherExpense
     LedgerEntry.aggregate
       .mockResolvedValueOnce([{ debit: 0, credit: 1000 }]) // Sales
+      .mockResolvedValueOnce([{ debit: 0, credit: 0 }]) // OtherIncome
       .mockResolvedValueOnce([{ debit: 600, credit: 0 }]) // COGS
       .mockResolvedValueOnce([{ debit: 50, credit: 0 }]) // Freight
       .mockResolvedValueOnce([{ debit: 30, credit: 0 }]) // Labour
@@ -174,8 +175,28 @@ describe("profitAndLoss", () => {
     expect(pnl.sales).toBe(1000);
     expect(pnl.cogs).toBe(600);
     expect(pnl.grossProfit).toBe(400);
+    expect(pnl.otherIncome).toBe(0);
     expect(pnl.expenses).toEqual({ freight: 50, labour: 30, other: 20, total: 100 });
     expect(pnl.netProfit).toBe(300);
+  });
+
+  test("folds a stock-take surplus (OtherIncome) into net profit, not gross profit", async () => {
+    // A stock-take that finds MORE stock than the books show posts
+    // debit Stock / credit OtherIncome (see stockAdjustmentController).
+    // That surplus must reach netProfit or the balance sheet stops balancing.
+    LedgerEntry.aggregate
+      .mockResolvedValueOnce([{ debit: 0, credit: 1000 }]) // Sales
+      .mockResolvedValueOnce([{ debit: 0, credit: 75 }]) // OtherIncome (stock-take surplus)
+      .mockResolvedValueOnce([{ debit: 600, credit: 0 }]) // COGS
+      .mockResolvedValueOnce([{ debit: 0, credit: 0 }]) // Freight
+      .mockResolvedValueOnce([{ debit: 0, credit: 0 }]) // Labour
+      .mockResolvedValueOnce([{ debit: 0, credit: 0 }]); // OtherExpense
+
+    const pnl = await profitAndLoss("o1", {});
+
+    expect(pnl.grossProfit).toBe(400); // unaffected by OtherIncome
+    expect(pnl.otherIncome).toBe(75);
+    expect(pnl.netProfit).toBe(475); // 400 + 75 - 0
   });
 });
 

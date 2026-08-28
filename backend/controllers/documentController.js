@@ -10,6 +10,7 @@ const paymentController = require("./paymentController");
 const { withTransaction } = require("../utils/withTransaction");
 const idempotency = require("../utils/idempotency");
 const eventBus = require("../services/eventBus");
+const { logAudit, diffFields } = require("../services/auditLogger");
 
 const PREFIX = { estimate: "EST", challan: "DC" };
 const DEFAULT_STATUS = { estimate: "Due", challan: "Pending" };
@@ -311,6 +312,15 @@ exports.create = (type) => async (req, res, next) => {
 
     idempotency.remember(req.userId, idempotencyKey, result);
 
+    logAudit({
+      owner: req.userId,
+      actorId: req.actorId,
+      action: "create",
+      model: `Document (${type})`,
+      docId: result.doc._id,
+      label: result.doc.number || "",
+    });
+
     // Emitted after the transaction has committed, never inside it — a listener
     // failing (e.g. writing a Notification) must never roll back or block the
     // response for the estimate/challan itself.
@@ -394,6 +404,16 @@ exports.update = (type) => async (req, res, next) => {
       return { doc, lowStock };
     });
 
+    logAudit({
+      owner: req.userId,
+      actorId: req.actorId,
+      action: "update",
+      model: `Document (${type})`,
+      docId: result.doc._id,
+      label: result.doc.number || "",
+      changedFields: diffFields(existing.toObject ? existing.toObject() : existing, updateFields),
+    });
+
     for (const low of result.lowStock || []) {
       eventBus.emit("stock.low", { owner: req.userId, itemId: low.itemId, name: low.name, stock: low.stock });
     }
@@ -452,6 +472,7 @@ exports.remove = (type) => async (req, res, next) => {
 
     if (type !== "estimate") {
       await Document.findOneAndDelete({ _id: req.params.id, owner: req.userId, type });
+      logAudit({ owner: req.userId, actorId: req.actorId, action: "delete", model: `Document (${type})`, docId: doc._id, label: doc.number || "" });
       return res.json({ message: "Deleted", id: req.params.id });
     }
 
@@ -480,6 +501,7 @@ exports.remove = (type) => async (req, res, next) => {
     });
 
     const freshItems = await Item.find({ owner: req.userId });
+    logAudit({ owner: req.userId, actorId: req.actorId, action: "delete", model: `Document (${type})`, docId: doc._id, label: doc.number || "" });
     res.json({ message: "Deleted", id: req.params.id, doc, items: freshItems });
   } catch (err) {
     if (err.status) return res.status(err.status).json({ message: err.message });

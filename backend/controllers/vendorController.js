@@ -1,6 +1,7 @@
 const Vendor = require("../models/Vendor");
 const crudController = require("./crudController");
 const ledgerService = require("../services/ledgerService");
+const { logAudit } = require("../services/auditLogger");
 
 const base = crudController(Vendor);
 
@@ -32,6 +33,7 @@ base.create = async (req, res, next) => {
       return res.status(409).json({ message: "A vendor with this name and phone number already exists" });
     }
     const doc = await Vendor.create({ ...v, owner: req.userId });
+    logAudit({ owner: req.userId, actorId: req.actorId, action: "create", model: "Vendor", docId: doc._id, label: doc.name });
     res.status(201).json(doc);
   } catch (err) {
     next(err);

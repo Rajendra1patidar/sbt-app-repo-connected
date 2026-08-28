@@ -1,5 +1,6 @@
 const Customer = require("../models/Customer");
 const crudController = require("./crudController");
+const { logAudit, diffFields } = require("../services/auditLogger");
 
 const base = crudController(Customer);
 
@@ -31,6 +32,7 @@ base.create = async (req, res, next) => {
       return res.status(409).json({ message: "A customer with this name and phone number already exists" });
     }
     const doc = await Customer.create({ ...v, owner: req.userId });
+    logAudit({ owner: req.userId, actorId: req.actorId, action: "create", model: "Customer", docId: doc._id, label: doc.name });
     res.status(201).json(doc);
   } catch (err) {
     // Belt-and-suspenders: the find-check above has a race window between two
@@ -56,12 +58,14 @@ base.update = async (req, res, next) => {
         return res.status(409).json({ message: "A customer with this name and phone number already exists" });
       }
     }
+    const before = await Customer.findOne({ _id: req.params.id, owner: req.userId }).lean();
     const doc = await Customer.findOneAndUpdate(
       { _id: req.params.id, owner: req.userId },
       { $set: v },
       { new: true, runValidators: true }
     );
     if (!doc) return res.status(404).json({ message: "Not found" });
+    logAudit({ owner: req.userId, actorId: req.actorId, action: "update", model: "Customer", docId: doc._id, label: doc.name, changedFields: diffFields(before, v) });
     res.json(doc);
   } catch (err) {
     if (err.code === 11000) {

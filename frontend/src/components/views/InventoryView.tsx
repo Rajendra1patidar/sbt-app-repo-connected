@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, Archive, CheckCircle2, ChevronDown, ChevronUp, ClipboardList, Info, Pencil, Printer, ShoppingBag, TrendingDown, X } from "lucide-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Card } from "../common/UIPrimitives";
 import { ITEM_CATEGORIES, LOW_STOCK_DEFAULT } from "../../lib/constants";
 import { fmtMoney, fmtNum } from "../../lib/format";
@@ -127,9 +128,24 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
   const [stockTakeOpen, setStockTakeOpen] = useState(false);
   const cats = categories?.length ? categories : ITEM_CATEGORIES;
 
+  // Full Inventory Stock can run into the hundreds or thousands of rows for a
+  // godown with a large catalogue. Rendering every <li> at once was fine for
+  // a few dozen items but starts to visibly lag scrolling well before that —
+  // virtualizing this list keeps scroll smooth regardless of catalogue size,
+  // since only the ~10 rows actually on screen are ever in the DOM.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const ROW_HEIGHT = 62; // px — matches the row's padding + two lines of text
+
   const lowItems = items.filter((it: any) => (it.stock ?? 0) <= (it.lowStock ?? LOW_STOCK_DEFAULT));
   const categoryFiltered = category === "All" ? items : items.filter((it: any) => (it.category || "Others") === category);
   const allItems = [...categoryFiltered].sort((a: any, b: any) => (a.stock ?? 0) - (b.stock ?? 0));
+
+  const rowVirtualizer = useVirtualizer({
+    count: allItems.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 8,
+  });
 
   const stockColor = (it: any) => {
     const s = it.stock ?? 0;
@@ -259,24 +275,35 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
             ) : allItems.length === 0 ? (
               <p className="text-sm text-ink/40">No items match this category.</p>
             ) : (
-              <ul className="space-y-2">
-                {allItems.map((it: any) => (
-                  <li key={it.id} className="flex items-center justify-between rounded-xl border border-line px-4 py-2.5">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-ink">{it.name}</p>
-                      <p className="text-xs text-ink/40">{it.unit || "unit"} · {it.category || "Others"}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="text-right">
-                        <p className={`font-display text-base font-bold ${stockColor(it)}`}>{stockBreakdown(it)}</p>
-                        <p className="text-xs text-ink/40">/ alert ≤{fmtNum(it.lowStock ?? LOW_STOCK_DEFAULT)}</p>
+              <div ref={scrollRef} className="max-h-[480px] overflow-y-auto">
+                <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>
+                  {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                    const it = allItems[virtualRow.index];
+                    return (
+                      <div
+                        key={it.id}
+                        style={{ position: "absolute", top: 0, left: 0, width: "100%", height: virtualRow.size, transform: `translateY(${virtualRow.start}px)` }}
+                        className="pb-2"
+                      >
+                        <div className="flex h-full items-center justify-between rounded-xl border border-line px-4 py-2.5">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-ink">{it.name}</p>
+                            <p className="text-xs text-ink/40">{it.unit || "unit"} · {it.category || "Others"}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="text-right">
+                              <p className={`font-display text-base font-bold ${stockColor(it)}`}>{stockBreakdown(it)}</p>
+                              <p className="text-xs text-ink/40">/ alert ≤{fmtNum(it.lowStock ?? LOW_STOCK_DEFAULT)}</p>
+                            </div>
+                            <button onClick={() => setInfoFor(it.id)} className="rounded-full p-2 text-ink/40 hover:bg-paper"><Info size={15} /></button>
+                            <button onClick={() => openModal("item", { editingItem: it })} className="rounded-full p-2 text-ink/40 hover:bg-paper"><Pencil size={15} /></button>
+                          </div>
+                        </div>
                       </div>
-                      <button onClick={() => setInfoFor(it.id)} className="rounded-full p-2 text-ink/40 hover:bg-paper"><Info size={15} /></button>
-                      <button onClick={() => openModal("item", { editingItem: it })} className="rounded-full p-2 text-ink/40 hover:bg-paper"><Pencil size={15} /></button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
         )}

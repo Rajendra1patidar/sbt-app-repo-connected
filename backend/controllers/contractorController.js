@@ -1,5 +1,6 @@
 const Contractor = require("../models/Contractor");
 const crudController = require("./crudController");
+const { logAudit } = require("../services/auditLogger");
 
 const base = crudController(Contractor);
 
@@ -18,6 +19,7 @@ base.create = async (req, res, next) => {
       { $set: { name: name.trim(), phone: (phone || "").trim() }, $setOnInsert: { owner: req.userId } },
       { new: true, upsert: true, runValidators: true }
     );
+    logAudit({ owner: req.userId, actorId: req.actorId, action: "create", model: "Contractor", docId: doc._id, label: doc.name });
     res.status(201).json(doc);
   } catch (err) {
     next(err);

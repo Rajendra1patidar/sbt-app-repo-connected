@@ -1,6 +1,7 @@
 const Expense = require("../models/Expense");
 const crudController = require("./crudController");
 const ledgerService = require("../services/ledgerService");
+const { logAudit } = require("../services/auditLogger");
 
 const base = crudController(Expense);
 
@@ -39,6 +40,7 @@ base.create = async (req, res, next) => {
       );
     }
 
+    logAudit({ owner: req.userId, actorId: req.actorId, action: "create", model: "Expense", docId: doc._id, label: `${v.category}${v.vendor ? " · " + v.vendor : ""}` });
     res.status(201).json(doc);
   } catch (err) {
     next(err);
@@ -50,6 +52,7 @@ base.remove = async (req, res, next) => {
     const doc = await Expense.findOneAndDelete({ _id: req.params.id, owner: req.userId });
     if (!doc) return res.status(404).json({ message: "Not found" });
     await ledgerService.reverseSource(req.userId, "Expense", doc._id, "Expense entry removed");
+    logAudit({ owner: req.userId, actorId: req.actorId, action: "delete", model: "Expense", docId: doc._id, label: `${doc.category}${doc.vendor ? " · " + doc.vendor : ""}` });
     res.json({ message: "Deleted", id: req.params.id });
   } catch (err) {
     next(err);

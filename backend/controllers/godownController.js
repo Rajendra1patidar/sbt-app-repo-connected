@@ -4,6 +4,7 @@ const crudController = require("./crudController");
 const stockService = require("../services/stockService");
 const { withTransaction } = require("../utils/withTransaction");
 const { randomUUID } = require("crypto");
+const { logAudit } = require("../services/auditLogger");
 
 const base = crudController(Godown);
 const normName = (s) => (s || "").trim().toLowerCase();
@@ -48,6 +49,7 @@ base.create = async (req, res, next) => {
       // script in the next step.
       isDefault: isFirst,
     });
+    logAudit({ owner: req.userId, actorId: req.actorId, action: "create", model: "Godown", docId: doc._id, label: doc.name });
     res.status(201).json(doc);
   } catch (err) {
     next(err);
@@ -80,10 +82,12 @@ base.remove = async (req, res, next) => {
         { new: true }
       );
       if (!doc) return res.status(404).json({ message: "Not found" });
+      logAudit({ owner: req.userId, actorId: req.actorId, action: "update", model: "Godown", docId: doc._id, label: doc.name, changedFields: ["archived"] });
       return res.json(doc);
     }
     const doc = await Godown.findOneAndDelete({ _id: req.params.id, owner: req.userId });
     if (!doc) return res.status(404).json({ message: "Not found" });
+    logAudit({ owner: req.userId, actorId: req.actorId, action: "delete", model: "Godown", docId: doc._id, label: doc.name });
     res.json({ message: "Deleted" });
   } catch (err) {
     next(err);
@@ -126,6 +130,7 @@ base.transferStock = async (req, res, next) => {
         session,
       })
     );
+    logAudit({ owner: req.userId, actorId: req.actorId, action: "update", model: "StockTransfer", docId: item._id, label: `${item.name}: ${fromG.name} -> ${toG.name} (${qty})` });
     res.status(201).json(result);
   } catch (err) {
     next(err);

@@ -32,6 +32,7 @@ import { ExpensesView } from "./views/ExpensesView";
 import { FinancialYearView } from "./views/FinancialYearView";
 import { ToDoTrackingView } from "./views/InventoryView";
 import { StockAdjustmentHistoryView } from "./views/StockAdjustmentHistoryView";
+import { AuditLogView } from "./views/AuditLogView";
 import { ItemsView } from "./views/ItemsView";
 import { LabourTrackingView } from "./views/LabourTrackingView";
 import { LedgerReportsView } from "./views/LedgerReportsView";
@@ -248,6 +249,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <Route path="/share-report" element={<ShareReportView invoices={activeEstimates} items={items} customers={customers} currency={settings.currency} settings={settings} />} />
       <Route path="/billing" element={<AdvancedBillingView autoReminder={autoReminder} setAutoReminder={setAutoReminder} overdueCount={overdueCount} settings={settings} />} />
       <Route path="/settings" element={<SettingsView settings={settings} setSettings={saveSettings} />} />
+      <Route path="/audit-log" element={<AuditLogView />} />
       <Route path="*" element={<Dashboard data={data} settings={settings} openModal={openModal} go={goToView} reorderSuggestions={reorderSuggestions} saveDocument={saveDocument} savePayment={savePayment} savePurchase={savePurchase} saveCustomer={saveCustomer} saveExpense={saveExpense} saveReturn={saveReturn} showToast={showToast} />} />
     </Routes>
   );

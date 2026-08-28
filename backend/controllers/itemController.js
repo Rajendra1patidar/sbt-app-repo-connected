@@ -1,5 +1,6 @@
 const Item = require("../models/Item");
 const crudController = require("./crudController");
+const { logAudit, diffFields } = require("../services/auditLogger");
 
 const base = crudController(Item);
 
@@ -44,6 +45,7 @@ base.create = async (req, res, next) => {
       stockKg: Number(v.stockKg || 0),
       avgWeightPerPiece: Number(v.avgWeightPerPiece || 0),
     });
+    logAudit({ owner: req.userId, actorId: req.actorId, action: "create", model: "Item", docId: doc._id, label: doc.name });
     res.status(201).json(doc);
   } catch (err) {
     // Belt-and-suspenders: the find-check above has a race window between two
@@ -89,6 +91,7 @@ base.update = async (req, res, next) => {
       { new: true, runValidators: true }
     );
     if (!doc) return res.status(404).json({ message: "Not found" });
+    logAudit({ owner: req.userId, actorId: req.actorId, action: "update", model: "Item", docId: doc._id, label: doc.name, changedFields: diffFields(existing.toObject ? existing.toObject() : existing, v) });
     res.json(doc);
   } catch (err) {
     if (err.code === 11000) {
@@ -116,6 +119,7 @@ base.remove = async (req, res, next) => {
       { new: true }
     );
     if (!doc) return res.status(404).json({ message: "Not found" });
+    logAudit({ owner: req.userId, actorId: req.actorId, action: "delete", model: "Item", docId: doc._id, label: doc.name });
     res.json({ message: "Deleted", id: req.params.id });
   } catch (err) {
     next(err);

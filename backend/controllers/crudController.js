@@ -2,6 +2,8 @@
 // (customers, items, orders, expenses, payments, vendors, contractors).
 // Every document is scoped to req.userId (the logged-in owner).
 
+const { logAudit, diffFields } = require("../services/auditLogger");
+
 function crudController(Model) {
   return {
     // GET /api/<resource>?page=1&limit=50
@@ -43,6 +45,14 @@ function crudController(Model) {
     create: async (req, res, next) => {
       try {
         const doc = await Model.create({ ...req.body, owner: req.userId });
+        logAudit({
+          owner: req.userId,
+          actorId: req.actorId,
+          action: "create",
+          model: Model.modelName,
+          docId: doc._id,
+          label: doc.name || doc.number || "",
+        });
         res.status(201).json(doc);
       } catch (err) {
         next(err);
@@ -51,12 +61,22 @@ function crudController(Model) {
 
     update: async (req, res, next) => {
       try {
+        const before = await Model.findOne({ _id: req.params.id, owner: req.userId }).lean();
         const doc = await Model.findOneAndUpdate(
           { _id: req.params.id, owner: req.userId },
           { $set: req.body },
           { new: true, runValidators: true }
         );
         if (!doc) return res.status(404).json({ message: "Not found" });
+        logAudit({
+          owner: req.userId,
+          actorId: req.actorId,
+          action: "update",
+          model: Model.modelName,
+          docId: doc._id,
+          label: doc.name || doc.number || "",
+          changedFields: diffFields(before, req.body),
+        });
         res.json(doc);
       } catch (err) {
         next(err);
@@ -67,6 +87,14 @@ function crudController(Model) {
       try {
         const doc = await Model.findOneAndDelete({ _id: req.params.id, owner: req.userId });
         if (!doc) return res.status(404).json({ message: "Not found" });
+        logAudit({
+          owner: req.userId,
+          actorId: req.actorId,
+          action: "delete",
+          model: Model.modelName,
+          docId: doc._id,
+          label: doc.name || doc.number || "",
+        });
         res.json({ message: "Deleted", id: req.params.id });
       } catch (err) {
         next(err);

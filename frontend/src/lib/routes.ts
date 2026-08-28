@@ -31,6 +31,7 @@ export const VIEW_PATHS: Record<string, string> = {
   sharereport: "/share-report",
   billing: "/billing",
   settings: "/settings",
+  auditLog: "/audit-log",
 };
 
 const PATH_TO_VIEW: Record<string, string> = Object.fromEntries(

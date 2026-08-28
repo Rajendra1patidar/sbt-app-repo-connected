@@ -7,6 +7,7 @@ const ledgerService = require("../services/ledgerService");
 const stockService = require("../services/stockService");
 const { withTransaction } = require("../utils/withTransaction");
 const eventBus = require("../services/eventBus");
+const { logAudit } = require("../services/auditLogger");
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
@@ -246,6 +247,14 @@ exports.create = async (req, res, next) => {
     }
 
     const result = await createPurchaseRecord(req.userId, v);
+    logAudit({
+      owner: req.userId,
+      actorId: req.actorId,
+      action: "create",
+      model: source === "order" ? "Order" : "Purchase",
+      docId: result._id || result.purchase?._id,
+      label: `${thresholdItem?.name || ""} qty ${qty} @ ${rate}`.trim(),
+    });
     res.status(201).json(result);
   } catch (err) {
     if (err.status) return res.status(err.status).json({ message: err.message });
@@ -350,6 +359,8 @@ exports.remove = async (req, res, next) => {
 
     const sourceType = doc.source === "order" ? "Order" : "Purchase";
     await ledgerService.reverseSource(req.userId, sourceType, doc._id, `${sourceType} deleted`);
+
+    logAudit({ owner: req.userId, actorId: req.actorId, action: "delete", model: sourceType, docId: doc._id, label: `qty ${doc.qty} @ ${doc.rate}` });
 
     res.json({ message: "Deleted", id: req.params.id });
   } catch (err) {

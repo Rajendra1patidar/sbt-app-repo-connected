@@ -260,6 +260,14 @@ export const api = {
       request("/api/stock-adjustments/bulk", { method: "POST", body: JSON.stringify(v) }),
   },
 
+  // Owner-only (server returns 403 for a staff login) — see routes/auditLogRoutes.js.
+  auditLogs: {
+    list: (params?: { model?: string; docId?: string; action?: string }) => {
+      const qs = new URLSearchParams(params as any).toString();
+      return request(`/api/audit-logs${qs ? `?${qs}` : ""}`);
+    },
+  },
+
   dataExport: {
     toJson: () => downloadFile("/api/export/json", "sbt-export.json"),
     toExcel: () => downloadFile("/api/export/excel", "sbt-export.xlsx"),

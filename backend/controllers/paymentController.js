@@ -4,6 +4,7 @@ const crudController = require("./crudController");
 const ledgerService = require("../services/ledgerService");
 const { withTransaction } = require("../utils/withTransaction");
 const eventBus = require("../services/eventBus");
+const { logAudit } = require("../services/auditLogger");
 
 const base = crudController(Payment);
 
@@ -109,6 +110,15 @@ base.create = async (req, res, next) => {
       return { payment, invoice };
     });
 
+    logAudit({
+      owner: req.userId,
+      actorId: req.actorId,
+      action: "create",
+      model: "Payment",
+      docId: result.payment._id,
+      label: `${amount < 0 ? "Refund" : "Payment"} ${Math.abs(amount)}${result.payment.invoiceNumber ? " · " + result.payment.invoiceNumber : ""}`,
+    });
+
     eventBus.emit(amount < 0 ? "payment.refunded" : "payment.received", {
       owner: req.userId,
       paymentId: result.payment._id,
@@ -146,6 +156,15 @@ base.remove = async (req, res, next) => {
       await ledgerService.reverseSource(req.userId, "Payment", payment._id, "Payment entry removed", session);
 
       return invoice;
+    });
+
+    logAudit({
+      owner: req.userId,
+      actorId: req.actorId,
+      action: "delete",
+      model: "Payment",
+      docId: req.params.id,
+      label: result ? `Invoice ${result.number}` : "",
     });
 
     res.json({ message: "Deleted", id: req.params.id, invoice: result });

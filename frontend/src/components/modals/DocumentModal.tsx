@@ -225,6 +225,10 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
                 )}
               </div>
               <div className="space-y-2">
+                {/* Stock for `item` at `godownId` (falling back to the owner's default
+                    godown when no godown is picked yet, matching backend resolveGodownId).
+                    With a single godown (or none), item.stock/stockKg IS the whole picture,
+                    so we skip the per-location lookup and use those directly. */}
                 {lines.map((ln, i) => {
                   const it = itemById(ln.itemId);
                   const isWeight = it?.trackingMode === "weight";
@@ -232,14 +236,29 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
                   const lineGross = Number(ln.qty || 0) * Number(ln.rate || 0);
                   const lineDiscount = Number(ln.discountAmount || 0);
                   const lineSubtotal = lineGross - lineDiscount;
-                  const exceedsStock = it && (isWeight ? Number(ln.qty) > (it.stockKg ?? 0) : Number(ln.qty) > (it.stock ?? 0));
-                  const exceedsPieces = it && isWeight && Number(ln.piecesQty || 0) > (it.stock ?? 0);
+                  const stockAtLineGodown = (itm: any) => {
+                    if (!itm) return { stock: 0, stockKg: 0 };
+                    if (!godowns || godowns.length <= 1) return { stock: itm.stock ?? 0, stockKg: itm.stockKg ?? 0 };
+                    const gid = ln.godownId || godowns.find((g: any) => g.isDefault)?.id || godowns[0]?.id;
+                    const entry = (itm.stockByGodown || []).find((g: any) => String(g.godownId) === String(gid));
+                    return { stock: entry?.stock ?? 0, stockKg: entry?.stockKg ?? 0 };
+                  };
+                  const godownStock = stockAtLineGodown(it);
+                  const exceedsStock = it && (isWeight ? Number(ln.qty) > (godownStock.stockKg ?? 0) : Number(ln.qty) > (godownStock.stock ?? 0));
+                  const exceedsPieces = it && isWeight && Number(ln.piecesQty || 0) > (godownStock.stock ?? 0);
                   return (
                     <div key={i} className="rounded-xl border border-line bg-paper/60 p-2.5">
                       <div className="mb-2.5 flex items-center gap-2 border-b border-line/70 pb-2.5">
                         <div className="min-w-0 flex-1">
                           <SearchableSelect
-                            options={(it?.deleted ? [...activeItems, it] : activeItems).map((opt: any) => ({ value: opt.id, label: opt.deleted ? `${opt.name} (deleted)` : `${opt.name} (stock: ${opt.trackingMode === "weight" ? `${opt.stockKg ?? 0}kg / ${opt.stock ?? 0}pc` : opt.stock ?? 0})`, keywords: opt.category || "" }))}
+                            options={(it?.deleted ? [...activeItems, it] : activeItems).map((opt: any) => {
+                              const s = stockAtLineGodown(opt);
+                              return {
+                                value: opt.id,
+                                label: opt.deleted ? `${opt.name} (deleted)` : `${opt.name} (stock: ${opt.trackingMode === "weight" ? `${s.stockKg ?? 0}kg / ${s.stock ?? 0}pc` : s.stock ?? 0})`,
+                                keywords: opt.category || "",
+                              };
+                            })}
                             value={ln.itemId}
                             onChange={(v: string) => setLineItem(i, v)}
                             placeholder="Select item"

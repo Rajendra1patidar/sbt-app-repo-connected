@@ -13,11 +13,17 @@ const settingsSchema = new mongoose.Schema(
     // purchaseController.js and models/ApprovalRequest.js. Never gates the
     // owner's own actions, only staff logins.
     approvalThreshold: { type: Number, default: 0, min: 0 },
-    // Item categories are now user-editable from Settings instead of hardcoded —
-    // this seeds new accounts with the same defaults the app used to hardcode.
+    // Item categories and brands are user-editable from Settings instead of
+    // hardcoded — these seed new accounts with the same defaults the app
+    // used to hardcode (see lib/constants.ts's ITEM_CATEGORIES/ITEM_BRANDS,
+    // which the frontend still falls back to if this field is ever empty).
     itemCategories: {
       type: [String],
       default: ["Saria", "Cement", "CPVC", "UPVC", "Kasta", "Wall fit", "Roof fit", "Power Tool", "IOCL", "Sand", "Sanitary", "Others"],
+    },
+    itemBrands: {
+      type: [String],
+      default: ["Anant", "Shivangi", "Kamdhenu"],
     },
   },
   { timestamps: true }

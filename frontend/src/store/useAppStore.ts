@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { api } from "../lib/api";
 import { ITEM_CATEGORIES } from "../lib/constants";
 import { fmtMoney, fmtNum, today } from "../lib/format";
+import { enqueueOfflineAction } from "../lib/offlineQueue";
+import { saveDataCache, loadDataCache } from "../lib/dataCache";
 
 /**
  * Central app store. This replaces the ~15 useState calls and every
@@ -28,6 +30,11 @@ interface AppState {
   // ---- data loaded from the backend ----
   loading: boolean;
   loadError: string;
+  // Set when fetchAll() couldn't reach the server and fell back to the last
+  // locally cached snapshot instead (see lib/dataCache.ts) — the timestamp
+  // of that snapshot, so the UI can tell the user the data on screen isn't
+  // live. Empty string when showing real, freshly-fetched data.
+  offlineDataAsOf: string;
   settings: any;
   customers: any[];
   items: any[];
@@ -120,6 +127,7 @@ const docListKey = (type: string): "estimates" | "challans" => (type === "estima
 export const useAppStore = create<AppState>()((set, get) => ({
   loading: true,
   loadError: "",
+  offlineDataAsOf: "",
   settings: {
     orgName: "SHREE BALAJI TRADERS",
     ownerName: "SBT",
@@ -198,9 +206,20 @@ export const useAppStore = create<AppState>()((set, get) => ({
         godowns: gd || [],
         deadStock: ds || [],
         loading: false,
+        offlineDataAsOf: "",
       }));
+      // Snapshot this fresh state for the next time the app opens with no
+      // connectivity — see the offline fallback below and lib/dataCache.ts.
+      saveDataCache(get());
     } catch (err: any) {
       if (err?.status === 401) { get().onSignOut?.(); return; }
+      if (err?.status === 0) {
+        const cached = loadDataCache();
+        if (cached) {
+          set({ ...cached.data, loading: false, loadError: "", offlineDataAsOf: cached.savedAt });
+          return;
+        }
+      }
       set({ loadError: err.message || "Failed to load your data", loading: false });
     }
   },
@@ -295,7 +314,19 @@ export const useAppStore = create<AppState>()((set, get) => ({
         closeModal();
         return doc;
       }
-    } catch (err) { onApiError(get, err, "Failed to save customer"); }
+    } catch (err: any) {
+      // Editing an existing customer offline isn't supported (same reasoning
+      // as estimates/documents — no way to safely apply a concurrent edit
+      // without the server's current copy), so this only queues a brand-new
+      // customer, same as quickAddOfflineCustomer below.
+      if (err?.status === 0 && !v.id) {
+        const placeholder = queueOfflineCustomer(set, v);
+        showToast("You're offline — customer saved and will sync automatically once you're back online.");
+        closeModal();
+        return placeholder;
+      }
+      onApiError(get, err, "Failed to save customer");
+    }
   },
 
   // Same duplicate-check + create as saveCustomer, but built for the quick-add
@@ -313,7 +344,21 @@ export const useAppStore = create<AppState>()((set, get) => ({
       set((state) => ({ customers: [doc, ...state.customers] }));
       showToast("Customer added");
       return doc;
-    } catch (err) { onApiError(get, err, "Failed to add customer"); return null; }
+    } catch (err: any) {
+      if (err?.status === 0) {
+        // This is the important case for a sales person offline: without
+        // this, hitting "+ New customer" mid-estimate for someone not
+        // already in the list would dead-end the whole sale. The returned
+        // placeholder's id is usable immediately as the estimate's
+        // customerId — see saveDocument's offline branch, which queues that
+        // reference and resolves it to the real id once this customer syncs.
+        const placeholder = queueOfflineCustomer(set, v);
+        showToast("You're offline — customer saved and will sync automatically once you're back online.");
+        return placeholder;
+      }
+      onApiError(get, err, "Failed to add customer");
+      return null;
+    }
   },
 
   // Same duplicate-check + create as saveItem, but built for the quick-add popup
@@ -349,7 +394,18 @@ export const useAppStore = create<AppState>()((set, get) => ({
       set((state) => ({ challans: [doc, ...state.challans] }));
       showToast("Challan saved");
       closeModal();
-    } catch (err) { onApiError(get, err, "Failed to save challan"); }
+    } catch (err: any) {
+      // status 0 = request never reached the server (see lib/api.ts) — that's
+      // "we're offline", not a real rejection, so queue it for field staff
+      // instead of losing the delivery challan they just filled out.
+      if (err?.status === 0) {
+        enqueueOfflineAction("challan", v);
+        showToast("You're offline — challan saved and will sync automatically once you're back online.");
+        closeModal();
+        return;
+      }
+      onApiError(get, err, "Failed to save challan");
+    }
   },
 
   saveItem: async (v) => {
@@ -578,8 +634,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
   saveDocument: async (type, v) => {
     const { showToast, closeModal } = get();
     const key = docListKey(type);
+    let payload: any;
     try {
-      const payload: any = { customerId: v.customerId, date: v.date, dueDate: v.dueDate, lines: v.lines, notes: v.notes, total: v.total };
+      payload = { customerId: v.customerId, date: v.date, dueDate: v.dueDate, lines: v.lines, notes: v.notes, total: v.total };
       if (type === "estimate") {
         payload.freightCost = v.freightCost || 0;
         payload.labourCost = v.labourCost || 0;
@@ -660,7 +717,55 @@ export const useAppStore = create<AppState>()((set, get) => ({
       }
       closeModal();
       return doc;
-    } catch (err) { onApiError(get, err, "Failed to save document"); }
+    } catch (err: any) {
+      // Offline branch is deliberately scoped to *creating* a brand-new
+      // estimate — editing one offline is excluded: an edit can re-deduct
+      // or restock items and carries an expectedUpdatedAt concurrency
+      // check against the server's current copy, both of which assume
+      // they're running against live data. Same reasoning that already
+      // kept editing out of the Challan/Stock Take/Payment offline paths.
+      if (err?.status === 0 && type === "estimate" && !v.id && payload) {
+        const idempotencyKey = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const placeholderId = `offline-${idempotencyKey}`;
+        enqueueOfflineAction("estimate", {
+          payload, idempotencyKey, placeholderId,
+          partialAmountPaid: v.partialAmountPaid, customerId: v.customerId, date: v.date,
+        });
+
+        const placeholder = {
+          id: placeholderId,
+          number: "Pending sync",
+          customerId: v.customerId,
+          date: v.date,
+          dueDate: v.dueDate,
+          lines: v.lines,
+          notes: v.notes,
+          total: v.total,
+          status: payload.status || "Due",
+          freightCost: payload.freightCost,
+          labourCost: payload.labourCost,
+          previousDue: payload.previousDue,
+          _offlinePending: true,
+        };
+        set((state) => {
+          let estimates = [placeholder, ...state.estimates];
+          if (v.rolledEstimateIds && v.rolledEstimateIds.length) {
+            // Mirrors the online path's optimistic update so the rolled-in
+            // estimates don't keep showing as due while this one is queued.
+            // Stock itself is deliberately left untouched here (unlike Stock
+            // Take's optimistic numbers) — estimate lines mix weight/piece
+            // units in a way that's easy to get subtly wrong client-side;
+            // safer to show the last-known real stock until sync corrects it.
+            estimates = estimates.map((e: any) => (v.rolledEstimateIds.includes(e.id) ? { ...e, status: "Paid" } : e));
+          }
+          return { estimates };
+        });
+        showToast("You're offline — estimate saved and will sync automatically once you're back online. Stock won't update until then.");
+        closeModal();
+        return placeholder;
+      }
+      onApiError(get, err, "Failed to save document");
+    }
   },
 
   removeDoc: (type, id) => {
@@ -736,7 +841,29 @@ export const useAppStore = create<AppState>()((set, get) => ({
       showToast(toastMessage);
       closeModal();
       return payment;
-    } catch (err) { onApiError(get, err, "Failed to record payment"); }
+    } catch (err: any) {
+      if (err?.status === 0) {
+        enqueueOfflineAction("payment", v);
+        // Optimistic placeholder so the collection shows up in the Payments
+        // list right away — a collector needs to see "yes, that's logged"
+        // before walking into the next customer's shop with no signal.
+        // Marked _offlinePending so it's visually distinguishable until the
+        // full refresh after sync replaces it with the real record; doesn't
+        // touch the estimate's due/paid status locally since that requires
+        // the server's ledger logic — it'll catch up once synced.
+        const optimistic = {
+          id: `offline-${Date.now()}`,
+          ...v,
+          amount: Number(v.amount),
+          _offlinePending: true,
+        };
+        set((state) => ({ payments: [optimistic, ...state.payments] }));
+        showToast("You're offline — payment saved and will sync automatically once you're back online.");
+        closeModal();
+        return optimistic;
+      }
+      onApiError(get, err, "Failed to record payment");
+    }
   },
 
   // Records a single amount received against several due estimates at once (plus
@@ -940,7 +1067,29 @@ export const useAppStore = create<AppState>()((set, get) => ({
       );
       refreshReorderSuggestions();
       return result;
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.status === 0) {
+        enqueueOfflineAction("stockTake", { lines, reason });
+        // Reflect the counted stock locally right away — a godown manager
+        // doing a physical count needs to see it take effect immediately,
+        // even though the real write hasn't reached the server yet. Synced
+        // for real (and corrected if anything drifted) once back online.
+        set((state) => ({
+          items: state.items.map((it) => {
+            const line = lines.find((l) => l.itemId === it.id);
+            if (!line) return it;
+            return { ...it, stock: line.newStock, stockKg: line.newStockKg ?? it.stockKg };
+          }),
+        }));
+        showToast("You're offline — stock take saved and will sync automatically once you're back online.");
+        return {
+          succeeded: lines.length,
+          total: lines.length,
+          failed: 0,
+          results: lines.map((l) => ({ ok: true, changed: true, itemId: l.itemId })),
+          offline: true,
+        };
+      }
       onApiError(get, err, "Failed to apply stock take");
       return null;
     }
@@ -960,6 +1109,21 @@ export const useAppStore = create<AppState>()((set, get) => ({
 function onApiError(get: () => AppState, err: any, fallback: string) {
   if (err?.status === 401) { get().onSignOut?.(); return; }
   get().showToast(err?.message || fallback);
+}
+
+/**
+ * Shared by saveCustomer and quickAddCustomer's offline branches: queues the
+ * create, mints a temp id usable immediately as a customerId elsewhere (an
+ * estimate, a payment), and drops an optimistic placeholder into `customers`
+ * so it's visible right away. See lib/offlineQueue.ts's remap mechanism for
+ * how that temp id resolves to the real one once this customer syncs.
+ */
+function queueOfflineCustomer(set: (fn: (state: AppState) => Partial<AppState>) => void, v: any) {
+  const tempId = `offline-cust-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  enqueueOfflineAction("customer", { payload: v, tempId });
+  const placeholder = { id: tempId, ...v, _offlinePending: true };
+  set((state) => ({ customers: [placeholder, ...state.customers] }));
+  return placeholder;
 }
 
 /**

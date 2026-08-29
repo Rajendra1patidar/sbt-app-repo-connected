@@ -3,8 +3,10 @@ import { Route, Routes, useLocation, useNavigate, useParams, useSearchParams } f
 import { AlertCircle, Loader2, Phone } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import { pathForView, viewForPath } from "../lib/routes";
+import { initOfflineSync } from "../lib/offlineSync";
 import { BottomNav } from "./layout/BottomNav";
 import { GlobalSearchOverlay } from "./layout/GlobalSearchOverlay";
+import { OfflineBanner } from "./layout/OfflineBanner";
 import { Sidebar } from "./layout/Sidebar";
 import { Topbar } from "./layout/Topbar";
 import { ChallanModal } from "./modals/ChallanModal";
@@ -79,6 +81,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   useEffect(() => {
     setOnSignOut(onSignOut);
     fetchAll();
+    initOfflineSync();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -437,6 +440,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         estimates={activeEstimates} items={items} overdueCount={overdueCount} />
       <div className="flex-1 overflow-y-auto pb-24 md:pb-0">
         <Topbar onMenu={() => setSidebarOpen(true)} settings={settings} view={view} onOpenSearch={() => setGlobalSearchOpen(true)} />
+        <OfflineBanner />
         {routes}
       </div>
 

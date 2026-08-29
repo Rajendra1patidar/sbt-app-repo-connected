@@ -3,10 +3,8 @@ import { Route, Routes, useLocation, useNavigate, useParams, useSearchParams } f
 import { AlertCircle, Loader2, Phone } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import { pathForView, viewForPath } from "../lib/routes";
-import { initOfflineSync } from "../lib/offlineSync";
 import { BottomNav } from "./layout/BottomNav";
 import { GlobalSearchOverlay } from "./layout/GlobalSearchOverlay";
-import { OfflineBanner } from "./layout/OfflineBanner";
 import { Sidebar } from "./layout/Sidebar";
 import { Topbar } from "./layout/Topbar";
 import { ChallanModal } from "./modals/ChallanModal";
@@ -81,7 +79,6 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   useEffect(() => {
     setOnSignOut(onSignOut);
     fetchAll();
-    initOfflineSync();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -217,7 +214,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <Route path="/items" element={<ItemsView items={items} categories={itemCategories} brands={itemBrands} openModal={openModal} currency={settings.currency} removeItem={removeItem} purchases={purchases} estimates={activeEstimates} applyStockAdjustments={applyStockAdjustments} godowns={godowns} />} />
       <Route path="/orders" element={<OrdersView orders={orders} items={items} vendors={vendors} categories={itemCategories} currency={settings.currency} openModal={openModal} payOrder={payOrder} removeOrder={removeOrder} />} />
       <Route path="/vendors" element={<VendorsView vendors={vendors} purchases={purchases} currency={settings.currency} openModal={openModal} removeVendor={removeVendor} />} />
-      <Route path="/godowns" element={<GodownsView godowns={godowns} items={items} openModal={openModal} removeGodown={removeGodown} saveGodown={saveGodown} setDefaultGodown={setDefaultGodown} />} />
+      <Route path="/godowns" element={<GodownsView godowns={godowns} items={items} openModal={openModal} removeGodown={removeGodown} saveGodown={saveGodown} setDefaultGodown={setDefaultGodown} settings={settings} />} />
       <Route path="/purchases" element={<PurchasesView purchases={purchases} vendors={vendors} items={items} currency={settings.currency} openModal={openModal} removePurchase={removePurchase} />} />
       <Route path="/approvals" element={<ApprovalsView currency={settings.currency} />} />
       <Route path="/ledger" element={<LedgerReportsView currency={settings.currency} />} />
@@ -241,7 +238,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       } />
       <Route path="/payments" element={<PaymentsView payments={payments} customers={customers} currency={settings.currency} openModal={openModal} removePayment={removePayment} estimates={activeEstimates} />} />
       <Route path="/expenses" element={<ExpensesView expenses={expenses} currency={settings.currency} openModal={openModal} removeExpense={removeExpense} />} />
-      <Route path="/inventory" element={<ToDoTrackingView items={items} settings={settings} categories={itemCategories} orders={orders} openModal={openModal} reorderSuggestions={reorderSuggestions} deadStock={deadStock} applyStockAdjustments={applyStockAdjustments} />} />
+      <Route path="/inventory" element={<ToDoTrackingView items={items} settings={settings} categories={itemCategories} orders={orders} openModal={openModal} reorderSuggestions={reorderSuggestions} deadStock={deadStock} applyStockAdjustments={applyStockAdjustments} godowns={godowns} />} />
       <Route path="/stock-adjustments" element={<StockAdjustmentHistoryView items={items} currency={settings.currency} />} />
       <Route path="/labour" element={<LabourTrackingView sessions={labourSessions} knownWorkers={labourWorkers} onSave={saveLabourSession} onRemove={removeLabourSession} currency={settings.currency} estimates={activeEstimates} items={items} customers={customers} />} />
       <Route path="/contractors" element={<ContractorScorecardView estimates={activeEstimates} items={items} currency={settings.currency} contractors={contractors} onSavePhone={saveContractorPhone} showToast={showToast} />} />
@@ -440,7 +437,6 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         estimates={activeEstimates} items={items} overdueCount={overdueCount} />
       <div className="flex-1 overflow-y-auto pb-24 md:pb-0">
         <Topbar onMenu={() => setSidebarOpen(true)} settings={settings} view={view} onOpenSearch={() => setGlobalSearchOpen(true)} />
-        <OfflineBanner />
         {routes}
       </div>
 

@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Archive, CheckCircle2, ChevronDown, ChevronUp, ClipboardList, Info, Pencil, Printer, ShoppingBag, TrendingDown, X } from "lucide-react";
+import { AlertTriangle, Archive, CheckCircle2, ChevronDown, ChevronUp, ClipboardList, Info, MapPin, Pencil, Printer, Search, ShoppingBag, TrendingDown, X } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Card } from "../common/UIPrimitives";
 import { ITEM_CATEGORIES, LOW_STOCK_DEFAULT } from "../../lib/constants";
@@ -121,12 +121,35 @@ function DeadStockCard({ items, currency }: any) {
   );
 }
 
-export function ToDoTrackingView({ items, settings, categories, orders, openModal, reorderSuggestions, deadStock, applyStockAdjustments }: any) {
+export function ToDoTrackingView({ items, settings, categories, orders, openModal, reorderSuggestions, deadStock, applyStockAdjustments, godowns }: any) {
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [category, setCategory] = useState("All");
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"stock" | "value" | "name">("stock");
   const [infoFor, setInfoFor] = useState<string | null>(null);
   const [stockTakeOpen, setStockTakeOpen] = useState(false);
   const cats = categories?.length ? categories : ITEM_CATEGORIES;
+
+  // Same "value" basis as the backend's stockValuation(): weighted-average
+  // purchasePrice × whatever's on hand (kg for weight-tracked items, pieces
+  // otherwise) — cost basis, not what it'd sell for.
+  const itemValue = (it: any): number => {
+    const qty = it.trackingMode === "weight" ? (it.stockKg ?? 0) : (it.stock ?? 0);
+    return qty * (it.purchasePrice ?? 0);
+  };
+
+  const deadStockIds = new Set((deadStock || []).map((d: any) => d.itemId));
+
+  // Which godown(s) an item actually sits in, for the location tag in the
+  // list — only meaningful once there's more than one godown to distinguish.
+  const locationLabel = (it: any): string | null => {
+    if (!godowns || godowns.length <= 1) return null;
+    const present = (it.stockByGodown || []).filter((g: any) => (g.stock ?? 0) > 0 || (g.stockKg ?? 0) > 0);
+    if (present.length === 0) return null;
+    if (present.length > 1) return `${present.length} locations`;
+    const gd = godowns.find((g: any) => String(g.id) === String(present[0].godownId));
+    return gd?.name || null;
+  };
 
   // Full Inventory Stock can run into the hundreds or thousands of rows for a
   // godown with a large catalogue. Rendering every <li> at once was fine for
@@ -134,11 +157,21 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
   // virtualizing this list keeps scroll smooth regardless of catalogue size,
   // since only the ~10 rows actually on screen are ever in the DOM.
   const scrollRef = useRef<HTMLDivElement>(null);
-  const ROW_HEIGHT = 62; // px — matches the row's padding + two lines of text
+  const ROW_HEIGHT = 78; // px — matches the row's padding + badge slot + qty + value lines
 
   const lowItems = items.filter((it: any) => (it.stock ?? 0) <= (it.lowStock ?? LOW_STOCK_DEFAULT));
   const categoryFiltered = category === "All" ? items : items.filter((it: any) => (it.category || "Others") === category);
-  const allItems = [...categoryFiltered].sort((a: any, b: any) => (a.stock ?? 0) - (b.stock ?? 0));
+  const searchFiltered = search.trim()
+    ? categoryFiltered.filter((it: any) => it.name?.toLowerCase().includes(search.trim().toLowerCase()))
+    : categoryFiltered;
+  const allItems = [...searchFiltered].sort((a: any, b: any) => {
+    if (sortBy === "value") return itemValue(b) - itemValue(a);
+    if (sortBy === "name") return (a.name || "").localeCompare(b.name || "");
+    return (a.stock ?? 0) - (b.stock ?? 0);
+  });
+
+  const totalValue = items.reduce((sum: number, it: any) => sum + itemValue(it), 0);
+  const deadStockValue = (deadStock || []).reduce((sum: number, d: any) => sum + (d.value || 0), 0);
 
   const rowVirtualizer = useVirtualizer({
     count: allItems.length,
@@ -207,6 +240,27 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
         </Link>
       </div>
 
+      <Card>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-xs font-semibold text-ink/40">Stock value</p>
+            <p className="mt-1 font-mono text-lg font-semibold text-ink">{fmtMoney(totalValue, settings?.currency)}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-ink/40">Items tracked</p>
+            <p className="mt-1 font-mono text-lg font-semibold text-ink">{fmtNum(items.length)}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-ink/40">Low stock</p>
+            <p className={`mt-1 font-mono text-lg font-semibold ${lowItems.length > 0 ? "text-warn-600" : "text-ink"}`}>{fmtNum(lowItems.length)}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-ink/40">Dead stock tied up</p>
+            <p className="mt-1 font-mono text-lg font-semibold text-ink">{fmtMoney(deadStockValue, settings?.currency)}</p>
+          </div>
+        </div>
+      </Card>
+
       <ReorderSuggestionsCard suggestions={reorderSuggestions} />
       <DeadStockCard items={deadStock} currency={settings?.currency} />
 
@@ -265,6 +319,20 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
 
         {inventoryOpen && (
           <div className="mt-4">
+            <div className="mb-3 flex gap-2">
+              <div className="relative flex-1">
+                <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/30" />
+                <input
+                  type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search items"
+                  className="w-full rounded-xl border border-line py-2 pl-8 pr-3 text-sm"
+                />
+              </div>
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="rounded-xl border border-line px-2 py-2 text-xs font-semibold text-ink/70">
+                <option value="stock">Stock ↑</option>
+                <option value="value">Value ↓</option>
+                <option value="name">Name A-Z</option>
+              </select>
+            </div>
             <div className="mb-3 flex flex-wrap gap-2">
               {["All", ...cats].map((c) => (
                 <button key={c} onClick={() => setCategory(c)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${category === c ? "bg-brand-500 text-white" : "bg-paper text-ink/70"}`}>{c}</button>
@@ -273,7 +341,7 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
             {items.length === 0 ? (
               <p className="text-sm text-ink/40">No items added yet. Go to Items to add your first product.</p>
             ) : allItems.length === 0 ? (
-              <p className="text-sm text-ink/40">No items match this category.</p>
+              <p className="text-sm text-ink/40">No items match this search or category.</p>
             ) : (
               <div ref={scrollRef} className="max-h-[480px] overflow-y-auto">
                 <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>
@@ -288,12 +356,24 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
                         <div className="flex h-full items-center justify-between rounded-xl border border-line px-4 py-2.5">
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-ink">{it.name}</p>
-                            <p className="text-xs text-ink/40">{it.unit || "unit"} · {it.category || "Others"}</p>
+                            <p className="text-xs text-ink/40">
+                              {it.unit || "unit"} · {it.category || "Others"}
+                              {locationLabel(it) && (
+                                <span className="ml-1 inline-flex items-center gap-0.5"><MapPin size={9} className="inline" /> {locationLabel(it)}</span>
+                              )}
+                            </p>
                           </div>
                           <div className="flex items-center gap-2">
                             <div className="text-right">
+                              <div className="h-4">
+                                {(it.stock ?? 0) <= (it.lowStock ?? LOW_STOCK_DEFAULT) ? (
+                                  <span className="inline-block rounded-full bg-warn-100 px-2 py-0.5 text-[10px] font-bold text-warn-700">Low</span>
+                                ) : deadStockIds.has(it.id) ? (
+                                  <span className="inline-block rounded-full bg-paper px-2 py-0.5 text-[10px] font-semibold text-ink/40">No sale 90d+</span>
+                                ) : null}
+                              </div>
                               <p className={`font-display text-base font-bold ${stockColor(it)}`}>{stockBreakdown(it)}</p>
-                              <p className="text-xs text-ink/40">/ alert ≤{fmtNum(it.lowStock ?? LOW_STOCK_DEFAULT)}</p>
+                              <p className="text-xs text-ink/40">{fmtMoney(itemValue(it), settings?.currency)}</p>
                             </div>
                             <button onClick={() => setInfoFor(it.id)} className="rounded-full p-2 text-ink/40 hover:bg-paper"><Info size={15} /></button>
                             <button onClick={() => openModal("item", { editingItem: it })} className="rounded-full p-2 text-ink/40 hover:bg-paper"><Pencil size={15} /></button>

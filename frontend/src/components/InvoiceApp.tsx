@@ -214,7 +214,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <Route path="/items" element={<ItemsView items={items} categories={itemCategories} brands={itemBrands} openModal={openModal} currency={settings.currency} removeItem={removeItem} purchases={purchases} estimates={activeEstimates} applyStockAdjustments={applyStockAdjustments} godowns={godowns} />} />
       <Route path="/orders" element={<OrdersView orders={orders} items={items} vendors={vendors} categories={itemCategories} currency={settings.currency} openModal={openModal} payOrder={payOrder} removeOrder={removeOrder} />} />
       <Route path="/vendors" element={<VendorsView vendors={vendors} purchases={purchases} currency={settings.currency} openModal={openModal} removeVendor={removeVendor} />} />
-      <Route path="/godowns" element={<GodownsView godowns={godowns} items={items} openModal={openModal} removeGodown={removeGodown} saveGodown={saveGodown} setDefaultGodown={setDefaultGodown} settings={settings} />} />
+      <Route path="/godowns" element={<GodownsView godowns={godowns} items={items} openModal={openModal} removeGodown={removeGodown} saveGodown={saveGodown} setDefaultGodown={setDefaultGodown} settings={settings} deadStock={deadStock} />} />
       <Route path="/purchases" element={<PurchasesView purchases={purchases} vendors={vendors} items={items} currency={settings.currency} openModal={openModal} removePurchase={removePurchase} />} />
       <Route path="/approvals" element={<ApprovalsView currency={settings.currency} />} />
       <Route path="/ledger" element={<LedgerReportsView currency={settings.currency} />} />

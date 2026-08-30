@@ -1,8 +1,23 @@
-import { LogOut } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, ChevronDown, LogOut, Search, X } from "lucide-react";
 import { NAV } from "../../lib/constants";
 import { LOW_STOCK_DEFAULT } from "../../lib/constants";
 
 /* ---- Sidebar: a permanent dark nav rail (independent of the light/dark app theme) ---- */
+
+// The 4 screens covering the bulk of a normal day — surfaced above the
+// section list so the common case never requires scrolling or remembering
+// which section something lives under.
+const PINNED_IDS = ["dashboard", "estimates", "customers", "items"];
+
+// Insights/Finance are real workflows but get opened far less often day to
+// day than Trading/Documents — collapsed by default so the rail opens onto
+// what's actually used daily, without hiding anything permanently.
+const DEFAULT_OPEN_SECTIONS: Record<string, boolean> = {
+  Overview: true, Trading: true, Documents: true, Insights: false, Finance: false,
+};
+
+const SECTION_COLLAPSE_KEY = "sbt_sidebar_collapsed_sections";
 
 function compactINR(n: number) {
   const abs = Math.abs(n);
@@ -65,7 +80,51 @@ export function Sidebar({ open, onClose, active, onNav, settings, onSignOut, est
     group.items.push(n);
   });
 
+  const [search, setSearch] = useState("");
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
+    try {
+      const raw = localStorage.getItem(SECTION_COLLAPSE_KEY);
+      return raw ? { ...DEFAULT_OPEN_SECTIONS, ...JSON.parse(raw) } : DEFAULT_OPEN_SECTIONS;
+    } catch {
+      return DEFAULT_OPEN_SECTIONS;
+    }
+  });
+
+  // Whichever section the current screen lives in should never be hidden —
+  // otherwise navigating here from elsewhere (a shortcut, a deep link) would
+  // leave the highlighted item tucked inside a collapsed section.
+  useEffect(() => {
+    const activeSection = NAV.find((n: any) => n.id === active)?.section;
+    if (activeSection && !openSections[activeSection]) {
+      setOpenSections((prev) => ({ ...prev, [activeSection]: true }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+
+  const toggleSection = (name: string) => {
+    setOpenSections((prev) => {
+      const next = { ...prev, [name]: !prev[name] };
+      try { localStorage.setItem(SECTION_COLLAPSE_KEY, JSON.stringify(next)); } catch { /* storage unavailable, ignore */ }
+      return next;
+    });
+  };
+
+  const q = search.trim().toLowerCase();
+  const isSearching = q.length > 0;
+  const visibleSections = useMemo(() => {
+    if (!isSearching) return sections;
+    return sections
+      .map((sec) => ({ ...sec, items: sec.items.filter((n: any) => n.label.toLowerCase().includes(q)) }))
+      .filter((sec) => sec.items.length > 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, isSearching]);
+
+  const pinned = PINNED_IDS.map((id) => NAV.find((n: any) => n.id === id)).filter(Boolean) as typeof NAV;
+  const attentionCount = overdueCount + lowStockCount;
+
   const initials = (settings.ownerName || "SB").trim().split(/\s+/).map((s: string) => s[0]).slice(0, 2).join("").toUpperCase();
+
+  const navTo = (id: string) => { onNav(id); onClose(); setSearch(""); };
 
   return (
     <>
@@ -92,25 +151,87 @@ export function Sidebar({ open, onClose, active, onNav, settings, onSignOut, est
             <button onClick={onClose} className="ml-auto rounded-full p-1.5 text-sidebarText hover:bg-white/5 md:hidden">✕</button>
           </div>
 
-          <nav className="mt-2 flex-1 px-2.5">
-            {sections.map((sec) => (
-              <div key={sec.name} className="mb-0.5">
-                <div className="px-2.5 pb-1.5 pt-3 text-[9.5px] font-semibold uppercase tracking-wide text-sidebarHeading">{sec.name}</div>
-                {sec.items.map((n: any) => {
-                  const Icon = n.icon; const isActive = active === n.id; const badge = badgeFor[n.id];
-                  return (
-                    <button key={n.id} onClick={() => { onNav(n.id); onClose(); }}
-                      className={`mb-0.5 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[12.5px] font-medium transition-colors duration-100 ${isActive ? "bg-white/[0.08] text-white" : "text-sidebarText hover:bg-white/[0.05]"}`}>
-                      <Icon size={15} className={isActive ? "text-orange-500" : "opacity-70"} strokeWidth={1.8} />
-                      <span className="truncate">{n.label}</span>
-                      {!!badge && (
-                        <span className="ml-auto rounded-pill bg-bad-500 px-1.5 py-[1px] font-mono text-[9px] font-semibold text-white">{badge}</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
+          {attentionCount > 0 && !isSearching && (
+            <div className="mx-2.5 mt-3 flex gap-1.5">
+              {overdueCount > 0 && (
+                <button onClick={() => navTo("estimates")} className="flex flex-1 items-center gap-1.5 rounded-lg bg-bad-500/15 px-2.5 py-1.5 text-left">
+                  <AlertTriangle size={12} className="shrink-0 text-bad-400" />
+                  <span className="truncate text-[10.5px] font-medium text-bad-300">{overdueCount} overdue</span>
+                </button>
+              )}
+              {lowStockCount > 0 && (
+                <button onClick={() => navTo("todo")} className="flex flex-1 items-center gap-1.5 rounded-lg bg-warn-500/15 px-2.5 py-1.5 text-left">
+                  <AlertTriangle size={12} className="shrink-0 text-warn-400" />
+                  <span className="truncate text-[10.5px] font-medium text-warn-300">{lowStockCount} low stock</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {!isSearching && (
+            <div className="mx-2.5 mt-3 grid grid-cols-4 gap-1.5">
+              {pinned.map((n: any) => {
+                const Icon = n.icon; const isActive = active === n.id;
+                return (
+                  <button
+                    key={n.id} onClick={() => navTo(n.id)} title={n.label}
+                    className={`flex flex-col items-center gap-1 rounded-lg py-2 ${isActive ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"}`}
+                  >
+                    <Icon size={16} className={isActive ? "text-orange-500" : "text-sidebarText"} strokeWidth={1.8} />
+                    <span className={`truncate text-[9px] font-medium ${isActive ? "text-white" : "text-sidebarHeading"}`}>{n.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="relative mx-2.5 mt-3">
+            <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sidebarHeading" />
+            <input
+              type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search menu"
+              className="w-full rounded-lg border border-sidebarLine bg-white/[0.04] py-1.5 pl-7 pr-6 text-[11.5px] text-white placeholder:text-sidebarHeading focus:outline-none focus:ring-1 focus:ring-brand-500"
+            />
+            {isSearching && (
+              <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-sidebarHeading hover:text-white">
+                <X size={13} />
+              </button>
+            )}
+          </div>
+
+          <nav className="mt-1 flex-1 px-2.5">
+            {visibleSections.length === 0 && (
+              <p className="px-2.5 pt-4 text-[11.5px] text-sidebarHeading">No menu items match "{search}".</p>
+            )}
+            {visibleSections.map((sec) => {
+              const isOpen = isSearching || openSections[sec.name];
+              return (
+                <div key={sec.name} className="mb-0.5">
+                  <button
+                    onClick={() => toggleSection(sec.name)}
+                    disabled={isSearching}
+                    className="flex w-full items-center justify-between px-2.5 pb-1.5 pt-3 text-left"
+                  >
+                    <span className="text-[9.5px] font-semibold uppercase tracking-wide text-sidebarHeading">{sec.name}</span>
+                    {!isSearching && (
+                      <ChevronDown size={12} className={`text-sidebarHeading transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                    )}
+                  </button>
+                  {isOpen && sec.items.map((n: any) => {
+                    const Icon = n.icon; const isActive = active === n.id; const badge = badgeFor[n.id];
+                    return (
+                      <button key={n.id} onClick={() => navTo(n.id)}
+                        className={`mb-0.5 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[12.5px] font-medium transition-colors duration-100 ${isActive ? "bg-white/[0.08] text-white" : "text-sidebarText hover:bg-white/[0.05]"}`}>
+                        <Icon size={15} className={isActive ? "text-orange-500" : "opacity-70"} strokeWidth={1.8} />
+                        <span className="truncate">{n.label}</span>
+                        {!!badge && (
+                          <span className="ml-auto rounded-pill bg-bad-500 px-1.5 py-[1px] font-mono text-[9px] font-semibold text-white">{badge}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })}
           </nav>
 
           <SalesSpark estimates={estimates} />

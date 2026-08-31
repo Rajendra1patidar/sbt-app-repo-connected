@@ -12,12 +12,13 @@ const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 //   - counted LESS than the books showed -> debit OtherExpense, credit Stock
 // Returns null if the count matches what's already on the books (no-op, not
 // an error) so callers/bulk loop can just skip it.
-async function applyOne({ owner, itemId, newStock, newStockKg, reason, date, batchId, session }) {
+async function applyOne({ owner, itemId, newStock, newStockKg, reason, date, godownId, batchId, session }) {
   const stockResult = await stockService.recordAdjustment({
     owner,
     itemId,
     newStock,
     newStockKg,
+    godownId,
     sourceId: itemId, // no separate parent doc; the item itself is what's being corrected
     date,
     session,
@@ -29,11 +30,16 @@ async function applyOne({ owner, itemId, newStock, newStockKg, reason, date, bat
       {
         owner,
         itemId,
+        godownId: godownId || undefined,
+        // Before/after are scoped to the godown being counted (or the item's
+        // only number, for owners with no godowns) — not the item's
+        // company-wide total, which can include stock at other locations
+        // this adjustment never touched.
         previousStock: stockResult.oldStock,
-        newStock: stockResult.item.stock,
+        newStock: stockResult.newStock,
         delta: stockResult.delta,
         previousStockKg: stockResult.oldStockKg,
-        newStockKg: stockResult.item.stockKg,
+        newStockKg: stockResult.newStockKg,
         deltaKg: stockResult.deltaKg,
         rate: stockResult.movement.rate,
         valueChange: stockResult.valueChange,
@@ -85,7 +91,7 @@ exports.list = async (req, res, next) => {
 // POST /api/stock-adjustments  { itemId, newStock, reason?, date? }
 exports.create = async (req, res, next) => {
   try {
-    const { itemId, newStock, newStockKg, reason } = req.body;
+    const { itemId, newStock, newStockKg, reason, godownId } = req.body;
     if (!itemId || newStock === undefined || newStock === null || Number(newStock) < 0) {
       return res.status(400).json({ message: "itemId and a non-negative newStock are required" });
     }
@@ -99,6 +105,7 @@ exports.create = async (req, res, next) => {
         newStockKg: newStockKg === undefined || newStockKg === null ? undefined : Number(newStockKg),
         reason,
         date,
+        godownId: godownId || undefined,
         batchId: randomUUID(),
         session,
       })
@@ -118,7 +125,7 @@ exports.create = async (req, res, next) => {
 // across dozens of unrelated items.
 exports.bulk = async (req, res, next) => {
   try {
-    const { lines, reason } = req.body;
+    const { lines, reason, godownId } = req.body;
     if (!Array.isArray(lines) || !lines.length) {
       return res.status(400).json({ message: "lines must be a non-empty array" });
     }
@@ -142,6 +149,10 @@ exports.bulk = async (req, res, next) => {
             newStockKg: newStockKg === undefined || newStockKg === null ? undefined : Number(newStockKg),
             reason: line.reason || reason,
             date,
+            // A batch-level godown applies to every line unless a line
+            // names its own (not currently used by the frontend, but kept
+            // so a mixed-location paste could support it later).
+            godownId: line.godownId || godownId || undefined,
             batchId,
             session,
           })

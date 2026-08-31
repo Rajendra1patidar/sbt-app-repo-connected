@@ -9,6 +9,11 @@ const stockAdjustmentSchema = new mongoose.Schema(
   {
     owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     itemId: { type: mongoose.Schema.Types.ObjectId, ref: "Item", required: true, index: true },
+    // Which godown this count was taken at. Omitted for owners who haven't
+    // adopted the Godowns feature, in which case previousStock/newStock are
+    // just the item's single total. When set, previousStock/newStock are
+    // scoped to this location only — not the item's company-wide total.
+    godownId: { type: mongoose.Schema.Types.ObjectId, ref: "Godown" },
 
     previousStock: { type: Number, required: true },
     newStock: { type: Number, required: true },

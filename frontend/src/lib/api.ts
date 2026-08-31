@@ -254,9 +254,12 @@ export const api = {
 
   stockAdjustments: {
     list: (itemId?: string) => request(`/api/stock-adjustments${itemId ? `?itemId=${itemId}` : ""}`),
-    create: (v: { itemId: string; newStock: number; reason?: string; date?: string }) =>
+    create: (v: { itemId: string; newStock: number; newStockKg?: number; reason?: string; date?: string; godownId?: string }) =>
       request("/api/stock-adjustments", { method: "POST", body: JSON.stringify(v) }),
-    bulk: (v: { lines: { itemId: string; newStock: number; reason?: string }[]; reason?: string; date?: string }) =>
+    // `godownId` sets which location every line was counted at (a stock take
+    // is normally done one physical location at a time); an individual line
+    // can still override it via its own `godownId` if ever needed.
+    bulk: (v: { lines: { itemId: string; newStock: number; newStockKg?: number; reason?: string; godownId?: string }[]; reason?: string; date?: string; godownId?: string }) =>
       request("/api/stock-adjustments/bulk", { method: "POST", body: JSON.stringify(v) }),
   },
 

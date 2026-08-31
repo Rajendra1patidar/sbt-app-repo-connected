@@ -21,6 +21,8 @@ export function ItemDetailDrawer({ item, items, godowns, open, onClose, currency
   const [newStockKg, setNewStockKg] = useState("");
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [adjustGodownId, setAdjustGodownId] = useState("");
+  const hasMultipleGodowns = Array.isArray(godowns) && godowns.length > 1;
 
   // `item` is a snapshot taken at the moment the drawer was opened, so after
   // a quick adjustment updates the store, this drawer would otherwise keep
@@ -65,11 +67,30 @@ export function ItemDetailDrawer({ item, items, godowns, open, onClose, currency
   const maxAbs = Math.max(1, ...movement.map((m) => Math.abs(m.net)));
   const suggestedQty = Math.max(1, threshold * 2 - gateStock);
 
+  // Stock at a given godown (falls back to the item's single total when the
+  // owner has 0-1 godowns) — the correct baseline for a physical count at
+  // that specific location, as opposed to the item's company-wide total.
+  const stockAtGodown = (gid: string) => {
+    if (!hasMultipleGodowns) return { stock, stockKg };
+    const entry = (liveItem.stockByGodown || []).find((g: any) => String(g.godownId) === String(gid));
+    return { stock: entry?.stock ?? 0, stockKg: entry?.stockKg ?? 0 };
+  };
+
   const openAdjust = () => {
-    setNewStock(String(stock));
-    setNewStockKg(String(stockKg));
+    const defaultGid = (godowns || []).find((g: any) => g.isDefault)?.id || (godowns || [])[0]?.id || "";
+    setAdjustGodownId(defaultGid);
+    const at = stockAtGodown(defaultGid);
+    setNewStock(String(at.stock));
+    setNewStockKg(String(at.stockKg));
     setReason("");
     setAdjustOpen(true);
+  };
+
+  const changeAdjustGodown = (gid: string) => {
+    setAdjustGodownId(gid);
+    const at = stockAtGodown(gid);
+    setNewStock(String(at.stock));
+    setNewStockKg(String(at.stockKg));
   };
 
   const submitAdjust = async () => {
@@ -83,7 +104,8 @@ export function ItemDetailDrawer({ item, items, godowns, open, onClose, currency
     setSubmitting(true);
     await applyStockAdjustments(
       [{ itemId: liveItem.id, newStock: n, newStockKg: nKg, reason: reason || undefined }],
-      reason || "Manual adjustment"
+      reason || "Manual adjustment",
+      hasMultipleGodowns ? adjustGodownId : undefined
     );
     setSubmitting(false);
     setAdjustOpen(false);
@@ -150,6 +172,20 @@ export function ItemDetailDrawer({ item, items, godowns, open, onClose, currency
                 <p className="text-xs font-semibold text-ink/60">Correct stock to</p>
                 <button onClick={() => setAdjustOpen(false)} className="text-ink/30 hover:text-bad-500"><X size={13} /></button>
               </div>
+              {hasMultipleGodowns && (
+                <div>
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-ink/35">Counted at</p>
+                  <select
+                    value={adjustGodownId}
+                    onChange={(e) => changeAdjustGodown(e.target.value)}
+                    className="w-full rounded-lg border border-line px-3 py-2 text-sm font-semibold"
+                  >
+                    {godowns.map((g: any) => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 {isWeight && <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-ink/35">Pieces</p>}
                 <input

@@ -117,7 +117,7 @@ interface AppState {
   removeLabourSession: (id: string) => void;
   saveContractorPhone: (name: string, phone: string) => Promise<void>;
   saveSettings: (s: any) => Promise<void>;
-  applyStockAdjustments: (lines: { itemId: string; newStock: number; newStockKg?: number; reason?: string }[], reason?: string) => Promise<any>;
+  applyStockAdjustments: (lines: { itemId: string; newStock: number; newStockKg?: number; reason?: string }[], reason?: string, godownId?: string) => Promise<any>;
   saveChallan: (v: any) => Promise<void>;
   recordPaymentFor: (invoice: any) => void;
 }
@@ -1047,10 +1047,10 @@ export const useAppStore = create<AppState>()((set, get) => ({
   // here (one bad line shouldn't block the rest), so this returns the raw
   // per-line results for the Stock Take screen to render, rather than
   // treating anything less than 100% success as an error.
-  applyStockAdjustments: async (lines, reason) => {
+  applyStockAdjustments: async (lines, reason, godownId) => {
     const { showToast, refreshReorderSuggestions } = get();
     try {
-      const result = await api.stockAdjustments.bulk({ lines, reason });
+      const result = await api.stockAdjustments.bulk({ lines, reason, godownId });
       const updatedById = new Map<string, any>();
       for (const r of result.results) {
         if (r.ok && r.changed && r.item) updatedById.set(r.item.id, r.item);
@@ -1069,7 +1069,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       return result;
     } catch (err: any) {
       if (err?.status === 0) {
-        enqueueOfflineAction("stockTake", { lines, reason });
+        enqueueOfflineAction("stockTake", { lines, reason, godownId });
         // Reflect the counted stock locally right away — a godown manager
         // doing a physical count needs to see it take effect immediately,
         // even though the real write hasn't reached the server yet. Synced

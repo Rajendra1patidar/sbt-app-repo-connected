@@ -15,12 +15,28 @@ interface RowState {
   newStockKg: string;
 }
 
-export function StockTakeModal({ items, onClose, applyStockAdjustments }: any) {
+export function StockTakeModal({ items, godowns, onClose, applyStockAdjustments }: any) {
   const [step, setStep] = useState<Step>("paste");
   const [text, setText] = useState("");
   const [rows, setRows] = useState<RowState[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<any>(null);
+  // A stock take is done at one physical location at a time — every line in
+  // this batch gets counted against, and corrects, this godown only. Stock
+  // sitting at any other godown is left exactly as it is. Defaults to the
+  // default godown when the owner has more than one.
+  const hasMultipleGodowns = Array.isArray(godowns) && godowns.length > 1;
+  const [godownId, setGodownId] = useState<string>(() => (godowns || []).find((g: any) => g.isDefault)?.id || (godowns || [])[0]?.id || "");
+
+  // Current stock AT the selected godown (falling back to the item's single
+  // total when the owner has 0-1 godowns) — this is the baseline a physical
+  // count should be compared against, not the item's company-wide total.
+  const stockAtGodown = (it: any) => {
+    if (!it) return { stock: 0, stockKg: 0 };
+    if (!hasMultipleGodowns) return { stock: it.stock ?? 0, stockKg: it.stockKg ?? 0 };
+    const entry = (it.stockByGodown || []).find((g: any) => String(g.godownId) === String(godownId));
+    return { stock: entry?.stock ?? 0, stockKg: entry?.stockKg ?? 0 };
+  };
 
   const parse = () => {
     const lines = parseStockTakeText(text);
@@ -64,7 +80,7 @@ export function StockTakeModal({ items, onClose, applyStockAdjustments }: any) {
       }));
     if (!lines.length) return;
     setSubmitting(true);
-    const res = await applyStockAdjustments(lines, "Stock take");
+    const res = await applyStockAdjustments(lines, "Stock take", hasMultipleGodowns ? godownId : undefined);
     setSubmitting(false);
     setResult(res);
     setStep("done");
@@ -80,6 +96,21 @@ export function StockTakeModal({ items, onClose, applyStockAdjustments }: any) {
 
         {step === "paste" && (
           <div className="space-y-3 overflow-y-auto">
+            {hasMultipleGodowns && (
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink/50">Counting stock at</label>
+                <select
+                  value={godownId}
+                  onChange={(e) => setGodownId(e.target.value)}
+                  className="w-full rounded-xl border border-line px-3 py-2.5 text-sm font-semibold"
+                >
+                  {godowns.map((g: any) => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[11px] text-ink/40">Every line below will be counted against this location only — stock at your other godowns is left untouched.</p>
+              </div>
+            )}
             <p className="text-xs text-ink/50">
               Paste your counted list below, one item per line — e.g. <span className="italic">"3. Duraguard ppc - 245"</span>.
               I'll match each line to an item and let you review before anything is saved.
@@ -105,15 +136,19 @@ export function StockTakeModal({ items, onClose, applyStockAdjustments }: any) {
         {step === "review" && (
           <div className="flex flex-col overflow-hidden">
             <div className="mb-2 flex items-center justify-between shrink-0">
-              <p className="text-xs text-ink/50">{rows.length} lines parsed · {readyCount} ready{unmatchedCount ? ` · ${unmatchedCount} need a match` : ""}</p>
+              <p className="text-xs text-ink/50">
+                {rows.length} lines parsed · {readyCount} ready{unmatchedCount ? ` · ${unmatchedCount} need a match` : ""}
+                {hasMultipleGodowns && <> · at <span className="font-semibold text-ink/70">{godowns.find((g: any) => g.id === godownId)?.name}</span></>}
+              </p>
               <button onClick={() => setStep("paste")} className="text-xs font-semibold text-brand-500">Edit list</button>
             </div>
             <div className="overflow-y-auto space-y-2 pr-1">
               {rows.map((r, idx) => {
                 const currentItem = r.itemId ? itemById.get(r.itemId) : null;
                 const isWeight = currentItem?.trackingMode === "weight";
-                const oldStock = currentItem?.stock ?? null;
-                const oldStockKg = currentItem?.stockKg ?? null;
+                const atGodown = stockAtGodown(currentItem);
+                const oldStock = currentItem ? atGodown.stock : null;
+                const oldStockKg = currentItem ? atGodown.stockKg : null;
                 const delta = currentItem && r.newStock.trim() !== "" ? Number(r.newStock) - (oldStock ?? 0) : null;
                 const deltaKg = isWeight && r.newStockKg.trim() !== "" ? Number(r.newStockKg) - (oldStockKg ?? 0) : null;
                 return (

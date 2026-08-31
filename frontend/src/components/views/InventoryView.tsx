@@ -360,7 +360,7 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
       </Card>
 
       {stockTakeOpen && (
-        <StockTakeModal items={items} applyStockAdjustments={applyStockAdjustments} onClose={() => setStockTakeOpen(false)} />
+        <StockTakeModal items={items} godowns={godowns} applyStockAdjustments={applyStockAdjustments} onClose={() => setStockTakeOpen(false)} />
       )}
     </div>
   );

@@ -255,14 +255,26 @@ async function recordReturnIn({ owner, itemId, qty, qtyKg, rate, sourceType, sou
 }
 
 /**
- * Corrects an item's stock to a physically-counted quantity (e.g. after a
- * stock take), instead of adding/removing a known delta like the other
- * record* functions. Unlike a manual `$set` on Item.stock, this still writes
- * a StockMovement row so the audit trail and Stock Valuation report stay in
- * sync with the correction — and it does NOT touch the weighted-average
- * purchasePrice, since a count correction isn't a purchase at a new price.
+ * Corrects a physically-counted quantity (e.g. after a stock take), instead
+ * of adding/removing a known delta like the other record* functions. Unlike
+ * a manual `$set` on Item.stock, this still writes a StockMovement row so
+ * the audit trail and Stock Valuation report stay in sync with the
+ * correction — and it does NOT touch the weighted-average purchasePrice,
+ * since a count correction isn't a purchase at a new price.
+ *
+ * `newStock`/`newStockKg` are the count AT `godownId` (or the owner's
+ * default godown, if omitted) — NOT the item's company-wide total. This
+ * matters as soon as an item's stock is split across more than one godown:
+ * counting 42 at Main Shop shouldn't overwrite the item's total to 42 if
+ * another 10 are sitting, unaudited, at a second godown. Instead we work out
+ * how far off THAT location's own recorded figure was, and roll only that
+ * difference into the item's aggregate stock/stockKg — the other location's
+ * entry is left untouched. For an owner who has never adopted the Godowns
+ * feature (resolvedGodownId comes back null), there's only one number to
+ * begin with, so `newStock`/`newStockKg` are just the new total, as before.
+ *
  * Returns null (no movement written) if the counted quantity matches what
- * the books already show.
+ * the books already show for that location.
  */
 async function recordAdjustment({ owner, itemId, newStock, newStockKg, sourceId, date, godownId, session }) {
   const resolvedGodownId = await resolveGodownId(owner, godownId, session);
@@ -272,24 +284,40 @@ async function recordAdjustment({ owner, itemId, newStock, newStockKg, sourceId,
     (item) => {
       const isWeight = item.trackingMode === "weight";
       const oldStock = round2(item.stock) || 0;
+      const oldStockKgAgg = round2(item.stockKg) || 0;
+
+      // What the books currently show at the location being counted —
+      // the aggregate when there's no godown to scope to, otherwise just
+      // that godown's own entry (0 if it has none yet).
+      let locationOldStock = oldStock;
+      let locationOldStockKg = oldStockKgAgg;
+      if (resolvedGodownId) {
+        const entry = (item.stockByGodown || []).find((g) => String(g.godownId) === String(resolvedGodownId));
+        locationOldStock = entry ? Number(entry.stock) || 0 : 0;
+        locationOldStockKg = entry ? Number(entry.stockKg) || 0 : 0;
+      }
+
       const target = round2(newStock);
-      const changes = { stock: target };
-      let oldStockKg, targetKg, deltaKg;
+      const delta = round2(target - locationOldStock);
+      const newAggStock = round2(Math.max(0, oldStock + delta));
+      const changes = { stock: newAggStock };
+
+      let oldStockKg, targetKg, deltaKg, newAggStockKg;
       if (isWeight) {
-        oldStockKg = round2(item.stockKg) || 0;
+        oldStockKg = locationOldStockKg;
         // If a kg recount wasn't given, leave stockKg untouched (piece-only
         // recount) rather than guessing a kg figure from the piece delta.
         targetKg = newStockKg === undefined || newStockKg === null ? oldStockKg : round2(newStockKg);
         deltaKg = round2(targetKg - oldStockKg);
-        changes.stockKg = targetKg;
+        newAggStockKg = round2(Math.max(0, oldStockKgAgg + deltaKg));
+        changes.stockKg = newAggStockKg;
       }
-      const delta = round2(target - oldStock);
       if (resolvedGodownId) {
         changes.stockByGodown = applyGodownDelta(item, resolvedGodownId, delta, isWeight ? deltaKg || 0 : 0);
       }
       return {
         changes,
-        extra: { oldStock, delta, isWeight, oldStockKg, targetKg, deltaKg },
+        extra: { oldStock: locationOldStock, delta, isWeight, oldStockKg: locationOldStockKg, target, targetKg, deltaKg },
       };
     },
     session
@@ -326,9 +354,13 @@ async function recordAdjustment({ owner, itemId, newStock, newStockKg, sourceId,
   return {
     item,
     movement,
+    // Location-scoped before/after (what the count actually corrected) —
+    // not the item's company-wide total, which lives on `item.stock`.
     oldStock: extra.oldStock,
+    newStock: extra.target,
     delta: extra.delta,
     oldStockKg: extra.oldStockKg,
+    newStockKg: extra.targetKg,
     deltaKg: extra.deltaKg,
     valueChange: round2(valueDelta * rate),
   };

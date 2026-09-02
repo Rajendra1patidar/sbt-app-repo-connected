@@ -20,7 +20,7 @@ function generatePin() {
 async function ensurePortalPin(ownerId, customerId, session) {
   if (!customerId) return null;
   const customer = await Customer.findOne({ _id: customerId, owner: ownerId })
-    .select("+portalPinHash phone")
+    .select("+portalPinHash")
     .session(session || null);
   if (!customer) return null;
 

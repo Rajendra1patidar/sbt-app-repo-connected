@@ -33,17 +33,27 @@ export function LocationPickerModal({ initialAddress, initialLat, initialLng, on
         if (cancelled || !mapDivRef.current) return;
         try {
           const start = coords || { lat: SERVICE_REGION_CENTER[1], lng: SERVICE_REGION_CENTER[0] }; // Sarangpur, on the Rajgarh/Shajapur border
+          // Customers are only ever expected in Rajgarh/Shajapur — capping how far this
+          // can be panned (with a comfortable margin) keeps someone from dragging a new
+          // pin to the wrong city entirely if a search match is off. But if we're editing
+          // a location that was already saved outside that box (an old entry, a one-off
+          // customer just across the district line, etc.), the cap must stretch to include
+          // it — otherwise the map would clamp away from the actual pin and there'd be no
+          // way to see or correct it.
+          const bounds = [
+            Math.min(SERVICE_REGION_BBOX[0] - 0.4, start.lng - 0.1),
+            Math.min(SERVICE_REGION_BBOX[1] - 0.4, start.lat - 0.1),
+            Math.max(SERVICE_REGION_BBOX[2] + 0.4, start.lng + 0.1),
+            Math.max(SERVICE_REGION_BBOX[3] + 0.4, start.lat + 0.1),
+          ];
           const map = new mapboxgl.Map({
             container: mapDivRef.current,
             style: "mapbox://styles/mapbox/streets-v12",
             center: [start.lng, start.lat],
             zoom: coords ? 15 : SERVICE_REGION_DEFAULT_ZOOM,
-            // Customers are only ever in Rajgarh/Shajapur — capping how far this can be
-            // panned (with a comfortable margin beyond the two districts) keeps someone
-            // from dragging the pin to the wrong city entirely if a search match is off.
             maxBounds: [
-              [SERVICE_REGION_BBOX[0] - 0.4, SERVICE_REGION_BBOX[1] - 0.4],
-              [SERVICE_REGION_BBOX[2] + 0.4, SERVICE_REGION_BBOX[3] + 0.4],
+              [bounds[0], bounds[1]],
+              [bounds[2], bounds[3]],
             ],
           });
           const marker = new mapboxgl.Marker({ draggable: true }).setLngLat([start.lng, start.lat]).addTo(map);

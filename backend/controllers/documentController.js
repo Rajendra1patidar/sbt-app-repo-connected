@@ -315,9 +315,16 @@ exports.create = (type) => async (req, res, next) => {
     // credentials — generated here (outside the transaction; it touches Customer,
     // not Document/Item/Ledger, and a failure here shouldn't roll back the sale).
     // Returns the raw PIN only the first time it's generated, so the owner can hand
-    // it to the customer immediately after saving.
+    // it to the customer immediately after saving. Wrapped in its own try/catch —
+    // the estimate above is already committed at this point, so a PIN-generation
+    // hiccup must never turn a successful save into an error response (that would
+    // make the frontend think nothing was saved and risk a duplicate on retry).
     if (type === "estimate" && result.doc.isAdvanceBooking) {
-      result.portalAccess = await customerPortalService.ensurePortalPin(req.userId, result.doc.customerId);
+      try {
+        result.portalAccess = await customerPortalService.ensurePortalPin(req.userId, result.doc.customerId);
+      } catch (pinErr) {
+        console.error("Failed to generate Booking Portal PIN after estimate save:", pinErr.message);
+      }
     }
 
     idempotency.remember(req.userId, idempotencyKey, result);
@@ -417,8 +424,14 @@ exports.update = (type) => async (req, res, next) => {
     // Same as create() — an edit can be the moment an estimate first becomes an
     // advance booking, so make sure the customer has Booking Portal credentials.
     // ensurePortalPin is a no-op (returns pin: null) if they already have one.
+    // Same reasoning as create(): the update above is already committed, so this
+    // must not turn a successful edit into an error response.
     if (type === "estimate" && result.doc.isAdvanceBooking) {
-      result.portalAccess = await customerPortalService.ensurePortalPin(req.userId, result.doc.customerId);
+      try {
+        result.portalAccess = await customerPortalService.ensurePortalPin(req.userId, result.doc.customerId);
+      } catch (pinErr) {
+        console.error("Failed to generate Booking Portal PIN after estimate update:", pinErr.message);
+      }
     }
 
     logAudit({

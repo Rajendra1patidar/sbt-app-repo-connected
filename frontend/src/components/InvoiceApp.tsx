@@ -68,7 +68,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     reorderSuggestions, deadStock, toast, modal, confirmDeleteFor, shareInvoice, autoReminder,
     fetchAll, setOnSignOut, showToast, openModal, closeModal, cancelConfirmDelete,
     setAutoReminder, setShareInvoice,
-    saveCustomer, quickAddCustomer, quickAddItem, removeCustomer, saveItem, removeItem, saveExpense, removeExpense,
+    saveCustomer, quickAddCustomer, quickAddItem, removeCustomer, shareCustomerPortalAccess, saveItem, removeItem, saveExpense, removeExpense,
     saveVendor, removeVendor, saveGodown, removeGodown, setDefaultGodown, transferStock, savePurchase, savePurchaseBatch, removePurchase,
     saveVendorPayment, savePurchasePayment, saveDocument, removeDoc, restoreDoc, updateDocStatus,
     savePayment, savePaymentSplit, saveReturn, saveDelivery, removePayment, saveOrder, removeOrder,
@@ -231,6 +231,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
               restoreDoc={restoreDoc}
               updateStatus={(id: string, s: string) => updateDocStatus("estimate", id, s)}
               recordPayment={recordPaymentFor} onReturn={(doc: any) => openModal("return", { doc })} onDeliver={(doc: any) => openModal("delivery", { doc })} onShareInvoice={(inv: any) => setShareInvoice(inv)}
+              onSharePortalAccess={shareCustomerPortalAccess}
               onPrint={printEstimate}
               onView={(doc: any) => openModal("viewEstimate", { doc })} />
           </div>
@@ -486,7 +487,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
               onClick={() => { toast.undo?.(); useAppStore.getState().clearToast(); }}
               className="shrink-0 rounded-full bg-card/15 px-3 py-1.5 text-xs font-bold hover:bg-card/25"
             >
-              Undo
+              {toast.actionLabel || "Undo"}
             </button>
           )}
         </div>

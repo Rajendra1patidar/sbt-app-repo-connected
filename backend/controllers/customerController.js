@@ -1,6 +1,7 @@
 const Customer = require("../models/Customer");
 const crudController = require("./crudController");
 const { logAudit, diffFields } = require("../services/auditLogger");
+const customerPortalService = require("../services/customerPortalService");
 
 const base = crudController(Customer);
 
@@ -16,6 +17,22 @@ base.findDuplicate = async (req, res, next) => {
       (c) => normName(c.name) === normName(name) && normPhone(c.phone) === normPhone(phone)
     );
     res.json({ duplicate: !!match, customer: match || null });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/customers/:id/portal-pin
+// Owner-triggered — issues a fresh Booking Portal PIN for this customer (e.g. the
+// first time they need one, or when a customer has forgotten theirs) so it can be
+// shared again. Always returns the raw PIN, unlike the automatic one issued on an
+// advance-booking save, which stays silent after the first time.
+base.regeneratePortalPin = async (req, res, next) => {
+  try {
+    const result = await customerPortalService.regeneratePortalPin(req.userId, req.params.id);
+    if (!result) return res.status(404).json({ message: "Not found" });
+    logAudit({ owner: req.userId, actorId: req.actorId, action: "update", model: "Customer", docId: req.params.id, label: "Booking portal PIN reset" });
+    res.json(result);
   } catch (err) {
     next(err);
   }

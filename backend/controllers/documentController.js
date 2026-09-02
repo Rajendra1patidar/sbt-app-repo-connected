@@ -6,6 +6,7 @@ const Counter = require("../models/Counter");
 const FinancialYear = require("../models/FinancialYear");
 const ledgerService = require("../services/ledgerService");
 const stockService = require("../services/stockService");
+const customerPortalService = require("../services/customerPortalService");
 const paymentController = require("./paymentController");
 const { withTransaction } = require("../utils/withTransaction");
 const idempotency = require("../utils/idempotency");
@@ -310,6 +311,15 @@ exports.create = (type) => async (req, res, next) => {
       return { doc, lowStock };
     });
 
+    // First time this customer gets an advance booking, they need Booking Portal
+    // credentials — generated here (outside the transaction; it touches Customer,
+    // not Document/Item/Ledger, and a failure here shouldn't roll back the sale).
+    // Returns the raw PIN only the first time it's generated, so the owner can hand
+    // it to the customer immediately after saving.
+    if (type === "estimate" && result.doc.isAdvanceBooking) {
+      result.portalAccess = await customerPortalService.ensurePortalPin(req.userId, result.doc.customerId);
+    }
+
     idempotency.remember(req.userId, idempotencyKey, result);
 
     logAudit({
@@ -403,6 +413,13 @@ exports.update = (type) => async (req, res, next) => {
 
       return { doc, lowStock };
     });
+
+    // Same as create() — an edit can be the moment an estimate first becomes an
+    // advance booking, so make sure the customer has Booking Portal credentials.
+    // ensurePortalPin is a no-op (returns pin: null) if they already have one.
+    if (type === "estimate" && result.doc.isAdvanceBooking) {
+      result.portalAccess = await customerPortalService.ensurePortalPin(req.userId, result.doc.customerId);
+    }
 
     logAudit({
       owner: req.userId,

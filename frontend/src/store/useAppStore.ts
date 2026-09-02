@@ -4,6 +4,7 @@ import { ITEM_CATEGORIES } from "../lib/constants";
 import { fmtMoney, fmtNum, today } from "../lib/format";
 import { enqueueOfflineAction } from "../lib/offlineQueue";
 import { saveDataCache, loadDataCache } from "../lib/dataCache";
+import { waLink } from "../lib/contactLinks";
 
 /**
  * Central app store. This replaces the ~15 useState calls and every
@@ -23,7 +24,7 @@ import { saveDataCache, loadDataCache } from "../lib/dataCache";
 // nothing needs to re-render when a timer is scheduled or cleared.
 const pendingDeletes: Record<string, () => void> = {};
 
-type Toast = { message: string; undo?: () => void } | null;
+type Toast = { message: string; undo?: () => void; actionLabel?: string } | null;
 type ConfirmDelete = { label: string; description?: string; onConfirm: () => void } | null;
 
 interface AppState {
@@ -66,7 +67,7 @@ interface AppState {
   setOnSignOut: (fn: () => void) => void;
 
   fetchAll: () => Promise<void>;
-  showToast: (msg: string, opts?: { undo?: () => void; duration?: number }) => void;
+  showToast: (msg: string, opts?: { undo?: () => void; duration?: number; actionLabel?: string }) => void;
   clearToast: () => void;
   openModal: (type: string, payload?: any) => void;
   closeModal: () => void;
@@ -85,6 +86,7 @@ interface AppState {
   quickAddCustomer: (v: any) => Promise<any>;
   quickAddItem: (v: any) => Promise<any>;
   removeCustomer: (id: string) => void;
+  shareCustomerPortalAccess: (customerId: string) => Promise<void>;
   saveItem: (v: any) => Promise<void>;
   removeItem: (id: string) => void;
   saveExpense: (v: any) => Promise<any>;
@@ -225,7 +227,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
 
   showToast: (message, opts) => {
-    set({ toast: { message, undo: opts?.undo } });
+    set({ toast: { message, undo: opts?.undo, actionLabel: opts?.actionLabel } });
     setTimeout(() => {
       set((state) => (state.toast && state.toast.message === message ? { toast: null } : {}));
     }, opts?.duration ?? 3000);
@@ -385,6 +387,25 @@ export const useAppStore = create<AppState>()((set, get) => ({
     get().confirmThenDelete(c?.name || "this customer", "This removes the customer and their ledger history.", () => {
       scheduleDelete(set, get, "Customer", "customers", id, () => api.customers.remove(id));
     });
+  },
+
+  // Owner-triggered (re)issue of a customer's Booking Portal PIN — used both the
+  // first time a customer needs one outside of the automatic advance-booking flow,
+  // and to reset/re-send it if they've forgotten it. Always returns a fresh PIN.
+  shareCustomerPortalAccess: async (customerId) => {
+    const { customers, showToast } = get();
+    const customer = customers.find((c: any) => c.id === customerId);
+    try {
+      const { phone, pin } = await api.customers.regeneratePortalPin(customerId);
+      const usePhone = phone || customer?.phone;
+      const portalUrl = `${window.location.origin}/booking-status`;
+      const message = `Hi ${customer?.name || ""}, you can check your booking with us anytime here: ${portalUrl}\nLog in with your phone number and this PIN: ${pin}`;
+      showToast(`New Booking Portal PIN for ${customer?.name || "this customer"}: ${pin}`, {
+        duration: 15000,
+        actionLabel: "Send on WhatsApp",
+        undo: () => { if (usePhone) window.open(waLink(usePhone, message), "_blank"); },
+      });
+    } catch (err) { onApiError(get, err, "Failed to generate a portal PIN"); }
   },
 
   saveChallan: async (v) => {
@@ -650,7 +671,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
       if (v.id) {
         payload.expectedUpdatedAt = v.updatedAt;
-        const { doc, lowStock } = await api.documents(type as any).update(v.id, payload);
+        const { doc, lowStock, portalAccess } = await api.documents(type as any).update(v.id, payload);
         set((state) => ({ [key]: state[key].map((x: any) => (x.id === v.id ? doc : x)) } as any));
 
         if (type === "estimate") {
@@ -659,7 +680,12 @@ export const useAppStore = create<AppState>()((set, get) => ({
           set({ items: freshItems });
         }
 
-        if (lowStock && lowStock.length > 0) {
+        // this edit just turned the estimate into an advance booking for a customer
+        // who didn't already have Booking Portal access — surface the new PIN once,
+        // with a one-tap way to send it, so it isn't silently lost after this toast.
+        if (portalAccess?.pin) {
+          announcePortalAccess(get, doc, portalAccess);
+        } else if (lowStock && lowStock.length > 0) {
           showToast(`⚠️ Low stock: ${lowStock.map((i: any) => `${i.name} (${fmtNum(i.stock)} left)`).join(", ")}`);
         } else {
           showToast(`${doc.number} updated`);
@@ -671,7 +697,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       // guards against the same submit landing twice (double-tap Save, or a retried
       // request after a slow/dropped response creating a duplicate document)
       const idempotencyKey = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      const { doc, lowStock } = await api.documents(type as any).create(payload, idempotencyKey);
+      const { doc, lowStock, portalAccess } = await api.documents(type as any).create(payload, idempotencyKey);
       set((state) => ({ [key]: [doc, ...state[key]] } as any));
 
       let partialPaymentFailed = false;
@@ -703,7 +729,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
         /* stock was deducted server-side — pull the fresh numbers */
         const freshItems = await api.items.list();
         set({ items: freshItems });
-        if (partialPaymentFailed) {
+        if (portalAccess?.pin) {
+          announcePortalAccess(get, doc, portalAccess);
+        } else if (partialPaymentFailed) {
           showToast(`${doc.number} created, but the partial payment couldn't be recorded — add it from Payments.`);
         } else if (lowStock && lowStock.length > 0) {
           showToast(`⚠️ Low stock: ${lowStock.map((i: any) => `${i.name} (${fmtNum(i.stock)} left)`).join(", ")}`);
@@ -1109,6 +1137,27 @@ export const useAppStore = create<AppState>()((set, get) => ({
 function onApiError(get: () => AppState, err: any, fallback: string) {
   if (err?.status === 401) { get().onSignOut?.(); return; }
   get().showToast(err?.message || fallback);
+}
+
+/**
+ * Surfaces a freshly-generated Booking Portal PIN after saving an advance-booking
+ * estimate — the PIN only ever comes back from the server once (see
+ * customerPortalService.ensurePortalPin), so this is the only chance to hand it to
+ * the owner. A longer-than-usual toast, plus a one-tap WhatsApp send so it doesn't
+ * just get missed if the owner is mid-sale with a customer waiting.
+ */
+function announcePortalAccess(get: () => AppState, doc: any, portalAccess: { phone?: string; pin: string }) {
+  const { showToast, customers } = get();
+  const customer = customers.find((c: any) => c.id === doc.customerId);
+  const phone = portalAccess.phone || customer?.phone;
+  const portalUrl = `${window.location.origin}/booking-status`;
+  const message = `Hi ${customer?.name || ""}, you can check your booking with us anytime here: ${portalUrl}\nLog in with your phone number and this PIN: ${portalAccess.pin}`;
+
+  showToast(`${doc.number}: Booking Portal PIN for ${customer?.name || "this customer"} is ${portalAccess.pin} — share it with them`, {
+    duration: 15000,
+    actionLabel: "Send on WhatsApp",
+    undo: () => { if (phone) window.open(waLink(phone, message), "_blank"); },
+  });
 }
 
 /**

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Card } from "../common/UIPrimitives";
-import { MAPBOX_TOKEN, loadMapbox } from "../../lib/mapbox";
+import { MAPBOX_TOKEN, loadMapbox, SERVICE_REGION_CENTER, SERVICE_REGION_DEFAULT_ZOOM } from "../../lib/mapbox";
 
 /* ---- Godowns map ---- */
 
@@ -25,8 +25,8 @@ export function GodownsMapCard({ godowns }: any) {
       const map = new mapboxgl.Map({
         container: mapRef.current,
         style: "mapbox://styles/mapbox/light-v11",
-        center: [78.9, 22.5],
-        zoom: 3.5,
+        center: SERVICE_REGION_CENTER,
+        zoom: SERVICE_REGION_DEFAULT_ZOOM,
       });
       mapInstanceRef.current = map;
 

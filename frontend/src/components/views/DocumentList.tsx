@@ -9,7 +9,7 @@ import { fmtDate, fmtMoney } from "../../lib/format";
 
 /* ---- DocumentList ---- */
 
-export function DocumentList({ type, docs, customers, items, currency, openModal, removeDoc, restoreDoc, updateStatus, recordPayment, onShareInvoice, onPrint, onView, onReturn, onDeliver, initialStatusFilter }: any) {
+export function DocumentList({ type, docs, customers, items, currency, openModal, removeDoc, restoreDoc, updateStatus, recordPayment, onShareInvoice, onPrint, onView, onReturn, onDeliver, onSharePortalAccess, initialStatusFilter }: any) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState(initialStatusFilter || "all"); // all | due | overdue | paid | returned
   const [showDeleted, setShowDeleted] = useState(false);
@@ -220,6 +220,7 @@ export function DocumentList({ type, docs, customers, items, currency, openModal
             {type === "estimate" && <GhostButton onClick={() => onView(d)}><Eye size={13} /> View</GhostButton>}
             {type === "estimate" && d.status !== "Paid" && <GhostButton onClick={() => recordPayment(d)}><CheckCircle2 size={13} /> Record payment</GhostButton>}
             {type === "estimate" && d.isAdvanceBooking && (d.lines || []).length > 0 && !isFullyCollected(d) && <GhostButton onClick={() => onDeliver(d)}><Truck size={13} /> Record collection</GhostButton>}
+            {type === "estimate" && d.isAdvanceBooking && onSharePortalAccess && <GhostButton onClick={() => onSharePortalAccess(d.customerId)}><Phone size={13} /> Share portal access</GhostButton>}
             {type === "estimate" && (d.lines || []).length > 0 && <GhostButton onClick={() => onReturn(d)}><RotateCcw size={13} /> Return items</GhostButton>}
             {type === "estimate" && <GhostButton onClick={() => onPrint(d)}><Printer size={13} /> Print</GhostButton>}
             {type === "estimate"

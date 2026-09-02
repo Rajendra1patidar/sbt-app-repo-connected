@@ -185,7 +185,12 @@ export const api = {
       request("/api/auth/reset-pin", { method: "POST", body: JSON.stringify({ email, token, newPin }) }),
   },
 
-  customers: crud("/api/customers"),
+  customers: {
+    ...crud("/api/customers"),
+    // Issues (or re-issues) this customer's Booking Portal PIN, e.g. to hand it
+    // to them again if they've forgotten it. Returns { phone, pin }.
+    regeneratePortalPin: (id: string) => request(`/api/customers/${id}/portal-pin`, { method: "POST" }),
+  },
   items: { ...crud("/api/items"), lowStock: () => request("/api/items/meta/low-stock") },
   orders: { ...crud("/api/orders"), recordPayment: (id: string, v: any) => request(`/api/orders/${id}/payments`, { method: "POST", body: JSON.stringify(v) }) },
   expenses: crud("/api/expenses"),

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Card } from "../common/UIPrimitives";
 import { fmtMoney } from "../../lib/format";
-import { MAPBOX_TOKEN, loadMapbox, geocode } from "../../lib/mapbox";
+import { MAPBOX_TOKEN, loadMapbox, geocode, SERVICE_REGION_CENTER, SERVICE_REGION_DEFAULT_ZOOM } from "../../lib/mapbox";
 
 /* ---- Reports ---- */
 
@@ -31,8 +31,8 @@ export function EstimatesMapCard({ invoices, currency }: any) {
       const map = new mapboxgl.Map({
         container: mapRef.current,
         style: "mapbox://styles/mapbox/light-v11",
-        center: [78.9, 22.5],
-        zoom: 3.5,
+        center: SERVICE_REGION_CENTER,
+        zoom: SERVICE_REGION_DEFAULT_ZOOM,
       });
       mapInstanceRef.current = map;
 

@@ -1,4 +1,8 @@
 const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+
+const PORTAL_MAX_FAILED_ATTEMPTS = 5;
+const PORTAL_LOCK_TIME_MS = 15 * 60 * 1000; // 15 minutes
 
 const customerSchema = new mongoose.Schema(
   {
@@ -20,9 +24,46 @@ const customerSchema = new mongoose.Schema(
     // duplicate customers (see customerController.create's E11000 handling).
     nameKey: { type: String, select: false },
     phoneKey: { type: String, select: false },
+    // Customer Booking Portal login — a hashed PIN (never stored in plaintext, same
+    // bcrypt approach as the owner/staff PIN on User) that lets a customer log in
+    // with their phone number to see their own advance-booking progress. Left unset
+    // until customerPortalService auto-generates one the first time this customer
+    // gets an advance-booking estimate. select:false keeps it out of every normal
+    // Customer response so it's never accidentally sent to the owner-side frontend.
+    portalPinHash: { type: String, default: null, select: false },
+    portalFailedAttempts: { type: Number, default: 0, select: false },
+    portalLockUntil: { type: Date, default: null, select: false },
   },
   { timestamps: true }
 );
+
+customerSchema.methods.comparePortalPin = function (pin) {
+  if (!this.portalPinHash) return Promise.resolve(false);
+  return bcrypt.compare(String(pin), this.portalPinHash);
+};
+
+customerSchema.statics.hashPortalPin = function (pin) {
+  return bcrypt.hash(String(pin), 10);
+};
+
+customerSchema.methods.isPortalLocked = function () {
+  return !!(this.portalLockUntil && this.portalLockUntil.getTime() > Date.now());
+};
+
+customerSchema.methods.registerPortalFailedAttempt = async function () {
+  this.portalFailedAttempts = (this.portalFailedAttempts || 0) + 1;
+  if (this.portalFailedAttempts >= PORTAL_MAX_FAILED_ATTEMPTS) {
+    this.portalLockUntil = new Date(Date.now() + PORTAL_LOCK_TIME_MS);
+    this.portalFailedAttempts = 0;
+  }
+  await this.save();
+};
+
+customerSchema.methods.registerPortalSuccessfulLogin = async function () {
+  this.portalFailedAttempts = 0;
+  this.portalLockUntil = null;
+  await this.save();
+};
 
 // Speeds up the sorted list query and the per-owner duplicate-name scan in findDuplicate.
 customerSchema.index({ owner: 1, createdAt: -1 });

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Loader2, Search, X } from "lucide-react";
-import { MAPBOX_TOKEN, loadMapbox, reverseGeocode, suggestPlaces } from "../../lib/mapbox";
+import { MAPBOX_TOKEN, loadMapbox, reverseGeocode, suggestPlaces, SERVICE_REGION_CENTER, SERVICE_REGION_BBOX, SERVICE_REGION_DEFAULT_ZOOM } from "../../lib/mapbox";
 
 export function LocationPickerModal({ initialAddress, initialLat, initialLng, onClose, onPick }: any) {
   const mapDivRef = useRef<HTMLDivElement>(null);
@@ -32,12 +32,19 @@ export function LocationPickerModal({ initialAddress, initialLat, initialLng, on
       .then((mapboxgl) => {
         if (cancelled || !mapDivRef.current) return;
         try {
-          const start = coords || { lat: 22.9734, lng: 78.6569 }; // roughly central India as a default
+          const start = coords || { lat: SERVICE_REGION_CENTER[1], lng: SERVICE_REGION_CENTER[0] }; // Sarangpur, on the Rajgarh/Shajapur border
           const map = new mapboxgl.Map({
             container: mapDivRef.current,
             style: "mapbox://styles/mapbox/streets-v12",
             center: [start.lng, start.lat],
-            zoom: coords ? 15 : 4,
+            zoom: coords ? 15 : SERVICE_REGION_DEFAULT_ZOOM,
+            // Customers are only ever in Rajgarh/Shajapur — capping how far this can be
+            // panned (with a comfortable margin beyond the two districts) keeps someone
+            // from dragging the pin to the wrong city entirely if a search match is off.
+            maxBounds: [
+              [SERVICE_REGION_BBOX[0] - 0.4, SERVICE_REGION_BBOX[1] - 0.4],
+              [SERVICE_REGION_BBOX[2] + 0.4, SERVICE_REGION_BBOX[3] + 0.4],
+            ],
           });
           const marker = new mapboxgl.Marker({ draggable: true }).setLngLat([start.lng, start.lat]).addTo(map);
           mapRef.current = map;

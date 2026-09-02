@@ -30,6 +30,7 @@ const approvalRoutes = require("./routes/approvalRoutes");
 const bankStatementRoutes = require("./routes/bankStatementRoutes");
 const captureRoutes = require("./routes/captureRoutes");
 const auditLogRoutes = require("./routes/auditLogRoutes");
+const customerPortalRoutes = require("./routes/customerPortalRoutes");
 const { registerListeners } = require("./listeners");
 const cronRoutes = require("./routes/cronRoutes");
 const scheduler = require("./jobs/scheduler");
@@ -82,6 +83,10 @@ app.get("/api/health", (req, res) => res.json({ status: "ok", time: new Date().t
 app.use("/api/cron", cronRoutes);
 // ---- public routes ----
 app.use("/api/auth", authRoutes);
+// Customer Booking Portal — entirely separate auth (phone + PIN) from the owner/staff
+// login above; /login is public here, /bookings is gated inside the router itself by
+// protectCustomerPortal rather than the owner `protect` middleware every route below uses.
+app.use("/api/customer-portal", customerPortalRoutes);
 // ---- protected routes (require Bearer JWT) ----
 app.use("/api/customers", protect, customerRoutes);
 app.use("/api/items", protect, itemRoutes);

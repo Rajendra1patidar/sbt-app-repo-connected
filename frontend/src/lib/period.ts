@@ -14,6 +14,10 @@ export function startOfYear(d: Date) { return new Date(d.getFullYear(), 0, 1); }
 
 export function endOfYear(d: Date) { return new Date(d.getFullYear(), 11, 31, 23, 59, 59, 999); }
 
+export function startOfQuarter(d: Date) { const q = Math.floor(d.getMonth() / 3); return new Date(d.getFullYear(), q * 3, 1); }
+
+export function endOfQuarter(d: Date) { const q = Math.floor(d.getMonth() / 3); return new Date(d.getFullYear(), q * 3 + 3, 0, 23, 59, 59, 999); }
+
 export type PeriodPreset = "week" | "month" | "year" | "custom";
 
 export function getPeriodRange(preset: PeriodPreset, anchor: Date, customFrom: string, customTo: string) {

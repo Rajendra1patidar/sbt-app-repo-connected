@@ -4,11 +4,11 @@ import { fmtDate, fmtMoney, fmtNum } from "../../lib/format";
 import { estimatePoints } from "../../lib/points";
 import { WHATSAPP_GREEN } from "../../lib/constants";
 
-export function ViewEstimateModal({ doc, customers, items, currency, onClose, onPrint, onShareInvoice }: any) {
+export function ViewEstimateModal({ doc, customers, items, currency, scoreRules, onClose, onPrint, onShareInvoice }: any) {
   if (!doc) return null;
   const customer = customers.find((c: any) => c.id === doc.customerId);
   const itemById = (id: string) => items.find((it: any) => it.id === id);
-  const pts = estimatePoints(doc, items);
+  const pts = estimatePoints(doc, items, scoreRules);
   const balance = Number(doc.total || 0) - Number(doc.amountPaid || 0);
 
   // matches the wording/coloring already used on the printed slip and the

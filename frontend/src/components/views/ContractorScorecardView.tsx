@@ -1,17 +1,18 @@
 import React, { useState } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Phone, Search, Send, Star } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Phone, Search, Send, Settings, Star } from "lucide-react";
 import { Card, GhostButton } from "../common/UIPrimitives";
 import { ContractorSharePopup } from "../modals/ContractorSharePopup";
 import { FieldModal } from "../modals/FieldModal";
+import { ScoreRulesModal } from "../modals/ScoreRulesModal";
 import { waLink } from "../../lib/contactLinks";
 import { buildContractorListMessage, buildContractorMessage, capForWhatsApp, printContractorReport } from "../../lib/contractorMessages";
 import { fmtDate, fmtMoney, fmtNum } from "../../lib/format";
 import { PeriodPreset, getPeriodRange } from "../../lib/period";
-import { estimatePoints, isCementItemName, isSariaItemName, sariaToPoints } from "../../lib/points";
+import { estimatePoints } from "../../lib/points";
 
 /* ---- To-Do Tracking (inventory focus, replaces Time Tracking) ---- */
 
-export function ContractorScorecardView({ estimates, items, currency, contractors, onSavePhone, showToast }: any) {
+export function ContractorScorecardView({ estimates, items, currency, contractors, scoreRules, onSavePhone, onSaveScoreRule, onRemoveScoreRule, showToast }: any) {
   const [openContractor, setOpenContractor] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [preset, setPreset] = useState<PeriodPreset>("month");
@@ -20,6 +21,7 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
   const [customTo, setCustomTo] = useState("");
   const [sharePopup, setSharePopup] = useState<{ scope: "single" | "all"; name?: string } | null>(null);
   const [editingPhoneFor, setEditingPhoneFor] = useState<string | null>(null);
+  const [showRulesModal, setShowRulesModal] = useState(false);
 
   const phoneByName: Record<string, string> = {};
   (contractors || []).forEach((c: any) => { phoneByName[c.name.trim().toLowerCase()] = c.phone || ""; });
@@ -44,7 +46,7 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
   });
 
   const byContractor: Record<string, {
-    total: number; count: number; cementQty: number; sariaQty: number;
+    total: number; count: number; cementQty: number; sariaQty: number; cementPoints: number; sariaPoints: number; points: number;
     itemMap: Record<string, { name: string; qty: number; amount: number }>;
     estimatesList: { id: string; number: string; date: string; total: number; cementQty: number; sariaQty: number; points: number }[];
   }> = {};
@@ -59,7 +61,7 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
     const lower = raw.toLowerCase();
     if (!canonicalCaseByLower[lower]) canonicalCaseByLower[lower] = raw;
     const name = canonicalCaseByLower[lower];
-    if (!byContractor[name]) byContractor[name] = { total: 0, count: 0, cementQty: 0, sariaQty: 0, itemMap: {}, estimatesList: [] };
+    if (!byContractor[name]) byContractor[name] = { total: 0, count: 0, cementQty: 0, sariaQty: 0, cementPoints: 0, sariaPoints: 0, points: 0, itemMap: {}, estimatesList: [] };
     byContractor[name].total += Number(est.total || 0);
     byContractor[name].count += 1;
     (est.lines || []).forEach((ln: any) => {
@@ -70,13 +72,16 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
       if (!byContractor[name].itemMap[itemName]) byContractor[name].itemMap[itemName] = { name: itemName, qty: 0, amount: 0 };
       byContractor[name].itemMap[itemName].qty += qty;
       byContractor[name].itemMap[itemName].amount += amount;
-      const category = it?.category || "";
-      const isCement = category ? category === "Cement" : isCementItemName(itemName);
-      const isSaria = category ? category === "Saria" : isSariaItemName(itemName);
-      if (isCement) byContractor[name].cementQty += qty;
-      if (isSaria) byContractor[name].sariaQty += qty;
     });
-    const estPts = estimatePoints(est, items);
+    // estimatePoints reads each line's category/brand + this estimate's own
+    // date, so it naturally picks up whichever rule (scheme or permanent)
+    // was active on that date — no separate cement/saria detection needed here.
+    const estPts = estimatePoints(est, items, scoreRules);
+    byContractor[name].cementQty += estPts.cementQty;
+    byContractor[name].sariaQty += estPts.sariaQty;
+    byContractor[name].cementPoints += estPts.cementPoints;
+    byContractor[name].sariaPoints += estPts.sariaPoints;
+    byContractor[name].points += estPts.points;
     byContractor[name].estimatesList.push({
       id: est.id, number: est.number || "", date: est.date || "",
       total: Number(est.total || 0), cementQty: estPts.cementQty, sariaQty: estPts.sariaQty, points: estPts.points,
@@ -89,7 +94,7 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
     .filter((name) => !q || name.toLowerCase().includes(q))
     .sort((a, b) => byContractor[b].total - byContractor[a].total);
 
-  const overallPoints = Object.values(byContractor).reduce((s, c) => s + c.cementQty + sariaToPoints(c.sariaQty), 0);
+  const overallPoints = Object.values(byContractor).reduce((s, c) => s + c.points, 0);
   const overallCementQty = Object.values(byContractor).reduce((s, c) => s + c.cementQty, 0);
   const overallSariaQty = Object.values(byContractor).reduce((s, c) => s + c.sariaQty, 0);
 
@@ -121,7 +126,12 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
   return (
     <div className="space-y-3 px-5 pb-28">
       {/* Period filter */}
-      <div className="mt-1 rounded-card border border-line bg-card p-3">
+      <div className="mt-1 flex items-center justify-end">
+        <button onClick={() => setShowRulesModal(true)} className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold text-ink/50 hover:bg-paper hover:text-ink">
+          <Settings size={13} /> Points settings
+        </button>
+      </div>
+      <div className="rounded-card border border-line bg-card p-3">
         <div className="flex gap-1.5">
           {(["week", "month", "year", "custom"] as PeriodPreset[]).map((p) => (
             <button key={p} onClick={() => setPreset(p)}
@@ -151,7 +161,7 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
           <div className="relative">
             <p className="text-xs font-semibold text-white/70">Total contractor points · {range.label}</p>
             <p className="mt-1 font-display text-3xl font-semibold">{fmtNum(overallPoints)}</p>
-            <p className="mt-1 text-xs font-semibold text-white/70">1 cement bag = 1 point · 10kg saria = 1 point</p>
+            <p className="mt-1 text-xs font-semibold text-white/70">Default: 1 cement bag = 1 point · 10kg saria = 1 point — adjust in Points settings</p>
             <div className="mt-4 grid grid-cols-2 gap-3">
               <div><p className="text-[11px] text-white/60">Cement</p><p className="font-mono text-sm font-semibold">{fmtNum(overallCementQty)} bags</p></div>
               <div><p className="text-[11px] text-white/60">Saria</p><p className="font-mono text-sm font-semibold">{fmtNum(overallSariaQty)} kg</p></div>
@@ -180,7 +190,7 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
       ) : contractorNames.map((name) => {
         const c = byContractor[name];
         const itemRows = Object.values(c.itemMap).sort((a, b) => b.amount - a.amount);
-        const points = c.cementQty + sariaToPoints(c.sariaQty);
+        const points = c.points;
         const isOpen = openContractor === name;
         return (
           <Card key={name}>
@@ -212,13 +222,13 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
                     {c.cementQty > 0 && (
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-ink/70">Cement — {fmtNum(c.cementQty)} bag{c.cementQty !== 1 ? "s" : ""}</span>
-                        <span className="font-semibold text-ink">{fmtNum(c.cementQty)} pts</span>
+                        <span className="font-semibold text-ink">{fmtNum(c.cementPoints)} pts</span>
                       </div>
                     )}
                     {c.sariaQty > 0 && (
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-ink/70">Saria — {fmtNum(c.sariaQty)} kg</span>
-                        <span className="font-semibold text-ink">{fmtNum(sariaToPoints(c.sariaQty))} pts</span>
+                        <span className="font-semibold text-ink">{fmtNum(c.sariaPoints)} pts</span>
                       </div>
                     )}
                     <div className="flex items-center justify-between border-t border-brand-200 pt-1.5 text-sm">
@@ -269,6 +279,16 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
           title={sharePopup.scope === "single" ? sharePopup.name : `${contractorNames.length} contractors`}
           onFormat={handleShareChoice}
           onCancel={() => setSharePopup(null)}
+        />
+      )}
+
+      {showRulesModal && (
+        <ScoreRulesModal
+          scoreRules={scoreRules}
+          items={items}
+          onSave={onSaveScoreRule}
+          onRemove={onRemoveScoreRule}
+          onClose={() => setShowRulesModal(false)}
         />
       )}
     </div>

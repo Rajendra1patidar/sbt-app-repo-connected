@@ -17,7 +17,7 @@ const BAR_COLORS = [
 const MAX_BAR_HEIGHT = 64;
 const MIN_BAR_HEIGHT = 14;
 
-export function ContractorPodium({ estimates, items, go }: any) {
+export function ContractorPodium({ estimates, items, scoreRules, go }: any) {
   const ranking = useMemo(() => {
     const now = new Date();
     const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -25,7 +25,7 @@ export function ContractorPodium({ estimates, items, go }: any) {
     (estimates || []).forEach((e: any) => {
       const name = (e.contractorName || "").trim();
       if (!name || String(e.date || "").slice(0, 7) !== monthKey) return;
-      const pts = estimatePoints(e, items).points;
+      const pts = estimatePoints(e, items, scoreRules).points;
       byName[name] = (byName[name] || 0) + pts;
     });
     return Object.entries(byName)
@@ -33,7 +33,7 @@ export function ContractorPodium({ estimates, items, go }: any) {
       .filter((r) => r.points > 0)
       .sort((a, b) => b.points - a.points)
       .slice(0, 4);
-  }, [estimates, items]);
+  }, [estimates, items, scoreRules]);
 
   const maxPts = Math.max(1, ...ranking.map((r) => r.points));
 

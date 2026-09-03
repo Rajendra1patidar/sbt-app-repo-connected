@@ -196,6 +196,7 @@ export const api = {
   expenses: crud("/api/expenses"),
   payments: crud("/api/payments"),
   contractors: crud("/api/contractors"),
+  scoreRules: crud("/api/score-rules"),
 
   capture: {
     // AI fallback for the quick-capture bar — only called when the local

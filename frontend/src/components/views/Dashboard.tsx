@@ -21,7 +21,7 @@ const SALES_CATEGORY_OPTIONS = ["All", "Saria", "Cement", "Kasta", "CPVC", "UPVC
 /* ---- Dashboard ---- */
 
 export function Dashboard({ data, settings, openModal, go, reorderSuggestions, saveDocument, savePayment, savePurchase, saveCustomer, saveExpense, saveReturn, showToast }: any) {
-  const { customers, estimates, expenses, items, payments, purchases, vendors } = data;
+  const { customers, estimates, expenses, items, payments, purchases, vendors, scoreRules } = data;
   const [tab, setTab] = useState("estimates");
   const outstanding = round2(estimates.filter((i: any) => i.status !== "Paid").reduce((s: number, i: any) => s + (Number(i.total || 0) - Number(i.amountPaid || 0)), 0));
   const overdueEstimates = estimates.filter((i: any) => i.status !== "Paid" && i.dueDate && new Date(i.dueDate) < new Date());
@@ -328,7 +328,7 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
 
     <div className="mt-5 space-y-4 px-5 lg:mt-0 lg:px-0">
       <DueThisWeek estimates={estimates} customers={customers} currency={settings.currency} go={go} />
-      <ContractorPodium estimates={estimates} items={items} go={go} />
+      <ContractorPodium estimates={estimates} items={items} scoreRules={scoreRules} go={go} />
     </div>
 
     {rowDetail && (

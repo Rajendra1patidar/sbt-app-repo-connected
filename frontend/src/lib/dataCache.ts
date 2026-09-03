@@ -20,7 +20,7 @@ const CACHE_KEY = "sbt_data_cache";
 // and not worth the extra bytes in an already-large blob).
 const CACHED_FIELDS = [
   "settings", "customers", "items", "orders", "estimates", "challans",
-  "expenses", "payments", "labourSessions", "labourWorkers", "contractors",
+  "expenses", "payments", "labourSessions", "labourWorkers", "contractors", "scoreRules",
   "vendors", "purchases", "godowns", "role",
 ] as const;
 

@@ -64,7 +64,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 
   const {
     loading, loadError, settings, customers, items, orders, estimates, challans,
-    expenses, payments, labourSessions, labourWorkers, contractors, vendors, purchases, godowns,
+    expenses, payments, labourSessions, labourWorkers, contractors, scoreRules, vendors, purchases, godowns,
     reorderSuggestions, deadStock, toast, modal, confirmDeleteFor, shareInvoice, autoReminder,
     fetchAll, setOnSignOut, showToast, openModal, closeModal, cancelConfirmDelete,
     setAutoReminder, setShareInvoice,
@@ -72,7 +72,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     saveVendor, removeVendor, saveGodown, removeGodown, setDefaultGodown, transferStock, savePurchase, savePurchaseBatch, removePurchase,
     saveVendorPayment, savePurchasePayment, saveDocument, removeDoc, restoreDoc, updateDocStatus,
     savePayment, savePaymentSplit, saveReturn, saveDelivery, removePayment, saveOrder, removeOrder,
-    payOrder, saveOrderPayment, saveLabourSession, removeLabourSession, saveContractorPhone,
+    payOrder, saveOrderPayment, saveLabourSession, removeLabourSession, saveContractorPhone, saveScoreRule, removeScoreRule,
     saveSettings, saveChallan, recordPaymentFor, applyStockAdjustments,
   } = useAppStore();
 
@@ -198,7 +198,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   // counts, or any other aggregate/lookup surface
   const activeEstimates = estimates.filter((i: any) => !i.deleted);
   const overdueCount = activeEstimates.filter((i: any) => i.status === "Due" && i.dueDate && new Date(i.dueDate) < new Date()).length;
-  const data = { customers, items, orders, estimates: activeEstimates, invoices: activeEstimates, challans, expenses, payments, labourSessions, purchases, vendors };
+  const data = { customers, items, orders, estimates: activeEstimates, invoices: activeEstimates, challans, expenses, payments, labourSessions, purchases, vendors, scoreRules };
   const itemCategories = settings.itemCategories?.length ? settings.itemCategories : ITEM_CATEGORIES;
   const itemBrands = settings.itemBrands?.length ? settings.itemBrands : ITEM_BRANDS;
 
@@ -242,7 +242,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <Route path="/inventory" element={<ToDoTrackingView items={items} settings={settings} categories={itemCategories} orders={orders} openModal={openModal} reorderSuggestions={reorderSuggestions} deadStock={deadStock} applyStockAdjustments={applyStockAdjustments} godowns={godowns} />} />
       <Route path="/stock-adjustments" element={<StockAdjustmentHistoryView items={items} currency={settings.currency} />} />
       <Route path="/labour" element={<LabourTrackingView sessions={labourSessions} knownWorkers={labourWorkers} onSave={saveLabourSession} onRemove={removeLabourSession} currency={settings.currency} estimates={activeEstimates} items={items} customers={customers} />} />
-      <Route path="/contractors" element={<ContractorScorecardView estimates={activeEstimates} items={items} currency={settings.currency} contractors={contractors} onSavePhone={saveContractorPhone} showToast={showToast} />} />
+      <Route path="/contractors" element={<ContractorScorecardView estimates={activeEstimates} items={items} currency={settings.currency} contractors={contractors} scoreRules={scoreRules} onSavePhone={saveContractorPhone} onSaveScoreRule={saveScoreRule} onRemoveScoreRule={removeScoreRule} showToast={showToast} />} />
       <Route path="/vendor-scorecard" element={<VendorScorecardView currency={settings.currency} />} />
       <Route path="/customer-credit" element={<CustomerCreditView currency={settings.currency} />} />
       <Route path="/cash-flow-forecast" element={<CashFlowForecastView currency={settings.currency} />} />
@@ -259,7 +259,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   const renderModal = () => {
     if (!modal) return null;
     const { type, payload } = modal;
-    if (type === "viewEstimate") return <ViewEstimateModal doc={payload?.doc} customers={customers} items={items} currency={settings.currency} onClose={closeModal}
+    if (type === "viewEstimate") return <ViewEstimateModal doc={payload?.doc} customers={customers} items={items} currency={settings.currency} scoreRules={scoreRules} onClose={closeModal}
       onPrint={printEstimate}
       onShareInvoice={(doc: any) => { closeModal(); setShareInvoice(doc); }} />;
 

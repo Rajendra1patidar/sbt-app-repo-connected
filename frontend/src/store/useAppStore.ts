@@ -47,6 +47,7 @@ interface AppState {
   labourSessions: any[];
   labourWorkers: string[];
   contractors: any[];
+  scoreRules: any[];
   vendors: any[];
   godowns: any[];
   purchases: any[];
@@ -118,6 +119,8 @@ interface AppState {
   saveLabourSession: (v: any) => Promise<void>;
   removeLabourSession: (id: string) => void;
   saveContractorPhone: (name: string, phone: string) => Promise<void>;
+  saveScoreRule: (v: any) => Promise<void>;
+  removeScoreRule: (id: string) => void;
   saveSettings: (s: any) => Promise<void>;
   applyStockAdjustments: (lines: { itemId: string; newStock: number; newStockKg?: number; reason?: string }[], reason?: string, godownId?: string) => Promise<any>;
   saveChallan: (v: any) => Promise<void>;
@@ -148,6 +151,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   labourSessions: [],
   labourWorkers: [],
   contractors: [],
+  scoreRules: [],
   vendors: [],
   godowns: [],
   purchases: [],
@@ -168,7 +172,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   fetchAll: async () => {
     set({ loading: true, loadError: "" });
     try {
-      const [c, it, o, est, ch, ex, pay, st, ls, lw, ct, vd, pu, rs, nt, me, gd, ds] = await Promise.all([
+      const [c, it, o, est, ch, ex, pay, st, ls, lw, ct, sr, vd, pu, rs, nt, me, gd, ds] = await Promise.all([
         api.customers.list(),
         api.items.list(),
         api.orders.list(),
@@ -180,6 +184,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
         api.labourSessions.list(),
         api.labourSessions.workers(),
         api.contractors.list(),
+        api.scoreRules.list().catch(() => []),
         api.vendors.list(),
         api.purchases.list(),
         api.reports.reorderSuggestions().catch(() => []),
@@ -199,6 +204,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
         labourSessions: ls,
         labourWorkers: lw,
         contractors: ct,
+        scoreRules: sr || [],
         vendors: vd,
         purchases: pu,
         reorderSuggestions: rs || [],
@@ -1067,6 +1073,23 @@ export const useAppStore = create<AppState>()((set, get) => ({
       });
       showToast("Contractor number saved");
     } catch (err) { onApiError(get, err, "Failed to save contractor number"); }
+  },
+
+  saveScoreRule: async (v) => {
+    const { showToast } = get();
+    try {
+      const doc = v.id ? await api.scoreRules.update(v.id, v) : await api.scoreRules.create(v);
+      set((state) => {
+        const idx = state.scoreRules.findIndex((x) => x.id === doc.id);
+        const scoreRules = idx === -1 ? [doc, ...state.scoreRules] : (() => { const copy = [...state.scoreRules]; copy[idx] = doc; return copy; })();
+        return { scoreRules };
+      });
+      showToast(v.id ? "Points rule updated" : "Points rule added");
+    } catch (err) { onApiError(get, err, "Failed to save points rule"); }
+  },
+
+  removeScoreRule: (id) => {
+    scheduleDelete(set, get, "Points rule", "scoreRules", id, () => api.scoreRules.remove(id));
   },
 
   // Applies a reviewed stock-take batch. Each successfully-changed line comes

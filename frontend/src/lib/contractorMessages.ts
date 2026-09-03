@@ -1,16 +1,20 @@
 import { fmtMoney, fmtNum } from "./format";
-import { sariaToPoints } from "./points";
 
-/* ---- Contractor share message/print builders ---- */
+/* ---- Contractor share message/print builders ----
+ * `c` here is a ContractorScorecardView aggregate that already carries the
+ * correctly-computed points (honoring any category/brand ScoreRules and
+ * schemes active on each estimate's own date) — points, cementPoints and
+ * sariaPoints — so these builders just read them rather than re-deriving
+ * points with the old fixed 1-bag/10kg formula. */
 
 export function buildContractorMessage(name: string, c: any, currency: string, periodLabel: string, mode: "summary" | "full") {
-  const points = c.cementQty + sariaToPoints(c.sariaQty);
+  const points = c.points ?? 0;
   let msg = `*${name} — Contractor Summary*\n${periodLabel}\n\n`;
   msg += `Points: ${fmtNum(points)}\n`;
   msg += `Estimates: ${c.count} · Total: ${fmtMoney(c.total, currency)}\n`;
   if (mode === "full") {
-    if (c.cementQty > 0) msg += `Cement: ${fmtNum(c.cementQty)} bags (${fmtNum(c.cementQty)} pts)\n`;
-    if (c.sariaQty > 0) msg += `Saria: ${fmtNum(c.sariaQty)} kg (${fmtNum(sariaToPoints(c.sariaQty))} pts)\n`;
+    if (c.cementQty > 0) msg += `Cement: ${fmtNum(c.cementQty)} bags (${fmtNum(c.cementPoints ?? c.cementQty)} pts)\n`;
+    if (c.sariaQty > 0) msg += `Saria: ${fmtNum(c.sariaQty)} kg (${fmtNum(c.sariaPoints ?? 0)} pts)\n`;
     const itemRows: any[] = Object.values(c.itemMap).sort((a: any, b: any) => b.amount - a.amount);
     if (itemRows.length) {
       msg += `\nItems:\n`;
@@ -24,7 +28,7 @@ export function buildContractorListMessage(names: string[], byContractor: Record
   let msg = `*Contractor Points — ${periodLabel}*\n\n`;
   names.forEach((name) => {
     const c = byContractor[name];
-    const points = c.cementQty + sariaToPoints(c.sariaQty);
+    const points = c.points ?? 0;
     msg += `${name} — ${fmtNum(points)} pts · ${fmtMoney(c.total, currency)}\n`;
     if (mode === "full") {
       if (c.cementQty > 0) msg += `  Cement: ${fmtNum(c.cementQty)} bags\n`;
@@ -40,7 +44,7 @@ export function capForWhatsApp(msg: string) {
 
 export function printContractorReport(rows: { name: string; c: any }[], periodLabel: string, mode: "summary" | "full", currency: string, heading: string) {
   const rowsHtml = rows.map(({ name, c }) => {
-    const points = c.cementQty + sariaToPoints(c.sariaQty);
+    const points = c.points ?? 0;
     const itemsHtml = mode === "full"
       ? `<tr><td colspan="4" class="sub-row"><div class="sub">${
           [

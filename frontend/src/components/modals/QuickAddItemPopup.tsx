@@ -13,8 +13,8 @@ export function QuickAddItemPopup({ onCancel, onSave, saving }: any) {
   const canSave = name.trim().length > 0 && !saving;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/50 p-4">
-      <div className="w-full max-w-xs rounded-3xl bg-card p-6 shadow-xl">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/50 p-4 animate-fade-in">
+      <div className="animate-pop-in w-full max-w-xs rounded-3xl bg-card p-6 shadow-xl">
         <div className="flex items-center justify-between">
           <h3 className="font-display text-lg font-bold text-ink">New item</h3>
           <button onClick={onCancel} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>

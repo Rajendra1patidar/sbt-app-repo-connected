@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, Pencil, Plus, Trash2, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, Pencil, Plus, Trash2, X } from "lucide-react";
 import { SearchableSelect } from "../common/SearchableSelect";
 import { RateEditPopup } from "./RateEditPopup";
 import { QuickAddCustomerPopup } from "./QuickAddCustomerPopup";
@@ -158,8 +158,8 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
-      <div className="w-full sm:max-w-xl max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4 animate-fade-in">
+      <div className="animate-sheet-up w-full sm:max-w-xl max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="font-display text-lg font-bold text-ink">{titleMap[type]}</h3>
@@ -173,7 +173,12 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
           <div className="space-y-5">
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2 sm:col-span-1">
-                <div className="mb-1 flex items-center justify-between">
+                {/* h-6 on every header row (label-only or label+button) keeps the
+                    inputs below them starting at the same y — the "New" pill
+                    button is taller than a plain label, so without a matching
+                    fixed row height the customer field dropped a few px lower
+                    than Date/Due date next to it. */}
+                <div className="mb-1 flex h-6 items-center justify-between">
                   <label className="block text-xs font-semibold text-ink/50">Customer *</label>
                   {onQuickAddCustomer && (
                     <button type="button" onClick={() => setShowAddCustomer(true)}
@@ -191,12 +196,12 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-ink/50">{type === "challan" ? "Delivery date" : "Date"}</label>
+                <label className="mb-1 flex h-6 items-center text-xs font-semibold text-ink/50">{type === "challan" ? "Delivery date" : "Date"}</label>
                 <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
               </div>
               {type !== "challan" && (
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-ink/50">Due date</label>
+                  <label className="mb-1 flex h-6 items-center text-xs font-semibold text-ink/50">Due date</label>
                   <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
                 </div>
               )}
@@ -251,7 +256,7 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
                   const exceedsStock = it && (isWeight ? Number(ln.qty) > (godownStock.stockKg ?? 0) : Number(ln.qty) > (godownStock.stock ?? 0));
                   const exceedsPieces = it && isWeight && Number(ln.piecesQty || 0) > (godownStock.stock ?? 0);
                   return (
-                    <div key={i} className="rounded-xl border border-line bg-paper/60 p-2.5">
+                    <div key={i} style={{ animationDelay: `${Math.min(i, 6) * 25}ms` }} className="animate-row-in rounded-xl border border-line bg-paper/60 p-2.5">
                       <div className="mb-2.5 flex items-center gap-2 border-b border-line/70 pb-2.5">
                         <div className="min-w-0 flex-1">
                           <SearchableSelect
@@ -318,13 +323,21 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
                       {godowns && godowns.length > 1 && (
                         <div className="mt-1.5">
                           <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink/35">Dispatch from</span>
-                          <select
-                            value={ln.godownId || godowns.find((g: any) => g.isDefault)?.id || godowns[0]?.id || ""}
-                            onChange={(e) => updateLine(i, { godownId: e.target.value })}
-                            className="w-full rounded-lg border border-line px-2 py-1.5 text-sm"
-                          >
-                            {godowns.map((g: any) => <option key={g.id} value={g.id}>{g.name}{g.isDefault ? " (Default)" : ""}</option>)}
-                          </select>
+                          {/* A bare <select> keeps the browser/OS's native border and
+                              focus ring no matter what border classes we give it, so it
+                              always looked heavier and less rounded than every other
+                              field on the card. appearance-none strips that chrome and
+                              we draw our own chevron so it matches the rest of the form. */}
+                          <div className="relative">
+                            <select
+                              value={ln.godownId || godowns.find((g: any) => g.isDefault)?.id || godowns[0]?.id || ""}
+                              onChange={(e) => updateLine(i, { godownId: e.target.value })}
+                              className="w-full appearance-none rounded-lg border border-line bg-card px-2 py-1.5 pr-7 text-sm text-ink focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                            >
+                              {godowns.map((g: any) => <option key={g.id} value={g.id}>{g.name}{g.isDefault ? " (Default)" : ""}</option>)}
+                            </select>
+                            <ChevronDown size={14} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-ink/40" />
+                          </div>
                         </div>
                       )}
                     </div>

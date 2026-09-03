@@ -70,3 +70,9 @@ body {
 .animate-fade-in { animation: fadeIn 0.18s ease-out; }
 .animate-pop-in { animation: popIn 0.16s cubic-bezier(0.16, 1, 0.3, 1); }
 .animate-row-in { animation: rowIn 0.24s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-sheet-up, .animate-fade-in, .animate-pop-in, .animate-row-in {
+    animation: none;
+  }
+}

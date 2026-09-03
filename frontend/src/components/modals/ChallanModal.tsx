@@ -33,7 +33,7 @@ export function ChallanModal({ onClose, onSave }: any) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
-      <div className="w-full sm:max-w-xl max-h-[93vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card p-6 shadow-xl space-y-5">
+      <div className="w-full sm:max-w-xl max-h-[93vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between">
           <h3 className="font-display text-lg font-bold text-ink">New Delivery Challan</h3>

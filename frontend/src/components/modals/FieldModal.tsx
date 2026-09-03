@@ -7,14 +7,25 @@ import { LocationPickerModal } from "./LocationPickerModal";
 export function FieldModal({ title, fields, initial, onClose, onSave, danger }: any) {
   const [values, setValues] = useState<any>(() => initial || {});
   const [pickerFor, setPickerFor] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const set = (k: string, v: any) => setValues((s: any) => ({ ...s, [k]: v }));
   
   const visibleFields = fields.filter((f: any) => !f.showIf || f.showIf(values));
   const canSave = visibleFields.every((f: any) => !f.required || (values[f.key] !== undefined && values[f.key] !== ""));
+
+  const handleSaveClick = () => {
+    if (!canSave || saving) return;
+    setSaving(true);
+    // onSave is a store action (saveItem, saveVendor, saveScoreRule, ...) that
+    // may or may not return a promise depending on the caller — Promise.resolve
+    // normalizes both so the button always re-enables once it's actually done,
+    // rather than snapping back to "Save" before the backend request lands.
+    Promise.resolve(onSave(values)).finally(() => setSaving(false));
+  };
   
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
-      <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card p-6 shadow-xl">
+      <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display text-lg font-bold text-ink">{title}</h3>
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
@@ -81,8 +92,8 @@ export function FieldModal({ title, fields, initial, onClose, onSave, danger }: 
         </div>
         <div className="mt-6 flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
-          <button disabled={!canSave} onClick={() => canSave && onSave(values)}
-            className={`flex-1 rounded-full py-3 text-sm font-semibold text-white disabled:opacity-40 ${danger ? "bg-bad-600" : "bg-brand-600"}`}>Save</button>
+          <button disabled={!canSave || saving} onClick={handleSaveClick}
+            className={`flex-1 rounded-full py-3 text-sm font-semibold text-white disabled:opacity-40 ${danger ? "bg-bad-600" : "bg-brand-600"}`}>{saving ? "Saving…" : "Save"}</button>
         </div>
       </div>
 

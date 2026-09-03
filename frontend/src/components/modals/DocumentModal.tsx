@@ -159,7 +159,7 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
-      <div className="w-full sm:max-w-xl max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card p-6 shadow-xl">
+      <div className="w-full sm:max-w-xl max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="font-display text-lg font-bold text-ink">{titleMap[type]}</h3>
@@ -176,8 +176,10 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
                 <div className="mb-1 flex items-center justify-between">
                   <label className="block text-xs font-semibold text-ink/50">Customer *</label>
                   {onQuickAddCustomer && (
-                    <button type="button" onClick={() => setShowAddCustomer(true)} className="flex items-center gap-1 text-xs font-semibold text-brand-600">
-                      <Plus size={13} /> New
+                    <button type="button" onClick={() => setShowAddCustomer(true)}
+                      className="flex items-center gap-1.5 rounded-full bg-brand-50 py-1 pl-1.5 pr-3 text-xs font-bold text-brand-700 transition-all duration-150 hover:bg-brand-100 active:scale-95">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-white"><Plus size={12} /></span>
+                      New
                     </button>
                   )}
                 </div>
@@ -219,8 +221,10 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
               <div className="mb-2 flex items-center justify-between">
                 <label className="block text-xs font-semibold text-ink/50">Items *</label>
                 {onQuickAddItem && (
-                  <button type="button" onClick={() => setShowAddItem(true)} className="flex items-center gap-1 text-xs font-semibold text-brand-600">
-                    <Plus size={13} /> New item
+                  <button type="button" onClick={() => setShowAddItem(true)}
+                    className="flex items-center gap-1.5 rounded-full bg-brand-50 py-1 pl-1.5 pr-3 text-xs font-bold text-brand-700 transition-all duration-150 hover:bg-brand-100 active:scale-95">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-white"><Plus size={12} /></span>
+                    New item
                   </button>
                 )}
               </div>
@@ -439,7 +443,7 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
         <div className="mt-6 flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
           <button disabled={!canSave || saving} onClick={handleSaveClick}
-            className="flex-1 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40">{isEditing ? "Save changes" : `Save ${type}`}</button>
+            className="flex-1 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40">{saving ? "Saving…" : isEditing ? "Save changes" : `Save ${type}`}</button>
         </div>
       </div>
       {rateEditIndex !== null && (() => {

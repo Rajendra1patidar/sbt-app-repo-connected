@@ -20,7 +20,7 @@ export function OrderModal({ items, vendors, currency, onClose, onSave, prefill 
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
-      <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card p-6 shadow-xl">
+      <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display text-lg font-bold text-ink">New Order</h3>
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>

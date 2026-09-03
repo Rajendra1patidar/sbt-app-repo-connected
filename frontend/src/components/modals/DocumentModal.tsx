@@ -27,7 +27,7 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
   // already references one (from before it was deleted) still needs to resolve
   // correctly, so `items` (full list) stays available for lookups via itemById.
   const activeItems = items.filter((it: any) => !it.deleted);
-  const [customerId, setCustomerId] = useState(editingDoc?.customerId || prefillCustomerId || customers[0]?.id || "");
+  const [customerId, setCustomerId] = useState(editingDoc?.customerId || prefillCustomerId || "");
   const [date, setDate] = useState(editingDoc?.date ? String(editingDoc.date).slice(0, 10) : today());
   const [dueDate, setDueDate] = useState(editingDoc?.dueDate ? String(editingDoc.dueDate).slice(0, 10) : today());
   const [lines, setLines] = useState<InvoiceLine[]>(editingDoc?.lines?.length ? editingDoc.lines.map((ln: InvoiceLine) => ({ ...ln })) : [{ itemId: "", qty: 1, rate: 0, discountAmount: 0 }]);
@@ -318,9 +318,12 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
                       {godowns && godowns.length > 1 && (
                         <div className="mt-1.5">
                           <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink/35">Dispatch from</span>
-                          <select value={ln.godownId || ""} onChange={(e) => updateLine(i, { godownId: e.target.value })} className="w-full rounded-lg border border-line px-2 py-1.5 text-sm">
-                            <option value="">Default godown</option>
-                            {godowns.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                          <select
+                            value={ln.godownId || godowns.find((g: any) => g.isDefault)?.id || godowns[0]?.id || ""}
+                            onChange={(e) => updateLine(i, { godownId: e.target.value })}
+                            className="w-full rounded-lg border border-line px-2 py-1.5 text-sm"
+                          >
+                            {godowns.map((g: any) => <option key={g.id} value={g.id}>{g.name}{g.isDefault ? " (Default)" : ""}</option>)}
                           </select>
                         </div>
                       )}

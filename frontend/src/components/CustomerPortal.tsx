@@ -6,7 +6,9 @@ const NAME_KEY = "sbt_customer_portal_name";
 const ORG_KEY = "sbt_customer_portal_org";
 
 type BookingItem = { itemId: string; name: string; unit: string; booked: number; delivered: number; returned: number; remaining: number };
-type Booking = { number: string; date: string; fullyCollected: boolean; items: BookingItem[] };
+type CollectionItem = { itemId: string; name: string; unit: string; qty: number };
+type Collection = { date: string; items: CollectionItem[] };
+type Booking = { number: string; date: string; fullyCollected: boolean; items: BookingItem[]; collections: Collection[] };
 
 function ProgressBar({ booked, remaining }: { booked: number; remaining: number }) {
   const takenPct = booked > 0 ? Math.min(100, Math.round(((booked - remaining) / booked) * 100)) : 0;
@@ -82,6 +84,39 @@ function LoginScreen({ onLoggedIn }: { onLoggedIn: (name: string, orgName: strin
   );
 }
 
+function CollectionHistory({ collections }: { collections: Collection[] }) {
+  const [open, setOpen] = useState(false);
+  if (!collections || collections.length === 0) return null;
+
+  return (
+    <div className="mt-4 border-t border-line/60 pt-3">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between text-left text-xs font-semibold text-ink/60"
+      >
+        <span>Collection history ({collections.length} {collections.length === 1 ? "date" : "dates"})</span>
+        <span className="text-ink/40">{open ? "Hide" : "Show"}</span>
+      </button>
+      {open && (
+        <ul className="mt-3 space-y-3">
+          {collections.map((c) => (
+            <li key={c.date} className="flex gap-3 text-sm">
+              <div className="mt-0.5 h-2 w-2 flex-none rounded-full bg-brand-400" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-ink/50">{c.date}</p>
+                <p className="text-ink">
+                  {c.items.map((it) => `${it.qty} ${it.unit} ${it.name}`.trim()).join(", ")}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function BookingCard({ booking }: { booking: Booking }) {
   return (
     <div className="rounded-card border border-line/70 bg-card p-5 shadow-card">
@@ -112,6 +147,7 @@ function BookingCard({ booking }: { booking: Booking }) {
           </div>
         ))}
       </div>
+      <CollectionHistory collections={booking.collections} />
     </div>
   );
 }

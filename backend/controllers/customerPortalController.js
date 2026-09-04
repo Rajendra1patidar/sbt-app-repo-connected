@@ -81,6 +81,27 @@ exports.login = async (req, res, next) => {
   }
 };
 
+// Groups a booking's delivery log into date-wise batches (newest first) — this is
+// what actually was collected and when, as opposed to bookingLineProgress's
+// per-item running totals. Two deliveries logged on the same date are merged
+// into one date entry with multiple item rows.
+function collectionsByDate(doc, itemById) {
+  const byDate = new Map();
+  for (const d of doc.deliveries || []) {
+    const date = d.date || "Unknown date";
+    if (!byDate.has(date)) byDate.set(date, []);
+    byDate.get(date).push({
+      itemId: String(d.itemId),
+      name: itemById[String(d.itemId)]?.name || d.name || "Item",
+      unit: itemById[String(d.itemId)]?.unit || "",
+      qty: Number(d.qty || 0),
+    });
+  }
+  return [...byDate.entries()]
+    .map(([date, items]) => ({ date, items }))
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+}
+
 // GET /api/customer-portal/bookings
 // Protected by protectCustomerPortal — req.customerId/req.ownerId come only from a
 // verified customer-scoped token, never from anything in the request body/query, so
@@ -113,6 +134,7 @@ exports.bookings = async (req, res, next) => {
         date: doc.date,
         fullyCollected: rows.length > 0 && rows.every((r) => r.remaining <= 0),
         items: rows,
+        collections: collectionsByDate(doc, itemById),
       };
     });
 

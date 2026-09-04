@@ -1,5 +1,5 @@
-const zlib = require("zlib");
 const mongoose = require("mongoose");
+const { buildZip } = require("./zip");
 
 // Fields never worth putting in an emailed backup: they're either not
 // secrets that matter for a restore (failedAttempts/lockUntil are runtime
@@ -68,13 +68,17 @@ async function buildBackupArchive() {
 
   const today = new Date().toISOString().slice(0, 10);
   const json = JSON.stringify({ generatedAt: new Date().toISOString(), collections: dump });
-  const gzipBuffer = zlib.gzipSync(Buffer.from(json, "utf8"));
+  // Packaged as a .zip (not a bare .gz) because Brevo's email API rejects
+  // ".gz" as an unsupported attachment format — ".zip" is on its allow-list.
+  // See utils/zip.js for why this is a hand-rolled writer instead of a new
+  // dependency.
+  const zipBuffer = buildZip([{ name: `sbt-backup-${today}.json`, data: Buffer.from(json, "utf8") }]);
 
   return {
-    filename: `sbt-backup-${today}.json.gz`,
-    buffer: gzipBuffer,
-    sizeBytes: gzipBuffer.length,
-    tooLarge: gzipBuffer.length > MAX_GZIP_BYTES,
+    filename: `sbt-backup-${today}.zip`,
+    buffer: zipBuffer,
+    sizeBytes: zipBuffer.length,
+    tooLarge: zipBuffer.length > MAX_GZIP_BYTES,
     summary,
   };
 }

@@ -18,8 +18,8 @@ const { runBackupJob } = require("../../jobs/backupJob");
 
 function mockArchive(overrides = {}) {
   return {
-    filename: "sbt-backup-2026-08-17.json.gz",
-    buffer: Buffer.from("fake-gzip-bytes"),
+    filename: "sbt-backup-2026-08-17.zip",
+    buffer: Buffer.from("fake-zip-bytes"),
     sizeBytes: 1024,
     tooLarge: false,
     summary: [{ name: "customers", count: 5 }, { name: "items", count: 0 }],
@@ -100,7 +100,7 @@ describe("runBackupJob", () => {
     expect(result.skipped).toBe(false);
   });
 
-  test("emails the gzipped archive as an attachment when everything is configured", async () => {
+  test("emails the zipped archive as an attachment when everything is configured", async () => {
     buildBackupArchive.mockResolvedValue(mockArchive());
 
     const result = await runBackupJob();
@@ -110,7 +110,7 @@ describe("runBackupJob", () => {
     const call = sendMail.mock.calls[0][0];
     expect(call.to).toBe("owner@example.com");
     expect(call.attachments).toEqual([
-      expect.objectContaining({ filename: "sbt-backup-2026-08-17.json.gz", contentType: "application/gzip" }),
+      expect.objectContaining({ filename: "sbt-backup-2026-08-17.zip", contentType: "application/zip" }),
     ]);
     expect(call.text).toContain("customers: 5");
     expect(call.text).not.toContain("items: 0"); // zero-count collections are filtered out of the summary

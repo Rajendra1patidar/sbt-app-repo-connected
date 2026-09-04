@@ -31,7 +31,7 @@ function isScheduledDay() {
 
 /**
  * Emails a full database backup twice a week (Monday and Friday by
- * default — see isScheduledDay) as a gzipped JSON attachment.
+ * default — see isScheduledDay) as a zipped JSON attachment.
  *
  * Atlas's free tier doesn't include automated backups, so this is the
  * offsite half of the safety net for the business's data: a separate,
@@ -107,7 +107,7 @@ async function runBackupJob() {
         {
           filename: archive.filename,
           content: archive.buffer,
-          contentType: "application/gzip",
+          contentType: "application/zip",
         },
       ],
     });

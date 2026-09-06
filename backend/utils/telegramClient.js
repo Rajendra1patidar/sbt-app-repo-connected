@@ -11,7 +11,7 @@
  * three times.
  *
  * Callers own their own env var names (e.g. TELEGRAM_REPORT_BOT_TOKEN) —
- * this file just wraps the two Bot API calls.
+ * this file just wraps the Bot API calls.
  */
 
 const TELEGRAM_API = "https://api.telegram.org";
@@ -52,11 +52,14 @@ async function sendTelegramMessage(botToken, chatId, text) {
 
 /**
  * Sends a photo (Buffer) with an optional caption, via multipart/form-data.
- * Not used yet — added now so the customer-photo feature can call straight
- * into this without another round of Telegram-API plumbing later.
+ * Used by the daily-report job for chart images, and by the invoice-photo
+ * feature (services/telegramStorage.js) to store vendor bill photos in the
+ * report bot's chat. Returns the file/message identifiers so a caller that
+ * needs to fetch or delete the photo later (telegramStorage.js does both)
+ * doesn't have to make a second round-trip just to learn them.
  */
 async function sendTelegramPhoto(botToken, chatId, photoBuffer, caption, filename = "photo.jpg") {
-  if (!botToken || !chatId) return false;
+  if (!botToken || !chatId) return { ok: false };
 
   try {
     const form = new FormData();
@@ -68,15 +71,61 @@ async function sendTelegramPhoto(botToken, chatId, photoBuffer, caption, filenam
       method: "POST",
       body: form,
     });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      console.error("telegramClient: sendPhoto failed:", res.status, body);
-      return false;
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.ok) {
+      console.error("telegramClient: sendPhoto failed:", res.status, data);
+      return { ok: false };
     }
-    return true;
+    // Telegram returns several resized copies of the photo; the last is the
+    // largest (closest to what we uploaded), which is what we want back.
+    const sizes = data.result.photo || [];
+    const largest = sizes[sizes.length - 1];
+    return { ok: true, fileId: largest?.file_id, messageId: data.result.message_id };
   } catch (err) {
     console.error("telegramClient: sendPhoto network error:", err.message);
-    return false;
+    return { ok: false };
+  }
+}
+
+/**
+ * Downloads a previously-sent photo's bytes, given the file_id returned by
+ * sendTelegramPhoto. Two Bot API calls under the hood (getFile to resolve a
+ * path, then a plain fetch of that path) — Telegram doesn't expose file
+ * bytes any more directly than that.
+ */
+async function getTelegramFileBuffer(botToken, fileId) {
+  if (!botToken || !fileId) return null;
+  try {
+    const metaRes = await fetch(`${TELEGRAM_API}/bot${botToken}/getFile?file_id=${encodeURIComponent(fileId)}`);
+    const meta = await metaRes.json();
+    if (!meta.ok) {
+      console.error("telegramClient: getFile failed:", meta.description);
+      return null;
+    }
+    const fileRes = await fetch(`${TELEGRAM_API}/file/bot${botToken}/${meta.result.file_path}`);
+    if (!fileRes.ok) return null;
+    return Buffer.from(await fileRes.arrayBuffer());
+  } catch (err) {
+    console.error("telegramClient: getFile network error:", err.message);
+    return null;
+  }
+}
+
+/**
+ * Deletes a message the bot sent (e.g. a superseded invoice photo). Always
+ * best-effort — an orphaned message left in the chat costs nothing, so
+ * callers fire this and move on rather than awaiting/checking it.
+ */
+async function deleteTelegramMessage(botToken, chatId, messageId) {
+  if (!botToken || !chatId || !messageId) return;
+  try {
+    await fetch(`${TELEGRAM_API}/bot${botToken}/deleteMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, message_id: messageId }),
+    });
+  } catch {
+    /* best-effort — see comment above */
   }
 }
 
@@ -95,4 +144,4 @@ function splitMessage(text, maxLen) {
   return chunks;
 }
 
-module.exports = { sendTelegramMessage, sendTelegramPhoto };
+module.exports = { sendTelegramMessage, sendTelegramPhoto, getTelegramFileBuffer, deleteTelegramMessage };

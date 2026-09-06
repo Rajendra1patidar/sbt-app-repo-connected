@@ -8,6 +8,7 @@ const stockService = require("../services/stockService");
 const { withTransaction } = require("../utils/withTransaction");
 const eventBus = require("../services/eventBus");
 const { logAudit } = require("../services/auditLogger");
+const telegramStorage = require("../services/telegramStorage");
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
@@ -363,6 +364,72 @@ exports.remove = async (req, res, next) => {
     logAudit({ owner: req.userId, actorId: req.actorId, action: "delete", model: sourceType, docId: doc._id, label: `qty ${doc.qty} @ ${doc.rate}` });
 
     res.json({ message: "Deleted", id: req.params.id });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/purchases/:id/invoice  (multipart/form-data, field name "invoice")
+// Attaches a photo of the vendor's bill to an order/purchase — purely a
+// record-keeping aid, doesn't touch stock, payment status, or the ledger.
+// Uploading again (e.g. a clearer retake) replaces the old photo and deletes
+// the old Telegram message so it doesn't sit around orphaned.
+exports.attachInvoice = async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: "No image uploaded" });
+
+    const doc = await Purchase.findOne({ _id: req.params.id, owner: req.userId });
+    if (!doc) return res.status(404).json({ message: "Not found" });
+
+    const previousMessageId = doc.invoiceImage?.messageId;
+
+    const uploaded = await telegramStorage.uploadFile(req.file.buffer, req.file.originalname || "invoice.jpg");
+
+    // Telegram always serves photos back out as JPEG regardless of what was
+    // uploaded, so that's what the proxy route below will set as Content-Type.
+    doc.invoiceImage = { fileId: uploaded.fileId, messageId: uploaded.messageId, mimeType: "image/jpeg", uploadedAt: new Date() };
+    await doc.save();
+
+    if (previousMessageId) telegramStorage.deleteFile(previousMessageId); // best-effort, not awaited
+
+    res.json(doc);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// DELETE /api/purchases/:id/invoice
+exports.removeInvoice = async (req, res, next) => {
+  try {
+    const doc = await Purchase.findOne({ _id: req.params.id, owner: req.userId });
+    if (!doc) return res.status(404).json({ message: "Not found" });
+    if (!doc.invoiceImage?.fileId) return res.json(doc);
+
+    const messageId = doc.invoiceImage.messageId;
+    doc.invoiceImage = undefined;
+    await doc.save();
+
+    telegramStorage.deleteFile(messageId); // best-effort, not awaited
+
+    res.json(doc);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/purchases/:id/invoice-image
+// Proxies the photo's bytes from Telegram through our own authenticated API
+// — the frontend never gets a Telegram URL (which would embed the bot
+// token), and never talks to Telegram directly.
+exports.getInvoiceImage = async (req, res, next) => {
+  try {
+    const doc = await Purchase.findOne({ _id: req.params.id, owner: req.userId });
+    if (!doc || !doc.invoiceImage?.fileId) return res.status(404).json({ message: "No invoice photo" });
+
+    const buffer = await telegramStorage.downloadFile(doc.invoiceImage.fileId);
+    res.set("Content-Type", doc.invoiceImage.mimeType || "image/jpeg");
+    res.set("Cache-Control", "private, max-age=86400"); // this exact photo never changes once uploaded
+    res.send(buffer);
   } catch (err) {
     next(err);
   }

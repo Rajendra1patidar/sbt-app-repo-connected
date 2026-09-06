@@ -28,4 +28,10 @@ base.recordPayment = shared.recordPayment;
 // DELETE /api/orders/:id — same reversal-safe delete as a Purchase's delete
 base.remove = shared.remove;
 
+// POST /api/orders/:id/invoice, GET .../invoice-image, DELETE .../invoice —
+// same vendor-bill-photo logic as a Purchase's invoice attach/view/remove
+base.attachInvoice = shared.attachInvoice;
+base.getInvoiceImage = shared.getInvoiceImage;
+base.removeInvoice = shared.removeInvoice;
+
 module.exports = base;

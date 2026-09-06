@@ -72,7 +72,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     saveVendor, removeVendor, saveGodown, removeGodown, setDefaultGodown, transferStock, savePurchase, savePurchaseBatch, removePurchase,
     saveVendorPayment, savePurchasePayment, saveDocument, removeDoc, restoreDoc, updateDocStatus,
     savePayment, savePaymentSplit, saveReturn, saveDelivery, removePayment, saveOrder, removeOrder,
-    payOrder, saveOrderPayment, saveLabourSession, removeLabourSession, saveContractorPhone, saveScoreRule, removeScoreRule,
+    payOrder, saveOrderPayment, attachOrderInvoice, removeOrderInvoice, saveLabourSession, removeLabourSession, saveContractorPhone, saveScoreRule, removeScoreRule,
     saveSettings, saveChallan, recordPaymentFor, applyStockAdjustments,
   } = useAppStore();
 
@@ -212,7 +212,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       } />
       <Route path="/customers/:customerId" element={<CustomerDetailRoute />} />
       <Route path="/items" element={<ItemsView items={items} categories={itemCategories} brands={itemBrands} openModal={openModal} currency={settings.currency} removeItem={removeItem} purchases={purchases} estimates={activeEstimates} applyStockAdjustments={applyStockAdjustments} godowns={godowns} />} />
-      <Route path="/orders" element={<OrdersView orders={orders} items={items} vendors={vendors} categories={itemCategories} currency={settings.currency} openModal={openModal} payOrder={payOrder} removeOrder={removeOrder} />} />
+      <Route path="/orders" element={<OrdersView orders={orders} items={items} vendors={vendors} categories={itemCategories} currency={settings.currency} openModal={openModal} payOrder={payOrder} removeOrder={removeOrder} attachOrderInvoice={attachOrderInvoice} removeOrderInvoice={removeOrderInvoice} />} />
       <Route path="/vendors" element={<VendorsView vendors={vendors} purchases={purchases} currency={settings.currency} openModal={openModal} removeVendor={removeVendor} />} />
       <Route path="/godowns" element={<GodownsView godowns={godowns} items={items} openModal={openModal} removeGodown={removeGodown} saveGodown={saveGodown} setDefaultGodown={setDefaultGodown} settings={settings} deadStock={deadStock} />} />
       <Route path="/purchases" element={<PurchasesView purchases={purchases} vendors={vendors} items={items} currency={settings.currency} openModal={openModal} removePurchase={removePurchase} />} />

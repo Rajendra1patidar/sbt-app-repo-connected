@@ -139,6 +139,71 @@ async function downloadFile(path: string, fallbackFilename: string) {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Same contract as `request()`, but for endpoints that take a file
+ * (multipart/form-data) instead of JSON — invoice-photo uploads are the only
+ * current use. Deliberately doesn't set a Content-Type header: the browser
+ * fills that in itself, including the multipart boundary, which is required
+ * for the server to be able to parse the body at all.
+ */
+async function requestFile(path: string, file: File, fieldName: string) {
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const formData = new FormData();
+  formData.append(fieldName, file);
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, { method: "POST", headers, body: formData });
+  } catch {
+    throw new ApiError("Can't reach the server. Check your connection and try again.", 0);
+  }
+
+  let body: any = null;
+  try {
+    body = await res.json();
+  } catch {
+    /* empty body */
+  }
+
+  if (!res.ok) {
+    if (res.status === 401) handleUnauthorized();
+    throw new ApiError(body?.message || `Request failed (${res.status})`, res.status);
+  }
+  return normalize(body);
+}
+
+/**
+ * Fetches a binary response (currently just invoice photos) with the auth
+ * header attached. Plain <img src="..."> can't send an Authorization header,
+ * so the photo is fetched as a Blob here and handed to the caller to turn
+ * into an object URL — see components/views/OrdersView.tsx.
+ */
+async function requestBlob(path: string): Promise<Blob> {
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, { headers });
+  } catch {
+    throw new ApiError("Can't reach the server. Check your connection and try again.", 0);
+  }
+
+  if (!res.ok) {
+    if (res.status === 401) handleUnauthorized();
+    let message = `Request failed (${res.status})`;
+    try {
+      message = (await res.json())?.message || message;
+    } catch {
+      /* non-JSON error body */
+    }
+    throw new ApiError(message, res.status);
+  }
+  return res.blob();
+}
+
 function crud(base: string) {
   return {
     list: () => request(base),
@@ -192,7 +257,13 @@ export const api = {
     regeneratePortalPin: (id: string) => request(`/api/customers/${id}/portal-pin`, { method: "POST" }),
   },
   items: { ...crud("/api/items"), lowStock: () => request("/api/items/meta/low-stock") },
-  orders: { ...crud("/api/orders"), recordPayment: (id: string, v: any) => request(`/api/orders/${id}/payments`, { method: "POST", body: JSON.stringify(v) }) },
+  orders: {
+    ...crud("/api/orders"),
+    recordPayment: (id: string, v: any) => request(`/api/orders/${id}/payments`, { method: "POST", body: JSON.stringify(v) }),
+    attachInvoice: (id: string, file: File) => requestFile(`/api/orders/${id}/invoice`, file, "invoice"),
+    getInvoiceImage: (id: string) => requestBlob(`/api/orders/${id}/invoice-image`),
+    removeInvoice: (id: string) => request(`/api/orders/${id}/invoice`, { method: "DELETE" }),
+  },
   expenses: crud("/api/expenses"),
   payments: crud("/api/payments"),
   contractors: crud("/api/contractors"),
@@ -220,7 +291,13 @@ export const api = {
     transfer: (v: any) => request(`/api/inventory/transfer`, { method: "POST", body: JSON.stringify(v) }),
   },
 
-  purchases: { ...crud("/api/purchases"), recordPayment: (id: string, v: any) => request(`/api/purchases/${id}/payments`, { method: "POST", body: JSON.stringify(v) }) },
+  purchases: {
+    ...crud("/api/purchases"),
+    recordPayment: (id: string, v: any) => request(`/api/purchases/${id}/payments`, { method: "POST", body: JSON.stringify(v) }),
+    attachInvoice: (id: string, file: File) => requestFile(`/api/purchases/${id}/invoice`, file, "invoice"),
+    getInvoiceImage: (id: string) => requestBlob(`/api/purchases/${id}/invoice-image`),
+    removeInvoice: (id: string) => request(`/api/purchases/${id}/invoice`, { method: "DELETE" }),
+  },
 
   ledger: {
     trialBalance: (from?: string, to?: string) =>

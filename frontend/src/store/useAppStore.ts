@@ -5,6 +5,7 @@ import { fmtMoney, fmtNum, today } from "../lib/format";
 import { enqueueOfflineAction } from "../lib/offlineQueue";
 import { saveDataCache, loadDataCache } from "../lib/dataCache";
 import { waLink } from "../lib/contactLinks";
+import { compressImage } from "../lib/imageCompress";
 
 /**
  * Central app store. This replaces the ~15 useState calls and every
@@ -116,6 +117,8 @@ interface AppState {
   removeOrder: (id: string) => void;
   payOrder: (order: any) => void;
   saveOrderPayment: (v: any) => Promise<void>;
+  attachOrderInvoice: (id: string, file: File) => Promise<void>;
+  removeOrderInvoice: (id: string) => Promise<void>;
   saveLabourSession: (v: any) => Promise<void>;
   removeLabourSession: (id: string) => void;
   saveContractorPhone: (name: string, phone: string) => Promise<void>;
@@ -1042,6 +1045,36 @@ export const useAppStore = create<AppState>()((set, get) => ({
       closeModal();
       if (item) refreshReorderSuggestions();
     } catch (err) { onApiError(get, err, "Failed to record payment"); }
+  },
+
+  // Attaches a photo of the vendor's paper bill to a pending order (or a
+  // logged purchase) so it's on record before the order is paid off — the
+  // whole point being to have the actual invoice to refer back to later,
+  // not just what was typed in at order time. Purely a record-keeping aid;
+  // doesn't touch stock, payment status, or the ledger.
+  attachOrderInvoice: async (id, file) => {
+    const { showToast } = get();
+    try {
+      const compressed = await compressImage(file);
+      const order = await api.orders.attachInvoice(id, compressed);
+      set((state) => ({
+        orders: state.orders.map((o: any) => (o.id === order.id ? order : o)),
+        purchases: state.purchases.map((p: any) => (p.id === order.id ? order : p)),
+      }));
+      showToast("Invoice photo attached");
+    } catch (err) { onApiError(get, err, "Failed to attach invoice photo"); }
+  },
+
+  removeOrderInvoice: async (id) => {
+    const { showToast } = get();
+    try {
+      const order = await api.orders.removeInvoice(id);
+      set((state) => ({
+        orders: state.orders.map((o: any) => (o.id === order.id ? order : o)),
+        purchases: state.purchases.map((p: any) => (p.id === order.id ? order : p)),
+      }));
+      showToast("Invoice photo removed");
+    } catch (err) { onApiError(get, err, "Failed to remove invoice photo"); }
   },
 
   recordPaymentFor: (invoice) =>

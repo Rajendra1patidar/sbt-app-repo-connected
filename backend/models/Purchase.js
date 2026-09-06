@@ -46,6 +46,19 @@ const purchaseSchema = new mongoose.Schema(
 
     date: { type: String }, // YYYY-MM-DD
     notes: { type: String, trim: true, default: "" },
+
+    // Photo of the vendor's paper bill/invoice for this order or purchase,
+    // stored in the report bot's Telegram chat (see
+    // services/telegramStorage.js) rather than in this document or a paid
+    // image host. `fileId` is how the photo is fetched back; `messageId` is
+    // what lets removeInvoice() clean it up on Telegram when the photo is
+    // replaced or removed.
+    invoiceImage: {
+      fileId: { type: String },
+      messageId: { type: Number },
+      mimeType: { type: String },
+      uploadedAt: { type: Date },
+    },
   },
   { timestamps: true }
 );

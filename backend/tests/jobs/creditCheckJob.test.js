@@ -2,11 +2,13 @@ jest.mock("../../models/User");
 jest.mock("../../models/Notification");
 jest.mock("../../services/creditService");
 jest.mock("../../services/eventBus");
+jest.mock("../../utils/alertWebhook");
 
 const User = require("../../models/User");
 const Notification = require("../../models/Notification");
 const creditService = require("../../services/creditService");
 const eventBus = require("../../services/eventBus");
+const { sendErrorAlert } = require("../../utils/alertWebhook");
 const { runCreditCheck } = require("../../jobs/creditCheckJob");
 
 function mockUsers(ids) {
@@ -60,7 +62,7 @@ describe("runCreditCheck", () => {
     expect(eventBus.emit).not.toHaveBeenCalled();
   });
 
-  test("one owner's check throwing does not stop the rest", async () => {
+  test("one owner's check throwing does not stop the rest, and now alerts instead of only logging", async () => {
     mockUsers(["owner1", "owner2"]);
     creditService.computeCreditView.mockImplementation(async (owner) => {
       if (owner === "owner1") throw new Error("boom");
@@ -71,5 +73,9 @@ describe("runCreditCheck", () => {
 
     expect(summary.checked).toBe(2);
     expect(creditService.computeCreditView).toHaveBeenCalledWith("owner2");
+    expect(sendErrorAlert).toHaveBeenCalledTimes(1);
+    expect(sendErrorAlert.mock.calls[0][0].message).toContain("owner1");
+    expect(sendErrorAlert.mock.calls[0][0].message).toContain("boom");
+    expect(sendErrorAlert.mock.calls[0][0].path).toBe("jobs/creditCheckJob");
   });
 });

@@ -2,6 +2,7 @@ const Notification = require("../models/Notification");
 const creditService = require("../services/creditService");
 const eventBus = require("../services/eventBus");
 const { findOwnerUsers } = require("../utils/ownerAccounts");
+const { sendErrorAlert } = require("../utils/alertWebhook");
 
 /**
  * Runs creditService.computeCreditView for every owner and turns any
@@ -42,7 +43,9 @@ async function runCreditCheck() {
         });
       }
     } catch (err) {
-      console.error(`creditCheckJob: check failed for owner ${user._id}:`, err.message);
+      const message = `creditCheckJob: check failed for owner ${user._id}: ${err.message}`;
+      console.error(message);
+      await sendErrorAlert({ message, path: "jobs/creditCheckJob", status: 500 });
     }
   }
 

@@ -2,11 +2,13 @@ jest.mock("../../models/User");
 jest.mock("../../models/Notification");
 jest.mock("../../services/reorderService");
 jest.mock("../../services/eventBus");
+jest.mock("../../utils/alertWebhook");
 
 const User = require("../../models/User");
 const Notification = require("../../models/Notification");
 const reorderService = require("../../services/reorderService");
 const eventBus = require("../../services/eventBus");
+const { sendErrorAlert } = require("../../utils/alertWebhook");
 const { runReorderCheck } = require("../../jobs/reorderCheckJob");
 
 function mockUsers(ids) {
@@ -71,5 +73,21 @@ describe("runReorderCheck", () => {
 
     // Only the in-app event fires — no Purchase model is even imported by this job.
     expect(eventBus.emit).toHaveBeenCalledTimes(1);
+  });
+
+  test("alerts (instead of only logging) when a per-owner check throws, and keeps going for the next owner", async () => {
+    mockUsers(["owner1", "owner2"]);
+    reorderService.computeSuggestions.mockImplementationOnce(() => {
+      throw new Error("reorder math exploded");
+    });
+    reorderService.computeSuggestions.mockResolvedValueOnce([]);
+
+    const summary = await runReorderCheck();
+
+    expect(summary).toEqual({ checked: 2, notified: 0 });
+    expect(sendErrorAlert).toHaveBeenCalledTimes(1);
+    expect(sendErrorAlert.mock.calls[0][0].message).toContain("owner1");
+    expect(sendErrorAlert.mock.calls[0][0].message).toContain("reorder math exploded");
+    expect(sendErrorAlert.mock.calls[0][0].path).toBe("jobs/reorderCheckJob");
   });
 });

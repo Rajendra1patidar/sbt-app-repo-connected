@@ -2,6 +2,7 @@ const Notification = require("../models/Notification");
 const reorderService = require("../services/reorderService");
 const eventBus = require("../services/eventBus");
 const { findOwnerUsers } = require("../utils/ownerAccounts");
+const { sendErrorAlert } = require("../utils/alertWebhook");
 
 /**
  * Runs reorderService.computeSuggestions for every owner and turns any
@@ -49,7 +50,9 @@ async function runReorderCheck() {
         });
       }
     } catch (err) {
-      console.error(`reorderCheckJob: check failed for owner ${user._id}:`, err.message);
+      const message = `reorderCheckJob: check failed for owner ${user._id}: ${err.message}`;
+      console.error(message);
+      await sendErrorAlert({ message, path: "jobs/reorderCheckJob", status: 500 });
     }
   }
 

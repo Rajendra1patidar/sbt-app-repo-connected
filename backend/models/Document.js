@@ -35,6 +35,11 @@ const documentSchema = new mongoose.Schema(
     // running total of payments applied against this document (positive payments minus refunds),
     // used to distinguish Due / Partially Paid / Paid instead of a plain binary flag
     amountPaid: { type: Number, default: 0 },
+    // COGS total posted for this estimate the last time stock was actually
+    // deducted for it. Lets a ledger-only repost (status/amountPaid/total
+    // edits that don't touch line items) re-post the same COGS/Stock ledger
+    // entry without re-running stock deduction — see applyEstimateEffects.
+    cogsTotal: { type: Number, default: 0 },
     // only true when the user explicitly chose "Advance Booking" at save time — gates the
     // batch-collection feature so it doesn't show up on ordinary estimates
     isAdvanceBooking: { type: Boolean, default: false },

@@ -2,6 +2,7 @@ const Item = require("../models/Item");
 const ledgerService = require("../services/ledgerService");
 const { findOwnerUsers } = require("../utils/ownerAccounts");
 const { sendTelegramMessage } = require("../utils/telegramClient");
+const { sendErrorAlert } = require("../utils/alertWebhook");
 
 /**
  * Posts a same-day close-out summary to Telegram, meant to land right around
@@ -36,9 +37,22 @@ async function runDailyReport() {
     try {
       const text = await buildReportText(user._id, today);
       const ok = await sendTelegramMessage(botToken, chatId, text);
-      if (ok) summary.sent += 1;
+      if (ok) {
+        summary.sent += 1;
+      } else {
+        // sendTelegramMessage never throws on failure (network error, bad
+        // token, chat not found, etc.) — it just returns false, so without
+        // this branch a failed send was previously indistinguishable from a
+        // quiet night with nothing to report. Surface it the same way
+        // backupJob/reconciliationJob surface their failures.
+        const message = `dailyReportJob: Telegram send failed for owner ${user._id} (check TELEGRAM_REPORT_BOT_TOKEN/CHAT_ID and bot logs)`;
+        console.error(message);
+        await sendErrorAlert({ message, path: "jobs/dailyReportJob", status: 500 });
+      }
     } catch (err) {
-      console.error(`dailyReportJob: failed for owner ${user._id}:`, err.message);
+      const message = `dailyReportJob: failed for owner ${user._id}: ${err.message}`;
+      console.error(message);
+      await sendErrorAlert({ message, path: "jobs/dailyReportJob", status: 500 });
     }
   }
 

@@ -22,6 +22,7 @@ const {
   recordStockOut,
   recordReturnIn,
   stockValuation,
+  applySaleGodownDelta,
 } = require("../../services/stockService");
 
 /** Builds a fake Item doc as Item.findOne(...).session(...) would resolve to. */
@@ -197,5 +198,74 @@ describe("stockValuation", () => {
       { itemId: "b", name: "Gadget", stock: 0, avgCost: 100, value: 0 },
     ]);
     expect(totalValue).toBe(55);
+  });
+});
+
+describe("applySaleGodownDelta", () => {
+  test("deducts entirely from the chosen godown when it has enough stock", () => {
+    const item = { stockByGodown: [{ godownId: "gA", stock: 20 }, { godownId: "gB", stock: 5 }] };
+    const result = applySaleGodownDelta(item, "gA", 8, 0);
+    expect(result).toEqual([
+      { godownId: "gA", stock: 12, stockKg: 0 },
+      { godownId: "gB", stock: 5, stockKg: 0 },
+    ]);
+    // sum stays consistent with what was actually sold: 25 - 8 = 17
+    expect(result.reduce((s, g) => s + g.stock, 0)).toBe(17);
+  });
+
+  test("reallocates the shortfall from other godowns instead of silently clamping it away (Bug 1 fix)", () => {
+    // Chosen godown (gA) only has 3 in stock, but 8 are being sold from it —
+    // previously this clamped gA to 0 and lost the other 5 units entirely,
+    // desyncing stockByGodown from the item's aggregate stock.
+    const item = {
+      stockByGodown: [
+        { godownId: "gA", stock: 3 },
+        { godownId: "gB", stock: 10 },
+        { godownId: "gC", stock: 2 },
+      ],
+    };
+    const result = applySaleGodownDelta(item, "gA", 8, 0);
+
+    // gA drained first (3 -> 0), remaining shortfall of 5 pulled from the
+    // largest other godown (gB, 10 -> 5) rather than lost.
+    expect(result).toEqual([
+      { godownId: "gA", stock: 0, stockKg: 0 },
+      { godownId: "gB", stock: 5, stockKg: 0 },
+      { godownId: "gC", stock: 2, stockKg: 0 },
+    ]);
+    // Total across all godowns dropped by exactly the 8 sold — no drift.
+    expect(result.reduce((s, g) => s + g.stock, 0)).toBe(15 - 8);
+  });
+
+  test("clamps at 0 (old behaviour) only when no godown has any stock left to reallocate from", () => {
+    const item = { stockByGodown: [{ godownId: "gA", stock: 2 }, { godownId: "gB", stock: 0 }] };
+    const result = applySaleGodownDelta(item, "gA", 10, 0);
+    expect(result).toEqual([
+      { godownId: "gA", stock: 0, stockKg: 0 },
+      { godownId: "gB", stock: 0, stockKg: 0 },
+    ]);
+  });
+
+  test("creates a new zeroed entry for a godown the item never had stock in before, then reallocates from elsewhere", () => {
+    const item = { stockByGodown: [{ godownId: "gB", stock: 6 }] };
+    const result = applySaleGodownDelta(item, "gNew", 4, 0);
+    expect(result).toEqual([
+      { godownId: "gB", stock: 2, stockKg: 0 },
+      { godownId: "gNew", stock: 0, stockKg: 0 },
+    ]);
+  });
+
+  test("handles weight-mode kg deltas independently of piece deltas", () => {
+    const item = {
+      stockByGodown: [
+        { godownId: "gA", stock: 5, stockKg: 4 },
+        { godownId: "gB", stock: 5, stockKg: 20 },
+      ],
+    };
+    const result = applySaleGodownDelta(item, "gA", 3, 10);
+    expect(result).toEqual([
+      { godownId: "gA", stock: 2, stockKg: 0 },
+      { godownId: "gB", stock: 5, stockKg: 14 }, // 20 - (10 - 4) shortfall
+    ]);
   });
 });

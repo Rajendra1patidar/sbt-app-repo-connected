@@ -115,10 +115,18 @@ exports.getOne = (type) => async (req, res, next) => {
 // ledger entries that make an estimate real: Sales/AR, COGS/Stock, and — if the
 // document is already fully paid up front — the Paid-in-full settlement.
 // Shared by create() and update() so both paths stay in sync.
-async function applyEstimateEffects(owner, doc, lines, session) {
+//
+// `skipStock` (used by update() for edits that only touch status/amountPaid/
+// top-level total, never the line items) skips the stock-deduction loop
+// entirely and reuses the item's last-posted `doc.cogsTotal` for the COGS
+// ledger entry instead of recomputing it. Without this, any payment-status
+// edit re-ran a full restock + re-deduct cycle for no inventory reason —
+// writing pointless StockMovement rows and needlessly re-touching
+// stockByGodown on every such edit.
+async function applyEstimateEffects(owner, doc, lines, session, { skipStock = false } = {}) {
   let lowStock = [];
-  let totalCogs = 0;
-  if (Array.isArray(lines) && lines.length) {
+  let totalCogs = skipStock ? Number(doc.cogsTotal || 0) : 0;
+  if (!skipStock && Array.isArray(lines) && lines.length) {
     for (const line of lines) {
       if (!line.itemId) continue;
       const qty = Number(line.qty || 0);
@@ -153,6 +161,10 @@ async function applyEstimateEffects(owner, doc, lines, session) {
           lowStock.push({ itemId: result.item._id, name: result.item.name, stock: result.item.stock });
         }
       }
+    }
+    if (doc.cogsTotal !== totalCogs) {
+      doc.cogsTotal = totalCogs;
+      await doc.save({ session: session || undefined });
     }
   }
 
@@ -195,38 +207,45 @@ async function applyEstimateEffects(owner, doc, lines, session) {
 // (Sales/AR, COGS/Stock, Paid-in-full). Used before re-posting on edit, and
 // before deleting the estimate outright. Return-sourced ledger/stock entries
 // are left untouched — they're their own historical event.
-async function reverseEstimateEffects(owner, doc, session) {
-  const returnedByItem = {};
-  const returnedPiecesByItem = {};
-  for (const r of doc.returns || []) {
-    returnedByItem[String(r.itemId)] = (returnedByItem[String(r.itemId)] || 0) + Number(r.qty || 0);
-    returnedPiecesByItem[String(r.itemId)] = (returnedPiecesByItem[String(r.itemId)] || 0) + Number(r.piecesQty || 0);
-  }
+// Undoes everything applyEstimateEffects (or the original create) did:
+// restocks each line's items (net of anything already returned) and reverses
+// the ledger entries. `skipStock` (see applyEstimateEffects) skips the
+// restock loop for edits that never touched line items/quantities — only
+// the ledger side needs undoing before it's reposted.
+async function reverseEstimateEffects(owner, doc, session, { skipStock = false } = {}) {
+  if (!skipStock) {
+    const returnedByItem = {};
+    const returnedPiecesByItem = {};
+    for (const r of doc.returns || []) {
+      returnedByItem[String(r.itemId)] = (returnedByItem[String(r.itemId)] || 0) + Number(r.qty || 0);
+      returnedPiecesByItem[String(r.itemId)] = (returnedPiecesByItem[String(r.itemId)] || 0) + Number(r.piecesQty || 0);
+    }
 
-  for (const line of doc.lines || []) {
-    if (!line.itemId) continue;
-    const key = String(line.itemId);
-    const toRestock = Number(line.qty || 0) - (returnedByItem[key] || 0);
-    const item = await Item.findOne({ _id: line.itemId, owner }).session(session || null);
-    if (!item) continue;
-    const isWeight = item.trackingMode === "weight";
-    const toRestockPieces = isWeight ? Number(line.piecesQty || 0) - (returnedPiecesByItem[key] || 0) : 0;
-    if (toRestock <= 0 && (!isWeight || toRestockPieces <= 0)) continue;
-    // recordReturnIn (not recordStockIn) on purpose — this is stock coming back
-    // from an edit/delete, not a new purchase, so it shouldn't move the item's
-    // weighted-average purchase cost.
-    await stockService.recordReturnIn({
-      owner,
-      itemId: line.itemId,
-      qty: isWeight ? Math.max(0, toRestockPieces) : Math.max(0, toRestock),
-      qtyKg: isWeight ? Math.max(0, toRestock) : undefined,
-      rate: item.purchasePrice || 0,
-      sourceType: "Estimate",
-      sourceId: doc._id,
-      date: new Date().toISOString().slice(0, 10),
-      godownId: line.godownId,
-      session,
-    });
+    for (const line of doc.lines || []) {
+      if (!line.itemId) continue;
+      const key = String(line.itemId);
+      const toRestock = Number(line.qty || 0) - (returnedByItem[key] || 0);
+      const item = await Item.findOne({ _id: line.itemId, owner }).session(session || null);
+      if (!item) continue;
+      const isWeight = item.trackingMode === "weight";
+      const toRestockPieces = isWeight ? Number(line.piecesQty || 0) - (returnedPiecesByItem[key] || 0) : 0;
+      if (toRestock <= 0 && (!isWeight || toRestockPieces <= 0)) continue;
+      // recordReturnIn (not recordStockIn) on purpose — this is stock coming back
+      // from an edit/delete, not a new purchase, so it shouldn't move the item's
+      // weighted-average purchase cost.
+      await stockService.recordReturnIn({
+        owner,
+        itemId: line.itemId,
+        qty: isWeight ? Math.max(0, toRestockPieces) : Math.max(0, toRestock),
+        qtyKg: isWeight ? Math.max(0, toRestock) : undefined,
+        rate: item.purchasePrice || 0,
+        sourceType: "Estimate",
+        sourceId: doc._id,
+        date: new Date().toISOString().slice(0, 10),
+        godownId: line.godownId,
+        session,
+      });
+    }
   }
 
   await ledgerService.reverseSource(owner, "Estimate", doc._id, `Estimate ${doc.number} edited/deleted`, session);
@@ -390,17 +409,30 @@ exports.update = (type) => async (req, res, next) => {
     // anything that affects those (lines, total, paid amount, status) is changing,
     // undo what the old version posted first, then re-apply with the new numbers.
     // Otherwise the ledger/reports silently keep showing the pre-edit figures.
+    // estimates drive stock deductions and ledger postings at creation time — if
+    // anything that affects those (lines, total, paid amount, status) is changing,
+    // undo what the old version posted first, then re-apply with the new numbers.
+    // Otherwise the ledger/reports silently keep showing the pre-edit figures.
+    //
+    // Stock only needs to move when the line items themselves change — total
+    // changing via freight/labour, amountPaid changing, or status changing
+    // (e.g. marking Paid) are all ledger-only events. Previously any of the
+    // three re-ran a full restock + re-deduct cycle on every line even when
+    // quantities never changed, writing pointless StockMovement rows and
+    // needlessly re-touching per-godown stock split on every payment edit.
     const isEstimate = type === "estimate";
-    const needsRepost =
+    const needsStockRepost = isEstimate && "lines" in updateFields;
+    const needsLedgerRepost =
       isEstimate &&
-      (("lines" in updateFields) ||
+      (needsStockRepost ||
         ("total" in updateFields && Number(updateFields.total) !== Number(existing.total)) ||
         ("amountPaid" in updateFields && Number(updateFields.amountPaid) !== Number(existing.amountPaid)) ||
         ("status" in updateFields && updateFields.status !== existing.status));
+    const skipStock = !needsStockRepost;
 
     const result = await withTransaction(async (session) => {
-      if (needsRepost) {
-        await reverseEstimateEffects(req.userId, existing, session);
+      if (needsLedgerRepost) {
+        await reverseEstimateEffects(req.userId, existing, session, { skipStock });
       }
 
       const doc = await Document.findOneAndUpdate(
@@ -414,8 +446,8 @@ exports.update = (type) => async (req, res, next) => {
       if (!doc) { const e = new Error("Not found"); e.status = 404; throw e; }
 
       let lowStock = [];
-      if (needsRepost) {
-        lowStock = await applyEstimateEffects(req.userId, doc, doc.lines, session);
+      if (needsLedgerRepost) {
+        lowStock = await applyEstimateEffects(req.userId, doc, doc.lines, session, { skipStock });
       }
 
       return { doc, lowStock };

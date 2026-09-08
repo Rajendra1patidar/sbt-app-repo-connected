@@ -44,6 +44,63 @@ function applyGodownDelta(item, godownId, deltaPieces, deltaKg) {
 }
 
 /**
+ * Like applyGodownDelta, but for the "sale" case specifically: deducting
+ * `qtyPieces`/`qtyKg` from `godownId`. Unlike applyGodownDelta (used for
+ * purchases/adjustments/transfers, where the target location is known to
+ * have enough), a sale's chosen godown might have less recorded stock than
+ * the quantity being sold — e.g. the wrong godown was picked, or an item's
+ * per-godown split had already drifted from an earlier gap. Previously that
+ * shortfall was just clamped to 0 at the chosen godown while the item's
+ * aggregate `stock` still dropped by the full amount, permanently
+ * desyncing sum(stockByGodown) from item.stock. Instead, once the chosen
+ * godown is exhausted, the remaining shortfall is pulled from whichever
+ * other godowns for this item have stock recorded, largest first — so the
+ * per-godown split stays reconciled with the aggregate as long as the
+ * item's total per-godown stock covers the sale (which it always should,
+ * since both are moved together by every other function in this file).
+ */
+function applySaleGodownDelta(item, godownId, qtyPieces, qtyKg) {
+  const gid = String(godownId);
+  const list = (item.stockByGodown || []).map((g) => ({
+    godownId: g.godownId,
+    stock: Number(g.stock) || 0,
+    stockKg: Number(g.stockKg) || 0,
+  }));
+  let primary = list.find((g) => String(g.godownId) === gid);
+  if (!primary) {
+    primary = { godownId, stock: 0, stockKg: 0 };
+    list.push(primary);
+  }
+
+  const deduct = (field, amount) => {
+    if (!amount) return;
+    let remaining = amount;
+    const fromPrimary = Math.min(remaining, primary[field]);
+    primary[field] -= fromPrimary;
+    remaining -= fromPrimary;
+    if (remaining <= 0) return;
+    // Shortfall: pull from other godowns with recorded stock, largest first,
+    // so we always reach for full locations before near-empty ones.
+    const others = list.filter((g) => g !== primary).sort((a, b) => b[field] - a[field]);
+    for (const entry of others) {
+      if (remaining <= 0) break;
+      const take = Math.min(remaining, entry[field]);
+      entry[field] -= take;
+      remaining -= take;
+    }
+    // If `remaining` is still > 0 here, the item's per-godown entries never
+    // added up to its aggregate stock in the first place (e.g. stock added
+    // before the Godowns feature existed) — nothing left to reallocate from,
+    // so the shortfall is simply absorbed at 0, same as the old behaviour.
+  };
+
+  deduct("stock", Number(qtyPieces) || 0);
+  deduct("stockKg", Number(qtyKg) || 0);
+
+  return list.map((g) => ({ godownId: g.godownId, stock: round2(Math.max(0, g.stock)), stockKg: round2(Math.max(0, g.stockKg)) }));
+}
+
+/**
  * Applies `computeUpdate(item)` to an item using optimistic-concurrency
  * retries instead of a plain read-then-write. Two sales of the same item
  * arriving at nearly the same moment used to be able to both read "10 in
@@ -169,7 +226,7 @@ async function recordStockOut({ owner, itemId, qty, qtyKg, sourceType, sourceId,
         changes.stockKg = round2(Math.max(0, (Number(item.stockKg) || 0) - Number(qtyKg || 0)));
       }
       if (resolvedGodownId) {
-        changes.stockByGodown = applyGodownDelta(item, resolvedGodownId, -Number(qty), isWeight ? -Number(qtyKg || 0) : 0);
+        changes.stockByGodown = applySaleGodownDelta(item, resolvedGodownId, Number(qty), isWeight ? Number(qtyKg || 0) : 0);
       }
       return { changes, extra: { costRate, isWeight } };
     },
@@ -438,4 +495,13 @@ async function stockValuation(owner) {
   return { rows, totalValue };
 }
 
-module.exports = { recordStockIn, recordStockOut, recordReturnIn, recordAdjustment, recordTransfer, resolveGodownId, stockValuation };
+module.exports = {
+  recordStockIn,
+  recordStockOut,
+  recordReturnIn,
+  recordAdjustment,
+  recordTransfer,
+  resolveGodownId,
+  stockValuation,
+  applySaleGodownDelta, // exported for unit testing
+};

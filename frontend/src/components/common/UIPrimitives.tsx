@@ -81,6 +81,41 @@ export function EmptyState({ text, cta, onCta }: any) {
   );
 }
 
+/** A compact single-select control — used in place of a native <select> wherever
+ * there are just a handful of mutually-exclusive options (e.g. an estimate's
+ * status), since it reads as a deliberate choice instead of unstyled browser chrome. */
+export function SegmentedControl({ options, value, onChange }: { options: string[]; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex rounded-pill bg-paper p-1">
+      {options.map((opt) => (
+        <button
+          key={opt}
+          type="button"
+          onClick={() => onChange(opt)}
+          className={`flex-1 whitespace-nowrap rounded-pill px-2 py-1.5 text-[11px] font-semibold transition ${value === opt ? "bg-ink text-white" : "text-ink/60"}`}
+        >
+          {opt}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** iOS-style on/off toggle for boolean settings inside sheets/modals. */
+export function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`relative h-6 w-10 shrink-0 rounded-pill transition-colors duration-150 ${checked ? "bg-ink" : "bg-line"}`}
+    >
+      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-150 ${checked ? "translate-x-4" : "translate-x-0.5"}`} />
+    </button>
+  );
+}
+
 export function Card({ children, className = "", onClick }: any) {
   return (
     <div onClick={onClick}

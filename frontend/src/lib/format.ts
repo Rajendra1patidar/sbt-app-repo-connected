@@ -22,3 +22,7 @@ export function fmtNum(n: number | string) {
   const v = round2(n);
   return v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+export function initials(name?: string) {
+  return (name || "?").trim().split(/\s+/).map((s) => s[0]).slice(0, 2).join("").toUpperCase();
+}

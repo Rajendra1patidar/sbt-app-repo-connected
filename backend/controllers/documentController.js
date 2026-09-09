@@ -488,8 +488,20 @@ exports.update = (type) => async (req, res, next) => {
 };
 
 // PATCH /api/:type/:id/status   { status }
+//
+// Challans use this freely (Pending <-> Delivered is a manual delivery-tracking
+// flag, not derived from anything). Estimates do NOT: status is now purely a
+// derived fact of how much has actually been paid (Due / Partially Paid / Paid),
+// computed by paymentController's recalcInvoice() whenever a payment is recorded.
+// Allowing a direct status write here let an estimate be marked "Paid" (or any
+// other status) with no matching payment ever recorded — the exact inconsistency
+// this endpoint now blocks. The only supported way to move an estimate off Due
+// is POST /api/payments.
 exports.updateStatus = (type) => async (req, res, next) => {
   try {
+    if (type === "estimate") {
+      return res.status(400).json({ message: "An estimate's status can't be set directly — record a payment instead." });
+    }
     const { status } = req.body;
     const existing = await Document.findOne({ _id: req.params.id, owner: req.userId, type });
     if (!existing) return res.status(404).json({ message: "Not found" });
@@ -498,15 +510,9 @@ exports.updateStatus = (type) => async (req, res, next) => {
     }
     await assertYearNotLocked(req.userId, existing.date);
 
-    const update = { status };
-    // manually marking an estimate Paid (e.g. no separate payment logged) should also
-    // reflect in amountPaid so the paid/due breakdown shown to the user stays consistent
-    if (type === "estimate" && status === "Paid") {
-      update.amountPaid = Number(existing.total || 0);
-    }
     const doc = await Document.findOneAndUpdate(
       { _id: req.params.id, owner: req.userId, type },
-      { $set: update, $push: { history: { action: `Status changed to ${status}`, date: new Date().toISOString().slice(0, 10) } } },
+      { $set: { status }, $push: { history: { action: `Status changed to ${status}`, date: new Date().toISOString().slice(0, 10) } } },
       { new: true, runValidators: true }
     );
     if (!doc) return res.status(404).json({ message: "Not found" });

@@ -132,3 +132,29 @@ describe("update(estimate) — stock vs ledger repost split", () => {
     expect(stockService.recordStockOut).not.toHaveBeenCalled();
   });
 });
+
+describe("updateStatus — estimates can no longer have status set directly", () => {
+  test("rejects the request for estimates before touching the database at all", async () => {
+    const req = { userId: "owner1", params: { id: "doc1" }, body: { status: "Paid" } };
+    const res = fakeRes();
+    await controller.updateStatus("estimate")(req, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining("record a payment") }));
+    expect(Document.findOne).not.toHaveBeenCalled();
+    expect(Document.findOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  test("still allows direct status changes for challans (Pending <-> Delivered is not payment-derived)", async () => {
+    const existing = { _id: "doc2", owner: "owner1", type: "challan", date: "2026-08-03", deleted: false };
+    Document.findOne.mockResolvedValue(existing);
+    Document.findOneAndUpdate.mockResolvedValue({ ...existing, status: "Delivered" });
+
+    const req = { userId: "owner1", params: { id: "doc2" }, body: { status: "Delivered" } };
+    const res = fakeRes();
+    await controller.updateStatus("challan")(req, res, jest.fn());
+
+    expect(Document.findOneAndUpdate).toHaveBeenCalledTimes(1);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ status: "Delivered" }));
+  });
+});

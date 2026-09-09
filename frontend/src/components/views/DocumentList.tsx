@@ -353,19 +353,6 @@ export function DocumentList({ type, docs, customers, items, payments, currency,
               </div>
             )}
 
-            <div className="mb-3 flex items-center gap-2">
-              <p className="text-xs font-semibold text-ink/50">Status</p>
-              <div className="max-w-[220px] flex-1">
-                <select
-                  value={d.status}
-                  onChange={(e) => updateStatus(d.id, e.target.value)}
-                  className="w-full rounded-pill border border-line bg-paper px-2.5 py-1.5 text-xs font-semibold text-ink/70"
-                >
-                  {["Accepted", "Due", "Partially Paid", "Paid"].map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-            </div>
-
             <div className="flex flex-wrap items-center gap-3">
               {(d.lines || []).length > 0 && <RailButton icon={<RotateCcw size={16} />} label="Return" onClick={() => onReturn(d)} />}
               <RailButton icon={<Printer size={16} />} label="Print" onClick={() => onPrint(d)} />

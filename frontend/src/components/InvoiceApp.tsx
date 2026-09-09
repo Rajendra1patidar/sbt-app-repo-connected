@@ -229,7 +229,6 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
               initialStatusFilter={searchParams.get("filter") || undefined}
               removeDoc={(id: string) => removeDoc("estimate", id)}
               restoreDoc={restoreDoc}
-              updateStatus={(id: string, s: string) => updateDocStatus("estimate", id, s)}
               recordPayment={recordPaymentFor} onReturn={(doc: any) => openModal("return", { doc })} onDeliver={(doc: any) => openModal("delivery", { doc })} onShareInvoice={(inv: any) => setShareInvoice(inv)}
               onSharePortalAccess={shareCustomerPortalAccess}
               onPrint={printEstimate}

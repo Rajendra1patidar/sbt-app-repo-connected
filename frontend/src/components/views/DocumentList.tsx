@@ -264,6 +264,16 @@ export function DocumentList({ type, docs, customers, items, payments, currency,
     );
   };
 
+  // Swipe-to-reveal is a touch gesture — on a desktop with a mouse it's neither
+  // discoverable nor reliable (any tiny cursor drift during a normal click reads
+  // as a drag attempt, which is what was blocking clicks and making rows feel
+  // stuck). Desktop has the horizontal room to just show the actions instead,
+  // so this is a one-time check, not a per-row heuristic.
+  const isTouchDevice = useMemo(
+    () => typeof window !== "undefined" && !!window.matchMedia && window.matchMedia("(pointer: coarse)").matches,
+    []
+  );
+
   const renderEstimateRow = (d: any) => {
     const isOverdue = d.status === "Due" && d.dueDate && new Date(d.dueDate) < new Date();
     const displayStatus = isOverdue ? "Overdue" : d.status;
@@ -328,39 +338,68 @@ export function DocumentList({ type, docs, customers, items, payments, currency,
     }
     swipeActions.push({ icon: <Phone size={16} />, label: "Share estimate", onClick: () => onShareInvoice(d), style: { backgroundColor: WHATSAPP_GREEN, color: "#fff" } });
 
+    const detail = isExpanded && (
+      <div className="border-t border-line/70 px-5 pb-3 pt-3">
+        {d.isAdvanceBooking && advanceRows.length > 0 && (
+          <div className="mb-3 rounded-xl bg-brand-50 px-3 py-2">
+            <p className="mb-1 text-xs font-semibold text-brand-700">
+              {advancePending.length > 0 ? "Advance booking — collection pending" : "Advance booking — fully collected"}
+            </p>
+            {advancePending.length > 0 && (
+              <div className="space-y-0.5">
+                {advancePending.map((r: any) => {
+                  const itemName = items?.find?.((it: any) => it.id === r.itemId)?.name || "Item";
+                  return (
+                    <p key={r.itemId} className="text-xs text-brand-600">
+                      {itemName}: {r.remaining} of {r.booked} remaining{r.delivered > 0 ? ` (${r.delivered} collected)` : ""}
+                    </p>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-3">
+          {(d.lines || []).length > 0 && <RailButton icon={<RotateCcw size={16} />} label="Return" onClick={() => onReturn(d)} />}
+          <RailButton icon={<Printer size={16} />} label="Print" onClick={() => onPrint(d)} />
+          {d.isAdvanceBooking && onSharePortalAccess && <RailButton icon={<KeyRound size={16} />} label="Portal" onClick={() => onSharePortalAccess(d.customerId)} />}
+          <RailButton icon={<Trash2 size={16} />} label="Delete" onClick={() => removeDoc(d.id)} className="ml-auto text-bad-600" />
+        </div>
+      </div>
+    );
+
+    if (!isTouchDevice) {
+      // No drag machinery at all on desktop — actions sit inline, always visible,
+      // so a plain click on the row is never at risk of being mistaken for a swipe.
+      return (
+        <div key={d.id} className="border-b border-line/70 last:border-none">
+          <div className="flex items-center">
+            <div className="min-w-0 flex-1">{front}</div>
+            <div className="flex shrink-0 items-center gap-1.5 pr-4">
+              {swipeActions.map((a, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  title={a.label}
+                  onClick={(e) => { e.stopPropagation(); a.onClick(); }}
+                  className={`flex h-8 w-8 items-center justify-center rounded-full transition hover:brightness-95 ${a.className || "bg-paper text-ink/60"}`}
+                  style={a.style}
+                >
+                  {a.icon}
+                </button>
+              ))}
+            </div>
+          </div>
+          {detail}
+        </div>
+      );
+    }
+
     return (
       <SwipeRow key={d.id} actions={swipeActions} isOpen={swipeOpenId === d.id} onOpenChange={(open) => setSwipeOpenId(open ? d.id : null)}>
         {front}
-        {isExpanded && (
-          <div className="border-t border-line/70 px-5 pb-3 pt-3">
-            {d.isAdvanceBooking && advanceRows.length > 0 && (
-              <div className="mb-3 rounded-xl bg-brand-50 px-3 py-2">
-                <p className="mb-1 text-xs font-semibold text-brand-700">
-                  {advancePending.length > 0 ? "Advance booking — collection pending" : "Advance booking — fully collected"}
-                </p>
-                {advancePending.length > 0 && (
-                  <div className="space-y-0.5">
-                    {advancePending.map((r: any) => {
-                      const itemName = items?.find?.((it: any) => it.id === r.itemId)?.name || "Item";
-                      return (
-                        <p key={r.itemId} className="text-xs text-brand-600">
-                          {itemName}: {r.remaining} of {r.booked} remaining{r.delivered > 0 ? ` (${r.delivered} collected)` : ""}
-                        </p>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="flex flex-wrap items-center gap-3">
-              {(d.lines || []).length > 0 && <RailButton icon={<RotateCcw size={16} />} label="Return" onClick={() => onReturn(d)} />}
-              <RailButton icon={<Printer size={16} />} label="Print" onClick={() => onPrint(d)} />
-              {d.isAdvanceBooking && onSharePortalAccess && <RailButton icon={<KeyRound size={16} />} label="Portal" onClick={() => onSharePortalAccess(d.customerId)} />}
-              <RailButton icon={<Trash2 size={16} />} label="Delete" onClick={() => removeDoc(d.id)} className="ml-auto text-bad-600" />
-            </div>
-          </div>
-        )}
+        {detail}
       </SwipeRow>
     );
   };

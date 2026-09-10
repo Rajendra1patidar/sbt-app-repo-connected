@@ -66,7 +66,11 @@ export function SwipeRow({ actions, isOpen, onOpenChange, children }: {
     if (!dragging.current || e.pointerId !== pointerId.current) return;
     const mdx = e.clientX - start.current.x;
     const mdy = e.clientY - start.current.y;
-    if (!decided.current && (Math.abs(mdx) > 5 || Math.abs(mdy) > 5)) {
+    // A slightly forgiving threshold — real touchscreens have some contact-area
+    // jitter on a tap, and this only runs on touch/pen now (desktop skips dragging
+    // entirely — see DocumentList's isTouchDevice check), so there's no click to
+    // accidentally swallow here the way there was when this ran for mouse too.
+    if (!decided.current && (Math.abs(mdx) > 8 || Math.abs(mdy) > 8)) {
       decided.current = true;
       isSwipe.current = Math.abs(mdx) > Math.abs(mdy);
     }

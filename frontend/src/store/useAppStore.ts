@@ -647,7 +647,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       // order-sourced restock (source:"order") and this payment pays it off
       // in full, `item` comes back non-null and stock has just been bumped.
       const { purchase, item } = await api.purchases.recordPayment(v.purchaseId, {
-        amount: Number(v.amount), date: v.date || today(), method: v.method, notes: v.notes,
+        amount: Number(v.amount), date: v.date || today(), method: v.method, notes: v.notes, godownId: v.godownId || undefined,
       });
       set((state) => ({
         purchases: state.purchases.map((x) => (x.id === purchase.id ? purchase : x)),
@@ -996,19 +996,42 @@ export const useAppStore = create<AppState>()((set, get) => ({
     );
   },
 
+  // The New Order form lets you enter several items for one vendor visit in
+  // one sitting (same pattern as savePurchaseBatch below), but an Order is
+  // still one Purchase (source:"order") document per item — so this creates
+  // one per line, same vendor/date/notes on each, via the existing
+  // single-item endpoint, one at a time.
   saveOrder: async (v) => {
     const { showToast, closeModal } = get();
     try {
-      const { order, item } = await api.orders.create({ itemId: v.itemId, vendorId: v.vendorId, qty: v.qty, rate: v.rate, date: v.date, notes: v.notes });
+      const created: any[] = [];
+      let currentItems = get().items;
+      let receivedCount = 0;
+      for (const line of v.lines) {
+        const { order, item } = await api.orders.create({
+          itemId: line.itemId, vendorId: v.vendorId, qty: line.qty, rate: line.rate, date: v.date, notes: v.notes,
+        });
+        created.push(order);
+        if (item) {
+          currentItems = currentItems.map((it) => (it.id === item.id ? item : it));
+          receivedCount++;
+        }
+      }
       set((state) => ({
         // An order is a Purchase document under the hood (source:"order"), so
-        // the same card belongs in both lists — the Purchases screen already
-        // returns it too on its next fetch, this just keeps it in sync now.
-        orders: [order, ...state.orders],
-        purchases: [order, ...state.purchases],
-        items: item ? state.items.map((it) => (it.id === item.id ? item : it)) : state.items,
+        // the same cards belong in both lists — the Purchases screen already
+        // returns them too on its next fetch, this just keeps it in sync now.
+        orders: [...created.slice().reverse(), ...state.orders],
+        purchases: [...created.slice().reverse(), ...state.purchases],
+        items: currentItems,
       }));
-      showToast(order.status === "Received" ? `Order placed — stock updated: +${fmtNum(order.qty)} added` : "Order placed");
+      showToast(
+        created.length > 1
+          ? `${created.length} orders placed${receivedCount > 0 ? " — stock updated" : ""}`
+          : created[0]?.status === "Received"
+          ? `Order placed — stock updated: +${fmtNum(created[0].qty)} added`
+          : "Order placed"
+      );
       closeModal();
     } catch (err) { onApiError(get, err, "Failed to place order"); }
   },
@@ -1027,13 +1050,17 @@ export const useAppStore = create<AppState>()((set, get) => ({
   // opens the payment modal for a pending order — paying it off in full is
   // what bumps stock now, replacing the old manual "mark as received" step
   payOrder: (order) =>
-    get().openModal("orderPayment", { orderId: order.id, itemName: order.itemName, remaining: Math.round((Number(order.amount) - Number(order.amountPaid)) * 100) / 100 }),
+    get().openModal("orderPayment", {
+      orderId: order.id, itemName: order.itemName,
+      remaining: Math.round((Number(order.amount) - Number(order.amountPaid)) * 100) / 100,
+      pending: order.status !== "Received",
+    }),
 
   saveOrderPayment: async (v) => {
     const { showToast, closeModal, refreshReorderSuggestions } = get();
     try {
       const { order, item } = await api.orders.recordPayment(v.orderId, {
-        amount: Number(v.amount), date: v.date || today(), method: v.method, notes: v.notes,
+        amount: Number(v.amount), date: v.date || today(), method: v.method, notes: v.notes, godownId: v.godownId || undefined,
       });
       set((state) => ({
         orders: state.orders.map((o) => (o.id === order.id ? order : o)),

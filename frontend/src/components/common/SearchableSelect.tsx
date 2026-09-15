@@ -108,7 +108,14 @@ export function SearchableSelect({ options, value, onChange, placeholder }: any)
 
   return (
     <div
-      className="relative"
+      // min-w-0 overrides the browser default of min-width:auto on flex/grid
+      // items. Without it, a grid cell sizes itself to fit this button's
+      // full un-truncated label (e.g. a long item name) instead of the
+      // column width the grid template actually gives it — which pushed the
+      // whole row (and the modal) wider than the viewport, so the "truncate"
+      // on the label below never got a chance to kick in and the page
+      // horizontal-scrolled instead of wrapping/ellipsizing in place.
+      className="relative min-w-0"
       onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) { setOpen(false); setQuery(""); } }}
     >
       <button
@@ -145,7 +152,7 @@ export function SearchableSelect({ options, value, onChange, placeholder }: any)
                   data-idx={i}
                   onClick={() => choose(o.value)}
                   onMouseEnter={() => setActiveIndex(i)}
-                  className={`block w-full truncate px-3 py-2 text-left text-sm ${
+                  className={`block w-full px-3 py-2 text-left text-sm leading-snug ${
                     o.value === value ? "bg-brand-50 font-semibold text-brand-700" : "text-ink/80"
                   } ${i === activeIndex ? "bg-paper" : ""}`}
                 >

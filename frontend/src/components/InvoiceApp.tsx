@@ -355,24 +355,39 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     }
 
     if (type === "purchasePayment") {
+      // Godown is only asked here when this record hasn't been received yet
+      // (an order-sourced restock still Pending) — that's the moment this
+      // payment actually counts the stock. A "manual" purchase, or an order
+      // already Received, already has its godown locked in from creation.
+      const godownField = payload?.pending && godowns && godowns.length > 1
+        ? [{ key: "godownId", label: "Receiving into", type: "select", options: godowns.map((g: any) => ({ value: g.id, label: g.name })) }]
+        : [];
       return <FieldModal title={`Pay ${payload?.vendorName || "Purchase"}`} fields={[
         { key: "amount", label: `Amount (${fmtMoney(payload?.remaining || 0, settings.currency)} remaining)`, type: "number", required: true, placeholder: "0.00" },
+        ...godownField,
         { key: "method", label: "Method",  type: "select", options: [{ value: "Cash", label: "Cash" }, { value: "Bank Transfer", label: "Bank Transfer" }, { value: "UPI", label: "UPI" }, { value: "Card", label: "Card" }] },
         { key: "date",   label: "Date",    type: "date" },
         { key: "notes",  label: "Notes",   placeholder: "Optional" },
-      ]} initial={{ date: today(), amount: payload?.remaining || "" }} onClose={closeModal}
+      ]} initial={{ date: today(), amount: payload?.remaining || "", godownId: godowns?.find((g: any) => g.isDefault)?.id || godowns?.[0]?.id || "" }} onClose={closeModal}
         onSave={(v: any) => savePurchasePayment({ ...v, purchaseId: payload?.purchaseId })} />;
     }
 
     if (type === "order") return <OrderModal items={items} vendors={vendors} currency={settings.currency} onClose={closeModal} onSave={saveOrder} prefill={payload} />;
 
     if (type === "orderPayment") {
+      // Same reasoning as purchasePayment above — an order's stock is only
+      // ever counted once it's fully paid, so this is the one point where
+      // asking "which godown" actually matters.
+      const godownField = payload?.pending && godowns && godowns.length > 1
+        ? [{ key: "godownId", label: "Receiving into", type: "select", options: godowns.map((g: any) => ({ value: g.id, label: g.name })) }]
+        : [];
       return <FieldModal title={`Pay ${payload?.itemName || "Order"}`} fields={[
         { key: "amount", label: `Amount (${fmtMoney(payload?.remaining || 0, settings.currency)} remaining)`, type: "number", required: true, placeholder: "0.00" },
+        ...godownField,
         { key: "method", label: "Method",  type: "select", options: [{ value: "Cash", label: "Cash" }, { value: "Bank Transfer", label: "Bank Transfer" }, { value: "UPI", label: "UPI" }, { value: "Card", label: "Card" }] },
         { key: "date",   label: "Date",    type: "date" },
         { key: "notes",  label: "Notes",   placeholder: "Optional" },
-      ]} initial={{ date: today(), amount: payload?.remaining || "" }} onClose={closeModal}
+      ]} initial={{ date: today(), amount: payload?.remaining || "", godownId: godowns?.find((g: any) => g.isDefault)?.id || godowns?.[0]?.id || "" }} onClose={closeModal}
         onSave={(v: any) => saveOrderPayment({ ...v, orderId: payload?.orderId })} />;
     }
 

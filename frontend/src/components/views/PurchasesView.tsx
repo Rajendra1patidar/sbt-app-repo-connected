@@ -91,7 +91,7 @@ export function PurchasesView({ purchases, vendors, items, currency, openModal, 
                 </div>
                 {p.paymentStatus !== "paid" && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); openModal("purchasePayment", { purchaseId: p.id, vendorName: vendorName(p.vendorId), remaining: round2(p.amount - p.amountPaid) }); }}
+                    onClick={(e) => { e.stopPropagation(); openModal("purchasePayment", { purchaseId: p.id, vendorName: vendorName(p.vendorId), remaining: round2(p.amount - p.amountPaid), pending: p.status !== "Received" }); }}
                     className="inline-flex items-center gap-1 rounded-full bg-brand-500 px-2.5 py-1.5 text-xs font-semibold text-white"
                   >
                     <IndianRupee size={12} /> Pay

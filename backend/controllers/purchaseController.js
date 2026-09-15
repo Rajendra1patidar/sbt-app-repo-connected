@@ -263,15 +263,19 @@ exports.create = async (req, res, next) => {
   }
 };
 
-// POST /api/purchases/:id/payments  { amount, date, method, notes }
+// POST /api/purchases/:id/payments  { amount, date, method, notes, godownId? }
 // Same endpoint, same logic, for either source:
 //  - source "order", still Pending  -> money applied; full payment triggers
 //    receiveStock() (this is the only place stock increases for an order).
+//    Since this is the moment stock is actually counted, `godownId` (if
+//    sent) is where it lands — an order doc has no godown of its own until
+//    now, unlike a manual purchase which asks for it up front.
 //  - source "manual", already Received -> stock was already counted at
-//    creation, so this only settles the VendorPayable/Funds ledger.
+//    creation, so this only settles the VendorPayable/Funds ledger;
+//    `godownId` is ignored here since the stock already has a home.
 exports.recordPayment = async (req, res, next) => {
   try {
-    const { amount, date, method, notes } = req.body;
+    const { amount, date, method, notes, godownId } = req.body;
     const amt = Number(amount);
     if (!(amt > 0)) return res.status(400).json({ message: "Amount must be greater than zero" });
 
@@ -289,6 +293,14 @@ exports.recordPayment = async (req, res, next) => {
         const e = new Error(`Amount exceeds remaining due (${remaining})`);
         e.status = 400;
         throw e;
+      }
+
+      // Record which godown this payment is meant to receive stock into.
+      // Only meaningful while the doc is still Pending (stock not yet
+      // counted) — a Received doc's stock already has a home and shouldn't
+      // be silently moved by a later balance-settling payment.
+      if (doc.status === "Pending" && godownId) {
+        doc.godownId = godownId;
       }
 
       doc.amountPaid = round2(doc.amountPaid + amt);

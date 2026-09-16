@@ -7,8 +7,8 @@ import { useAppStore } from "../../store/useAppStore";
 import { StatusChoicePopup } from "../modals/StatusChoicePopup";
 
 const CHIPS = [
-  { label: "Sold cement", fill: "Sold 40 bags OPC Cement to " },
-  { label: "Received saria", fill: "Received 2 12mm Saria from " },
+  { label: "Sold cement", fill: "Sold 5 bags PPC Cement to " },
+  { label: "Sold saria", fill: "Sold 50 kg Saria to " },
   { label: "Logged payment", fill: "Logged payment of ₹ from " },
   { label: "Log return", fill: "Returned 2 12mm Saria from " },
   { label: "Logged expense", fill: "Logged expense of ₹ for " },
@@ -140,18 +140,22 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, sav
     resetAll();
   };
 
-  const NEEDS_AI_FALLBACK = new Set(["unknown", "sale_needs_review", "purchase_needs_review", "payment_needs_review", "return_needs_review"]);
+  // Only hand a total miss to the AI (Gemini) parser. A "*_needs_review" result
+  // means the local regex parser already understood the sentence structure and
+  // even resolved a name partway (typo, near-match, etc.) — that case is cheap
+  // to fix by hand in the form the toast opens, so it stays fully local. Only
+  // "unknown" (the local parser found nothing to work with at all) goes over
+  // the network, since the free-tier Gemini quota is easy to exhaust otherwise.
+  const NEEDS_AI_FALLBACK = new Set(["unknown"]);
 
   const submit = async () => {
     const text = value.trim();
     if (!text || busy || pending) return;
     let action = parseCapture(text, { items, customers, vendors, estimates });
     if (NEEDS_AI_FALLBACK.has(action.kind)) {
-      // The regex parser has a fixed vocabulary and exact-ish name matching —
-      // typos, unfamiliar phrasing, or names it can't resolve land here (as a
-      // "needs_review" guess or a flat "unknown"). Try the AI parser (Gemini)
-      // before falling back to opening a blank form, so unusual phrasing or a
-      // misspelled name still has a shot at resolving correctly.
+      // Nothing local matched at all — give the AI parser (Gemini) one shot
+      // before falling back to a blank form, since unusual phrasing still
+      // deserves a chance to resolve correctly.
       setBusy(true);
       try {
         const { action: aiResult } = await api.capture.parse(text);

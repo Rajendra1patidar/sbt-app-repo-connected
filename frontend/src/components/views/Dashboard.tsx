@@ -1,49 +1,37 @@
-import React, { useState } from "react";
-import { AlertCircle, AlertTriangle, ArrowDownToLine, BarChart3, Receipt, RotateCcw, ShoppingCart, Users, Wallet } from "lucide-react";
-import { Badge, Card, EmptyState, PillButton } from "../common/UIPrimitives";
+import React, { useMemo, useState } from "react";
+import { BarChart3, ChevronDown, RotateCcw, Trophy } from "lucide-react";
+import { Badge, EmptyState } from "../common/UIPrimitives";
 import { CATEGORY_COLORS, LOW_STOCK_DEFAULT } from "../../lib/constants";
-import { fmtDate, fmtMoney, fmtNum, today, round2 } from "../../lib/format";
+import { fmtDate, fmtMoney, round2 } from "../../lib/format";
 import { CaptureBar } from "../dashboard/CaptureBar";
 import { ActivityRiver } from "../dashboard/ActivityRiver";
 import { AlertStrip, buildDashboardAlerts } from "../dashboard/AlertStrip";
-import { DueThisWeek } from "../dashboard/DueThisWeek";
 import { ContractorPodium } from "../dashboard/ContractorPodium";
 import { TransactionDetailModal, DetailRow } from "../dashboard/TransactionDetailModal";
 
 /* Sales chart period options, shown as a segmented control above the chart. */
 const SALES_PERIODS: { key: "3m" | "6m" | "1y"; label: string; months: number }[] = [
-  { key: "3m", label: "3 months", months: 3 },
-  { key: "6m", label: "6 months", months: 6 },
-  { key: "1y", label: "1 year", months: 12 },
+  { key: "3m", label: "3m", months: 3 },
+  { key: "6m", label: "6m", months: 6 },
+  { key: "1y", label: "1y", months: 12 },
 ];
-const SALES_CATEGORY_OPTIONS = ["All", "Saria", "Cement", "Kasta", "CPVC", "UPVC", "Others"];
+const ALL_CATEGORIES = ["Saria", "Cement", "Kasta", "CPVC", "UPVC", "Others"];
 
 /* ---- Dashboard ---- */
 
 export function Dashboard({ data, settings, openModal, go, reorderSuggestions, saveDocument, savePayment, savePurchase, saveCustomer, saveExpense, saveReturn, showToast }: any) {
   const { customers, estimates, expenses, items, payments, purchases, vendors, scoreRules } = data;
   const [tab, setTab] = useState("estimates");
-  const outstanding = round2(estimates.filter((i: any) => i.status !== "Paid").reduce((s: number, i: any) => s + (Number(i.total || 0) - Number(i.amountPaid || 0)), 0));
   const overdueEstimates = estimates.filter((i: any) => i.status !== "Paid" && i.dueDate && new Date(i.dueDate) < new Date());
   const overdueAmount = round2(overdueEstimates.reduce((s: number, i: any) => s + (Number(i.total || 0) - Number(i.amountPaid || 0)), 0));
   const byCategory: any = {};
   expenses.forEach((e: any) => { byCategory[e.category] = round2((byCategory[e.category] || 0) + Number(e.amount)); });
-  const catEntries = Object.entries(byCategory) as [string, number][];
+  const catEntries = (Object.entries(byCategory) as [string, number][]).sort((a, b) => b[1] - a[1]);
   const catTotal = round2(catEntries.reduce((s, [, v]) => s + v, 0));
   const lowStockItems = items.filter((it: any) => (it.stock ?? 0) <= (it.lowStock ?? LOW_STOCK_DEFAULT));
   const paceSuggestionByItem = new Map<string, any>((reorderSuggestions || []).filter((s: any) => s.mode === "pace").map((s: any) => [s.itemId, s]));
 
   const payable = round2((purchases || []).reduce((s: number, p: any) => s + Math.max(0, Number(p.amount || 0) - Number(p.amountPaid || 0)), 0));
-
-  const quickActions = [
-    { label: "New Estimate", icon: Receipt, bg: "bg-brand-50", fg: "text-brand-500", action: () => openModal("estimate") },
-    { label: "New Customer", icon: Users, bg: "bg-good-50", fg: "text-good-500", action: () => openModal("customer") },
-    { label: "New Expense", icon: Wallet, bg: "bg-bad-50", fg: "text-bad-500", action: () => openModal("expense") },
-    { label: "New Order", icon: ShoppingCart, bg: "bg-warn-50", fg: "text-warn-500", action: () => openModal("order") },
-  ];
-  const [segment, setSegment] = useState<"receivable" | "collected">("receivable");
-  // all-time sum, not month-scoped — matches the "Total collected" / "Across all estimates" labels below
-  const totalCollected = round2(estimates.reduce((s: number, e: any) => s + Number(e.amountPaid || 0), 0));
 
   const refundPayments = (payments || []).filter((p: any) => Number(p.amount) < 0);
   const returnsForList = refundPayments.map((p: any) => ({
@@ -84,12 +72,12 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
     });
   };
 
-  // ---- Monthly sales, with a period toggle (3 / 6 / 12 months) and an
-  // optional category filter that sums matching line items instead of the
-  // estimate's grand total, so e.g. picking "Saria" only counts saria lines
-  // even on a mixed-item estimate. ----
+  // ---- Monthly sales, with a period toggle (3 / 6 / 12 months) and a smart
+  // category filter: chips are ranked by this period's own sales instead of
+  // a fixed order, so the categories actually moving product surface first. ----
   const [salesPeriod, setSalesPeriod] = useState<"3m" | "6m" | "1y">("6m");
   const [salesCategory, setSalesCategory] = useState<string>("All");
+  const [showMoreCats, setShowMoreCats] = useState(false);
   const salesMonthsCount = SALES_PERIODS.find((p) => p.key === salesPeriod)?.months ?? 6;
   const itemCategoryById = new Map<string, string>(items.map((it: any) => [it.id, it.category || "Others"]));
   const lineTotal = (ln: any) => Number(ln.qty || 0) * Number(ln.rate || 0) - Number(ln.discountAmount || 0);
@@ -100,10 +88,16 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
 
   const monthKey = (d?: string) => (d || "").slice(0, 7); // "YYYY-MM"
   const now = new Date();
-  const months = Array.from({ length: salesMonthsCount }, (_, idx) => {
-    const dt = new Date(now.getFullYear(), now.getMonth() - (salesMonthsCount - 1 - idx), 1);
-    return { key: `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`, label: dt.toLocaleDateString("en-IN", { month: "short", ...(salesMonthsCount > 6 ? { year: "2-digit" } : {}) }) };
-  });
+  const months = useMemo(() => {
+    const fmtOpts: Intl.DateTimeFormatOptions = salesMonthsCount > 6 ? { month: "short", year: "2-digit" } : { month: "short" };
+    return Array.from({ length: salesMonthsCount }, (_, idx) => {
+      const dt = new Date(now.getFullYear(), now.getMonth() - (salesMonthsCount - 1 - idx), 1);
+      return { key: `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`, label: dt.toLocaleDateString("en-IN", fmtOpts) };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [salesMonthsCount]);
+  const monthKeys = new Set(months.map((m) => m.key));
+
   const salesByMonth = months.map((m) => ({
     ...m,
     total: estimates.filter((e: any) => monthKey(e.date) === m.key).reduce((s: number, e: any) => s + estimateAmountForCategory(e), 0),
@@ -111,19 +105,28 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
   const maxSale = Math.max(1, ...salesByMonth.map((m) => m.total));
   const hasSales = salesByMonth.some((m) => m.total > 0);
 
-  // ---- Today / this-month sales vs refunds (always all-category, unaffected
-  // by the chart's category filter — these summarize the whole business). ----
-  const todayKey = today();
-  const thisMonthKey = monthKey(now.toISOString());
-  const todaySales = estimates.filter((e: any) => e.date === todayKey).reduce((s: number, e: any) => s + Number(e.total || 0), 0);
-  const monthSales = estimates.filter((e: any) => monthKey(e.date) === thisMonthKey).reduce((s: number, e: any) => s + Number(e.total || 0), 0);
-  const refundsToday = refundPayments.filter((p: any) => p.date === todayKey).reduce((s: number, p: any) => s + Math.abs(Number(p.amount)), 0);
-  const refundsMonth = refundPayments.filter((p: any) => monthKey(p.date) === thisMonthKey).reduce((s: number, p: any) => s + Math.abs(Number(p.amount)), 0);
+  // rank categories by how much they actually sold in the selected window, so
+  // the filter row leads with what matters instead of an arbitrary fixed order
+  const categoryTotalsThisPeriod = useMemo(() => {
+    const totals: Record<string, number> = {};
+    estimates.forEach((e: any) => {
+      if (!monthKeys.has(monthKey(e.date))) return;
+      (e.lines || []).forEach((ln: any) => {
+        const cat = itemCategoryById.get(ln.itemId) || "Others";
+        totals[cat] = (totals[cat] || 0) + lineTotal(ln);
+      });
+    });
+    return totals;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estimates, salesMonthsCount]);
+  const rankedCategories = [...ALL_CATEGORIES].sort((a, b) => (categoryTotalsThisPeriod[b] || 0) - (categoryTotalsThisPeriod[a] || 0));
+  const topCategory = rankedCategories.find((c) => (categoryTotalsThisPeriod[c] || 0) > 0);
+  const visibleCategories = showMoreCats ? rankedCategories : rankedCategories.slice(0, 3);
 
   return (
-    <div className="pb-28 lg:grid lg:grid-cols-[1fr_320px] lg:items-start lg:gap-5 lg:px-5">
-    <div className="space-y-5 px-5 lg:px-0">
-      <AlertStrip alerts={buildDashboardAlerts({ lowStockItems, overdueEstimates, overdueAmount, payable, currency: settings.currency, go })} />
+    <div className="pb-28 px-5 lg:px-0">
+    <div className="mx-auto max-w-2xl space-y-5">
+      <AlertStrip alerts={buildDashboardAlerts({ lowStockItems, overdueEstimates, overdueAmount, payable, currency: settings.currency, go, paceSuggestionByItem, LOW_STOCK_DEFAULT, openModal })} />
 
       <div className="pt-1">
         <h1 className="font-display text-2xl font-semibold text-ink">Welcome, {settings.ownerName}</h1>
@@ -136,199 +139,112 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
         openModal={openModal} showToast={showToast}
       />
 
-      <ActivityRiver estimates={estimates} payments={payments} expenses={expenses} purchases={purchases} customers={customers} vendors={vendors} items={items} currency={settings.currency} />
+      {/* One continuous panel — every section below is a division of the same
+          surface (divide-y), not a separate floating card, so the page reads
+          as a single sheet rather than a stack of disconnected boxes. */}
+      <div className="rounded-card bg-card border border-line shadow-card divide-y divide-line overflow-hidden">
 
-      <div className="flex rounded-2xl bg-card border border-line p-1">
-        <button onClick={() => setSegment("receivable")}
-          className={`flex-1 rounded-xl py-2 text-sm font-semibold transition-all duration-150 ${segment === "receivable" ? "bg-paper text-ink shadow-sm" : "text-ink/40"}`}>Receivable</button>
-        <button onClick={() => setSegment("collected")}
-          className={`flex-1 rounded-xl py-2 text-sm font-semibold transition-all duration-150 ${segment === "collected" ? "bg-paper text-ink shadow-sm" : "text-ink/40"}`}>Collected</button>
-      </div>
+        <ActivityRiver estimates={estimates} payments={payments} expenses={expenses} purchases={purchases} customers={customers} vendors={vendors} items={items} currency={settings.currency} />
 
-      <div className="relative overflow-hidden rounded-card bg-brand-700 p-6 text-white">
-        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-brand-500/40" />
-        <div className="relative">
-          <p className="text-xs font-semibold text-white/70">{segment === "receivable" ? "Total receivable" : "Total collected"}</p>
-          <p className="mt-1 font-display text-3xl font-semibold">{fmtMoney(segment === "receivable" ? outstanding : totalCollected, settings.currency)}</p>
-          <p className={`mt-1 text-xs font-semibold ${segment === "receivable" && overdueEstimates.length > 0 ? "text-bad-200" : "text-good-200"}`}>
-            {segment === "receivable"
-              ? overdueEstimates.length > 0 ? `${overdueEstimates.length} overdue estimate${overdueEstimates.length !== 1 ? "s" : ""}` : "Nothing overdue"
-              : "Across all estimates"}
-          </p>
-          <div className="mt-4 flex gap-6">
-            <div>
-              <p className="text-[11px] text-white/60">Today</p>
-              <p className="font-mono text-sm font-semibold">{fmtMoney(todaySales, settings.currency)}</p>
+        <div className="px-5 py-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-ink/70">
+              <BarChart3 size={16} className="text-brand-500" /> <h3 className="font-display text-base font-semibold">Sales</h3>
             </div>
-            <div>
-              <p className="text-[11px] text-white/60">This month</p>
-              <p className="font-mono text-sm font-semibold">{fmtMoney(monthSales, settings.currency)}</p>
+            <div className="flex gap-0.5 rounded-pill bg-paper p-0.5">
+              {SALES_PERIODS.map((p) => (
+                <button key={p.key} onClick={() => setSalesPeriod(p.key)}
+                  className={`rounded-pill px-2.5 py-1 text-[10.5px] font-semibold transition-colors ${salesPeriod === p.key ? "bg-card text-ink shadow-card" : "text-ink/40"}`}>
+                  {p.label}
+                </button>
+              ))}
             </div>
           </div>
-        </div>
-      </div>
 
-      {lowStockItems.length > 0 && (
-        <div className="flex items-start gap-3 rounded-card bg-warn-50 border border-warn-500/20 px-4 py-3">
-          <AlertTriangle size={16} className="text-warn-700 mt-0.5 shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-warn-700">Low stock — {lowStockItems.length} item{lowStockItems.length !== 1 ? "s" : ""}</p>
-            <div className="mt-2 space-y-1.5">
-              {lowStockItems.map((it: any) => {
-                const threshold = it.lowStock ?? LOW_STOCK_DEFAULT;
-                const paceSuggestion = paceSuggestionByItem.get(it.id);
-                const suggestedQty = paceSuggestion ? Math.max(1, paceSuggestion.suggestedQty) : Math.max(1, threshold * 2 - (it.stock ?? 0));
-                return (
-                  <div key={it.id} className="flex items-center justify-between rounded-xl bg-card/70 px-3 py-2">
-                    <p className="text-xs font-semibold text-warn-700">
-                      {it.name} ({fmtNum(it.stock ?? 0)} left{paceSuggestion?.daysLeft != null ? ` · ~${paceSuggestion.daysLeft}d left` : ""})
-                    </p>
-                    <button
-                      onClick={() => openModal("order", { itemId: it.id, qty: suggestedQty })}
-                      className="rounded-pill bg-warn-500 px-3 py-1 text-[11px] font-semibold text-white"
-                    >
-                      Reorder
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-4 gap-2 text-center">
-        {quickActions.map((q) => (
-          <button key={q.label} onClick={q.action} className="flex flex-col items-center gap-2">
-            <span className={`flex h-[52px] w-[52px] items-center justify-center rounded-2xl ${q.bg} ${q.fg} transition-transform duration-150 active:scale-90`}><q.icon size={20} /></span>
-            <span className="text-[11px] font-medium text-ink/60 leading-tight">{q.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {overdueEstimates.length > 0 && (
-        <Card className="border-bad-500/20 bg-bad-50/60">
-          <div className="flex items-center gap-2 text-bad-700">
-            <AlertCircle size={16} /> <h3 className="font-display text-base font-semibold">Overdue</h3>
-          </div>
-          <p className="mt-1 text-sm text-bad-500">{overdueEstimates.length} estimate{overdueEstimates.length !== 1 ? "s" : ""} past due date.</p>
-          <p className="mt-3 font-display text-2xl font-semibold text-bad-700">{fmtMoney(overdueAmount, settings.currency)}</p>
-          <PillButton className="mt-4 !bg-bad-500 hover:!bg-bad-700" onClick={() => go("estimates", "filter=overdue")}>View overdue estimates</PillButton>
-        </Card>
-      )}
-
-      <Card>
-        <div className="mb-3 flex items-center gap-2 text-ink/70">
-          <ArrowDownToLine size={16} className="text-brand-500" /> <h3 className="font-display text-base font-semibold">Sales &amp; refunds</h3>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <p className="text-xs font-semibold text-ink/40">Today</p>
-            <p className="mt-1 font-mono text-lg font-semibold text-ink">{fmtMoney(todaySales, settings.currency)}</p>
-            {refundsToday > 0 && <p className="text-xs font-semibold text-bad-500">−{fmtMoney(refundsToday, settings.currency)} refunded</p>}
-            <p className="text-xs font-semibold text-good-500">Net {fmtMoney(todaySales - refundsToday, settings.currency)}</p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-ink/40">This month</p>
-            <p className="mt-1 font-mono text-lg font-semibold text-ink">{fmtMoney(monthSales, settings.currency)}</p>
-            {refundsMonth > 0 && <p className="text-xs font-semibold text-bad-500">−{fmtMoney(refundsMonth, settings.currency)} refunded</p>}
-            <p className="text-xs font-semibold text-good-500">Net {fmtMoney(monthSales - refundsMonth, settings.currency)}</p>
-          </div>
-        </div>
-      </Card>
-
-      <Card>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-ink/70">
-            <BarChart3 size={16} className="text-brand-500" /> <h3 className="font-display text-base font-semibold">Sales, last {SALES_PERIODS.find((p) => p.key === salesPeriod)?.label}</h3>
-          </div>
-          <div className="flex gap-0.5 rounded-pill bg-paper p-0.5">
-            {SALES_PERIODS.map((p) => (
-              <button key={p.key} onClick={() => setSalesPeriod(p.key)}
-                className={`rounded-pill px-2.5 py-1 text-[10.5px] font-semibold transition-colors ${salesPeriod === p.key ? "bg-card text-ink shadow-card" : "text-ink/40"}`}>
-                {p.label}
+          <div className="mb-1 flex flex-wrap items-center gap-1.5">
+            <button onClick={() => setSalesCategory("All")}
+              className={`rounded-pill border px-2.5 py-1 text-[11px] font-semibold transition-colors ${salesCategory === "All" ? "border-brand-500 bg-brand-50 text-brand-700" : "border-line text-ink/50"}`}>
+              All
+            </button>
+            {visibleCategories.map((c) => (
+              <button key={c} onClick={() => setSalesCategory(c)}
+                className={`rounded-pill border px-2.5 py-1 text-[11px] font-semibold transition-colors ${salesCategory === c ? "border-brand-500 bg-brand-50 text-brand-700" : "border-line text-ink/50"}`}>
+                {c === topCategory && <Trophy size={9} className="mr-1 inline -mt-0.5 text-warn-500" />}{c}
               </button>
             ))}
+            {rankedCategories.length > 3 && (
+              <button onClick={() => setShowMoreCats((v) => !v)} className="flex items-center gap-0.5 rounded-pill px-2 py-1 text-[11px] font-semibold text-ink/40">
+                {showMoreCats ? "Less" : "More"} <ChevronDown size={11} className={`transition-transform ${showMoreCats ? "rotate-180" : ""}`} />
+              </button>
+            )}
           </div>
+          {topCategory && salesCategory === "All" && (
+            <p className="mb-3 text-[10.5px] text-ink/40">Best seller this period: <span className="font-semibold text-ink/60">{topCategory}</span></p>
+          )}
+
+          {!hasSales ? (
+            <p className="mt-3 text-sm text-ink/40">No estimates{salesCategory !== "All" ? ` for ${salesCategory}` : ""} in the last {SALES_PERIODS.find((p) => p.key === salesPeriod)?.label}.</p>
+          ) : (
+            <div className="mt-3 flex items-end justify-between gap-1.5 overflow-x-auto" style={{ height: 150 }}>
+              {salesByMonth.map((m) => (
+                <div key={m.key} className="flex h-full min-w-[28px] flex-1 flex-col items-center justify-end gap-1.5">
+                  <span className="text-[9.5px] font-semibold leading-tight text-ink/50">{m.total > 0 ? fmtMoney(m.total, settings.currency) : ""}</span>
+                  <div className="w-full rounded-t-lg bg-brand-500 transition-all duration-500 ease-out" style={{ height: `${Math.max(3, (m.total / maxSale) * 100)}px` }} />
+                  <span className="text-[10.5px] font-medium text-ink/40">{m.label}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="mb-4 flex flex-wrap gap-1.5">
-          {SALES_CATEGORY_OPTIONS.map((c) => (
-            <button key={c} onClick={() => setSalesCategory(c)}
-              className={`rounded-pill border px-2.5 py-1 text-[11px] font-semibold transition-colors ${salesCategory === c ? "border-brand-500 bg-brand-50 text-brand-700" : "border-line text-ink/50"}`}>
-              {c}
-            </button>
-          ))}
-        </div>
+        <div className="px-5 py-4">
+          <div className="mb-3 flex items-center gap-2 text-ink/70">
+            <RotateCcw size={16} className="text-brand-500" /> <h3 className="font-display text-base font-semibold">Recent transactions</h3>
+          </div>
+          <div className="mb-4 flex gap-2">
+            {["estimates", "expenses", "returns"].map((t) => (
+              <button key={t} onClick={() => setTab(t)} className={`rounded-pill px-4 py-1.5 text-sm font-semibold capitalize transition-all duration-150 ${tab === t ? "bg-brand-500 text-white" : "bg-paper text-ink/60"}`}>{t}</button>
+            ))}
+          </div>
 
-        {!hasSales ? (
-          <p className="text-sm text-ink/40">No estimates{salesCategory !== "All" ? ` for ${salesCategory}` : ""} in the last {SALES_PERIODS.find((p) => p.key === salesPeriod)?.label}.</p>
-        ) : (
-          <div className="flex items-end justify-between gap-1.5 overflow-x-auto" style={{ height: 150 }}>
-            {salesByMonth.map((m) => (
-              <div key={m.key} className="flex h-full min-w-[28px] flex-1 flex-col items-center justify-end gap-1.5">
-                <span className="text-[9.5px] font-semibold leading-tight text-ink/50">{m.total > 0 ? fmtMoney(m.total, settings.currency) : ""}</span>
-                <div className="w-full rounded-t-lg bg-brand-500 transition-all duration-500 ease-out" style={{ height: `${Math.max(3, (m.total / maxSale) * 100)}px` }} />
-                <span className="text-[10.5px] font-medium text-ink/40">{m.label}</span>
+          {tab === "expenses" && catEntries.length > 0 && (
+            <div className="mb-4 rounded-xl bg-paper/60 p-3">
+              <div className="mb-2.5 flex h-2.5 w-full overflow-hidden rounded-pill">
+                {catEntries.map(([cat, v], i) => <div key={cat} className={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} style={{ width: `${(v / catTotal) * 100}%` }} />)}
               </div>
-            ))}
-          </div>
-        )}
-      </Card>
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                {catEntries.slice(0, 4).map(([cat, v], i) => (
+                  <span key={cat} className="flex items-center gap-1.5 text-[11px] text-ink/60">
+                    <span className={`h-2 w-2 rounded-full ${CATEGORY_COLORS[i % CATEGORY_COLORS.length]}`} />{cat}
+                    <span className="font-mono font-semibold text-ink">{fmtMoney(v, settings.currency)}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
-      <Card>
-        <div className="mb-3 flex items-center gap-2 text-ink/70">
-          <RotateCcw size={16} className="text-brand-500" /> <h3 className="font-display text-base font-semibold">Recent transactions</h3>
+          {recent.length === 0 ? (
+            <EmptyState text={`No ${tab} yet.`} cta={`Create ${tab === "estimates" ? "Estimate" : tab === "expenses" ? "Expense" : "Estimate"}`}
+              onCta={() => openModal(tab === "expenses" ? "expense" : "estimate")} />
+          ) : (
+            <ul className="divide-y divide-line">
+              {recent.map((r: any, i: number) => (
+                <li key={r.id} style={{ animationDelay: `${i * 25}ms` }}>
+                  <button
+                    onClick={() => openRecentRow(r)}
+                    className="animate-row-in flex w-full items-center justify-between gap-2 py-3 text-sm text-left transition-colors hover:bg-paper/60 rounded-lg -mx-1 px-1"
+                  >
+                    <div className="min-w-0"><p className="font-semibold text-ink truncate">{r.number || r.category}</p><p className="text-xs text-ink/40 truncate">{fmtDate(r.date)}</p></div>
+                    <div className="text-right shrink-0"><p className="font-mono font-semibold text-ink">{fmtMoney(r.total ?? r.amount, settings.currency)}</p>{r.status && <Badge status={r.status} />}</div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-        <div className="mb-4 flex gap-2">
-          {["estimates", "expenses", "returns"].map((t) => (
-            <button key={t} onClick={() => setTab(t)} className={`rounded-pill px-4 py-1.5 text-sm font-semibold capitalize transition-all duration-150 ${tab === t ? "bg-brand-500 text-white" : "bg-paper text-ink/60"}`}>{t}</button>
-          ))}
-        </div>
-        {recent.length === 0 ? (
-          <EmptyState text={`No ${tab} yet.`} cta={`Create ${tab === "estimates" ? "Estimate" : tab === "expenses" ? "Expense" : "Estimate"}`}
-            onCta={() => openModal(tab === "expenses" ? "expense" : "estimate")} />
-        ) : (
-          <ul className="divide-y divide-line">
-            {recent.map((r: any, i: number) => (
-              <li key={r.id} style={{ animationDelay: `${i * 25}ms` }}>
-                <button
-                  onClick={() => openRecentRow(r)}
-                  className="animate-row-in flex w-full items-center justify-between gap-2 py-3 text-sm text-left transition-colors hover:bg-paper/60 rounded-lg -mx-1 px-1"
-                >
-                  <div className="min-w-0"><p className="font-semibold text-ink truncate">{r.number || r.category}</p><p className="text-xs text-ink/40 truncate">{fmtDate(r.date)}</p></div>
-                  <div className="text-right shrink-0"><p className="font-mono font-semibold text-ink">{fmtMoney(r.total ?? r.amount, settings.currency)}</p>{r.status && <Badge status={r.status} />}</div>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
 
-      {catEntries.length > 0 && (
-        <Card>
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="font-display text-base font-semibold text-ink">Top expenses</h3>
-            <span className="text-xs font-semibold text-ink/40">This fiscal year</span>
-          </div>
-          <div className="mb-4 flex h-3 w-full overflow-hidden rounded-pill">
-            {catEntries.map(([cat, v], i) => <div key={cat} className={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} style={{ width: `${(v / catTotal) * 100}%` }} />)}
-          </div>
-          <ul className="space-y-2">
-            {catEntries.map(([cat, v], i) => (
-              <li key={cat} className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-2 text-ink/60"><span className={`h-2.5 w-2.5 rounded-full ${CATEGORY_COLORS[i % CATEGORY_COLORS.length]}`} />{cat}</span>
-                <span className="font-mono font-semibold text-ink">{fmtMoney(v, settings.currency)}</span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
-    </div>
-
-    <div className="mt-5 space-y-4 px-5 lg:mt-0 lg:px-0">
-      <DueThisWeek estimates={estimates} customers={customers} currency={settings.currency} go={go} />
-      <ContractorPodium estimates={estimates} items={items} scoreRules={scoreRules} go={go} />
+        <ContractorPodium estimates={estimates} items={items} scoreRules={scoreRules} go={go} />
+      </div>
     </div>
 
     {rowDetail && (

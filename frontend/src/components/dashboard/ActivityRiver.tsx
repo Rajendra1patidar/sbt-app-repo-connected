@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { BarChart2, TrendingUp } from "lucide-react";
 import { fmtDate, fmtMoney } from "../../lib/format";
 import { TransactionDetailModal, DetailRow } from "./TransactionDetailModal";
 
@@ -15,11 +16,11 @@ interface RiverEvent {
 }
 
 const COLORS: Record<EventType, string> = {
-  sale: "var(--river-good, #2E7D5B)",
-  payment: "var(--river-brand, #2F5AA8)",
-  refund: "var(--river-bad, #B23A2E)",
-  expense: "var(--river-bad, #B23A2E)",
-  purchase: "var(--river-bad, #B23A2E)",
+  sale: "#2E7D5B",
+  payment: "#2F5AA8",
+  refund: "#B23A2E",
+  expense: "#B23A2E",
+  purchase: "#B27B1E",
 };
 
 const ACCENT: Record<EventType, "brand" | "good" | "bad" | "warn"> = {
@@ -30,7 +31,7 @@ const ACCENT: Record<EventType, "brand" | "good" | "bad" | "warn"> = {
   purchase: "warn",
 };
 
-const TITLES: Record<Period, string> = { today: "Today, as it happened", week: "This week, as it happened", month: "This month, as it happened" };
+const PERIODS: { key: Period; label: string }[] = [{ key: "today", label: "Today" }, { key: "week", label: "Week" }, { key: "month", label: "Month" }];
 const EVENT_TITLES: Record<EventType, string> = { sale: "Sale", payment: "Payment received", refund: "Refund", expense: "Expense", purchase: "Purchase" };
 
 function periodStart(period: Period): number {
@@ -83,7 +84,7 @@ export function ActivityRiver({ estimates, payments, expenses, purchases, curren
         });
       } else {
         list.push({
-          t, type: "payment", value: 0, label: "Payment received", date: p.date, // cash-in, doesn't re-count sale value
+          t, type: "payment", value: 0, label: "Payment received", date: p.date,
           rows: [
             { label: "Customer", value: customerName(p.customerId) },
             { label: "Against estimate", value: p.invoiceNumber || "—" },
@@ -125,7 +126,7 @@ export function ActivityRiver({ estimates, payments, expenses, purchases, curren
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estimates, payments, expenses, purchases, period, customers, vendors, items]);
 
-  const width = 1080, height = 150, padL = 20, padR = 20, baseY = 110, topY = 22;
+  const width = 1080, height = 130, padL = 20, padR = 20, baseY = 96, topY = 18;
   const now = Date.now();
   const start = periodStart(period);
 
@@ -139,7 +140,7 @@ export function ActivityRiver({ estimates, payments, expenses, purchases, curren
     const values = metric === "balance" ? withCum.map((w) => w.cum) : withCum.map((w) => Math.abs(w.e.value));
     const maxV = Math.max(1, ...values.map((v) => Math.abs(v)));
     const span = Math.max(1, now - start);
-    return withCum.map((w, i) => {
+    return withCum.map((w) => {
       const x = padL + ((w.e.t - start) / span) * (width - padL - padR);
       const raw = metric === "balance" ? w.cum : Math.abs(w.e.value);
       const y = baseY - (raw / maxV) * (baseY - topY);
@@ -151,43 +152,52 @@ export function ActivityRiver({ estimates, payments, expenses, purchases, curren
   const areaPath = points.length ? `${linePath} L${points[points.length - 1].x.toFixed(1)},${baseY} L${points[0].x.toFixed(1)},${baseY} Z` : "";
 
   const netTotal = events.reduce((s, e) => s + e.value, 0);
+  const periodIdx = PERIODS.findIndex((p) => p.key === period);
 
   return (
-    <div className="rounded-card bg-card border border-line overflow-hidden shadow-card">
-      <div className="flex items-baseline justify-between px-5 pt-4">
-        <h2 className="font-display text-[15px] font-medium text-ink">{TITLES[period]}</h2>
-        <div className="flex gap-3">
-          <div className="flex gap-0.5 rounded-pill bg-paper p-0.5">
-            {(["today", "week", "month"] as Period[]).map((p) => (
-              <button key={p} onClick={() => setPeriod(p)}
-                className={`rounded-pill px-2.5 py-1 text-[10px] font-semibold capitalize transition-colors ${period === p ? "bg-card text-ink shadow-card" : "text-ink/40"}`}>
-                {p === "today" ? "Today" : p === "week" ? "Week" : "Month"}
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-0.5 rounded-pill bg-paper p-0.5">
-            {(["balance", "volume"] as const).map((m) => (
-              <button key={m} onClick={() => setMetric(m)}
-                className={`rounded-pill px-2.5 py-1 text-[10px] font-semibold capitalize transition-colors ${metric === m ? "bg-card text-ink shadow-card" : "text-ink/40"}`}>
-                {m}
-              </button>
-            ))}
-          </div>
+    <div>
+      <div className="flex items-center justify-between gap-3 px-5 pt-4">
+        <div className="relative flex rounded-pill bg-paper p-0.5">
+          <div
+            className="absolute inset-y-0.5 left-0.5 rounded-pill bg-card shadow-card transition-transform duration-300 ease-out"
+            style={{ width: `calc(${100 / PERIODS.length}% - 2px)`, transform: `translateX(${periodIdx * 100}%)` }}
+          />
+          {PERIODS.map((p) => (
+            <button key={p.key} onClick={() => setPeriod(p.key)}
+              className={`relative z-10 rounded-pill px-3 py-1.5 text-[11px] font-semibold transition-colors ${period === p.key ? "text-ink" : "text-ink/40"}`}>
+              {p.label}
+            </button>
+          ))}
         </div>
+        <button
+          onClick={() => setMetric((m) => (m === "balance" ? "volume" : "balance"))}
+          className="flex items-center gap-1.5 rounded-pill border border-line px-2.5 py-1.5 text-[10.5px] font-semibold text-ink/50 transition-colors hover:text-ink"
+        >
+          {metric === "balance" ? <TrendingUp size={12} /> : <BarChart2 size={12} />}
+          {metric === "balance" ? "Running total" : "Per-event"}
+        </button>
       </div>
 
+      <p className="px-5 pt-2 text-[11px] text-ink/40">{period === "today" ? "Today" : period === "week" ? "This week" : "This month"}, as it happened</p>
+
       {points.length === 0 ? (
-        <div className="flex h-[150px] items-center justify-center px-5">
+        <div className="flex h-[110px] items-center justify-center px-5">
           <p className="text-sm text-ink/40">No activity yet {period === "today" ? "today" : `this ${period}`}.</p>
         </div>
       ) : (
-        <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="block h-[150px] w-full">
+        <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="block h-[110px] w-full">
+          <defs>
+            <linearGradient id="riverFade" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#2F5AA8" stopOpacity="0.18" />
+              <stop offset="100%" stopColor="#2F5AA8" stopOpacity="0" />
+            </linearGradient>
+          </defs>
           <line x1={0} y1={baseY} x2={width} y2={baseY} className="stroke-line" strokeWidth={1} />
-          {areaPath && <path d={areaPath} fill="rgb(var(--color-ink) / 0.08)" />}
-          <path d={linePath} fill="none" className="stroke-ink" strokeWidth={2} />
+          {areaPath && <path d={areaPath} fill="url(#riverFade)" />}
+          <path d={linePath} fill="none" stroke="#2F5AA8" strokeWidth={2} />
           {points.map((p, i) => (
             <circle
-              key={i} cx={p.x} cy={p.y} r={p.e.type === "sale" ? 6.5 : 5} fill={COLORS[p.e.type]}
+              key={i} cx={p.x} cy={p.y} r={p.e.type === "sale" ? 6 : 4.5} fill={COLORS[p.e.type]}
               className="cursor-pointer"
               style={{ vectorEffect: "non-scaling-stroke" }}
               onClick={() => setSelected(p.e)}
@@ -199,13 +209,13 @@ export function ActivityRiver({ estimates, payments, expenses, purchases, curren
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-2 px-5 pb-4 pt-2">
-        <div className="flex gap-4">
+        <div className="flex gap-3.5">
           <span className="flex items-center gap-1.5 text-[10.5px] text-ink/40"><span className="h-1.5 w-1.5 rounded-full" style={{ background: "#2E7D5B" }} />Sale</span>
-          <span className="flex items-center gap-1.5 text-[10.5px] text-ink/40"><span className="h-1.5 w-1.5 rounded-full" style={{ background: "#2F5AA8" }} />Payment received</span>
-          <span className="flex items-center gap-1.5 text-[10.5px] text-ink/40"><span className="h-1.5 w-1.5 rounded-full" style={{ background: "#B23A2E" }} />Purchase / outflow</span>
+          <span className="flex items-center gap-1.5 text-[10.5px] text-ink/40"><span className="h-1.5 w-1.5 rounded-full" style={{ background: "#2F5AA8" }} />Payment</span>
+          <span className="flex items-center gap-1.5 text-[10.5px] text-ink/40"><span className="h-1.5 w-1.5 rounded-full" style={{ background: "#B23A2E" }} />Outflow</span>
         </div>
         {events.length > 0 && (
-          <span className="font-mono text-[11px] font-semibold text-ink/60">Net {fmtMoney(netTotal, currency)}</span>
+          <span className={`font-mono text-[11px] font-semibold ${netTotal >= 0 ? "text-good-500" : "text-bad-500"}`}>Net {fmtMoney(netTotal, currency)}</span>
         )}
       </div>
 

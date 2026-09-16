@@ -316,35 +316,43 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, sav
     inputRef.current?.focus();
   };
 
+  const [focused, setFocused] = useState(false);
+
   return (
-    <div className="relative overflow-hidden rounded-card bg-sidebar p-5 flex flex-col gap-3.5 shadow-card">
-      <div className="pointer-events-none absolute inset-0 opacity-60" style={{ background: "radial-gradient(480px 120px at 15% 0%, rgba(217,80,15,0.16), transparent 70%)" }} />
+    <div className={`relative overflow-hidden rounded-card bg-sidebar p-5 flex flex-col gap-3.5 shadow-card transition-shadow duration-300 ${focused ? "ring-2 ring-orange-500/30" : ""}`}>
+      <div
+        className="pointer-events-none absolute inset-0 transition-opacity duration-500"
+        style={{ background: "radial-gradient(480px 120px at 15% 0%, rgba(217,80,15,0.16), transparent 70%)", opacity: focused ? 0.9 : 0.6 }}
+      />
 
       {!pending ? (
         <>
           <div className="relative flex items-center gap-3">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#20242c] border border-[#333844] text-white/80">
-              <ArrowUp size={14} />
+            <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#20242c] border transition-colors duration-300 ${focused ? "border-orange-500/60 text-orange-300" : "border-[#333844] text-white/80"}`}>
+              <ArrowUp size={14} className={`transition-transform duration-300 ${focused ? "-translate-y-0.5" : ""}`} />
             </span>
             <input
               ref={inputRef}
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
               placeholder="Sold 50 bags cement to Patel Traders at ₹450 each... or Logged expense of ₹500 for diesel"
               disabled={busy}
               className="flex-1 bg-transparent border-none outline-none text-[15px] text-[#F5F3EE] placeholder:text-[#6b6f78]"
             />
-            <span className={`hidden sm:inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 font-mono text-[10px] ${busy ? "border-orange-500/40 text-orange-300" : "border-[#333844] text-[#7d818a]"}`}>
+            <span className={`hidden sm:inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 font-mono text-[10px] transition-colors duration-200 ${busy ? "border-orange-500/40 text-orange-300" : focused ? "border-orange-500/40 text-orange-300" : "border-[#333844] text-[#7d818a]"}`}>
               {busy ? <><Sparkles size={10} className="animate-pulse" /> thinking…</> : "↵ enter"}
             </span>
           </div>
           <div className="relative flex flex-wrap gap-2">
-            {CHIPS.map((c) => (
+            {CHIPS.map((c, i) => (
               <button
                 key={c.label}
                 onClick={() => fill(c.fill)}
-                className="rounded-pill border border-[#2c313b] bg-[#1c2028] px-3 py-1.5 text-[11.5px] text-[#c9cdd6] transition-colors hover:border-orange-500 hover:text-white"
+                style={{ animationDelay: `${i * 35}ms` }}
+                className="animate-chip-in rounded-pill border border-[#2c313b] bg-[#1c2028] px-3 py-1.5 text-[11.5px] text-[#c9cdd6] transition-all duration-150 hover:border-orange-500 hover:text-white hover:-translate-y-0.5 active:translate-y-0 active:scale-95"
               >
                 {c.label}
               </button>

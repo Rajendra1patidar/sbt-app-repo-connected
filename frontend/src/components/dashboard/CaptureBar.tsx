@@ -7,8 +7,8 @@ import { useAppStore } from "../../store/useAppStore";
 import { StatusChoicePopup } from "../modals/StatusChoicePopup";
 
 const CHIPS = [
-  { label: "Sold cement", fill: "Sold 5 bags PPC Cement to " },
-  { label: "Sold saria", fill: "Sold 50 kg Saria to " },
+  { label: "Sold cement", fill: "Sold 5 bags PPC to " },
+  { label: "Sold saria", fill: "Sold 50 kg 10mm to " },
   { label: "Logged payment", fill: "Logged payment of ₹ from " },
   { label: "Log return", fill: "Returned 2 12mm Saria from " },
   { label: "Logged expense", fill: "Logged expense of ₹ for " },

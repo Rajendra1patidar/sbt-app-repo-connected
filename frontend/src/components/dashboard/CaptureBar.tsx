@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ArrowUp, Check, Sparkles, X } from "lucide-react";
 import { parseCapture, actionFromAiResult, CaptureAction, MatchCandidate } from "../../lib/captureParser";
 import { fmtMoney, today } from "../../lib/format";
@@ -377,13 +378,14 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, sav
         />
       )}
 
-      {showStatusPopup && (
+      {showStatusPopup && createPortal(
         <StatusChoicePopup
           total={saleTotals()?.total ?? 0}
           currency={currency}
           onChoose={finalizeSale}
           onCancel={() => setShowStatusPopup(false)}
-        />
+        />,
+        document.body
       )}
     </div>
   );

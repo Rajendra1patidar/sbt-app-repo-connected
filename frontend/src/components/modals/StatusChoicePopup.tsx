@@ -85,8 +85,12 @@ export function StatusChoicePopup({ total, currency, onChoose, onCancel }: any) 
               <span className="text-ink/50">Balance due</span>
               <span className="font-semibold text-ink/80">{fmtMoney(Math.max(total - partialNum, 0), currency)}</span>
             </div>
-            {partialAmount !== "" && !partialValid && (
-              <p className="mt-1 text-[11px] text-bad-600">Enter an amount more than 0 and less than {fmtMoney(total, currency)}.</p>
+            {!partialValid && (
+              <p className="mt-1 text-[11px] text-bad-600">
+                {partialAmount === ""
+                  ? "Enter the amount received now to continue."
+                  : `Enter an amount more than 0 and less than ${fmtMoney(total, currency)}.`}
+              </p>
             )}
           </div>
         )}

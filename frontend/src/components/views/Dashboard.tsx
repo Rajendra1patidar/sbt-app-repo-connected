@@ -6,6 +6,8 @@ import { fmtDate, fmtMoney, round2 } from "../../lib/format";
 import { CaptureBar } from "../dashboard/CaptureBar";
 import { ActivityRiver } from "../dashboard/ActivityRiver";
 import { AlertStrip, buildDashboardAlerts } from "../dashboard/AlertStrip";
+import { TodaySnapshot } from "../dashboard/TodaySnapshot";
+import { PositionBar } from "../dashboard/PositionBar";
 import { ContractorPodium } from "../dashboard/ContractorPodium";
 import { TransactionDetailModal, DetailRow } from "../dashboard/TransactionDetailModal";
 
@@ -32,6 +34,13 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
   const paceSuggestionByItem = new Map<string, any>((reorderSuggestions || []).filter((s: any) => s.mode === "pace").map((s: any) => [s.itemId, s]));
 
   const payable = round2((purchases || []).reduce((s: number, p: any) => s + Math.max(0, Number(p.amount || 0) - Number(p.amountPaid || 0)), 0));
+
+  // Position — receivable (total outstanding across all estimates, same
+  // shape as overdueAmount above just without the date filter) vs. tiedUp
+  // (stock valued at purchase price). Both are plain sums over existing
+  // fields, feeding PositionBar below.
+  const receivable = round2(estimates.reduce((s: number, e: any) => s + Math.max(0, Number(e.total || 0) - Number(e.amountPaid || 0)), 0));
+  const tiedUp = round2(items.reduce((s: number, it: any) => s + Number(it.stock || 0) * Number(it.purchasePrice || 0), 0));
 
   const refundPayments = (payments || []).filter((p: any) => Number(p.amount) < 0);
   const returnsForList = refundPayments.map((p: any) => ({
@@ -123,26 +132,43 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
   const topCategory = rankedCategories.find((c) => (categoryTotalsThisPeriod[c] || 0) > 0);
   const visibleCategories = showMoreCats ? rankedCategories : rankedCategories.slice(0, 3);
 
+  const alerts = buildDashboardAlerts({ lowStockItems, overdueEstimates, overdueAmount, payable, currency: settings.currency, go, paceSuggestionByItem, LOW_STOCK_DEFAULT, openModal });
+
   return (
     <div className="pb-28 px-5 lg:px-0">
-    <div className="mx-auto max-w-2xl space-y-5">
-      <AlertStrip alerts={buildDashboardAlerts({ lowStockItems, overdueEstimates, overdueAmount, payable, currency: settings.currency, go, paceSuggestionByItem, LOW_STOCK_DEFAULT, openModal })} />
-
-      <div className="pt-1">
+    <div className="mx-auto max-w-2xl space-y-6">
+      {/* Hero: the one number worth seeing before anything else, plus the
+          capture bar right underneath it — one opening statement instead of
+          two separately-boxed sections. Everything here sits on the page's
+          own paper background; no separate color block. */}
+      <div className="pt-1" style={{ "--rise-delay": "0ms" } as React.CSSProperties}>
         <h1 className="font-display text-2xl font-semibold text-ink">Welcome, {settings.ownerName}</h1>
-        <p className="text-sm text-ink/40">Here's where the business stands today</p>
+        <p className="text-sm text-ink/40 mb-5">Here's where the business stands today</p>
+        <TodaySnapshot estimates={estimates} payments={payments} expenses={expenses} purchases={purchases} currency={settings.currency} />
       </div>
 
-      <CaptureBar
-        items={items} customers={customers} vendors={vendors} estimates={estimates} currency={settings.currency}
-        saveDocument={saveDocument} savePayment={savePayment} savePurchase={savePurchase} saveCustomer={saveCustomer} saveExpense={saveExpense} saveReturn={saveReturn}
-        openModal={openModal} showToast={showToast}
-      />
+      <div className="animate-rise-in" style={{ "--rise-delay": "80ms" } as React.CSSProperties}>
+        <CaptureBar
+          items={items} customers={customers} vendors={vendors} estimates={estimates} currency={settings.currency}
+          saveDocument={saveDocument} savePayment={savePayment} savePurchase={savePurchase} saveCustomer={saveCustomer} saveExpense={saveExpense} saveReturn={saveReturn}
+          openModal={openModal} showToast={showToast}
+        />
+      </div>
+
+      {alerts.length > 0 && (
+        <div className="animate-rise-in" style={{ "--rise-delay": "160ms" } as React.CSSProperties}>
+          <AlertStrip alerts={alerts} />
+        </div>
+      )}
+
+      <div className="animate-rise-in" style={{ "--rise-delay": "240ms" } as React.CSSProperties}>
+        <PositionBar receivable={receivable} tiedUp={tiedUp} currency={settings.currency} />
+      </div>
 
       {/* One continuous panel — every section below is a division of the same
           surface (divide-y), not a separate floating card, so the page reads
           as a single sheet rather than a stack of disconnected boxes. */}
-      <div className="rounded-card bg-card border border-line shadow-card divide-y divide-line overflow-hidden">
+      <div className="animate-rise-in rounded-card bg-card border border-line shadow-card divide-y divide-line overflow-hidden" style={{ "--rise-delay": "320ms" } as React.CSSProperties}>
 
         <ActivityRiver estimates={estimates} payments={payments} expenses={expenses} purchases={purchases} customers={customers} vendors={vendors} items={items} currency={settings.currency} />
 

@@ -4,10 +4,10 @@ import { fmtMoney } from "../../lib/format";
 
 interface AlertItem { tone: "bad" | "warn" | "brand"; text: string; onClick?: () => void; detail?: React.ReactNode; cta?: { label: string; onClick: () => void } }
 
-const TONE: Record<AlertItem["tone"], { border: string; dot: string; text: string; ring: string }> = {
-  bad: { border: "border-l-bad-500", dot: "bg-bad-500", text: "text-bad-700", ring: "ring-bad-500/15" },
-  warn: { border: "border-l-warn-500", dot: "bg-warn-500", text: "text-warn-700", ring: "ring-warn-500/15" },
-  brand: { border: "border-l-brand-500", dot: "bg-brand-500", text: "text-brand-700", ring: "ring-brand-500/15" },
+const TONE: Record<AlertItem["tone"], { text: string }> = {
+  bad: { text: "text-bad-600" },
+  warn: { text: "text-warn-600" },
+  brand: { text: "text-brand-600" },
 };
 
 export function AlertStrip({ alerts }: { alerts: AlertItem[] }) {
@@ -17,19 +17,20 @@ export function AlertStrip({ alerts }: { alerts: AlertItem[] }) {
 
   return (
     <div>
-      <div className="-mx-5 flex gap-2.5 overflow-x-auto px-5 pb-1">
+      <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-ink/30">Needs attention</p>
+      <div className="-mx-5 flex gap-0 overflow-x-auto px-5 pb-1">
         {alerts.map((a, i) => {
           const tone = TONE[a.tone];
           const isOpen = openIndex === i;
+          const isLast = i === alerts.length - 1;
           return (
             <button
               key={i}
               onClick={() => setOpenIndex(isOpen ? null : i)}
-              className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-line ${tone.border} border-l-[3px] bg-card px-3.5 py-2.5 text-left text-[12px] shadow-card transition-all duration-150 ${isOpen ? `ring-2 ${tone.ring}` : ""}`}
+              className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap py-1 pr-4 text-left text-[13px] transition-colors duration-150 ${isLast ? "" : "mr-4 border-r border-line"} ${isOpen ? tone.text : "text-ink"}`}
             >
-              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${tone.dot}`} />
-              <span className="font-semibold text-ink">{a.text}</span>
-              {a.detail && <ChevronDown size={13} className={`text-ink/30 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />}
+              <span className={`font-medium ${a.tone === "brand" ? tone.text : ""}`}>{a.text}</span>
+              {a.detail && <ChevronDown size={12} className={`text-ink/30 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />}
             </button>
           );
         })}

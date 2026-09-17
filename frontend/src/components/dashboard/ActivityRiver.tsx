@@ -156,7 +156,7 @@ export function ActivityRiver({ estimates, payments, expenses, purchases, curren
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-3 px-5 pt-4">
+      <div className="flex items-center justify-between gap-3">
         <div className="relative flex rounded-pill bg-paper p-0.5">
           <div
             className="absolute inset-y-0.5 left-0.5 rounded-pill bg-card shadow-card transition-transform duration-300 ease-out"
@@ -178,10 +178,10 @@ export function ActivityRiver({ estimates, payments, expenses, purchases, curren
         </button>
       </div>
 
-      <p className="px-5 pt-2 text-[11px] text-ink/40">{period === "today" ? "Today" : period === "week" ? "This week" : "This month"}, as it happened</p>
+      <p className="pt-2 text-[11px] text-ink/40">{period === "today" ? "Today" : period === "week" ? "This week" : "This month"}, as it happened</p>
 
       {points.length === 0 ? (
-        <div className="flex h-[110px] items-center justify-center px-5">
+        <div className="flex h-[110px] items-center justify-center">
           <p className="text-sm text-ink/40">No activity yet {period === "today" ? "today" : `this ${period}`}.</p>
         </div>
       ) : (
@@ -208,7 +208,7 @@ export function ActivityRiver({ estimates, payments, expenses, purchases, curren
         </svg>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 px-5 pb-4 pt-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-1 pt-2">
         <div className="flex gap-3.5">
           <span className="flex items-center gap-1.5 text-[10.5px] text-ink/40"><span className="h-1.5 w-1.5 rounded-full" style={{ background: "#2E7D5B" }} />Sale</span>
           <span className="flex items-center gap-1.5 text-[10.5px] text-ink/40"><span className="h-1.5 w-1.5 rounded-full" style={{ background: "#2F5AA8" }} />Payment</span>

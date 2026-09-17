@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { BarChart3, ChevronDown, RotateCcw, Trophy } from "lucide-react";
+import { ChevronDown, Trophy } from "lucide-react";
 import { Badge, EmptyState } from "../common/UIPrimitives";
 import { CATEGORY_COLORS, LOW_STOCK_DEFAULT } from "../../lib/constants";
 import { fmtDate, fmtMoney, round2 } from "../../lib/format";
@@ -9,6 +9,7 @@ import { AlertStrip, buildDashboardAlerts } from "../dashboard/AlertStrip";
 import { TodaySnapshot } from "../dashboard/TodaySnapshot";
 import { PositionBar } from "../dashboard/PositionBar";
 import { ContractorPodium } from "../dashboard/ContractorPodium";
+import { UnderlineTabs } from "../dashboard/UnderlineTabs";
 import { TransactionDetailModal, DetailRow } from "../dashboard/TransactionDetailModal";
 
 /* Sales chart period options, shown as a segmented control above the chart. */
@@ -18,12 +19,19 @@ const SALES_PERIODS: { key: "3m" | "6m" | "1y"; label: string; months: number }[
   { key: "1y", label: "1y", months: 12 },
 ];
 const ALL_CATEGORIES = ["Saria", "Cement", "Kasta", "CPVC", "UPVC", "Others"];
+const TREND_TABS = [{ key: "activity" as const, label: "Activity" }, { key: "sales" as const, label: "Sales" }];
+const TX_TABS = [{ key: "estimates" as const, label: "estimates" }, { key: "expenses" as const, label: "expenses" }, { key: "returns" as const, label: "returns" }];
 
-/* ---- Dashboard ---- */
-
+/* ---- Dashboard ----
+ * One continuous sheet, same paper background top to bottom — no boxed
+ * cards, no shadows, no divider lines between sections. Rhythm comes from
+ * consistent vertical spacing and small uppercase mono section labels
+ * (matching Position / Contractor rank below), the way a single well-typeset
+ * page reads rather than a stack of separate panels. */
 export function Dashboard({ data, settings, openModal, go, reorderSuggestions, saveDocument, savePayment, savePurchase, saveCustomer, saveExpense, saveReturn, showToast }: any) {
   const { customers, estimates, expenses, items, payments, purchases, vendors, scoreRules } = data;
-  const [tab, setTab] = useState("estimates");
+  const [tab, setTab] = useState<"estimates" | "expenses" | "returns">("estimates");
+  const [trendTab, setTrendTab] = useState<"activity" | "sales">("activity");
   const overdueEstimates = estimates.filter((i: any) => i.status !== "Paid" && i.dueDate && new Date(i.dueDate) < new Date());
   const overdueAmount = round2(overdueEstimates.reduce((s: number, i: any) => s + (Number(i.total || 0) - Number(i.amountPaid || 0)), 0));
   const byCategory: any = {};
@@ -136,18 +144,17 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
 
   return (
     <div className="pb-28 px-5 lg:px-0">
-    <div className="mx-auto max-w-2xl space-y-6">
-      {/* Hero: the one number worth seeing before anything else, plus the
-          capture bar right underneath it — one opening statement instead of
-          two separately-boxed sections. Everything here sits on the page's
-          own paper background; no separate color block. */}
-      <div className="pt-1" style={{ "--rise-delay": "0ms" } as React.CSSProperties}>
-        <h1 className="font-display text-2xl font-semibold text-ink">Welcome, {settings.ownerName}</h1>
-        <p className="text-sm text-ink/40 mb-5">Here's where the business stands today</p>
-        <TodaySnapshot estimates={estimates} payments={payments} expenses={expenses} purchases={purchases} currency={settings.currency} />
+    <div className="mx-auto max-w-2xl">
+
+      {/* Identity + the one number worth seeing before anything else. */}
+      <div style={{ "--rise-delay": "0ms" } as React.CSSProperties} className="pt-1">
+        <p className="font-mono text-[9.5px] font-medium uppercase tracking-[0.14em] text-ink/40">Welcome, {settings.ownerName}</p>
+        <div className="mt-4">
+          <TodaySnapshot estimates={estimates} payments={payments} expenses={expenses} purchases={purchases} currency={settings.currency} />
+        </div>
       </div>
 
-      <div className="animate-rise-in" style={{ "--rise-delay": "80ms" } as React.CSSProperties}>
+      <div className="animate-rise-in pt-5" style={{ "--rise-delay": "80ms" } as React.CSSProperties}>
         <CaptureBar
           items={items} customers={customers} vendors={vendors} estimates={estimates} currency={settings.currency}
           saveDocument={saveDocument} savePayment={savePayment} savePurchase={savePurchase} saveCustomer={saveCustomer} saveExpense={saveExpense} saveReturn={saveReturn}
@@ -156,119 +163,112 @@ export function Dashboard({ data, settings, openModal, go, reorderSuggestions, s
       </div>
 
       {alerts.length > 0 && (
-        <div className="animate-rise-in" style={{ "--rise-delay": "160ms" } as React.CSSProperties}>
+        <div className="animate-rise-in pt-6" style={{ "--rise-delay": "160ms" } as React.CSSProperties}>
           <AlertStrip alerts={alerts} />
         </div>
       )}
 
-      <div className="animate-rise-in" style={{ "--rise-delay": "240ms" } as React.CSSProperties}>
+      <div className="animate-rise-in pt-6" style={{ "--rise-delay": "240ms" } as React.CSSProperties}>
         <PositionBar receivable={receivable} tiedUp={tiedUp} currency={settings.currency} />
       </div>
 
-      {/* One continuous panel — every section below is a division of the same
-          surface (divide-y), not a separate floating card, so the page reads
-          as a single sheet rather than a stack of disconnected boxes. */}
-      <div className="animate-rise-in rounded-card bg-card border border-line shadow-card divide-y divide-line overflow-hidden" style={{ "--rise-delay": "320ms" } as React.CSSProperties}>
+      <div className="animate-rise-in pt-6" style={{ "--rise-delay": "320ms" } as React.CSSProperties}>
+        <UnderlineTabs tabs={TREND_TABS} active={trendTab} onChange={setTrendTab} />
 
-        <ActivityRiver estimates={estimates} payments={payments} expenses={expenses} purchases={purchases} customers={customers} vendors={vendors} items={items} currency={settings.currency} />
-
-        <div className="px-5 py-4">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-ink/70">
-              <BarChart3 size={16} className="text-brand-500" /> <h3 className="font-display text-base font-semibold">Sales</h3>
-            </div>
-            <div className="flex gap-0.5 rounded-pill bg-paper p-0.5">
-              {SALES_PERIODS.map((p) => (
-                <button key={p.key} onClick={() => setSalesPeriod(p.key)}
-                  className={`rounded-pill px-2.5 py-1 text-[10.5px] font-semibold transition-colors ${salesPeriod === p.key ? "bg-card text-ink shadow-card" : "text-ink/40"}`}>
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mb-1 flex flex-wrap items-center gap-1.5">
-            <button onClick={() => setSalesCategory("All")}
-              className={`rounded-pill border px-2.5 py-1 text-[11px] font-semibold transition-colors ${salesCategory === "All" ? "border-brand-500 bg-brand-50 text-brand-700" : "border-line text-ink/50"}`}>
-              All
-            </button>
-            {visibleCategories.map((c) => (
-              <button key={c} onClick={() => setSalesCategory(c)}
-                className={`rounded-pill border px-2.5 py-1 text-[11px] font-semibold transition-colors ${salesCategory === c ? "border-brand-500 bg-brand-50 text-brand-700" : "border-line text-ink/50"}`}>
-                {c === topCategory && <Trophy size={9} className="mr-1 inline -mt-0.5 text-warn-500" />}{c}
-              </button>
-            ))}
-            {rankedCategories.length > 3 && (
-              <button onClick={() => setShowMoreCats((v) => !v)} className="flex items-center gap-0.5 rounded-pill px-2 py-1 text-[11px] font-semibold text-ink/40">
-                {showMoreCats ? "Less" : "More"} <ChevronDown size={11} className={`transition-transform ${showMoreCats ? "rotate-180" : ""}`} />
-              </button>
-            )}
-          </div>
-          {topCategory && salesCategory === "All" && (
-            <p className="mb-3 text-[10.5px] text-ink/40">Best seller this period: <span className="font-semibold text-ink/60">{topCategory}</span></p>
-          )}
-
-          {!hasSales ? (
-            <p className="mt-3 text-sm text-ink/40">No estimates{salesCategory !== "All" ? ` for ${salesCategory}` : ""} in the last {SALES_PERIODS.find((p) => p.key === salesPeriod)?.label}.</p>
-          ) : (
-            <div className="mt-3 flex items-end justify-between gap-1.5 overflow-x-auto" style={{ height: 150 }}>
-              {salesByMonth.map((m) => (
-                <div key={m.key} className="flex h-full min-w-[28px] flex-1 flex-col items-center justify-end gap-1.5">
-                  <span className="text-[9.5px] font-semibold leading-tight text-ink/50">{m.total > 0 ? fmtMoney(m.total, settings.currency) : ""}</span>
-                  <div className="w-full rounded-t-lg bg-brand-500 transition-all duration-500 ease-out" style={{ height: `${Math.max(3, (m.total / maxSale) * 100)}px` }} />
-                  <span className="text-[10.5px] font-medium text-ink/40">{m.label}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="px-5 py-4">
-          <div className="mb-3 flex items-center gap-2 text-ink/70">
-            <RotateCcw size={16} className="text-brand-500" /> <h3 className="font-display text-base font-semibold">Recent transactions</h3>
-          </div>
-          <div className="mb-4 flex gap-2">
-            {["estimates", "expenses", "returns"].map((t) => (
-              <button key={t} onClick={() => setTab(t)} className={`rounded-pill px-4 py-1.5 text-sm font-semibold capitalize transition-all duration-150 ${tab === t ? "bg-brand-500 text-white" : "bg-paper text-ink/60"}`}>{t}</button>
-            ))}
-          </div>
-
-          {tab === "expenses" && catEntries.length > 0 && (
-            <div className="mb-4 rounded-xl bg-paper/60 p-3">
-              <div className="mb-2.5 flex h-2.5 w-full overflow-hidden rounded-pill">
-                {catEntries.map(([cat, v], i) => <div key={cat} className={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} style={{ width: `${(v / catTotal) * 100}%` }} />)}
-              </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-                {catEntries.slice(0, 4).map(([cat, v], i) => (
-                  <span key={cat} className="flex items-center gap-1.5 text-[11px] text-ink/60">
-                    <span className={`h-2 w-2 rounded-full ${CATEGORY_COLORS[i % CATEGORY_COLORS.length]}`} />{cat}
-                    <span className="font-mono font-semibold text-ink">{fmtMoney(v, settings.currency)}</span>
-                  </span>
+        {trendTab === "activity" ? (
+          <ActivityRiver estimates={estimates} payments={payments} expenses={expenses} purchases={purchases} customers={customers} vendors={vendors} items={items} currency={settings.currency} />
+        ) : (
+          <div>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex gap-0.5 rounded-pill bg-paper p-0.5">
+                {SALES_PERIODS.map((p) => (
+                  <button key={p.key} onClick={() => setSalesPeriod(p.key)}
+                    className={`rounded-pill px-2.5 py-1 text-[10.5px] font-semibold transition-colors ${salesPeriod === p.key ? "bg-card text-ink shadow-card" : "text-ink/40"}`}>
+                    {p.label}
+                  </button>
                 ))}
               </div>
             </div>
-          )}
 
-          {recent.length === 0 ? (
-            <EmptyState text={`No ${tab} yet.`} cta={`Create ${tab === "estimates" ? "Estimate" : tab === "expenses" ? "Expense" : "Estimate"}`}
-              onCta={() => openModal(tab === "expenses" ? "expense" : "estimate")} />
-          ) : (
-            <ul className="divide-y divide-line">
-              {recent.map((r: any, i: number) => (
-                <li key={r.id} style={{ animationDelay: `${i * 25}ms` }}>
-                  <button
-                    onClick={() => openRecentRow(r)}
-                    className="animate-row-in flex w-full items-center justify-between gap-2 py-3 text-sm text-left transition-colors hover:bg-paper/60 rounded-lg -mx-1 px-1"
-                  >
-                    <div className="min-w-0"><p className="font-semibold text-ink truncate">{r.number || r.category}</p><p className="text-xs text-ink/40 truncate">{fmtDate(r.date)}</p></div>
-                    <div className="text-right shrink-0"><p className="font-mono font-semibold text-ink">{fmtMoney(r.total ?? r.amount, settings.currency)}</p>{r.status && <Badge status={r.status} />}</div>
-                  </button>
-                </li>
+            <div className="mb-1 flex flex-wrap items-center gap-1.5">
+              <button onClick={() => setSalesCategory("All")}
+                className={`rounded-pill border px-2.5 py-1 text-[11px] font-semibold transition-colors ${salesCategory === "All" ? "border-brand-500 bg-brand-50 text-brand-700" : "border-line text-ink/50"}`}>
+                All
+              </button>
+              {visibleCategories.map((c) => (
+                <button key={c} onClick={() => setSalesCategory(c)}
+                  className={`rounded-pill border px-2.5 py-1 text-[11px] font-semibold transition-colors ${salesCategory === c ? "border-brand-500 bg-brand-50 text-brand-700" : "border-line text-ink/50"}`}>
+                  {c === topCategory && <Trophy size={9} className="mr-1 inline -mt-0.5 text-warn-500" />}{c}
+                </button>
               ))}
-            </ul>
-          )}
-        </div>
+              {rankedCategories.length > 3 && (
+                <button onClick={() => setShowMoreCats((v) => !v)} className="flex items-center gap-0.5 rounded-pill px-2 py-1 text-[11px] font-semibold text-ink/40">
+                  {showMoreCats ? "Less" : "More"} <ChevronDown size={11} className={`transition-transform ${showMoreCats ? "rotate-180" : ""}`} />
+                </button>
+              )}
+            </div>
+            {topCategory && salesCategory === "All" && (
+              <p className="mb-3 text-[10.5px] text-ink/40">Best seller this period: <span className="font-semibold text-ink/60">{topCategory}</span></p>
+            )}
 
+            {!hasSales ? (
+              <p className="mt-3 text-sm text-ink/40">No estimates{salesCategory !== "All" ? ` for ${salesCategory}` : ""} in the last {SALES_PERIODS.find((p) => p.key === salesPeriod)?.label}.</p>
+            ) : (
+              <div className="mt-3 flex items-end justify-between gap-1.5 overflow-x-auto" style={{ height: 130 }}>
+                {salesByMonth.map((m) => (
+                  <div key={m.key} className="flex h-full min-w-[28px] flex-1 flex-col items-center justify-end gap-1.5">
+                    <span className="text-[9.5px] font-semibold leading-tight text-ink/50">{m.total > 0 ? fmtMoney(m.total, settings.currency) : ""}</span>
+                    <div className="w-full rounded-t-md bg-ink transition-all duration-500 ease-out" style={{ height: `${Math.max(3, (m.total / maxSale) * 100)}px` }} />
+                    <span className="text-[10.5px] font-medium text-ink/40">{m.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="animate-rise-in pt-6" style={{ "--rise-delay": "400ms" } as React.CSSProperties}>
+        <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-ink/30">Recent transactions</p>
+        <UnderlineTabs tabs={TX_TABS} active={tab} onChange={setTab} />
+
+        {tab === "expenses" && catEntries.length > 0 && (
+          <div className="mb-4">
+            <div className="mb-2.5 flex h-2 w-full overflow-hidden rounded-pill bg-line">
+              {catEntries.map(([cat, v], i) => <div key={cat} className={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} style={{ width: `${(v / catTotal) * 100}%` }} />)}
+            </div>
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+              {catEntries.slice(0, 4).map(([cat, v], i) => (
+                <span key={cat} className="flex items-center gap-1.5 text-[11px] text-ink/60">
+                  <span className={`h-2 w-2 rounded-full ${CATEGORY_COLORS[i % CATEGORY_COLORS.length]}`} />{cat}
+                  <span className="font-mono font-semibold text-ink">{fmtMoney(v, settings.currency)}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {recent.length === 0 ? (
+          <EmptyState text={`No ${tab} yet.`} cta={`Create ${tab === "estimates" ? "Estimate" : tab === "expenses" ? "Expense" : "Estimate"}`}
+            onCta={() => openModal(tab === "expenses" ? "expense" : "estimate")} />
+        ) : (
+          <ul>
+            {recent.map((r: any, i: number) => (
+              <li key={r.id} style={{ animationDelay: `${i * 25}ms` }} className={i < recent.length - 1 ? "border-b border-line" : ""}>
+                <button
+                  onClick={() => openRecentRow(r)}
+                  className="animate-row-in flex w-full items-center justify-between gap-2 py-2.5 text-sm text-left transition-colors duration-150 hover:bg-ink/[0.04] rounded-md -mx-1 px-1"
+                >
+                  <div className="min-w-0"><p className="font-medium text-ink truncate text-[12.5px]">{r.number || r.category}</p><p className="text-[11px] text-ink/40 truncate">{fmtDate(r.date)}</p></div>
+                  <div className="text-right shrink-0"><p className="font-mono font-semibold text-ink text-[12.5px]">{fmtMoney(r.total ?? r.amount, settings.currency)}</p>{r.status && <Badge status={r.status} />}</div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="animate-rise-in pt-6" style={{ "--rise-delay": "480ms" } as React.CSSProperties}>
         <ContractorPodium estimates={estimates} items={items} scoreRules={scoreRules} go={go} />
       </div>
     </div>

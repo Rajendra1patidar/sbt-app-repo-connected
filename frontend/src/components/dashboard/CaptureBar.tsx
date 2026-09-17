@@ -319,17 +319,12 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, sav
   const [focused, setFocused] = useState(false);
 
   return (
-    <div className={`relative overflow-hidden rounded-card bg-sidebar p-5 flex flex-col gap-3.5 shadow-card transition-shadow duration-300 ${focused ? "ring-2 ring-orange-500/30" : ""}`}>
-      <div
-        className="pointer-events-none absolute inset-0 transition-opacity duration-500"
-        style={{ background: "radial-gradient(480px 120px at 15% 0%, rgba(217,80,15,0.16), transparent 70%)", opacity: focused ? 0.9 : 0.6 }}
-      />
-
+    <div className={`relative rounded-2xl bg-card border transition-colors duration-300 p-4 flex flex-col gap-3 ${focused || pending ? "border-orange-500/50" : "border-line"}`}>
       {!pending ? (
         <>
-          <div className="relative flex items-center gap-3">
-            <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#20242c] border transition-colors duration-300 ${focused ? "border-orange-500/60 text-orange-300" : "border-[#333844] text-white/80"}`}>
-              <ArrowUp size={14} className={`transition-transform duration-300 ${focused ? "-translate-y-0.5" : ""}`} />
+          <div className="relative flex items-center gap-2.5">
+            <span className={`shrink-0 transition-colors duration-300 ${focused ? "text-orange-600" : "text-ink/35"}`}>
+              <ArrowUp size={15} className={`transition-transform duration-300 ${focused ? "-translate-y-0.5" : ""}`} />
             </span>
             <input
               ref={inputRef}
@@ -340,9 +335,9 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, sav
               onBlur={() => setFocused(false)}
               placeholder="Sold 50 bags cement to Patel Traders at ₹450 each... or Logged expense of ₹500 for diesel"
               disabled={busy}
-              className="flex-1 bg-transparent border-none outline-none text-[15px] text-[#F5F3EE] placeholder:text-[#6b6f78]"
+              className="flex-1 bg-transparent border-none outline-none text-[13.5px] text-ink placeholder:text-ink/40"
             />
-            <span className={`hidden sm:inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 font-mono text-[10px] transition-colors duration-200 ${busy ? "border-orange-500/40 text-orange-300" : focused ? "border-orange-500/40 text-orange-300" : "border-[#333844] text-[#7d818a]"}`}>
+            <span className={`hidden sm:inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 font-mono text-[10px] transition-colors duration-200 ${busy || focused ? "border-orange-500/40 text-orange-700" : "border-line text-ink/40"}`}>
               {busy ? <><Sparkles size={10} className="animate-pulse" /> thinking…</> : "↵ enter"}
             </span>
           </div>
@@ -352,7 +347,7 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, sav
                 key={c.label}
                 onClick={() => fill(c.fill)}
                 style={{ animationDelay: `${i * 35}ms` }}
-                className="animate-chip-in rounded-pill border border-[#2c313b] bg-[#1c2028] px-3 py-1.5 text-[11.5px] text-[#c9cdd6] transition-all duration-150 hover:border-orange-500 hover:text-white hover:-translate-y-0.5 active:translate-y-0 active:scale-95"
+                className="animate-chip-in rounded-pill border border-line text-[11px] font-medium text-ink/55 px-2.5 py-1 transition-all duration-150 hover:border-orange-500 hover:bg-orange-50 hover:text-orange-700 hover:-translate-y-0.5 active:translate-y-0 active:scale-95"
               >
                 {c.label}
               </button>
@@ -398,14 +393,14 @@ function CandidatePicker({ label, candidates, selected, onPick, nameOf }: { labe
   if (candidates.length <= 1) return null;
   return (
     <div className="relative flex flex-wrap items-center gap-1.5">
-      <span className="text-[10.5px] text-[#7d818a]">Which {label}?</span>
+      <span className="text-[10.5px] text-ink/40">Which {label}?</span>
       {candidates.map((c) => {
         const isSelected = (selected ?? candidates[0].entity) === c.entity;
         return (
           <button
             key={c.entity.id}
             onClick={() => onPick(c.entity)}
-            className={`rounded-pill border px-2.5 py-1 text-[11px] font-medium transition-colors ${isSelected ? "border-orange-500 bg-orange-500/15 text-white" : "border-[#2c313b] bg-[#1c2028] text-[#c9cdd6] hover:border-[#454b58]"}`}
+            className={`rounded-pill border px-2.5 py-1 text-[11px] font-medium transition-colors ${isSelected ? "border-orange-500 bg-orange-50 text-orange-700" : "border-line text-ink/60 hover:border-ink/30"}`}
           >
             {nameOf(c.entity)}
           </button>
@@ -475,21 +470,21 @@ function PreviewCard({ pending, picked, setPicked, currency, busy, onConfirm, on
   return (
     <div className="relative flex flex-col gap-3">
       <div>
-        <p className="text-[10.5px] font-semibold uppercase tracking-wide text-[#7d818a] flex items-center gap-1.5">
+        <p className="text-[10.5px] font-semibold uppercase tracking-wide text-ink/40 flex items-center gap-1.5">
           {title} {pending.kind === "sale" ? "— item & customer right?" : "— confirm?"}
           {pending.source === "ai" && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-orange-500/40 bg-orange-500/10 px-1.5 py-0.5 text-[9.5px] font-semibold normal-case tracking-normal text-orange-300">
+            <span className="inline-flex items-center gap-1 rounded-full border border-orange-500/40 bg-orange-50 px-1.5 py-0.5 text-[9.5px] font-semibold normal-case tracking-normal text-orange-700">
               <Sparkles size={9} /> AI
             </span>
           )}
         </p>
-        <p className="mt-1 text-[15px] font-semibold text-white">{lines[0]}</p>
-        {lines[1] && <p className="font-mono text-[13px] text-[#c9cdd6]">{lines[1]}</p>}
-        {lines[2] && <p className="mt-0.5 text-[12px] text-[#9a9ea8]">{lines[2]}</p>}
+        <p className="mt-1 text-[15px] font-semibold text-ink">{lines[0]}</p>
+        {lines[1] && <p className="font-mono text-[13px] text-ink/70">{lines[1]}</p>}
+        {lines[2] && <p className="mt-0.5 text-[12px] text-ink/45">{lines[2]}</p>}
       </div>
 
       {warning && (
-        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-[12px] leading-snug text-amber-300">
+        <p className="rounded-lg border border-amber-400 bg-amber-50 px-2.5 py-2 text-[12px] leading-snug text-amber-800">
           ⚠️ {warning}
         </p>
       )}
@@ -527,7 +522,7 @@ function PreviewCard({ pending, picked, setPicked, currency, busy, onConfirm, on
         <button
           onClick={onCancel}
           disabled={busy}
-          className="flex items-center justify-center gap-1.5 rounded-pill border border-[#333844] px-4 py-2.5 text-[13px] font-semibold text-[#c9cdd6] hover:border-[#454b58] disabled:opacity-50"
+          className="flex items-center justify-center gap-1.5 rounded-pill border border-line px-4 py-2.5 text-[13px] font-semibold text-ink/70 hover:border-ink/30 disabled:opacity-50"
         >
           <X size={15} /> Cancel
         </button>
@@ -580,16 +575,16 @@ function SaleWizardCard({ step, extras, setExtras, totals, currency, onBack, onN
   return (
     <div className="relative flex flex-col gap-3">
       <div>
-        <p className="text-[10.5px] font-semibold uppercase tracking-wide text-[#7d818a]">
+        <p className="text-[10.5px] font-semibold uppercase tracking-wide text-ink/40">
           Invoice for {totals?.customer?.name} — {meta.title}
         </p>
-        <p className="mt-1 text-[12px] text-[#9a9ea8]">{meta.hint}</p>
+        <p className="mt-1 text-[12px] text-ink/45">{meta.hint}</p>
       </div>
 
       {totals && (
-        <p className="font-mono text-[12px] text-[#7d818a]">
+        <p className="font-mono text-[12px] text-ink/40">
           {step === "price" ? "Subtotal at this price: " : "Running total: "}
-          <span className="text-[#c9cdd6]">
+          <span className="text-ink/70">
             {fmtMoney(step === "price" ? (Number(amountValue) || 0) * totals.qty : totals.total, currency)}
           </span>
         </p>
@@ -597,16 +592,16 @@ function SaleWizardCard({ step, extras, setExtras, totals, currency, onBack, onN
 
       {isAmountStep ? (
         <div className="flex items-center gap-2">
-          <span className="text-[15px] text-[#c9cdd6]">₹</span>
+          <span className="text-[15px] text-ink/70">₹</span>
           <input
             type="number" min="0" inputMode="decimal" autoFocus
             value={amountValue}
             onChange={(e) => setExtras((ex) => ({ ...ex, [field]: e.target.value === "" ? undefined : Number(e.target.value) }))}
             onKeyDown={(e) => { if (e.key === "Enter") onNext(); }}
             placeholder="0"
-            className="flex-1 rounded-lg border border-[#333844] bg-[#1c2028] px-3 py-2.5 text-[15px] text-white outline-none focus:border-orange-500"
+            className="flex-1 rounded-lg border border-line bg-paper px-3 py-2.5 text-[15px] text-ink outline-none focus:border-orange-500"
           />
-          {step === "price" && <span className="text-[12px] text-[#7d818a] whitespace-nowrap">/ unit</span>}
+          {step === "price" && <span className="text-[12px] text-ink/40 whitespace-nowrap">/ unit</span>}
         </div>
       ) : (
         <input
@@ -615,21 +610,21 @@ function SaleWizardCard({ step, extras, setExtras, totals, currency, onBack, onN
           onChange={(e) => setExtras((ex) => ({ ...ex, contractorName: e.target.value }))}
           onKeyDown={(e) => { if (e.key === "Enter") onNext(); }}
           placeholder="Contractor name"
-          className="rounded-lg border border-[#333844] bg-[#1c2028] px-3 py-2.5 text-[15px] text-white outline-none focus:border-orange-500"
+          className="rounded-lg border border-line bg-paper px-3 py-2.5 text-[15px] text-ink outline-none focus:border-orange-500"
         />
       )}
 
       <div className="relative flex gap-2 pt-0.5">
         <button
           onClick={onBack}
-          className="flex items-center justify-center gap-1.5 rounded-pill border border-[#333844] px-4 py-2.5 text-[13px] font-semibold text-[#c9cdd6] hover:border-[#454b58]"
+          className="flex items-center justify-center gap-1.5 rounded-pill border border-line px-4 py-2.5 text-[13px] font-semibold text-ink/70 hover:border-ink/30"
         >
           Back
         </button>
         {step !== "price" && (
           <button
             onClick={skip}
-            className="flex items-center justify-center gap-1.5 rounded-pill border border-[#333844] px-4 py-2.5 text-[13px] font-semibold text-[#c9cdd6] hover:border-[#454b58]"
+            className="flex items-center justify-center gap-1.5 rounded-pill border border-line px-4 py-2.5 text-[13px] font-semibold text-ink/70 hover:border-ink/30"
           >
             Skip
           </button>
@@ -642,7 +637,7 @@ function SaleWizardCard({ step, extras, setExtras, totals, currency, onBack, onN
         </button>
         <button
           onClick={onCancel}
-          className="flex items-center justify-center rounded-pill border border-[#333844] px-3 py-2.5 text-[#c9cdd6] hover:border-[#454b58]"
+          className="flex items-center justify-center rounded-pill border border-line px-3 py-2.5 text-ink/70 hover:border-ink/30"
           aria-label="Cancel"
         >
           <X size={15} />

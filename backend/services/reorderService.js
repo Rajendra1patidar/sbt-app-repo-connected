@@ -28,7 +28,11 @@ const SAFETY_STOCK_DAYS = 3;
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 /**
- * Computes reorder suggestions for every item this owner has.
+ * Pure per-item math, shared by computeSuggestions (bulk, alerts-only) and
+ * itemInsightsService (single item, wants the numbers whether or not the
+ * item is actually due for reorder). Given one item plus its vendor and
+ * trailing-window sales stats, returns the full pace/reorder picture and a
+ * `needsReorder` flag — never filters anything out itself.
  *
  * For items with enough recent sales history ("pace" mode), the trigger is
  * a real reorder point: dailyRate × (vendor lead time + safety days) — not
@@ -39,18 +43,49 @@ const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
  * For items without enough history ("static" mode), behaviour is unchanged
  * from before: flag at lowStock, no computed quantity.
  */
-async function computeSuggestions(owner) {
+function evaluateItem(it, vendor, stats) {
+  const stock = Number(it.stock) || 0;
+  const lowStock = Number(it.lowStock) || 5;
+  const leadTimeDays = Number(vendor?.leadTimeDays ?? DEFAULT_LEAD_TIME_DAYS) || DEFAULT_LEAD_TIME_DAYS;
+  const hasEnoughHistory = stats && stats.count >= MIN_MOVEMENTS && stats.totalQty > 0;
+  const vendorOut = vendor ? { id: vendor._id, name: vendor.name, phone: vendor.phone } : null;
+
+  if (hasEnoughHistory) {
+    const dailyRate = stats.totalQty / WINDOW_DAYS;
+    const daysLeft = dailyRate > 0 ? round2((stock / dailyRate)) : null;
+    const reorderPoint = Math.ceil(dailyRate * (leadTimeDays + SAFETY_STOCK_DAYS));
+    // a manually-raised lowStock always still counts as a floor — the
+    // computed point can only push the trigger earlier, never later than
+    // what the owner explicitly set.
+    const effectiveThreshold = Math.max(reorderPoint, lowStock);
+    const needsReorder = stock <= effectiveThreshold;
+    const suggestedQty = needsReorder ? Math.max(0, Math.ceil(dailyRate * (leadTimeDays + BUFFER_DAYS) - stock)) : 0;
+    return {
+      itemId: it._id, name: it.name, unit: it.unit, stock, lowStock,
+      mode: "pace", dailyRate: round2(dailyRate), daysLeft, suggestedQty,
+      leadTimeDays, reorderPoint, needsReorder,
+      vendor: vendorOut,
+    };
+  }
+
+  // not enough sales history to trust a pace calculation — fall back to
+  // the original static alert with no computed quantity
+  return {
+    itemId: it._id, name: it.name, unit: it.unit, stock, lowStock,
+    mode: "static", dailyRate: null, daysLeft: null, suggestedQty: null,
+    leadTimeDays: null, reorderPoint: null, needsReorder: stock <= lowStock,
+    vendor: vendorOut,
+  };
+}
+
+async function windowStats(owner, itemIds) {
   const windowStart = new Date();
   windowStart.setDate(windowStart.getDate() - WINDOW_DAYS);
   const windowStartStr = windowStart.toISOString().slice(0, 10);
 
-  const [items, vendors, movements] = await Promise.all([
-    Item.find({ owner }),
-    Vendor.find({ owner }),
-    StockMovement.find({ owner, direction: "out", date: { $gte: windowStartStr } }),
-  ]);
-
-  const vendorMap = new Map(vendors.map((v) => [String(v._id), v]));
+  const query = { owner, direction: "out", date: { $gte: windowStartStr } };
+  if (itemIds) query.itemId = { $in: itemIds };
+  const movements = await StockMovement.find(query);
 
   const byItem = new Map(); // itemId -> { totalQty, count }
   for (const m of movements) {
@@ -60,44 +95,27 @@ async function computeSuggestions(owner) {
     cur.count += 1;
     byItem.set(key, cur);
   }
+  return byItem;
+}
+
+/**
+ * Computes reorder suggestions for every item this owner has, keeping only
+ * the ones actually due for reorder (needsReorder).
+ */
+async function computeSuggestions(owner) {
+  const [items, vendors, byItem] = await Promise.all([
+    Item.find({ owner }),
+    Vendor.find({ owner }),
+    windowStats(owner),
+  ]);
+
+  const vendorMap = new Map(vendors.map((v) => [String(v._id), v]));
 
   const suggestions = [];
   for (const it of items) {
-    const stock = Number(it.stock) || 0;
-    const lowStock = Number(it.lowStock) || 5;
     const vendor = it.vendorId ? vendorMap.get(String(it.vendorId)) : null;
-    const leadTimeDays = Number(vendor?.leadTimeDays ?? DEFAULT_LEAD_TIME_DAYS) || DEFAULT_LEAD_TIME_DAYS;
-    const stats = byItem.get(String(it._id));
-    const hasEnoughHistory = stats && stats.count >= MIN_MOVEMENTS && stats.totalQty > 0;
-
-    if (hasEnoughHistory) {
-      const dailyRate = stats.totalQty / WINDOW_DAYS;
-      const daysLeft = dailyRate > 0 ? round2((stock / dailyRate)) : null;
-      const reorderPoint = Math.ceil(dailyRate * (leadTimeDays + SAFETY_STOCK_DAYS));
-      // a manually-raised lowStock always still counts as a floor — the
-      // computed point can only push the trigger earlier, never later than
-      // what the owner explicitly set.
-      const effectiveThreshold = Math.max(reorderPoint, lowStock);
-
-      if (stock <= effectiveThreshold) {
-        const suggestedQty = Math.max(0, Math.ceil(dailyRate * (leadTimeDays + BUFFER_DAYS) - stock));
-        suggestions.push({
-          itemId: it._id, name: it.name, unit: it.unit, stock, lowStock,
-          mode: "pace", dailyRate: round2(dailyRate), daysLeft, suggestedQty,
-          leadTimeDays, reorderPoint,
-          vendor: vendor ? { id: vendor._id, name: vendor.name, phone: vendor.phone } : null,
-        });
-      }
-    } else if (stock <= lowStock) {
-      // not enough sales history to trust a pace calculation — fall back to
-      // the original static alert with no computed quantity
-      suggestions.push({
-        itemId: it._id, name: it.name, unit: it.unit, stock, lowStock,
-        mode: "static", dailyRate: null, daysLeft: null, suggestedQty: null,
-        leadTimeDays: null, reorderPoint: null,
-        vendor: vendor ? { id: vendor._id, name: vendor.name, phone: vendor.phone } : null,
-      });
-    }
+    const evaluated = evaluateItem(it, vendor, byItem.get(String(it._id)));
+    if (evaluated.needsReorder) suggestions.push(evaluated);
   }
 
   // fastest-emptying items first (pace-based with a days-left figure), static-alert items last
@@ -111,4 +129,13 @@ async function computeSuggestions(owner) {
   return suggestions;
 }
 
-module.exports = { computeSuggestions };
+/** Same math as computeSuggestions, for exactly one item — returns the full
+ * pace/reorder picture regardless of whether it's currently due, so a detail
+ * screen can show "healthy, N days left" as well as an active alert. */
+async function evaluateOne(owner, item) {
+  const vendor = item.vendorId ? await Vendor.findOne({ _id: item.vendorId, owner }) : null;
+  const byItem = await windowStats(owner, [item._id]);
+  return evaluateItem(item, vendor, byItem.get(String(item._id)));
+}
+
+module.exports = { computeSuggestions, evaluateOne, WINDOW_DAYS };

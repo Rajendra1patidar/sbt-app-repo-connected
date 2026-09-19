@@ -4,9 +4,10 @@ import { ChevronDown, ClipboardList, MapPin, Pencil, Printer, Search } from "luc
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Card } from "../common/UIPrimitives";
 import { ITEM_CATEGORIES, LOW_STOCK_DEFAULT } from "../../lib/constants";
-import { fmtMoney, fmtNum } from "../../lib/format";
+import { fmtDate, fmtMoney, fmtNum } from "../../lib/format";
 import { waLink } from "../../lib/contactLinks";
 import { StockTakeModal } from "../modals/StockTakeModal";
+import { api } from "../../lib/api";
 
 type Tab = "all" | "low" | "dead" | "reorder";
 
@@ -18,11 +19,29 @@ function itemValue(it: any): number {
   return qty * (it.purchasePrice ?? 0);
 }
 
+// Full quantity label for a given (stock, stockKg) pair — always shows both
+// pieces and box count for box-tracked items (not just the box count), and
+// kg for weight-tracked items. Used in the by-godown breakdown and last
+// purchase/sale detail, where there's room to show both units.
+function qtyLabel(it: any, stock?: number, stockKg?: number): string {
+  if (it.trackingMode === "weight") return `${fmtNum(stockKg ?? 0)} kg`;
+  if (it.trackingMode === "box" && it.piecesPerBox > 0) {
+    const pieces = stock ?? 0;
+    const boxes = Math.floor(pieces / it.piecesPerBox);
+    const loose = pieces % it.piecesPerBox;
+    return `${fmtNum(pieces)} pc (${boxes} box${loose > 0 ? ` + ${loose} pc` : ""})`;
+  }
+  return `${fmtNum(stock ?? 0)} ${it.unit || "unit"}`;
+}
+
+// Compact form for the collapsed row's headline figure — boxes + any loose
+// pieces, without repeating the total piece count that qtyLabel shows.
 function stockBreakdown(it: any): string {
+  if (it.trackingMode === "weight") return `${fmtNum(it.stockKg ?? 0)} kg`;
   if (it.trackingMode === "box" && it.piecesPerBox > 0) {
     const boxes = Math.floor((it.stock ?? 0) / it.piecesPerBox);
     const loose = (it.stock ?? 0) % it.piecesPerBox;
-    return `${boxes} boxes + ${loose} pcs`;
+    return `${boxes} box + ${loose} pc`;
   }
   return fmtNum(it.stock ?? 0);
 }
@@ -81,7 +100,25 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
   const [sortBy, setSortBy] = useState<"stock" | "value" | "name">("stock");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [stockTakeOpen, setStockTakeOpen] = useState(false);
+  const [insights, setInsights] = useState<Record<string, any>>({});
+  const [insightsLoading, setInsightsLoading] = useState<Record<string, boolean>>({});
   const cats = categories?.length ? categories : ITEM_CATEGORIES;
+
+  // Last purchase, last sale, and margin all live behind one endpoint that
+  // shares its pace/reorder math with the bulk suggestions list — fetched
+  // once per item, on first expand, rather than for every row up front.
+  const toggleExpanded = (itemId: string) => {
+    const next = expandedId === itemId ? null : itemId;
+    setExpandedId(next);
+    if (next && !insights[next] && !insightsLoading[next]) {
+      setInsightsLoading((s) => ({ ...s, [next]: true }));
+      api.items
+        .insights(next)
+        .then((data: any) => setInsights((s) => ({ ...s, [next]: data })))
+        .catch(() => setInsights((s) => ({ ...s, [next]: null })))
+        .finally(() => setInsightsLoading((s) => ({ ...s, [next]: false })));
+    }
+  };
 
   const deadStockById: Map<string, any> = new Map((deadStock || []).map((d: any) => [d.itemId, d]));
   const reorderById: Map<string, any> = new Map((reorderSuggestions || []).filter((s: any) => s.mode === "pace").map((s: any) => [s.itemId, s]));
@@ -287,8 +324,8 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
                     <div
                       role="button"
                       tabIndex={0}
-                      onClick={() => setExpandedId(isExpanded ? null : it.id)}
-                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpandedId(isExpanded ? null : it.id); } }}
+                      onClick={() => toggleExpanded(it.id)}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleExpanded(it.id); } }}
                       className="w-full cursor-pointer rounded-xl border border-line px-4 py-2.5 text-left"
                     >
                       <div className="flex items-center justify-between">
@@ -320,36 +357,97 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
                         </div>
                       </div>
 
-                      {isExpanded && (
-                        <div className="mt-3 space-y-1.5 border-t border-line/70 pt-3">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-ink/40">Value on hand</span>
-                            <span className="font-semibold text-ink">{fmtMoney(itemValue(it), settings?.currency)}</span>
-                          </div>
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-ink/40">Last sold</span>
-                            <span className="font-semibold text-ink">
-                              {dead?.lastSaleDate ? dead.lastSaleDate : lastOrder ? new Date(lastOrder.date).toLocaleDateString() : "No sales yet"}
-                            </span>
-                          </div>
-                          {reorder && (
+                      {isExpanded && (() => {
+                        const detail = insights[it.id];
+                        const loading = insightsLoading[it.id];
+                        const present = (it.stockByGodown || []).filter((g: any) => (g.stock ?? 0) > 0 || (g.stockKg ?? 0) > 0);
+                        const lastSaleDate = detail?.lastSale?.date ?? dead?.lastSaleDate ?? (lastOrder ? lastOrder.date : null);
+                        return (
+                          <div className="mt-3 space-y-1.5 border-t border-line/70 pt-3">
                             <div className="flex items-center justify-between text-xs">
-                              <span className="text-ink/40">Sales pace</span>
-                              <span className="font-semibold text-ink">{reorder.daysLeft != null ? `~${reorder.daysLeft} days of cover left` : "Pace unavailable"}</span>
+                              <span className="text-ink/40">Value on hand</span>
+                              <span className="font-semibold text-ink">{fmtMoney(itemValue(it), settings?.currency)}</span>
                             </div>
-                          )}
-                          {reorder?.vendor && (
-                            <a
-                              href={waLink(reorder.vendor.phone, `Hi ${reorder.vendor.name}, I'd like to order ${fmtNum(reorder.suggestedQty)} ${it.unit || "unit"} of ${it.name}.`)}
-                              target="_blank" rel="noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="mt-1 inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-line bg-paper px-3 py-2 text-xs font-semibold text-ink/80"
-                            >
-                              Reorder +{fmtNum(reorder.suggestedQty)} from {reorder.vendor.name} ↗
-                            </a>
-                          )}
-                        </div>
-                      )}
+
+                            {godowns && godowns.length > 1 && present.length > 0 && (
+                              <div className="py-1">
+                                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-ink/35">By godown</p>
+                                <div className="space-y-1">
+                                  {present.map((g: any) => {
+                                    const gd = godowns.find((x: any) => String(x.id) === String(g.godownId));
+                                    return (
+                                      <div key={String(g.godownId)} className="flex items-center justify-between text-xs">
+                                        <span className="text-ink/60">{gd?.name || "Unknown godown"}</span>
+                                        <span className="font-semibold text-ink">{qtyLabel(it, g.stock, g.stockKg)}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-ink/40">Last sold</span>
+                              <span className="font-semibold text-ink">
+                                {lastSaleDate ? fmtDate(lastSaleDate) : "No sales yet"}
+                                {detail?.lastSale?.rate != null ? ` · ${fmtMoney(detail.lastSale.rate, settings?.currency)}` : ""}
+                              </span>
+                            </div>
+
+                            {reorder && (
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-ink/40">Sales pace</span>
+                                <span className="font-semibold text-ink">
+                                  {reorder.dailyRate != null ? `${fmtNum(reorder.dailyRate)}/day` : "—"}
+                                  {reorder.daysLeft != null ? ` · ~${reorder.daysLeft}d cover left` : ""}
+                                </span>
+                              </div>
+                            )}
+
+                            {loading && <p className="text-xs text-ink/30">Loading purchase and margin details…</p>}
+
+                            {detail?.lastPurchase && (
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-ink/40">Last purchase</span>
+                                <span className="font-semibold text-ink text-right">
+                                  {fmtDate(detail.lastPurchase.date)} · {qtyLabel(it, detail.lastPurchase.qty, detail.lastPurchase.qtyKg)} @ {fmtMoney(detail.lastPurchase.rate, settings?.currency)}
+                                  {detail.lastPurchase.vendor ? ` (${detail.lastPurchase.vendor.name})` : ""}
+                                </span>
+                              </div>
+                            )}
+
+                            {detail?.margin && (
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-ink/40">Margin</span>
+                                <span className="font-semibold text-ink">
+                                  {fmtMoney(detail.margin.perUnit, settings?.currency)}
+                                  {detail.margin.percent != null ? ` (${fmtNum(detail.margin.percent)}%)` : ""}
+                                </span>
+                              </div>
+                            )}
+
+                            {reorder && (
+                              <>
+                                {reorder.mode === "pace" && reorder.dailyRate != null && (
+                                  <p className="pt-1 text-[11px] text-ink/40">
+                                    At {fmtNum(reorder.dailyRate)}/day, stock won't cover the vendor's usual {reorder.leadTimeDays}-day lead time — ordering now keeps you covered.
+                                  </p>
+                                )}
+                                {reorder.vendor && (
+                                  <a
+                                    href={waLink(reorder.vendor.phone, `Hi ${reorder.vendor.name}, I'd like to order ${fmtNum(reorder.suggestedQty)} ${it.unit || "unit"} of ${it.name}.`)}
+                                    target="_blank" rel="noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="mt-1 inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-line bg-paper px-3 py-2 text-xs font-semibold text-ink/80"
+                                  >
+                                    Reorder +{fmtNum(reorder.suggestedQty)} from {reorder.vendor.name} ↗
+                                  </a>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 );

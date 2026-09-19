@@ -256,7 +256,11 @@ export const api = {
     // to them again if they've forgotten it. Returns { phone, pin }.
     regeneratePortalPin: (id: string) => request(`/api/customers/${id}/portal-pin`, { method: "POST" }),
   },
-  items: { ...crud("/api/items"), lowStock: () => request("/api/items/meta/low-stock") },
+  items: {
+    ...crud("/api/items"),
+    lowStock: () => request("/api/items/meta/low-stock"),
+    insights: (id: string) => request(`/api/items/${id}/insights`),
+  },
   orders: {
     ...crud("/api/orders"),
     recordPayment: (id: string, v: any) => request(`/api/orders/${id}/payments`, { method: "POST", body: JSON.stringify(v) }),

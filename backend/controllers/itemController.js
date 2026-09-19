@@ -1,6 +1,7 @@
 const Item = require("../models/Item");
 const crudController = require("./crudController");
 const { logAudit, diffFields } = require("../services/auditLogger");
+const { computeItemInsights } = require("../services/itemInsightsService");
 
 const base = crudController(Item);
 
@@ -132,6 +133,20 @@ base.lowStock = async (req, res, next) => {
     const items = await Item.find({ owner: req.userId, deleted: { $ne: true } });
     const low = items.filter((it) => (it.stock ?? 0) <= (it.lowStock ?? 5));
     res.json(low);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/items/:id/insights — everything the item-detail screen needs
+// beyond the item document itself: last purchase, last sale, margin, and
+// pace-based reorder stats (shares its math with the bulk reorder list).
+base.insights = async (req, res, next) => {
+  try {
+    const item = await Item.findOne({ _id: req.params.id, owner: req.userId });
+    if (!item) return res.status(404).json({ message: "Not found" });
+    const insights = await computeItemInsights(req.userId, item);
+    res.json(insights);
   } catch (err) {
     next(err);
   }

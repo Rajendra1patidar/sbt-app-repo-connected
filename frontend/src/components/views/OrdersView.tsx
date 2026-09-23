@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Camera, IndianRupee, ImageOff, Loader2, Plus, Search, Trash2, X } from "lucide-react";
+import { Camera, IndianRupee, ImageOff, Images, Loader2, Plus, Search, Trash2, X } from "lucide-react";
 import { Badge, Card, EmptyState, PillButton } from "../common/UIPrimitives";
 import { ViewImageModal } from "../modals/ViewImageModal";
 import { ITEM_CATEGORIES } from "../../lib/constants";
@@ -16,9 +16,15 @@ import { api } from "../../lib/api";
  *  Invoice photos live in a private Telegram chat (see backend), fetched
  *  through our own authenticated API rather than a public URL — a plain
  *  <img src> can't send an Authorization header, so the photo is pulled down
- *  as a Blob here and turned into a local object URL for display. */
-function InvoiceAttachment({ order, attachOrderInvoice, removeOrderInvoice, onView }: any) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+ *  as a Blob here and turned into a local object URL for display.
+ *
+ *  Two separate hidden file inputs back the "attach" buttons: one with
+ *  capture="environment" (opens the camera directly) and one without (opens
+ *  the photo gallery/file picker), since a single input can't reliably offer
+ *  both choices across mobile browsers. */
+export function InvoiceAttachment({ order, attachOrderInvoice, removeOrderInvoice, onView }: any) {
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [thumbUrl, setThumbUrl] = useState<string | null>(null);
   const [thumbFailed, setThumbFailed] = useState(false);
@@ -82,18 +88,34 @@ function InvoiceAttachment({ order, attachOrderInvoice, removeOrderInvoice, onVi
   return (
     <>
       <button
-        onClick={() => fileInputRef.current?.click()}
+        onClick={() => cameraInputRef.current?.click()}
         disabled={uploading}
+        title="Take a photo"
         className="inline-flex items-center gap-1 rounded-full border border-line px-2.5 py-1.5 text-xs font-semibold text-ink/60 hover:border-brand-300 hover:text-brand-600 disabled:opacity-50"
       >
         {uploading ? <Loader2 size={12} className="animate-spin" /> : <Camera size={12} />}
         {uploading ? "Uploading…" : "Attach bill"}
       </button>
+      <button
+        onClick={() => galleryInputRef.current?.click()}
+        disabled={uploading}
+        title="Choose from gallery"
+        className="inline-flex items-center justify-center rounded-full border border-line p-1.5 text-ink/60 hover:border-brand-300 hover:text-brand-600 disabled:opacity-50"
+      >
+        <Images size={14} />
+      </button>
       <input
-        ref={fileInputRef}
+        ref={cameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
+        onChange={onPick}
+        className="hidden"
+      />
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
         onChange={onPick}
         className="hidden"
       />
@@ -152,7 +174,7 @@ export function OrdersView({ orders, items, vendors, categories, currency, openM
               <div>
                 <p className="mb-2 px-1 text-xs font-bold uppercase text-ink/40">Pending ({pending.length})</p>
                 {pending.map((o: any) => (
-                  <Card key={o.id} className="mb-2">
+                  <Card key={o.id} className="mb-2" onClick={() => openModal("orderDetail", { order: o })}>
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="font-semibold text-ink truncate">{itemName(o.itemId)}</p>
@@ -165,7 +187,7 @@ export function OrdersView({ orders, items, vendors, categories, currency, openM
                     </div>
                     <div className="mt-3 flex items-center justify-between gap-2">
                       <p className="text-xs text-ink/40">{round2((o.amount || 0) - (o.amountPaid || 0)) > 0 ? `${fmtMoney(round2((o.amount || 0) - (o.amountPaid || 0)), currency)} remaining` : "Fully paid"}</p>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                         <InvoiceAttachment
                           order={o}
                           attachOrderInvoice={attachOrderInvoice}
@@ -189,14 +211,14 @@ export function OrdersView({ orders, items, vendors, categories, currency, openM
               <div>
                 <p className="mb-2 px-1 text-xs font-bold uppercase text-ink/40">Received ({received.length})</p>
                 {received.map((o: any) => (
-                  <Card key={o.id} className="mb-2 flex items-center justify-between gap-2">
+                  <Card key={o.id} className="mb-2 flex items-center justify-between gap-2" onClick={() => openModal("orderDetail", { order: o })}>
                     <div className="min-w-0">
                       <p className="font-semibold text-ink truncate">{itemName(o.itemId)}</p>
                       <p className="text-xs text-ink/40 truncate">Qty: {fmtNum(o.qty)} @ {fmtMoney(o.rate || 0, currency)} · {fmtDate(o.date)}{vendorName(o.vendorId) ? ` · ${vendorName(o.vendorId)}` : ""}{o.notes ? ` · ${o.notes}` : ""}</p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="font-bold text-ink">{fmtMoney(o.amount || 0, currency)}</p>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                         <InvoiceAttachment
                           order={o}
                           attachOrderInvoice={attachOrderInvoice}

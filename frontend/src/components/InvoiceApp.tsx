@@ -14,6 +14,7 @@ import { DocumentModal } from "./modals/DocumentModal";
 import { FieldModal } from "./modals/FieldModal";
 import { InvoiceShareModal } from "./modals/InvoiceShareModal";
 import { OrderModal } from "./modals/OrderModal";
+import { OrderDetailModal } from "./modals/OrderDetailModal";
 import { PaymentAllocationModal } from "./modals/PaymentAllocationModal";
 import { PurchaseModal } from "./modals/PurchaseModal";
 import { ReturnModal } from "./modals/ReturnModal";
@@ -373,6 +374,11 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     }
 
     if (type === "order") return <OrderModal items={items} vendors={vendors} currency={settings.currency} onClose={closeModal} onSave={saveOrder} prefill={payload} />;
+
+    if (type === "orderDetail")
+      return <OrderDetailModal order={payload?.order} items={items} vendors={vendors} currency={settings.currency}
+        payOrder={payOrder} removeOrder={removeOrder} attachOrderInvoice={attachOrderInvoice} removeOrderInvoice={removeOrderInvoice}
+        onClose={closeModal} />;
 
     if (type === "orderPayment") {
       // Same reasoning as purchasePayment above — an order's stock is only

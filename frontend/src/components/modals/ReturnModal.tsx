@@ -54,6 +54,24 @@ export function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
           <p className="text-sm text-ink/50">Every item on this estimate has already been returned.</p>
         ) : (
           <>
+            {returnableLines.length > 1 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const qm: Record<string, string> = {};
+                  const pm: Record<string, string> = {};
+                  for (const l of returnableLines) {
+                    qm[l.itemId] = String(l.qty - l.returned);
+                    if (l.isWeight) pm[l.itemId] = String(Number(l.piecesQty || 0) - l.returnedPieces);
+                  }
+                  setQtyMap(qm);
+                  setPiecesMap(pm);
+                }}
+                className="mb-3 w-full rounded-xl border-2 border-dashed border-bad-300 bg-bad-50 px-4 py-2.5 text-xs font-bold text-bad-600 hover:bg-bad-100"
+              >
+                Customer returning everything — fill all quantities
+              </button>
+            )}
             <div className="hidden sm:grid mb-1 grid-cols-[1fr_72px_96px] gap-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-ink/35">
               <span>Item</span><span>Qty</span><span className="text-right">Refund</span>
             </div>

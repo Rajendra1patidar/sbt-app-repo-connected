@@ -963,9 +963,17 @@ export const useAppStore = create<AppState>()((set, get) => ({
       set((state) => ({
         estimates: state.estimates.map((e) => (e.id === docId ? doc : e)),
         items: freshItems,
-        payments: [payment, ...state.payments],
+        // a return against goods that were never paid for (a Due or
+        // Partially Paid estimate, up to what's still owed) books no cash
+        // refund at all now — payment can be null in that case, so don't
+        // push a null entry into the payments list.
+        payments: payment ? [payment, ...state.payments] : state.payments,
       }));
-      showToast(`Refund of ${fmtMoney(Math.abs(payment.amount), settings.currency)} recorded, stock updated`);
+      showToast(
+        payment
+          ? `Refund of ${fmtMoney(Math.abs(payment.amount), settings.currency)} recorded, stock updated`
+          : "Return recorded, stock updated"
+      );
       closeModal();
     } catch (err) { onApiError(get, err, "Failed to record return"); }
   },

@@ -13,6 +13,8 @@ const idempotency = require("../utils/idempotency");
 const eventBus = require("../services/eventBus");
 const { logAudit, diffFields } = require("../services/auditLogger");
 
+const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
 const PREFIX = { estimate: "EST", challan: "DC" };
 const DEFAULT_STATUS = { estimate: "Due", challan: "Pending" };
 
@@ -745,35 +747,58 @@ exports.addReturn = (type) => async (req, res, next) => {
       if (!newReturns.length) { const e = new Error("Nothing valid to return"); e.status = 400; throw e; }
 
       doc.returns = [...(doc.returns || []), ...newReturns];
-      doc.history = [...(doc.history || []), { action: "Return recorded", date, note: `Refund ${refundTotal}` }];
+
+      // How much cash should actually leave the till for this return. refundTotal is
+      // the value of goods handed back — but on a Due or Partially Paid estimate, some
+      // (or all) of that was never collected in the first place, so there's no cash to
+      // give back for that part; it should just reduce what the customer still owes.
+      // Only the portion the customer already paid for, beyond what they now owe after
+      // this return, is an actual cash refund. Without this cap, a return against an
+      // unpaid or partly-paid estimate would book a full cash refund it never made and
+      // leave the estimate showing MORE due than before, instead of less.
+      const priorPayments = await Payment.find({ owner: req.userId, invoiceId: doc._id, hidden: { $ne: true } }).session(session || null);
+      const paidBeforeReturn = priorPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
+      const totalReturnedToDate = doc.returns.reduce((s, r) => s + Number(r.amount || 0), 0);
+      const netTotalAfterReturn = Math.max(0, round2(Number(doc.total || 0) - totalReturnedToDate));
+      const cashRefund = Math.max(0, round2(paidBeforeReturn - netTotalAfterReturn));
+
+      doc.history = [...(doc.history || []), { action: "Return recorded", date, note: `Return ${refundTotal}${cashRefund > 0 ? ` · Refund ${cashRefund}` : ""}` }];
       await doc.save({ session: session || undefined });
 
-      // book the refund as a negative payment so reports/outstanding totals net out automatically
-      const [payment] = await Payment.create(
-        [{
-          owner: req.userId,
-          customerId: doc.customerId,
-          amount: -refundTotal,
-          date,
-          method: "Refund",
-          invoiceId: doc._id,
-          invoiceNumber: doc.number,
-        }],
-        { session: session || undefined }
-      );
+      // book any actual cash refund as a negative payment so reports/outstanding totals
+      // net out automatically — but only for cash that really needs to go back; a return
+      // against goods that were never paid for shouldn't create a "refund" at all.
+      let payment = null;
+      if (cashRefund > 0) {
+        [payment] = await Payment.create(
+          [{
+            owner: req.userId,
+            customerId: doc.customerId,
+            amount: -cashRefund,
+            date,
+            method: "Refund",
+            invoiceId: doc._id,
+            invoiceNumber: doc.number,
+          }],
+          { session: session || undefined }
+        );
+      }
 
       // known bug fix: addReturn used to create this refund Payment without ever
       // recalculating the invoice's amountPaid/status, so ledger balances could drift
       // out of sync with what the estimate showed. Recalc it here, same as a normal payment.
       const invoice = await paymentController.recalcInvoice(req.userId, doc._id, {
-        action: "Refund issued",
+        action: cashRefund > 0 ? "Refund issued" : "Return recorded",
         date,
-        note: `Return · ${refundTotal}`,
+        note: `Return · ${refundTotal}${cashRefund > 0 ? ` · Refund ${cashRefund}` : ""}`,
       }, session);
 
-      // ledger: reverse the revenue for the returned amount and pay the cash back out —
-      // Dr Sales / Cr AccountsReceivable, then Dr AccountsReceivable / Cr Funds, which nets
-      // to Dr Sales / Cr Funds when the estimate had already been paid in full.
+      // ledger: reverse the revenue for the returned amount always — Dr Sales /
+      // Cr AccountsReceivable — since the sale itself is being undone regardless of
+      // payment status. Only pay cash back out — Dr AccountsReceivable / Cr Funds —
+      // for the part that was actually collected (cashRefund), so a return against an
+      // unpaid or partly-paid estimate reduces what's owed instead of paying out cash
+      // that was never taken in.
       if (refundTotal > 0) {
         await ledgerService.postEntries(
           [
@@ -782,10 +807,12 @@ exports.addReturn = (type) => async (req, res, next) => {
           ],
           { owner: req.userId, sourceType: "Return", sourceId: doc._id, date, narration: `Return against ${doc.number}`, session }
         );
+      }
+      if (cashRefund > 0) {
         await ledgerService.postEntries(
           [
-            { account: "AccountsReceivable", type: "debit", amount: refundTotal, customerId: doc.customerId },
-            { account: "Funds", type: "credit", amount: refundTotal, customerId: doc.customerId },
+            { account: "AccountsReceivable", type: "debit", amount: cashRefund, customerId: doc.customerId },
+            { account: "Funds", type: "credit", amount: cashRefund, customerId: doc.customerId },
           ],
           { owner: req.userId, sourceType: "Return", sourceId: doc._id, date, narration: `Refund paid · ${doc.number}`, session }
         );

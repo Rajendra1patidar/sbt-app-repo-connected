@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { IndianRupee, PackagePlus, Plus, Search, Trash2 } from "lucide-react";
-import { Card, EmptyState, PillButton, Badge } from "../common/UIPrimitives";
+import { Card, EmptyState, PillButton, Badge, Row } from "../common/UIPrimitives";
 import { Pagination } from "../common/Pagination";
 import { usePagination } from "../../hooks/usePagination";
 import { PAGE_SIZE } from "../../lib/constants";
@@ -9,8 +9,23 @@ import { TransactionDetailModal, DetailRow } from "../dashboard/TransactionDetai
 
 /* ---- Purchases ---- */
 
+type GroupBy = "item" | "vendor";
+
+function groupRecords(records: any[], labelFor: (r: any) => string, keyFor: (r: any) => string) {
+  const map = new Map<string, { key: string; label: string; records: any[] }>();
+  for (const r of records) {
+    const key = keyFor(r);
+    if (!map.has(key)) map.set(key, { key, label: labelFor(r), records: [] });
+    map.get(key)!.records.push(r);
+  }
+  return [...map.values()].sort(
+    (a, b) => b.records.reduce((s, r) => s + (r.amount || 0), 0) - a.records.reduce((s, r) => s + (r.amount || 0), 0)
+  );
+}
+
 export function PurchasesView({ purchases, vendors, items, currency, openModal, removePurchase }: any) {
   const [search, setSearch] = useState("");
+  const [groupBy, setGroupBy] = useState<GroupBy>("item");
   const [detail, setDetail] = useState<{ title: string; subtitle?: string; rows: DetailRow[]; accent?: "brand" | "good" | "bad" | "warn" } | null>(null);
 
   const vendorName = (id: string) => vendors.find((v: any) => v.id === id)?.name || "Unknown vendor";
@@ -20,10 +35,14 @@ export function PurchasesView({ purchases, vendors, items, currency, openModal, 
   const filtered = !q
     ? purchases
     : purchases.filter((p: any) => vendorName(p.vendorId).toLowerCase().includes(q) || itemName(p.itemId).toLowerCase().includes(q));
-  const { pageItems, page, setPage, totalPages, total, pageSize } = usePagination(filtered, PAGE_SIZE);
 
   const statusBadge = (status: string) => (status === "paid" ? "Paid" : status === "partial" ? "Partially Paid" : "Due");
   const round2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
+
+  const groups = groupBy === "vendor"
+    ? groupRecords(filtered, (p) => vendorName(p.vendorId), (p) => p.vendorId || "__none__")
+    : groupRecords(filtered, (p) => itemName(p.itemId), (p) => p.itemId || "__none__");
+  const { pageItems: pageGroups, page, setPage, totalPages, total, pageSize } = usePagination(groups, PAGE_SIZE);
 
   const openPurchaseDetail = (p: any) => {
     const remaining = round2((p.amount || 0) - (p.amountPaid || 0));
@@ -63,6 +82,22 @@ export function PurchasesView({ purchases, vendors, items, currency, openModal, 
           />
         </div>
       )}
+      {purchases.length > 0 && (
+        <div className="flex gap-2">
+          <button
+            type="button" onClick={() => setGroupBy("item")}
+            className={`flex-1 rounded-full py-2 text-xs font-semibold ${groupBy === "item" ? "bg-ink text-white" : "border border-line/70 text-ink/60"}`}
+          >
+            By item
+          </button>
+          <button
+            type="button" onClick={() => setGroupBy("vendor")}
+            className={`flex-1 rounded-full py-2 text-xs font-semibold ${groupBy === "vendor" ? "bg-ink text-white" : "border border-line/70 text-ink/60"}`}
+          >
+            By vendor
+          </button>
+        </div>
+      )}
       {purchases.length === 0 ? (
         <Card>
           <EmptyState
@@ -72,35 +107,49 @@ export function PurchasesView({ purchases, vendors, items, currency, openModal, 
           />
         </Card>
       ) : filtered.length === 0 ? (
-        <Card><p className="text-center text-sm text-ink/40">No purchases match your search.</p></Card>
+        <p className="text-center text-sm text-ink/40 py-6">No purchases match your search.</p>
       ) : (
         <>
-          {pageItems.map((p: any) => (
-            <Card key={p.id} className="flex items-center justify-between gap-2" onClick={() => openPurchaseDetail(p)}>
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600"><PackagePlus size={18} /></div>
-                <div className="min-w-0">
-                  <p className="font-semibold text-ink truncate">{itemName(p.itemId)}</p>
-                  <p className="text-xs text-ink/40 truncate">{vendorName(p.vendorId)} · {fmtNum(p.qty)} @ {fmtMoney(p.rate, currency)} · {fmtDate(p.date)}</p>
+          {pageGroups.map((group) => {
+            const groupTotal = group.records.reduce((s: number, r: any) => s + (r.amount || 0), 0);
+            const groupDue = group.records.reduce((s: number, r: any) => s + Math.max(0, round2((r.amount || 0) - (r.amountPaid || 0))), 0);
+            return (
+              <div key={group.key} className="mb-3">
+                <div className="flex items-center justify-between px-1 pb-1 pt-2">
+                  <span className="text-sm font-semibold text-ink">{group.label}</span>
+                  <span className={`text-xs ${groupDue > 0 ? "text-bad-600 font-semibold" : "text-ink/40"}`}>
+                    {groupDue > 0 ? `${fmtMoney(groupDue, currency)} due` : `${fmtMoney(groupTotal, currency)} total`}
+                  </span>
                 </div>
+                {group.records.map((p: any) => (
+                  <Row key={p.id} className="flex items-center justify-between gap-2" onClick={() => openPurchaseDetail(p)}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600"><PackagePlus size={18} /></div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-ink truncate">{groupBy === "vendor" ? itemName(p.itemId) : vendorName(p.vendorId)}</p>
+                        <p className="text-xs text-ink/40">{fmtNum(p.qty)} @ {fmtMoney(p.rate, currency)} · {fmtDate(p.date)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="text-right">
+                        <p className="font-bold text-ink">{fmtMoney(p.amount, currency)}</p>
+                        <Badge status={statusBadge(p.paymentStatus)} />
+                      </div>
+                      {p.paymentStatus !== "paid" && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openModal("purchasePayment", { purchaseId: p.id, vendorName: vendorName(p.vendorId), remaining: round2(p.amount - p.amountPaid), pending: p.status !== "Received" }); }}
+                          className="inline-flex items-center gap-1 rounded-full bg-brand-500 px-2.5 py-1.5 text-xs font-semibold text-white"
+                        >
+                          <IndianRupee size={12} /> Pay
+                        </button>
+                      )}
+                      <button onClick={(e) => { e.stopPropagation(); removePurchase(p.id); }} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
+                    </div>
+                  </Row>
+                ))}
               </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <div className="text-right">
-                  <p className="font-bold text-ink">{fmtMoney(p.amount, currency)}</p>
-                  <Badge status={statusBadge(p.paymentStatus)} />
-                </div>
-                {p.paymentStatus !== "paid" && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); openModal("purchasePayment", { purchaseId: p.id, vendorName: vendorName(p.vendorId), remaining: round2(p.amount - p.amountPaid), pending: p.status !== "Received" }); }}
-                    className="inline-flex items-center gap-1 rounded-full bg-brand-500 px-2.5 py-1.5 text-xs font-semibold text-white"
-                  >
-                    <IndianRupee size={12} /> Pay
-                  </button>
-                )}
-                <button onClick={(e) => { e.stopPropagation(); removePurchase(p.id); }} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
-              </div>
-            </Card>
-          ))}
+            );
+          })}
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} />
         </>
       )}

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Camera, IndianRupee, ImageOff, Images, Loader2, Plus, Search, Trash2, X } from "lucide-react";
-import { Badge, Card, EmptyState, PillButton } from "../common/UIPrimitives";
+import { Badge, Card, EmptyState, PillButton, Row, SectionDivider } from "../common/UIPrimitives";
 import { ViewImageModal } from "../modals/ViewImageModal";
 import { ITEM_CATEGORIES } from "../../lib/constants";
 import { fmtDate, fmtMoney, fmtNum } from "../../lib/format";
@@ -123,10 +123,28 @@ export function InvoiceAttachment({ order, attachOrderInvoice, removeOrderInvoic
   );
 }
 
+type GroupBy = "item" | "vendor";
+
+/** Buckets a list of orders/purchases by item or by vendor, sorted with the
+ * highest-value group first, so "which vendor am I most exposed to" or
+ * "how much of this item have I ordered" is a glance rather than a scan. */
+function groupRecords(records: any[], groupBy: GroupBy, labelFor: (r: any) => string, keyFor: (r: any) => string) {
+  const map = new Map<string, { key: string; label: string; records: any[] }>();
+  for (const r of records) {
+    const key = keyFor(r);
+    if (!map.has(key)) map.set(key, { key, label: labelFor(r), records: [] });
+    map.get(key)!.records.push(r);
+  }
+  return [...map.values()].sort(
+    (a, b) => b.records.reduce((s, r) => s + (r.amount || 0), 0) - a.records.reduce((s, r) => s + (r.amount || 0), 0)
+  );
+}
+
 export function OrdersView({ orders, items, vendors, categories, currency, openModal, payOrder, removeOrder, attachOrderInvoice, removeOrderInvoice }: any) {
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [category, setCategory] = useState("All");
   const [search, setSearch] = useState("");
+  const [groupBy, setGroupBy] = useState<GroupBy>("item");
   const cats = categories?.length ? categories : ITEM_CATEGORIES;
   const itemName = (id: string) => items.find((it: any) => it.id === id)?.name || "Unknown item";
   const itemCategory = (id: string) => items.find((it: any) => it.id === id)?.category || "Others";
@@ -136,9 +154,15 @@ export function OrdersView({ orders, items, vendors, categories, currency, openM
   const q = search.trim().toLowerCase();
   const categoryFiltered = orders
     .filter((o: any) => category === "All" || itemCategory(o.itemId) === category)
-    .filter((o: any) => !q || itemName(o.itemId).toLowerCase().includes(q) || (o.notes || "").toLowerCase().includes(q));
+    .filter((o: any) => !q || itemName(o.itemId).toLowerCase().includes(q) || (vendorName(o.vendorId) || "").toLowerCase().includes(q) || (o.notes || "").toLowerCase().includes(q));
   const pending = categoryFiltered.filter((o: any) => o.status === "Pending");
   const received = categoryFiltered.filter((o: any) => o.status === "Received");
+
+  const groupsOf = (list: any[]) => groupBy === "vendor"
+    ? groupRecords(list, "vendor", (o) => vendorName(o.vendorId) || "No vendor", (o) => o.vendorId || "__none__")
+    : groupRecords(list, "item", (o) => itemName(o.itemId), (o) => o.itemId);
+
+  const orderMeta = (o: any) => `Qty: ${fmtNum(o.qty)} @ ${fmtMoney(o.rate || 0, currency)} · ${fmtDate(o.date)}${groupBy === "vendor" ? "" : vendorName(o.vendorId) ? ` · ${vendorName(o.vendorId)}` : ""}${o.notes ? ` · ${o.notes}` : ""}`;
 
   return (
     <>
@@ -153,9 +177,25 @@ export function OrdersView({ orders, items, vendors, categories, currency, openM
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search orders by item or note..."
+            placeholder="Search orders by item, vendor, or note..."
             className="w-full rounded-xl border border-line bg-card py-2.5 pl-9 pr-3 text-sm"
           />
+        </div>
+      )}
+      {orders.length > 0 && (
+        <div className="flex gap-2">
+          <button
+            type="button" onClick={() => setGroupBy("item")}
+            className={`flex-1 rounded-full py-2 text-xs font-semibold ${groupBy === "item" ? "bg-ink text-white" : "border border-line/70 text-ink/60"}`}
+          >
+            By item
+          </button>
+          <button
+            type="button" onClick={() => setGroupBy("vendor")}
+            className={`flex-1 rounded-full py-2 text-xs font-semibold ${groupBy === "vendor" ? "bg-ink text-white" : "border border-line/70 text-ink/60"}`}
+          >
+            By vendor
+          </button>
         </div>
       )}
       <div className="flex flex-wrap gap-2">
@@ -167,69 +207,90 @@ export function OrdersView({ orders, items, vendors, categories, currency, openM
       {orders.length === 0
         ? <Card><EmptyState text="Place orders to restock your inventory. Paying an order off in full automatically updates the item's stock." cta="New Order" onCta={() => openModal("order")} /></Card>
         : pending.length === 0 && received.length === 0
-        ? <Card><p className="text-center text-sm text-ink/40">No orders match this category.</p></Card>
+        ? <p className="text-center text-sm text-ink/40 py-6">No orders match this category.</p>
         : (
           <>
             {pending.length > 0 && (
               <div>
-                <p className="mb-2 px-1 text-xs font-bold uppercase text-ink/40">Pending ({pending.length})</p>
-                {pending.map((o: any) => (
-                  <Card key={o.id} className="mb-2" onClick={() => openModal("orderDetail", { order: o })}>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="font-semibold text-ink truncate">{itemName(o.itemId)}</p>
-                        <p className="text-xs text-ink/40 truncate">Qty: {fmtNum(o.qty)} @ {fmtMoney(o.rate || 0, currency)} · {fmtDate(o.date)}{vendorName(o.vendorId) ? ` · ${vendorName(o.vendorId)}` : ""}{o.notes ? ` · ${o.notes}` : ""}</p>
+                <p className="mb-1 px-1 text-xs font-bold uppercase text-ink/40">Pending ({pending.length})</p>
+                {groupsOf(pending).map((group) => (
+                  <div key={group.key} className="mb-3">
+                    {groupBy === "vendor" && (
+                      <div className="flex items-center justify-between px-1 pb-1 pt-2">
+                        <span className="text-sm font-semibold text-ink">{group.label}</span>
+                        <span className="text-xs text-ink/40">{fmtMoney(group.records.reduce((s, r) => s + (r.amount || 0), 0), currency)} total</span>
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="font-bold text-ink">{fmtMoney(o.amount || 0, currency)}</p>
-                        <Badge status={statusBadge(o.paymentStatus)} />
-                      </div>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <p className="text-xs text-ink/40">{round2((o.amount || 0) - (o.amountPaid || 0)) > 0 ? `${fmtMoney(round2((o.amount || 0) - (o.amountPaid || 0)), currency)} remaining` : "Fully paid"}</p>
-                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                        <InvoiceAttachment
-                          order={o}
-                          attachOrderInvoice={attachOrderInvoice}
-                          removeOrderInvoice={removeOrderInvoice}
-                          onView={setViewingImage}
-                        />
-                        <button
-                          onClick={() => payOrder({ id: o.id, amount: o.amount, amountPaid: o.amountPaid, itemName: itemName(o.itemId) })}
-                          className="inline-flex items-center gap-1 rounded-full bg-brand-500 px-2.5 py-1.5 text-xs font-semibold text-white active:scale-[0.98]"
-                        >
-                          <IndianRupee size={12} /> Pay
-                        </button>
-                        <button onClick={() => removeOrder(o.id)} className="rounded-full p-1.5 text-bad-400 hover:bg-bad-50"><Trash2 size={14} /></button>
-                      </div>
-                    </div>
-                  </Card>
+                    )}
+                    {group.records.map((o: any) => (
+                      <Row key={o.id} onClick={() => openModal("orderDetail", { order: o })}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-ink">{itemName(o.itemId)}</p>
+                            <p className="text-xs text-ink/40">{orderMeta(o)}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="font-bold text-ink">{fmtMoney(o.amount || 0, currency)}</p>
+                            <Badge status={statusBadge(o.paymentStatus)} />
+                          </div>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between gap-2">
+                          <p className="text-xs text-ink/40">{round2((o.amount || 0) - (o.amountPaid || 0)) > 0 ? `${fmtMoney(round2((o.amount || 0) - (o.amountPaid || 0)), currency)} remaining` : "Fully paid"}</p>
+                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <InvoiceAttachment
+                              order={o}
+                              attachOrderInvoice={attachOrderInvoice}
+                              removeOrderInvoice={removeOrderInvoice}
+                              onView={setViewingImage}
+                            />
+                            <button
+                              onClick={() => payOrder({ id: o.id, amount: o.amount, amountPaid: o.amountPaid, itemName: itemName(o.itemId) })}
+                              className="inline-flex items-center gap-1 rounded-full bg-brand-500 px-2.5 py-1.5 text-xs font-semibold text-white active:scale-[0.98]"
+                            >
+                              <IndianRupee size={12} /> Pay
+                            </button>
+                            <button onClick={() => removeOrder(o.id)} className="rounded-full p-1.5 text-bad-400 hover:bg-bad-50"><Trash2 size={14} /></button>
+                          </div>
+                        </div>
+                      </Row>
+                    ))}
+                  </div>
                 ))}
               </div>
             )}
+            {pending.length > 0 && received.length > 0 && <SectionDivider className="my-1" />}
             {received.length > 0 && (
               <div>
-                <p className="mb-2 px-1 text-xs font-bold uppercase text-ink/40">Received ({received.length})</p>
-                {received.map((o: any) => (
-                  <Card key={o.id} className="mb-2 flex items-center justify-between gap-2" onClick={() => openModal("orderDetail", { order: o })}>
-                    <div className="min-w-0">
-                      <p className="font-semibold text-ink truncate">{itemName(o.itemId)}</p>
-                      <p className="text-xs text-ink/40 truncate">Qty: {fmtNum(o.qty)} @ {fmtMoney(o.rate || 0, currency)} · {fmtDate(o.date)}{vendorName(o.vendorId) ? ` · ${vendorName(o.vendorId)}` : ""}{o.notes ? ` · ${o.notes}` : ""}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="font-bold text-ink">{fmtMoney(o.amount || 0, currency)}</p>
-                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                        <InvoiceAttachment
-                          order={o}
-                          attachOrderInvoice={attachOrderInvoice}
-                          removeOrderInvoice={removeOrderInvoice}
-                          onView={setViewingImage}
-                        />
-                        <Badge status="Received" />
-                        <button onClick={() => removeOrder(o.id)} className="rounded-full p-1.5 text-bad-400 hover:bg-bad-50"><Trash2 size={14} /></button>
+                <p className="mb-1 px-1 text-xs font-bold uppercase text-ink/40">Received ({received.length})</p>
+                {groupsOf(received).map((group) => (
+                  <div key={group.key} className="mb-3">
+                    {groupBy === "vendor" && (
+                      <div className="flex items-center justify-between px-1 pb-1 pt-2">
+                        <span className="text-sm font-semibold text-ink">{group.label}</span>
+                        <span className="text-xs text-ink/40">{fmtMoney(group.records.reduce((s, r) => s + (r.amount || 0), 0), currency)} total</span>
                       </div>
-                    </div>
-                  </Card>
+                    )}
+                    {group.records.map((o: any) => (
+                      <Row key={o.id} className="flex items-center justify-between gap-2" onClick={() => openModal("orderDetail", { order: o })}>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-ink">{itemName(o.itemId)}</p>
+                          <p className="text-xs text-ink/40">{orderMeta(o)}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="font-bold text-ink">{fmtMoney(o.amount || 0, currency)}</p>
+                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <InvoiceAttachment
+                              order={o}
+                              attachOrderInvoice={attachOrderInvoice}
+                              removeOrderInvoice={removeOrderInvoice}
+                              onView={setViewingImage}
+                            />
+                            <Badge status="Received" />
+                            <button onClick={() => removeOrder(o.id)} className="rounded-full p-1.5 text-bad-400 hover:bg-bad-50"><Trash2 size={14} /></button>
+                          </div>
+                        </div>
+                      </Row>
+                    ))}
+                  </div>
                 ))}
               </div>
             )}

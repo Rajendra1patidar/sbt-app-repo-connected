@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { AlertTriangle, Pencil, Plus, Search, Trash2 } from "lucide-react";
-import { Card, EmptyState, PillButton } from "../common/UIPrimitives";
+import { Card, EmptyState, PillButton, Row, SectionDivider } from "../common/UIPrimitives";
 import { Pagination } from "../common/Pagination";
 import { usePagination } from "../../hooks/usePagination";
 import { ITEM_BRANDS, ITEM_CATEGORIES, LOW_STOCK_DEFAULT, PAGE_SIZE } from "../../lib/constants";
 import { fmtMoney, fmtNum } from "../../lib/format";
-import { StockTreemap } from "../items/StockTreemap";
+import { ItemQuantityMap } from "../items/ItemQuantityMap";
 import { ItemDetailDrawer } from "../items/ItemDetailDrawer";
 
 /* ---- Items (with stock display) ---- */
@@ -62,18 +62,24 @@ export function ItemsView({ items, categories, brands, openModal, removeItem, cu
         ))}
       </div>
 
-      {filtered.length > 0 && <StockTreemap items={filtered} currency={currency} onSelect={openDrawer} />}
+      {filtered.length > 0 && (
+        <>
+          <SectionDivider className="!my-1" />
+          <ItemQuantityMap items={filtered} onSelectItem={openDrawer} />
+          <SectionDivider className="!my-1" />
+        </>
+      )}
 
       {items.length === 0
         ? <Card><EmptyState text="Add items you sell." cta="New Item" onCta={() => openModal("item")} /></Card>
         : filtered.length === 0
-        ? <Card><p className="text-center text-sm text-ink/40">No items match your search/filter.</p></Card>
+        ? <p className="text-center text-sm text-ink/40 py-6">No items match your search/filter.</p>
         : <>
           {pageItems.map((it: any) => {
           const threshold = it.lowStock ?? LOW_STOCK_DEFAULT;
           const isLow = (it.stock ?? 0) <= threshold;
           return (
-            <Card key={it.id} className="flex items-center justify-between gap-2 cursor-pointer" onClick={() => openDrawer(it)}>
+            <Row key={it.id} className="flex items-center justify-between gap-2" onClick={() => openDrawer(it)}>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-semibold text-ink truncate">{it.name}</p>
@@ -83,7 +89,7 @@ export function ItemsView({ items, categories, brands, openModal, removeItem, cu
                 </div>
                 <p className="text-xs text-ink/40">{it.unit || "unit"} · Stock: <span className={`font-semibold ${isLow ? "text-warn-600" : "text-ink/80"}`}>{fmtNum(it.stock ?? 0)}</span> (alert at ≤{fmtNum(threshold)})</p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 shrink-0">
                 <div className="text-right">
                   <p className="text-xs text-ink/40">Sell: <span className="font-bold text-ink">{fmtMoney(it.sellingPrice ?? it.price, currency)}</span></p>
                   {it.purchasePrice > 0 && <p className="text-xs text-ink/40">Buy: <span className="font-semibold text-ink/70">{fmtMoney(it.purchasePrice, currency)}</span></p>}
@@ -91,7 +97,7 @@ export function ItemsView({ items, categories, brands, openModal, removeItem, cu
                 <button onClick={(e) => { e.stopPropagation(); openModal("item", { editingItem: it }); }} className="rounded-full p-2 text-ink/40 hover:bg-paper"><Pencil size={16} /></button>
                 <button onClick={(e) => { e.stopPropagation(); removeItem(it.id); }} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
               </div>
-            </Card>
+            </Row>
           );
           })}
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} />

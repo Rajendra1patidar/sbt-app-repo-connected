@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { ArrowLeftRight, ChevronDown, ChevronUp, MapPin, Pencil, Plus, Search, Star, Trash2, User as UserIcon, Warehouse } from "lucide-react";
-import { Card, EmptyState, GhostButton, PillButton } from "../common/UIPrimitives";
+import { Card, EmptyState, GhostButton, PillButton, SectionDivider, StatStrip } from "../common/UIPrimitives";
 import { LOW_STOCK_DEFAULT } from "../../lib/constants";
 import { fmtMoney, fmtNum } from "../../lib/format";
 import { GodownsMapCard } from "./GodownsMapCard";
@@ -66,18 +66,12 @@ export function GodownsView({ godowns, items, openModal, removeGodown, saveGodow
       </div>
 
       {godowns.length > 0 && (
-        <Card>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <p className="text-xs font-semibold text-ink/40">Total value</p>
-              <p className="mt-1 font-mono text-lg font-semibold text-ink">{fmtMoney(totalValue, settings?.currency)}</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-ink/40">Godowns</p>
-              <p className="mt-1 font-mono text-lg font-semibold text-ink">{fmtNum(godowns.length)}</p>
-            </div>
-          </div>
-        </Card>
+        <StatStrip
+          stats={[
+            { label: "Total value", value: fmtMoney(totalValue, settings?.currency) },
+            { label: "Godowns", value: fmtNum(godowns.length) },
+          ]}
+        />
       )}
 
       {godowns.length === 0 ? (
@@ -91,7 +85,8 @@ export function GodownsView({ godowns, items, openModal, removeGodown, saveGodow
       ) : (
         <>
           <GodownsMapCard godowns={godowns} />
-        {godowns.map((g: any) => {
+          <SectionDivider />
+        {godowns.map((g: any, idx: number) => {
           const itemCount = stockCountFor(g.id);
           const value = valueFor(g.id);
           const share = totalValue > 0 ? (value / totalValue) * 100 : 0;
@@ -106,11 +101,12 @@ export function GodownsView({ godowns, items, openModal, removeGodown, saveGodow
           const catBars = isExpanded ? categoryBreakdown(fullBreakdown) : [];
           const maxCat = catBars[0]?.[1] || 1;
           return (
-            <Card key={g.id} className="!p-0 overflow-hidden">
+            <div key={g.id} className={idx > 0 ? "pt-3" : ""}>
+              {idx > 0 && <SectionDivider className="mb-3" />}
               <button
                 type="button"
                 onClick={() => { setExpandedId(isExpanded ? null : g.id); setShowAllFor(null); setBreakdownSearch(""); }}
-                className="flex w-full items-start gap-3 justify-between p-4 text-left"
+                className="flex w-full items-start gap-3 justify-between text-left"
                 disabled={itemCount === 0}
               >
                 <div className="flex items-start gap-3 min-w-0">
@@ -141,7 +137,7 @@ export function GodownsView({ godowns, items, openModal, removeGodown, saveGodow
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <div className="text-right">
-                    <p className="font-display text-base font-bold text-ink">{fmtMoney(value, settings?.currency)}</p>
+                    <p className="text-base font-semibold text-ink">{fmtMoney(value, settings?.currency)}</p>
                     <p className="text-xs text-ink/40">{itemCount} item{itemCount !== 1 ? "s" : ""} · {share.toFixed(0)}% of total</p>
                   </div>
                   {itemCount > 0 && (isExpanded ? <ChevronUp size={16} className="text-ink/30" /> : <ChevronDown size={16} className="text-ink/30" />)}
@@ -149,7 +145,7 @@ export function GodownsView({ godowns, items, openModal, removeGodown, saveGodow
               </button>
 
               {isExpanded && fullBreakdown.length > 0 && (
-                <div className="border-t border-line px-4 py-3">
+                <div className="border-t border-line/70 mt-3 pt-3">
                   {catBars.length > 1 && (
                     <div className="mb-3 space-y-1.5">
                       {catBars.map(([cat, v]) => (
@@ -205,7 +201,7 @@ export function GodownsView({ godowns, items, openModal, removeGodown, saveGodow
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-1 border-t border-line px-4 py-2">
+              <div className="flex items-center justify-end gap-1 pt-2">
                 {!g.isDefault && (
                   <button onClick={() => setDefaultGodown(g.id)} title="Make default" className="rounded-full p-1.5 text-ink/30 hover:bg-paper hover:text-brand-500">
                     <Star size={15} />
@@ -218,7 +214,7 @@ export function GodownsView({ godowns, items, openModal, removeGodown, saveGodow
                   <Trash2 size={16} />
                 </button>
               </div>
-            </Card>
+            </div>
           );
         })}
         </>

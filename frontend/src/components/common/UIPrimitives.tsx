@@ -124,3 +124,59 @@ export function Card({ children, className = "", onClick }: any) {
     </div>
   );
 }
+
+/** A borderless list row separated by a hairline divider instead of its own
+ * boxed card — used on pages redesigned to read as one continuous surface
+ * (Items, Inventory, Orders, Purchases, Godowns) rather than a stack of
+ * individual cards. First row in a list has no divider above it. */
+export function Row({ children, className = "", onClick }: any) {
+  return (
+    <div onClick={onClick}
+      className={`border-t border-line/70 py-3 first:border-t-0 first:pt-0 transition-colors duration-150 ${onClick ? "cursor-pointer active:bg-paper/50" : ""} ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+/** A full-bleed hairline used to separate major sections on a seamless page
+ * (in place of stacking each section in its own bordered Card). */
+export function SectionDivider({ className = "" }: any) {
+  return <div className={`h-px bg-line/70 ${className}`} />;
+}
+
+/** Underline-style tabs for switching between two or three views on a
+ * seamless page (e.g. "Stock take / History", "Orders / Purchases") —
+ * quieter than a filled pill button, matching the home page's tone. */
+export function UnderlineTabs({ options, value, onChange }: { options: { key: string; label: string }[]; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex gap-5">
+      {options.map((opt) => (
+        <button
+          key={opt.key}
+          type="button"
+          onClick={() => onChange(opt.key)}
+          className={`pb-2 text-sm transition-colors ${value === opt.key ? "font-semibold text-ink border-b-2 border-ink" : "text-ink/50"}`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** A row of numbers separated by thin vertical rules instead of individual
+ * stat cards — e.g. Stock value / Items tracked / Low stock / Dead stock.
+ * Fixed at 2 columns to match this app's mobile-first list pages. */
+export function StatStrip({ stats }: { stats: { label: string; value: React.ReactNode; tone?: "warn" | "bad" | "default" }[] }) {
+  const toneClass = (tone?: string) => tone === "warn" ? "text-warn-600" : tone === "bad" ? "text-bad-600" : "text-ink";
+  return (
+    <div className="grid grid-cols-2 gap-y-4">
+      {stats.map((s, i) => (
+        <div key={s.label} className={`${i % 2 === 1 ? "border-l border-line/70 pl-3" : ""} ${i >= 2 ? "border-t border-line/70 pt-3" : ""}`}>
+          <p className="text-xs text-ink/40">{s.label}</p>
+          <p className={`mt-1 font-mono text-base font-semibold ${toneClass(s.tone)}`}>{s.value}</p>
+        </div>
+      ))}
+    </div>
+  );
+}

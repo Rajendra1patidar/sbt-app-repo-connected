@@ -2,11 +2,12 @@ import React, { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown, ClipboardList, MapPin, Pencil, Printer, Search } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Card } from "../common/UIPrimitives";
+import { SectionDivider, StatStrip } from "../common/UIPrimitives";
 import { ITEM_CATEGORIES, LOW_STOCK_DEFAULT } from "../../lib/constants";
 import { fmtDate, fmtMoney, fmtNum } from "../../lib/format";
 import { waLink } from "../../lib/contactLinks";
 import { StockTakeModal } from "../modals/StockTakeModal";
+import { ItemQuantityMap } from "../items/ItemQuantityMap";
 import { api } from "../../lib/api";
 
 type Tab = "all" | "low" | "dead" | "reorder";
@@ -65,8 +66,8 @@ function CategoryValueCard({ items, currency }: any) {
   const max = byCategory[0][1];
 
   return (
-    <Card>
-      <p className="mb-2.5 text-xs font-semibold text-ink/40">Value by category</p>
+    <div>
+      <p className="mb-2.5 text-sm font-semibold text-ink">Value by category</p>
       <div className="space-y-2">
         {byCategory.map(([cat, value]) => (
           <div key={cat} className="flex items-center gap-2">
@@ -78,7 +79,7 @@ function CategoryValueCard({ items, currency }: any) {
           </div>
         ))}
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -212,51 +213,44 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
   ];
 
   return (
-    <div className="space-y-4 px-5 pb-28">
+    <div className="space-y-5 px-5 pb-28">
 
-      <div className="flex gap-2">
+      <div className="flex items-center gap-5">
         <button
           type="button"
           onClick={() => setStockTakeOpen(true)}
-          className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-line bg-card px-4 py-2.5 text-sm font-semibold text-ink/80"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink"
         >
-          <ClipboardList size={16} /> Stock take
+          <ClipboardList size={15} /> Stock take
         </button>
-        <Link
-          to="/stock-adjustments"
-          className="inline-flex items-center justify-center gap-2 rounded-full border border-line bg-card px-4 py-2.5 text-sm font-semibold text-ink/60"
-        >
+        <Link to="/stock-adjustments" className="text-sm font-semibold text-ink/50">
           History
         </Link>
       </div>
 
-      <Card>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <p className="text-xs font-semibold text-ink/40">Stock value</p>
-            <p className="mt-1 font-mono text-lg font-semibold text-ink">{fmtMoney(totalValue, settings?.currency)}</p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-ink/40">Items tracked</p>
-            <p className="mt-1 font-mono text-lg font-semibold text-ink">{fmtNum(items.length)}</p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-ink/40">Low stock</p>
-            <p className={`mt-1 font-mono text-lg font-semibold ${lowItems.length > 0 ? "text-warn-600" : "text-ink"}`}>{fmtNum(lowItems.length)}</p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-ink/40">Dead stock tied up</p>
-            <p className="mt-1 font-mono text-lg font-semibold text-ink">{fmtMoney(deadStockValue, settings?.currency)}</p>
-          </div>
-        </div>
-      </Card>
+      <StatStrip
+        stats={[
+          { label: "Stock value", value: fmtMoney(totalValue, settings?.currency) },
+          { label: "Items tracked", value: fmtNum(items.length) },
+          { label: "Low stock", value: fmtNum(lowItems.length), tone: lowItems.length > 0 ? "warn" : "default" },
+          { label: "Dead stock tied up", value: fmtMoney(deadStockValue, settings?.currency) },
+        ]}
+      />
+
+      <SectionDivider />
+
+      <ItemQuantityMap items={items} onSelectItem={(it: any) => { setTab("all"); setCategory("All"); setSearch(""); toggleExpanded(it.id); }} />
+
+      <SectionDivider />
 
       <CategoryValueCard items={items} currency={settings?.currency} />
 
-      <Card>
+      <SectionDivider />
+
+      <div>
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-display text-base font-bold text-ink">Inventory</h3>
-          <button onClick={printInventory} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-2.5 py-1 text-xs font-semibold text-ink/80">
+          <h3 className="text-base font-semibold text-ink">Inventory · {fmtNum(items.length)}</h3>
+          <button onClick={printInventory} className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink/60">
             <Printer size={12} /> Print
           </button>
         </div>
@@ -319,14 +313,14 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
                     data-index={virtualRow.index}
                     ref={rowVirtualizer.measureElement}
                     style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${virtualRow.start}px)` }}
-                    className="pb-2"
+                    className="pb-0"
                   >
                     <div
                       role="button"
                       tabIndex={0}
                       onClick={() => toggleExpanded(it.id)}
                       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleExpanded(it.id); } }}
-                      className="w-full cursor-pointer rounded-xl border border-line px-4 py-2.5 text-left"
+                      className={`w-full cursor-pointer border-t border-line/70 px-1 py-3 text-left active:bg-paper/50 ${virtualRow.index === 0 ? "border-t-0 pt-0" : ""}`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="min-w-0">
@@ -455,7 +449,7 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
             </div>
           </div>
         )}
-      </Card>
+      </div>
 
       {stockTakeOpen && (
         <StockTakeModal items={items} godowns={godowns} applyStockAdjustments={applyStockAdjustments} onClose={() => setStockTakeOpen(false)} />

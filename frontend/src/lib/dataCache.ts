@@ -13,7 +13,7 @@
  *     opened the app (or refreshed) while offline.
  */
 
-const CACHE_KEY = "sbt_data_cache";
+import { DATA_CACHE_KEY as CACHE_KEY, currentAccountId } from "./account";
 
 // Keep this to the data views actually render when offline — leaving out
 // reorderSuggestions/notifications/deadStock (derived, cheap to regenerate,
@@ -26,6 +26,7 @@ const CACHED_FIELDS = [
 
 export interface DataCacheSnapshot {
   savedAt: string;
+  accountId?: string;
   data: Record<string, any>;
 }
 
@@ -33,7 +34,7 @@ export function saveDataCache(state: Record<string, any>) {
   try {
     const data: Record<string, any> = {};
     for (const key of CACHED_FIELDS) data[key] = state[key];
-    const snapshot: DataCacheSnapshot = { savedAt: new Date().toISOString(), data };
+    const snapshot: DataCacheSnapshot = { savedAt: new Date().toISOString(), accountId: currentAccountId(), data };
     window.localStorage.setItem(CACHE_KEY, JSON.stringify(snapshot));
   } catch {
     // Quota exceeded or storage unavailable — the app still works online;
@@ -45,7 +46,11 @@ export function saveDataCache(state: Record<string, any>) {
 export function loadDataCache(): DataCacheSnapshot | null {
   try {
     const raw = window.localStorage.getItem(CACHE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const snap: DataCacheSnapshot = JSON.parse(raw);
+    // Never show one account's cached data to a different login.
+    if (snap.accountId && snap.accountId !== currentAccountId()) return null;
+    return snap;
   } catch {
     return null;
   }

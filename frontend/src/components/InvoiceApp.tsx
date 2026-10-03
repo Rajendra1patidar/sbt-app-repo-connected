@@ -18,6 +18,7 @@ import { OrderDetailModal } from "./modals/OrderDetailModal";
 import { PaymentAllocationModal } from "./modals/PaymentAllocationModal";
 import { PurchaseModal } from "./modals/PurchaseModal";
 import { ReturnModal } from "./modals/ReturnModal";
+import { OfflineSyncPanel } from "./views/OfflineSyncPanel";
 import { TransferModal } from "./modals/TransferModal";
 import { ViewEstimateModal } from "./modals/ViewEstimateModal";
 import { AdvancedBillingView } from "./views/AdvancedBillingView";
@@ -224,6 +225,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <Route path="/challans" element={<DocumentList type="challan" docs={challans} customers={customers} currency={settings.currency} openModal={openModal} removeDoc={(id: string) => removeDoc("challan", id)} updateStatus={(id: string, s: string) => updateDocStatus("challan", id, s)} />} />
       <Route path="/estimates" element={
         <div className="px-5 pt-1">
+          <OfflineSyncPanel />
           {autoReminder && overdueCount > 0 && <div className="mb-3 rounded-2xl bg-warn-50 px-4 py-3 text-sm font-semibold text-warn-700 flex items-center gap-2"><AlertCircle size={16} /> {overdueCount} estimate{overdueCount !== 1 ? "s" : ""} overdue.</div>}
           <div className="-mx-5">
             <DocumentList type="estimate" docs={estimates} customers={customers} items={items} payments={payments} currency={settings.currency} openModal={openModal}

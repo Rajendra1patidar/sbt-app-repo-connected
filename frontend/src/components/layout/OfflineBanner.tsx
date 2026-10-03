@@ -44,11 +44,11 @@ export function OfflineBanner() {
 
   let message: string;
   if (!online && offlineDataAsOf) {
-    message = `You're offline — showing data as of ${asOfLabel}. New customers, estimates, challans, payments, and stock takes are still saved.`;
+    message = `You're offline — showing data as of ${asOfLabel}. New estimates (plus edits, payments and returns), customers, challans and stock takes are still saved.`;
   } else if (!online) {
     message = queue.length > 0
       ? `You're offline — ${queue.length} change${queue.length === 1 ? "" : "s"} saved, will sync automatically`
-      : "You're offline — new customers, estimates, challans, payments, and stock takes are still saved";
+      : "You're offline — new estimates (plus edits, payments and returns), customers, challans and stock takes are still saved";
   } else if (queue.length > 0) {
     message = `${queue.length} change${queue.length === 1 ? "" : "s"} waiting to sync`;
   } else {

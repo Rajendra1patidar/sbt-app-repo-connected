@@ -1,5 +1,5 @@
 import { api } from "./api";
-import { useAppStore } from "../store/useAppStore";
+import { useAppStore, announcePortalAccess } from "../store/useAppStore";
 import { flushOfflineQueue, registerOfflineHandler, resolveOfflineId, isUnresolvedOfflineId, setOfflineIdRemap } from "./offlineQueue";
 
 // Thrown when an action depends on another offline-created record (a
@@ -59,7 +59,7 @@ registerOfflineHandler("estimate", async (queued: any) => {
     throw new UnresolvedDependencyError("This estimate's customer hasn't synced yet.");
   }
   const finalPayload = { ...payload, customerId: resolveOfflineId(payload.customerId) };
-  const { doc } = await api.documents("estimate").create(finalPayload, idempotencyKey);
+  const { doc, portalAccess } = await api.documents("estimate").create(finalPayload, idempotencyKey);
   // A payment queued against this estimate before it synced (rare, but
   // possible if a partial collection was recorded separately right after
   // creating it) references placeholderId as its invoiceId — remap it to
@@ -68,6 +68,9 @@ registerOfflineHandler("estimate", async (queued: any) => {
   useAppStore.setState((state) => ({
     estimates: [doc, ...state.estimates.filter((e: any) => e.id !== placeholderId)],
   }));
+  // The Booking Portal PIN only comes back once, at creation — don't let a
+  // background sync swallow it.
+  if (portalAccess?.pin) announcePortalAccess(useAppStore.getState, doc, portalAccess);
 
   if (partialAmountPaid && Number(partialAmountPaid) > 0) {
     try {
@@ -84,6 +87,40 @@ registerOfflineHandler("estimate", async (queued: any) => {
       // once the balance-due numbers refresh after this sync completes.
     }
   }
+});
+
+// An edit made offline to an estimate. `payload.expectedUpdatedAt` is the
+// version the person was looking at — if someone changed the estimate
+// elsewhere meanwhile, the server answers 409 and the edit lands in the
+// "needs attention" list instead of silently overwriting that change.
+registerOfflineHandler("estimateEdit", async (queued: any) => {
+  const { id, payload } = queued;
+  if (isUnresolvedOfflineId(id)) {
+    throw new UnresolvedDependencyError("This edit's estimate hasn't synced yet.");
+  }
+  const realId = resolveOfflineId(id)!;
+  const finalPayload = { ...payload, customerId: resolveOfflineId(payload.customerId) };
+  const { doc, portalAccess } = await api.documents("estimate").update(realId, finalPayload);
+  useAppStore.setState((state) => ({
+    estimates: state.estimates.map((e: any) => (e.id === id || e.id === realId ? doc : e)),
+  }));
+  if (portalAccess?.pin) announcePortalAccess(useAppStore.getState, doc, portalAccess);
+});
+
+// Items returned offline. The return date is the day it was actually
+// recorded (not the sync day), passed explicitly to the server.
+registerOfflineHandler("estimateReturn", async (queued: any) => {
+  const { docId, lines, date } = queued;
+  if (isUnresolvedOfflineId(docId)) {
+    throw new UnresolvedDependencyError("This return's estimate hasn't synced yet.");
+  }
+  const realId = resolveOfflineId(docId)!;
+  const { doc, payment, items } = await api.documents("estimate").addReturn(realId, lines, date);
+  useAppStore.setState((state) => ({
+    estimates: state.estimates.map((e: any) => (e.id === docId || e.id === realId ? doc : e)),
+    items: items || state.items,
+    payments: payment ? [payment, ...state.payments] : state.payments,
+  }));
 });
 
 let initialized = false;
@@ -106,30 +143,34 @@ const TYPE_LABELS: Record<string, string> = {
   estimate: "estimate",
   customer: "customer",
   stockTake: "stock take",
+  estimateEdit: "estimate edit",
+  estimateReturn: "return",
 };
 
 /** Also callable directly — e.g. a manual "Retry sync" tap in the offline banner. */
 export function triggerOfflineSync() {
   let syncedAny = false;
+  let failedAny = false;
   return flushOfflineQueue(({ ok, action, error }) => {
     if (ok) {
       syncedAny = true;
     } else {
+      failedAny = true;
       const label = TYPE_LABELS[action.type] || action.type;
       const detail = error instanceof UnresolvedDependencyError
-        ? " — its customer or estimate didn't sync, so it needs to be re-entered."
-        : " — it may need to be re-entered.";
+        ? " — its customer or estimate didn't sync. See \"Waiting to sync\" on the Estimates screen."
+        : ` — ${error?.message || "the server rejected it"}. See "Waiting to sync" on the Estimates screen.`;
       useAppStore.getState().showToast(`Couldn't sync an offline ${label}${detail}`);
     }
   }).then(() => {
     const { offlineDataAsOf } = useAppStore.getState();
-    if (syncedAny) {
+    if (syncedAny || failedAny) {
       // Optimistic local state (the placeholder challan, the adjusted stock
       // numbers) was a best guess made without the server — now that the
       // real writes have gone through, refetch everything so numbers match
       // what actually landed (e.g. exact stock after another device's
       // changes too), rather than trusting the offline guess indefinitely.
-      useAppStore.getState().showToast("Offline changes synced");
+      if (syncedAny && !failedAny) useAppStore.getState().showToast("Offline changes synced");
       useAppStore.getState().fetchAll();
     } else if (offlineDataAsOf && typeof navigator !== "undefined" && navigator.onLine) {
       // Nothing was queued, but the screen is still showing the cached

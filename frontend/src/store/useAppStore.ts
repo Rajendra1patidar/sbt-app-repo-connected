@@ -2,8 +2,9 @@ import { create } from "zustand";
 import { api } from "../lib/api";
 import { ITEM_CATEGORIES } from "../lib/constants";
 import { fmtMoney, fmtNum, today } from "../lib/format";
-import { enqueueOfflineAction } from "../lib/offlineQueue";
+import { enqueueOfflineAction, findQueuedAction, updateQueuedAction, cancelQueuedAction } from "../lib/offlineQueue";
 import { saveDataCache, loadDataCache } from "../lib/dataCache";
+import { withOfflinePending, pickEditableFields } from "../lib/offlineRehydrate";
 import { waLink } from "../lib/contactLinks";
 import { compressImage } from "../lib/imageCompress";
 
@@ -222,12 +223,17 @@ export const useAppStore = create<AppState>()((set, get) => ({
       // Snapshot this fresh state for the next time the app opens with no
       // connectivity — see the offline fallback below and lib/dataCache.ts.
       saveDataCache(get());
+      // Anything still queued (not yet synced) must stay visible.
+      const pending = withOfflinePending(get());
+      if (Object.keys(pending).length) set(pending);
     } catch (err: any) {
       if (err?.status === 401) { get().onSignOut?.(); return; }
       if (err?.status === 0) {
         const cached = loadDataCache();
         if (cached) {
           set({ ...cached.data, loading: false, loadError: "", offlineDataAsOf: cached.savedAt });
+          const pending = withOfflinePending(get());
+          if (Object.keys(pending).length) set(pending);
           return;
         }
       }
@@ -332,6 +338,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       // customer, same as quickAddOfflineCustomer below.
       if (err?.status === 0 && !v.id) {
         const placeholder = queueOfflineCustomer(set, v);
+        if (!placeholder) return;
         showToast("You're offline — customer saved and will sync automatically once you're back online.");
         closeModal();
         return placeholder;
@@ -364,6 +371,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
         // customerId — see saveDocument's offline branch, which queues that
         // reference and resolves it to the real id once this customer syncs.
         const placeholder = queueOfflineCustomer(set, v);
+        if (!placeholder) return null;
         showToast("You're offline — customer saved and will sync automatically once you're back online.");
         return placeholder;
       }
@@ -429,7 +437,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       // "we're offline", not a real rejection, so queue it for field staff
       // instead of losing the delivery challan they just filled out.
       if (err?.status === 0) {
-        enqueueOfflineAction("challan", v);
+        if (!queueOrWarn("challan", v)) return;
         showToast("You're offline — challan saved and will sync automatically once you're back online.");
         closeModal();
         return;
@@ -761,14 +769,38 @@ export const useAppStore = create<AppState>()((set, get) => ({
       // check against the server's current copy, both of which assume
       // they're running against live data. Same reasoning that already
       // kept editing out of the Challan/Stock Take/Payment offline paths.
+      if (err?.status === 0 && type === "estimate" && v.id && payload) {
+        const { expectedUpdatedAt, status: _ignoredStatus, ...fields } = payload;
+        if (String(v.id).startsWith("offline-")) {
+          // Not on the server yet: fold the edit into the queued "create" itself,
+          // so it syncs once, with the final numbers.
+          const createAction = findQueuedAction((a) => a.type === "estimate" && a.payload?.placeholderId === v.id);
+          if (!createAction) { showToast("This estimate has already synced — reopen it and try again."); return; }
+          updateQueuedAction(createAction.id, {
+            payload: { ...createAction.payload, payload: { ...createAction.payload.payload, ...fields } },
+            placeholder: { ...createAction.placeholder, ...pickEditableFields(fields) },
+          });
+          set((state) => ({ estimates: state.estimates.map((e: any) => (e.id === v.id ? { ...e, ...pickEditableFields(fields) } : e)) }));
+        } else {
+          // Already on the server: queue one edit per estimate (a second offline
+          // edit replaces the first, keeping the ORIGINAL version stamp so the
+          // "changed elsewhere" check still compares against what was last synced).
+          const existing = findQueuedAction((a) => a.type === "estimateEdit" && a.payload?.id === v.id);
+          if (existing) {
+            updateQueuedAction(existing.id, { payload: { id: v.id, payload: { ...payload, expectedUpdatedAt: existing.payload.payload?.expectedUpdatedAt } } });
+            set((state) => ({ estimates: state.estimates.map((e: any) => (e.id === v.id ? { ...e, _offlineApplied: (e._offlineApplied || []).filter((x: string) => x !== existing.id) } : e)) }));
+          } else if (!queueOrWarn("estimateEdit", { id: v.id, payload })) {
+            return;
+          }
+          applyPending(set, get);
+        }
+        showToast("You're offline — edit saved and will sync when you're back online. Stock updates after it syncs.");
+        closeModal();
+        return;
+      }
       if (err?.status === 0 && type === "estimate" && !v.id && payload) {
         const idempotencyKey = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const placeholderId = `offline-${idempotencyKey}`;
-        enqueueOfflineAction("estimate", {
-          payload, idempotencyKey, placeholderId,
-          partialAmountPaid: v.partialAmountPaid, customerId: v.customerId, date: v.date,
-        });
-
         const placeholder = {
           id: placeholderId,
           number: "Pending sync",
@@ -778,12 +810,21 @@ export const useAppStore = create<AppState>()((set, get) => ({
           lines: v.lines,
           notes: v.notes,
           total: v.total,
-          status: payload.status || "Due",
+          status: payload.status === "Paid" ? "Paid" : Number(v.partialAmountPaid || 0) > 0 ? "Partially Paid" : (payload.status || "Due"),
+          amountPaid: payload.status === "Paid" ? Number(v.total || 0) : Number(v.partialAmountPaid || 0),
+          contractorName: payload.contractorName,
+          destination: payload.destination,
+          isAdvanceBooking: payload.isAdvanceBooking,
           freightCost: payload.freightCost,
           labourCost: payload.labourCost,
           previousDue: payload.previousDue,
           _offlinePending: true,
         };
+        if (!queueOrWarn("estimate", {
+          payload, idempotencyKey, placeholderId,
+          partialAmountPaid: v.partialAmountPaid, customerId: v.customerId, date: v.date,
+          rolledEstimateIds: v.rolledEstimateIds,
+        }, placeholder)) return;
         set((state) => {
           let estimates = [placeholder, ...state.estimates];
           if (v.rolledEstimateIds && v.rolledEstimateIds.length) {
@@ -814,6 +855,20 @@ export const useAppStore = create<AppState>()((set, get) => ({
       // is still high-stakes (it can affect stock and payment history), so it
       // goes through the same confirm-first gate as Customers/Items/Payments.
       const estimate = get().estimates.find((x: any) => x.id === id);
+      if (String(id).startsWith("offline-")) {
+        get().confirmThenDelete(
+          "this unsynced estimate",
+          "It hasn't reached the server yet, so this simply discards it (along with any payments or returns you queued for it).",
+          () => {
+            const createAction = findQueuedAction((a) => a.type === "estimate" && a.payload?.placeholderId === id);
+            if (createAction) cancelQueuedAction(createAction.id);
+            set((state) => ({ estimates: state.estimates.filter((x: any) => x.id !== id) }));
+            get().fetchAll();
+            get().showToast("Unsynced estimate discarded");
+          }
+        );
+        return;
+      }
       get().confirmThenDelete(
         estimate?.number || "this estimate",
         "This removes the estimate from your active lists. You can restore it afterward from \"Show deleted\".",
@@ -880,7 +935,6 @@ export const useAppStore = create<AppState>()((set, get) => ({
       return payment;
     } catch (err: any) {
       if (err?.status === 0) {
-        enqueueOfflineAction("payment", v);
         // Optimistic placeholder so the collection shows up in the Payments
         // list right away — a collector needs to see "yes, that's logged"
         // before walking into the next customer's shop with no signal.
@@ -894,7 +948,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
           amount: Number(v.amount),
           _offlinePending: true,
         };
-        set((state) => ({ payments: [optimistic, ...state.payments] }));
+        if (!queueOrWarn("payment", v, optimistic)) return;
+        // adds the payment row AND moves the estimate Due -> Partially Paid -> Paid
+        applyPending(set, get);
         showToast("You're offline — payment saved and will sync automatically once you're back online.");
         closeModal();
         return optimistic;
@@ -913,8 +969,18 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const advanceAmount = Number(v.advanceAmount || 0);
     if (!allocations.length && advanceAmount <= 0) return;
 
+    const results: any[] = [];
+    const commit = () => {
+      set((state) => {
+        const invoiceById: Record<string, any> = {};
+        for (const r of results) if (r.invoice) invoiceById[r.invoice.id] = r.invoice;
+        return {
+          payments: [...results.map((r) => r.payment), ...state.payments],
+          estimates: state.estimates.map((e) => invoiceById[e.id] || e),
+        };
+      });
+    };
     try {
-      const results: any[] = [];
       for (const a of allocations) {
         const { payment, invoice } = await api.payments.create({
           customerId: v.customerId,
@@ -935,14 +1001,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
         results.push({ payment, invoice: null });
       }
 
-      set((state) => {
-        const invoiceById: Record<string, any> = {};
-        for (const r of results) if (r.invoice) invoiceById[r.invoice.id] = r.invoice;
-        return {
-          payments: [...results.map((r) => r.payment), ...state.payments],
-          estimates: state.estimates.map((e) => invoiceById[e.id] || e),
-        };
-      });
+      commit();
 
       const settledCount = results.filter((r) => r.invoice?.status === "Paid").length;
       showToast(
@@ -953,7 +1012,28 @@ export const useAppStore = create<AppState>()((set, get) => ({
             : "Advance payment recorded"
       );
       closeModal();
-    } catch (err) { onApiError(get, err, "Failed to record payment"); }
+    } catch (err: any) {
+      if (err?.status === 0) {
+        // Keep whatever already reached the server, queue the rest as ordinary payments.
+        if (results.length) commit();
+        const doneAllocs = Math.min(results.length, allocations.length);
+        const advanceDone = results.length > allocations.length;
+        const todo: { invoiceId?: string; amount: number }[] = [
+          ...allocations.slice(doneAllocs).map((a) => ({ invoiceId: a.invoiceId, amount: Number(a.amount) })),
+          ...(advanceAmount > 0 && !advanceDone ? [{ amount: advanceAmount }] : []),
+        ];
+        for (const t of todo) {
+          const pv = { customerId: v.customerId, ...(t.invoiceId ? { invoiceId: t.invoiceId } : {}), amount: t.amount, date: v.date, method: v.method };
+          const ph = { id: `offline-pay-${Date.now()}-${Math.random().toString(36).slice(2)}`, ...pv, _offlinePending: true };
+          if (!queueOrWarn("payment", pv, ph)) return;
+        }
+        applyPending(set, get);
+        showToast("You're offline — payment saved and will sync when you're back online.");
+        closeModal();
+        return;
+      }
+      onApiError(get, err, "Failed to record payment");
+    }
   },
 
   saveReturn: async (docId, lines) => {
@@ -975,7 +1055,17 @@ export const useAppStore = create<AppState>()((set, get) => ({
           : "Return recorded, stock updated"
       );
       closeModal();
-    } catch (err) { onApiError(get, err, "Failed to record return"); }
+    } catch (err: any) {
+      if (err?.status === 0) {
+        // `date` is fixed now so the return books on the day it really happened, not the sync day.
+        if (!queueOrWarn("estimateReturn", { docId, lines, date: today() })) return;
+        applyPending(set, get);
+        showToast("You're offline — return saved and will sync when you're back online. Stock and any refund are worked out then.");
+        closeModal();
+        return;
+      }
+      onApiError(get, err, "Failed to record return");
+    }
   },
 
   saveDelivery: async (docId, lines) => {
@@ -1188,7 +1278,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       return result;
     } catch (err: any) {
       if (err?.status === 0) {
-        enqueueOfflineAction("stockTake", { lines, reason, godownId });
+        if (!queueOrWarn("stockTake", { lines, reason, godownId })) return null;
         // Reflect the counted stock locally right away — a godown manager
         // doing a physical count needs to see it take effect immediately,
         // even though the real write hasn't reached the server yet. Synced
@@ -1224,6 +1314,24 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
 }));
 
+/** Re-applies everything still queued onto the on-screen lists (see lib/offlineRehydrate.ts). */
+function applyPending(set: (p: any) => void, get: () => AppState) {
+  const pending = withOfflinePending(get());
+  if (Object.keys(pending).length) set(pending);
+}
+
+/**
+ * Saves an action to the offline queue. If the device's storage is full the
+ * work can't be kept safely, so tell the user plainly instead of pretending
+ * it was saved. Returns false in that case (caller should stop and leave the
+ * form open).
+ */
+function queueOrWarn(type: Parameters<typeof enqueueOfflineAction>[0], payload: any, placeholder?: any): boolean {
+  if (enqueueOfflineAction(type, payload, placeholder)) return true;
+  useAppStore.getState().showToast("Couldn't save offline — this device's storage is full. Free up space or reconnect, then try again.", { duration: 8000 });
+  return false;
+}
+
 /** Shared 401-handling: if the API call failed because the token's gone, sign out; otherwise toast the error. */
 function onApiError(get: () => AppState, err: any, fallback: string) {
   if (err?.status === 401) { get().onSignOut?.(); return; }
@@ -1237,7 +1345,7 @@ function onApiError(get: () => AppState, err: any, fallback: string) {
  * the owner. A longer-than-usual toast, plus a one-tap WhatsApp send so it doesn't
  * just get missed if the owner is mid-sale with a customer waiting.
  */
-function announcePortalAccess(get: () => AppState, doc: any, portalAccess: { phone?: string; pin: string }) {
+export function announcePortalAccess(get: () => AppState, doc: any, portalAccess: { phone?: string; pin: string }) {
   const { showToast, customers } = get();
   const customer = customers.find((c: any) => c.id === doc.customerId);
   const phone = portalAccess.phone || customer?.phone;
@@ -1260,8 +1368,8 @@ function announcePortalAccess(get: () => AppState, doc: any, portalAccess: { pho
  */
 function queueOfflineCustomer(set: (fn: (state: AppState) => Partial<AppState>) => void, v: any) {
   const tempId = `offline-cust-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  enqueueOfflineAction("customer", { payload: v, tempId });
   const placeholder = { id: tempId, ...v, _offlinePending: true };
+  if (!queueOrWarn("customer", { payload: v, tempId }, placeholder)) return null;
   set((state) => ({ customers: [placeholder, ...state.customers] }));
   return placeholder;
 }

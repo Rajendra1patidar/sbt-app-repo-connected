@@ -4,6 +4,7 @@ import { api } from "./lib/api";
 import { AuthScreen } from "./components/AuthScreen";
 import { InvoiceApp } from "./components/InvoiceApp";
 import { CustomerPortal } from "./components/CustomerPortal";
+import { clearPrivateCaches } from "./lib/account";
 
 export default function App() {
   const [authed, setAuthed] = useState<boolean>(!!api.getToken());
@@ -25,7 +26,7 @@ export default function App() {
   if (!authed) return <AuthScreen onAuthed={() => setAuthed(true)} />;
   return (
     <BrowserRouter>
-      <InvoiceApp onSignOut={() => { api.setToken(null); setAuthed(false); }} />
+      <InvoiceApp onSignOut={() => { api.setToken(null); clearPrivateCaches(); setAuthed(false); }} />
     </BrowserRouter>
   );
 }

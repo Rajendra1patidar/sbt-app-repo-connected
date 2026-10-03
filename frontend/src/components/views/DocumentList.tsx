@@ -297,6 +297,7 @@ export function DocumentList({ type, docs, customers, items, payments, currency,
           <p className="truncate text-xs text-ink/40">
             {d.number} · {fmtDate(d.date)}
             {d.isAdvanceBooking ? " · Advance" : ""}
+            {d._offlinePending && d.number !== "Pending sync" ? " · ⏳ Pending sync" : ""}
             {d.notes ? ` · 📝 ${d.notes}` : ""}
           </p>
         </div>

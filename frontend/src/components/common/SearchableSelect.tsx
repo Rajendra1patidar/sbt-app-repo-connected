@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Search } from "lucide-react";
+import { matchRanges, searchItemsRanked } from "../../lib/itemSearch";
 
 // How many rows we actually render at once. With ~500 items, rendering all of
 // them on every keystroke is what makes the list feel sluggish — capping the
@@ -7,40 +8,28 @@ import { ChevronDown, Search } from "lucide-react";
 // list size, while a query almost always narrows well below this anyway.
 const MAX_RESULTS = 40;
 
-function normalize(s: string) {
-  return (s || "").toLowerCase();
+
+// "(current stock: 12)" style suffixes are for display only — keep them out of the search
+function cleanLabel(label: string) {
+  return (label || "").replace(/\s*\((?:current\s+)?stock[^)]*\)\s*$/i, "");
 }
 
-// Ranks a match so "cement" typed for "White Cement 50kg" beats a coincidental
-// substring hit buried in the middle of an unrelated label: exact match first,
-// then "starts with", then "a word inside the label starts with it", then any
-// substring match. Ties keep the original list order.
-// `extra` folds in fields that should be searchable but aren't shown in the
-// label itself (e.g. an item's category) — a category-only match still ranks,
-// just behind a name match, so typing "saria" surfaces every saria item even
-// though "Saria" only appears in their category, not their individual names.
-function matchRank(label: string, extra: string, q: string): number {
-  const l = normalize(label);
-  if (l === q) return 0;
-  if (l.startsWith(q)) return 1;
-  if (l.split(/[\s,()-]+/).some((word) => word.startsWith(q))) return 2;
-  if (l.includes(q)) return 3;
-  const x = normalize(extra);
-  if (x && (x === q || x.split(/[\s,()-]+/).some((word) => word.startsWith(q)) || x.includes(q))) return 4;
-  return -1;
-}
-
-function highlight(label: string, q: string) {
-  if (!q) return label;
-  const idx = normalize(label).indexOf(q);
-  if (idx === -1) return label;
-  return (
-    <>
-      {label.slice(0, idx)}
-      <mark className="rounded-sm bg-brand-100 text-brand-800">{label.slice(idx, idx + q.length)}</mark>
-      {label.slice(idx + q.length)}
-    </>
-  );
+// Smart search: words in any order, spelling mistakes, sizes like 1.25 / 1 1/4,
+// and a "closest matches" fallback — see lib/itemSearch.ts. `keywords` (e.g. an
+// item's category) is searched too, just ranked behind the name.
+function highlight(label: string, query: string) {
+  const clean = cleanLabel(label);
+  const ranges = matchRanges(clean, query);
+  if (!ranges.length) return label;
+  const out: React.ReactNode[] = [];
+  let last = 0;
+  ranges.forEach(([a, b], k) => {
+    out.push(clean.slice(last, a));
+    out.push(<mark key={k} className="rounded-sm bg-brand-100 text-brand-800">{clean.slice(a, b)}</mark>);
+    last = b;
+  });
+  out.push(label.slice(last));
+  return <>{out}</>;
 }
 
 export function SearchableSelect({ options, value, onChange, placeholder }: any) {
@@ -52,18 +41,15 @@ export function SearchableSelect({ options, value, onChange, placeholder }: any)
 
   const selected = options.find((o: any) => o.value === value);
 
-  const filtered = useMemo(() => {
-    const q = normalize(query.trim());
-    if (!q) return options;
-    return options
-      .map((o: any) => ({ o, rank: matchRank(o.label, o.keywords || "", q) }))
-      .filter((x: any) => x.rank !== -1)
-      .sort((a: any, b: any) => a.rank - b.rank)
-      .map((x: any) => x.o);
+  const { filtered, partial } = useMemo(() => {
+    if (!query.trim()) return { filtered: options as any[], partial: false };
+    const pool = options.map((o: any) => ({ id: String(o.value), name: cleanLabel(o.label), category: o.keywords || "", o }));
+    const r = searchItemsRanked(pool, query, { limit: 5000 });
+    return { filtered: r.items.map((x: any) => x.o), partial: r.partial };
   }, [options, query]);
 
   const visible = filtered.slice(0, MAX_RESULTS);
-  const q = normalize(query.trim());
+  const q = query.trim();
 
   useEffect(() => {
     setActiveIndex(0);
@@ -142,6 +128,9 @@ export function SearchableSelect({ options, value, onChange, placeholder }: any)
             />
           </div>
           <div ref={listRef} className="max-h-56 overflow-y-auto">
+            {partial && visible.length > 0 && (
+              <p className="bg-warn-50 px-3 py-1.5 text-[11px] font-semibold text-warn-700">No item has all your words. Closest matches:</p>
+            )}
             {visible.length === 0 ? (
               <p className="px-3 py-2 text-xs text-ink/40">No matches</p>
             ) : (
@@ -157,10 +146,10 @@ export function SearchableSelect({ options, value, onChange, placeholder }: any)
                   } ${i === activeIndex ? "bg-paper" : ""}`}
                 >
                   {highlight(o.label, q)}
-                  {/* the label itself didn't contain the query but the item's category
-                      did (e.g. typing "saria" for an item just named "Kamdhenu 10mm") —
-                      show the category so it's clear why this row matched */}
-                  {o.keywords && q && !normalize(o.label).includes(q) && normalize(o.keywords).includes(q) && (
+                  {/* the label itself didn't match but the item's category did (e.g. typing
+                      "saria" for an item just named "Kamdhenu 10mm") — show the category
+                      so it's clear why this row matched */}
+                  {o.keywords && q && matchRanges(cleanLabel(o.label), q).length === 0 && (
                     <span className="ml-1.5 text-xs font-normal text-ink/40">— {o.keywords}</span>
                   )}
                 </button>

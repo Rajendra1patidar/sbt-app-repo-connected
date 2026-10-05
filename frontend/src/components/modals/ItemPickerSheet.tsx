@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Check, Plus, Search, X } from "lucide-react";
 import { fmtMoney } from "../../lib/format";
-import { queryWords, searchItems } from "../../lib/itemSearch";
+import { matchRanges, searchItemsRanked } from "../../lib/itemSearch";
 
 // Bottom-sheet item picker: search, filter by category, tap to select many
 // items, type each quantity right on its card, then add them all in one go.
@@ -31,13 +31,17 @@ export function ItemPickerSheet({ items, customerName, usualItems, onTheEstimate
     return ["All", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
   }, [items]);
 
-  const tokens = useMemo(() => queryWords(query), [query]);
   const MAX_SHOWN = 100;
-  const list = useMemo(() => {
+  const usualSet = useMemo(() => new Set(usualItems.map((u) => u.id)), [usualItems]);
+  const { list, partial } = useMemo(() => {
     const pool = cat === "All" ? items : items.filter((it) => it.category === cat);
-    if (tokens.length) return searchItems(pool, query, MAX_SHOWN);
-    return [...pool].sort((a, b) => a.name.localeCompare(b.name)).slice(0, MAX_SHOWN);
-  }, [items, cat, query, tokens]);
+    if (query.trim()) {
+      // items this customer buys often are lifted up the list
+      const r = searchItemsRanked(pool, query, { limit: MAX_SHOWN, boost: (it: any) => (usualSet.has(it.id) ? 1 : 0) });
+      return { list: r.items, partial: r.partial };
+    }
+    return { list: [...pool].sort((a, b) => a.name.localeCompare(b.name)).slice(0, MAX_SHOWN), partial: false };
+  }, [items, cat, query, usualSet]);
 
   const toggle = (id: string) => setPick((p) => {
     const next = { ...p };
@@ -56,13 +60,19 @@ export function ItemPickerSheet({ items, customerName, usualItems, onTheEstimate
     onConfirm(ids.map((id) => ({ itemId: id, qty: Number(pick[id]) })));
   };
 
+  // every word you typed is highlighted wherever it matched in the name
   const highlight = (label: string) => {
-    const low = label.toLowerCase();
-    for (const t of tokens) {
-      const i = low.indexOf(t);
-      if (i > -1) return (<>{label.slice(0, i)}<mark className="rounded-sm bg-brand-100 text-brand-800">{label.slice(i, i + t.length)}</mark>{label.slice(i + t.length)}</>);
-    }
-    return label;
+    const ranges = matchRanges(label, query);
+    if (!ranges.length) return label;
+    const out: React.ReactNode[] = [];
+    let last = 0;
+    ranges.forEach(([a, b], k) => {
+      out.push(label.slice(last, a));
+      out.push(<mark key={k} className="rounded-sm bg-brand-100 text-brand-800">{label.slice(a, b)}</mark>);
+      last = b;
+    });
+    out.push(label.slice(last));
+    return <>{out}</>;
   };
 
   const showUsual = !query.trim() && cat === "All" && usualItems.length > 0;
@@ -123,7 +133,9 @@ export function ItemPickerSheet({ items, customerName, usualItems, onTheEstimate
               No match{query.trim() ? ` for "${query.trim()}"` : ""}.{" "}
               {onAddNew && <button type="button" onClick={onAddNew} className="font-semibold text-brand-600">Add as new item</button>}
             </p>
-          ) : list.map((it) => {
+          ) : <>
+          {partial && <p className="mb-2 rounded-lg bg-warn-50 px-3 py-2 text-xs font-semibold text-warn-700">No item has all your words. Closest matches:</p>}
+          {list.map((it) => {
             const sel = it.id in pick;
             const unit = it.trackingMode === "weight" ? "kg" : (it.unit || "");
             const bad = sel && !(Number(pick[it.id]) > 0);
@@ -156,6 +168,7 @@ export function ItemPickerSheet({ items, customerName, usualItems, onTheEstimate
               </div>
             );
           })}
+          </>}
           {list.length >= MAX_SHOWN && <p className="py-2 text-center text-[11px] text-ink/40">Showing the first {MAX_SHOWN}. Search to narrow it down.</p>}
         </div>
 

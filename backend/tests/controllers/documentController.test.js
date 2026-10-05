@@ -12,6 +12,7 @@
 jest.mock("../../models/Document");
 jest.mock("../../models/Item");
 jest.mock("../../models/FinancialYear");
+jest.mock("../../models/Counter");
 jest.mock("../../services/ledgerService");
 jest.mock("../../services/stockService");
 jest.mock("../../services/customerPortalService");
@@ -24,6 +25,7 @@ jest.mock("../../utils/withTransaction", () => ({
 const Document = require("../../models/Document");
 const Item = require("../../models/Item");
 const FinancialYear = require("../../models/FinancialYear");
+const Counter = require("../../models/Counter");
 const ledgerService = require("../../services/ledgerService");
 const stockService = require("../../services/stockService");
 const controller = require("../../controllers/documentController");
@@ -103,7 +105,7 @@ describe("update(estimate) — stock vs ledger repost split", () => {
     const updated = fakeEstimate({ lines: newLines, total: 1500 });
     Document.findOne.mockResolvedValue(existing);
     Document.findOneAndUpdate.mockResolvedValue(updated);
-    Item.findOne.mockReturnValue({ session: jest.fn().mockResolvedValue({ _id: "item1", name: "Widget", trackingMode: "count", purchasePrice: 80 }) });
+    Item.findOne.mockReturnValue({ session: jest.fn().mockResolvedValue({ _id: "item1", name: "Widget", trackingMode: "count", purchasePrice: 80, stock: 100 }) });
     stockService.recordReturnIn.mockResolvedValue({ item: { _id: "item1", stock: 20 }, cogsReversal: 300 });
     stockService.recordStockOut.mockResolvedValue({ item: { _id: "item1", stock: 5, lowStock: 5 }, cogsAmount: 450 });
 
@@ -156,5 +158,51 @@ describe("updateStatus — estimates can no longer have status set directly", ()
 
     expect(Document.findOneAndUpdate).toHaveBeenCalledTimes(1);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ status: "Delivered" }));
+  });
+});
+
+
+describe("create(estimate) — blocks overselling beyond total stock across all godowns", () => {
+  const itemWith = (o) => ({ session: jest.fn().mockResolvedValue({ _id: "item1", name: "Cement PPC", unit: "bag", trackingMode: "unit", purchasePrice: 300, ...o }) });
+  const makeReq = (lines) => ({ userId: "owner1", get: () => undefined, body: { customerId: "c1", date: "2026-10-05", lines, total: 1000 } });
+
+  beforeEach(() => {
+    Counter.findOneAndUpdate.mockResolvedValue({ seq: 1 });
+    Document.create.mockResolvedValue([fakeEstimate()]);
+  });
+
+  test("rejects with 400 when qty is greater than total stock, and deducts nothing", async () => {
+    Item.findOne.mockReturnValue(itemWith({ stock: 10 }));
+    const res = fakeRes(); const next = jest.fn();
+    await controller.create("estimate")(makeReq([{ itemId: "item1", qty: 11, rate: 100 }]), res, next);
+    expect(stockService.recordStockOut).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json.mock.calls[0][0].message).toMatch(/Not enough stock across all godowns/);
+  });
+
+  test("sums multiple rows of the same item before comparing", async () => {
+    Item.findOne.mockReturnValue(itemWith({ stock: 10 }));
+    const res = fakeRes();
+    await controller.create("estimate")(makeReq([{ itemId: "item1", qty: 6, rate: 100 }, { itemId: "item1", qty: 6, rate: 100 }]), res, jest.fn());
+    expect(stockService.recordStockOut).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+  });
+
+  test("allows selling exactly the total stock", async () => {
+    Item.findOne.mockReturnValue(itemWith({ stock: 10 }));
+    stockService.recordStockOut.mockResolvedValue({ item: { _id: "item1", stock: 0, lowStock: 5 }, cogsAmount: 3000 });
+    const res = fakeRes();
+    await controller.create("estimate")(makeReq([{ itemId: "item1", qty: 10, rate: 100 }]), res, jest.fn());
+    expect(stockService.recordStockOut).toHaveBeenCalledTimes(1);
+    expect(res.status).not.toHaveBeenCalledWith(400);
+  });
+
+  test("weight-mode items check kg and pieces separately", async () => {
+    Item.findOne.mockReturnValue(itemWith({ trackingMode: "weight", stock: 5, stockKg: 100 }));
+    const res = fakeRes();
+    await controller.create("estimate")(makeReq([{ itemId: "item1", qty: 50, piecesQty: 6, rate: 100 }]), res, jest.fn());
+    expect(stockService.recordStockOut).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json.mock.calls[0][0].message).toMatch(/pcs/);
   });
 });

@@ -173,6 +173,35 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
       if (!(Number(ln.qty) > 0)) return { msg: `Row ${i + 1} (${name}): enter a quantity.`, anchor: `line-${i}`, row: i };
       if (it?.trackingMode === "weight" && !(Number(ln.piecesQty) > 0)) return { msg: `Row ${i + 1} (${name}): enter pieces removed.`, anchor: `line-${i}`, row: i };
     }
+    if (type === "estimate") {
+      // Total stock across ALL godowns (item.stock / stockKg is the aggregate).
+      // Lines for the same item are summed. When editing, whatever this estimate
+      // already took out of stock is available to it again.
+      const wanted = new Map<string, { qty: number; pieces: number; row: number }>();
+      lines.forEach((ln: any, i: number) => {
+        if (!ln.itemId) return;
+        const w = wanted.get(ln.itemId) || { qty: 0, pieces: 0, row: i };
+        w.qty += Number(ln.qty || 0);
+        w.pieces += Number(ln.piecesQty || 0);
+        wanted.set(ln.itemId, w);
+      });
+      for (const [itemId, w] of wanted) {
+        const it = itemById(itemId);
+        if (!it) continue;
+        const own = (editingDoc?.lines || []).filter((l: any) => l.itemId === itemId);
+        const ownQty = own.reduce((a: number, l: any) => a + Number(l.qty || 0), 0);
+        const ownPcs = own.reduce((a: number, l: any) => a + Number(l.piecesQty || 0), 0);
+        if (it.trackingMode === "weight") {
+          const haveKg = Number(it.stockKg || 0) + ownQty;
+          const havePcs = Number(it.stock || 0) + ownPcs;
+          if (w.qty > haveKg + 0.005) return { msg: `${it.name}: only ${round2(haveKg)} kg in stock across all godowns, you entered ${round2(w.qty)} kg.`, anchor: `line-${w.row}`, row: w.row };
+          if (w.pieces > havePcs + 0.005) return { msg: `${it.name}: only ${round2(havePcs)} pcs in stock across all godowns, you entered ${round2(w.pieces)} pcs.`, anchor: `line-${w.row}`, row: w.row };
+        } else {
+          const have = Number(it.stock || 0) + ownQty;
+          if (w.qty > have + 0.005) return { msg: `${it.name}: only ${round2(have)}${it.unit ? " " + it.unit : ""} in stock across all godowns, you entered ${round2(w.qty)}.`, anchor: `line-${w.row}`, row: w.row };
+        }
+      }
+    }
     if (!partialValid) return { msg: `Enter a partial amount more than 0 and less than ${fmtMoney(total, "")}.`, anchor: "doc-payment" };
     return null;
   };

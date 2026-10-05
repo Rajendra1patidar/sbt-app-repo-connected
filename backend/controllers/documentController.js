@@ -113,6 +113,50 @@ exports.getOne = (type) => async (req, res, next) => {
   }
 };
 
+// Blocks an estimate whose lines ask for more of an item than is actually in
+// stock across ALL godowns (item.stock / item.stockKg is the aggregate). Lines
+// for the same item are summed first, so two rows of the same item can't each
+// pass on their own and still oversell together. Runs before any deduction, and
+// inside the same transaction as the write — on edit/restore the old quantities
+// have already been put back by reverseEstimateEffects, so what's compared here
+// is the true available stock. Weight-mode items check kg (line.qty) and pieces
+// (line.piecesQty) separately, since the two are tracked independently.
+async function assertStockSufficient(owner, lines, session) {
+  const need = new Map();
+  for (const line of lines || []) {
+    if (!line.itemId) continue;
+    const qty = Number(line.qty || 0);
+    if (qty <= 0) continue;
+    const key = String(line.itemId);
+    const cur = need.get(key) || { qty: 0, pieces: 0 };
+    cur.qty += qty;
+    cur.pieces += Number(line.piecesQty || 0);
+    need.set(key, cur);
+  }
+  const problems = [];
+  for (const [itemId, n] of need) {
+    const item = await Item.findOne({ _id: itemId, owner }).session(session || null);
+    if (!item) continue;
+    const isWeight = item.trackingMode === "weight";
+    const unit = item.unit ? ` ${item.unit}` : "";
+    if (isWeight) {
+      const haveKg = Number(item.stockKg) || 0;
+      const havePcs = Number(item.stock) || 0;
+      if (n.qty > haveKg + 0.005) problems.push(`${item.name}: need ${round2(n.qty)} kg, only ${round2(haveKg)} kg in stock`);
+      else if (n.pieces > havePcs + 0.005) problems.push(`${item.name}: need ${round2(n.pieces)} pcs, only ${round2(havePcs)} pcs in stock`);
+    } else {
+      const have = Number(item.stock) || 0;
+      if (n.qty > have + 0.005) problems.push(`${item.name}: need ${round2(n.qty)}${unit}, only ${round2(have)}${unit} in stock`);
+    }
+  }
+  if (problems.length) {
+    const err = new Error(`Not enough stock across all godowns — ${problems.join("; ")}`);
+    err.status = 400;
+    err.code = "INSUFFICIENT_STOCK";
+    throw err;
+  }
+}
+
 // Deducts stock for each line (fresh weighted-average cost basis) and posts the
 // ledger entries that make an estimate real: Sales/AR, COGS/Stock, and — if the
 // document is already fully paid up front — the Paid-in-full settlement.
@@ -129,6 +173,7 @@ async function applyEstimateEffects(owner, doc, lines, session, { skipStock = fa
   let lowStock = [];
   let totalCogs = skipStock ? Number(doc.cogsTotal || 0) : 0;
   if (!skipStock && Array.isArray(lines) && lines.length) {
+    await assertStockSufficient(owner, lines, session);
     for (const line of lines) {
       if (!line.itemId) continue;
       const qty = Number(line.qty || 0);

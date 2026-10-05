@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ChevronDown, Pencil, Plus, Trash2, X } from "lucide-react";
 import { SearchableSelect } from "../common/SearchableSelect";
 import { RateEditPopup } from "./RateEditPopup";
 import { QuickAddCustomerPopup } from "./QuickAddCustomerPopup";
 import { QuickAddItemPopup } from "./QuickAddItemPopup";
+import { ItemPickerSheet } from "./ItemPickerSheet";
 import { fmtMoney, today, round2 } from "../../lib/format";
 import { InvoiceLine } from "../../types/index";
 import { api } from "../../lib/api";
@@ -30,7 +31,7 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
   const [customerId, setCustomerId] = useState(editingDoc?.customerId || prefillCustomerId || "");
   const [date, setDate] = useState(editingDoc?.date ? String(editingDoc.date).slice(0, 10) : today());
   const [dueDate, setDueDate] = useState(editingDoc?.dueDate ? String(editingDoc.dueDate).slice(0, 10) : today());
-  const [lines, setLines] = useState<InvoiceLine[]>(editingDoc?.lines?.length ? editingDoc.lines.map((ln: InvoiceLine) => ({ ...ln })) : [{ itemId: "", qty: 1, rate: 0, discountAmount: 0 }]);
+  const [lines, setLines] = useState<InvoiceLine[]>(editingDoc?.lines?.length ? editingDoc.lines.map((ln: InvoiceLine) => ({ ...ln })) : []);
   const [notes, setNotes] = useState(editingDoc?.notes || "");
   const [rateEditIndex, setRateEditIndex] = useState<number | null>(null);
   const [freightCost, setFreightCost] = useState(editingDoc?.freightCost ? String(editingDoc.freightCost) : "");
@@ -44,11 +45,18 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
   const [addingCustomer, setAddingCustomer] = useState(false);
   const [showAddItem, setShowAddItem] = useState(false);
   const [addingItem, setAddingItem] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
   const [customerOutstanding, setCustomerOutstanding] = useState<number | null>(null);
   // payment status is only decided at creation — edits keep the document's
   // existing status untouched, same as the previous popup-based flow
   const [paymentChoice, setPaymentChoice] = useState<typeof PAYMENT_CHOICES[number]["key"]>("due");
   const [partialAmount, setPartialAmount] = useState("");
+  // which item row is expanded (-1 = none), and what Save found missing
+  const [openIdx, setOpenIdx] = useState<number>(-1);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [errorRow, setErrorRow] = useState<number | null>(null);
+
+  useEffect(() => { setSaveError(null); setErrorRow(null); }, [lines, customerId, partialAmount]);
 
   useEffect(() => {
     if (type !== "estimate" || destinationTouched) return;
@@ -71,17 +79,62 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
   const knownContractors = Array.from(new Set((estimates || []).map((e: any) => e.contractorName).filter(Boolean))) as string[];
   const knownDestinations = Array.from(new Set((estimates || []).map((e: any) => e.destination).filter(Boolean))) as string[];
 
-  const addLine = () => setLines((l) => [...l, { itemId: "", qty: 1, rate: 0, discountAmount: 0 }]);
+  // Items picked in the sheet are added in one go. An item already on the
+  // estimate gets the picked quantity added to its existing line.
+  const addPickedItems = (picked: { itemId: string; qty: number }[]) => {
+    const next = [...lines];
+    let firstNeedsPieces = -1;
+    for (const p of picked) {
+      const it = activeItems.find((x: any) => x.id === p.itemId);
+      if (!it) continue;
+      const at = next.findIndex((l) => l.itemId === p.itemId);
+      if (at > -1) {
+        next[at] = { ...next[at], qty: Number(next[at].qty || 0) + p.qty };
+      } else {
+        next.push({ itemId: p.itemId, qty: p.qty, rate: it.sellingPrice || 0, discountAmount: 0 });
+        if (it.trackingMode === "weight" && firstNeedsPieces === -1) firstNeedsPieces = next.length - 1;
+      }
+    }
+    setLines(next);
+    setOpenIdx(firstNeedsPieces); // weight items still need "pieces removed", so open the first one
+    setShowPicker(false);
+  };
+
+  // the customer's most-bought items from their earlier estimates, for the picker's quick row
+  const usualItems = useMemo(() => {
+    if (!customerId) return [];
+    const counts = new Map<string, number>();
+    (estimates || []).filter((e: any) => e.customerId === customerId).forEach((e: any) => {
+      (e.lines || []).forEach((ln: any) => { if (ln.itemId) counts.set(ln.itemId, (counts.get(ln.itemId) || 0) + 1); });
+    });
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 8)
+      .map(([id]) => activeItems.find((it: any) => it.id === id)).filter(Boolean) as any[];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customerId, estimates, items]);
+  const stockAt = (itm: any, godownId?: string) => {
+    if (!itm) return { stock: 0, stockKg: 0 };
+    if (!godowns || godowns.length <= 1) return { stock: itm.stock ?? 0, stockKg: itm.stockKg ?? 0 };
+    const gid = godownId || godowns.find((g: any) => g.isDefault)?.id || godowns[0]?.id;
+    const entry = (itm.stockByGodown || []).find((g: any) => String(g.godownId) === String(gid));
+    return { stock: entry?.stock ?? 0, stockKg: entry?.stockKg ?? 0 };
+  };
+  const searchStockLabel = (it: any) => {
+    const s = stockAt(it);
+    return it.trackingMode === "weight" ? `stock ${s.stockKg ?? 0}kg / ${s.stock ?? 0}pc` : `stock ${s.stock ?? 0}${it.unit ? " " + it.unit : ""}`;
+  };
   const updateLine = (i: number, patch: any) => setLines((l) => l.map((ln, idx) => idx === i ? { ...ln, ...patch } : ln));
   const setLineItem = (i: number, itemId: string) => {
     const it = activeItems.find((it: any) => it.id === itemId);
     updateLine(i, { itemId, rate: it?.sellingPrice || 0 });
   };
-  const removeLine = (i: number) => setLines((l) => l.filter((_, idx) => idx !== i));
+  const removeLine = (i: number) => { setLines((l) => l.filter((_, idx) => idx !== i)); setOpenIdx(-1); };
   const itemById = (id: string) => items.find((it: any) => it.id === id);
   const itemsGrossSubtotal = round2(lines.reduce((sum, ln) => sum + Number(ln.qty || 0) * Number(ln.rate || 0), 0));
   const itemsDiscountTotal = round2(lines.reduce((sum, ln) => sum + Number(ln.discountAmount || 0), 0));
   const itemsSubtotal = round2(itemsGrossSubtotal - itemsDiscountTotal);
+  const filledLines = lines.filter((l) => l.itemId);
+  const itemCount = filledLines.length;
+  const totalQty = round2(filledLines.reduce((sum, ln) => sum + Number(ln.qty || 0), 0));
 
   const previousDueEstimates = type === "estimate" && !isEditing ? (estimates || []).filter((e: any) => e.customerId === customerId && e.status !== "Paid") : [];
   const previousDueAmount = round2(previousDueEstimates.reduce((s: number, e: any) => s + (Number(e.total || 0) - Number(e.amountPaid || 0)), 0));
@@ -107,12 +160,25 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
     estimate: isEditing ? "Edit Estimate" : "New Estimate",
     challan: isEditing ? "Edit Delivery Challan" : "New Delivery Challan",
   };
-  const canSave = customerId && lines.length > 0 && lines.every((l) => l.itemId) &&
-    lines.every((l) => { const it = itemById(l.itemId); return it?.trackingMode !== "weight" || Number(l.piecesQty) > 0; }) &&
-    partialValid;
+  // Save is never greyed out silently: tapping it checks everything and points
+  // at the first thing that is missing.
+  const findProblem = (): { msg: string; anchor?: string; row?: number } | null => {
+    if (!customerId) return { msg: "Select a customer.", anchor: "doc-customer" };
+    if (itemCount === 0) return { msg: "Add at least one item using the search bar.", anchor: "doc-items" };
+    for (let i = 0; i < lines.length; i++) {
+      const ln = lines[i];
+      if (!ln.itemId) continue; // empty rows are ignored
+      const it = itemById(ln.itemId);
+      const name = it?.name || "Item";
+      if (!(Number(ln.qty) > 0)) return { msg: `Row ${i + 1} (${name}): enter a quantity.`, anchor: `line-${i}`, row: i };
+      if (it?.trackingMode === "weight" && !(Number(ln.piecesQty) > 0)) return { msg: `Row ${i + 1} (${name}): enter pieces removed.`, anchor: `line-${i}`, row: i };
+    }
+    if (!partialValid) return { msg: `Enter a partial amount more than 0 and less than ${fmtMoney(total, "")}.`, anchor: "doc-payment" };
+    return null;
+  };
 
   const buildPayload = () => ({
-    customerId, date, dueDate, lines, notes, total,
+    customerId, date, dueDate, lines: lines.filter((l) => l.itemId), notes, total,
     freightCost: Number(freightCost || 0), labourCost: Number(labourCost || 0), previousDue,
     rolledEstimateIds: includePreviousDue ? previousDueEstimates.map((e: any) => e.id) : [],
     contractorName, destination,
@@ -144,6 +210,7 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
       const item = await onQuickAddItem(v);
       if (item) {
         setLines((l) => [...l, { itemId: item.id, qty: 1, rate: item.sellingPrice || 0, discountAmount: 0 }]);
+        setOpenIdx(lines.length);
         setShowAddItem(false);
       }
     } finally {
@@ -152,7 +219,15 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
   };
 
   const handleSaveClick = () => {
-    if (!canSave || saving) return;
+    if (saving) return;
+    const problem = findProblem();
+    if (problem) {
+      setSaveError(problem.msg);
+      setErrorRow(problem.row ?? null);
+      if (problem.row !== undefined) setOpenIdx(problem.row);
+      if (problem.anchor) setTimeout(() => document.getElementById(problem.anchor!)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
+      return;
+    }
     setSaving(true);
     Promise.resolve(onSave(buildPayload())).finally(() => setSaving(false));
   };
@@ -172,7 +247,7 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
           : (
           <div className="space-y-5">
             <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 sm:col-span-1">
+              <div id="doc-customer" className="col-span-2 sm:col-span-1">
                 {/* h-6 on every header row (label-only or label+button) keeps the
                     inputs below them starting at the same y — the "New" pill
                     button is taller than a plain label, so without a matching
@@ -222,9 +297,9 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
               </div>
             )}
 
-            <div className="border-t border-line pt-4">
+            <div id="doc-items" className="border-t border-line pt-4">
               <div className="mb-2 flex items-center justify-between">
-                <label className="block text-xs font-semibold text-ink/50">Items *</label>
+                <label className="block text-xs font-semibold text-ink/50">Items * <span className="font-normal text-ink/40">({itemCount})</span></label>
                 {onQuickAddItem && (
                   <button type="button" onClick={() => setShowAddItem(true)}
                     className="flex items-center gap-1.5 rounded-full bg-brand-50 py-1 pl-1.5 pr-3 text-xs font-bold text-brand-700 transition-all duration-150 hover:bg-brand-100 active:scale-95">
@@ -233,110 +308,106 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
                   </button>
                 )}
               </div>
-              <div className="space-y-2">
-                {/* Stock for `item` at `godownId` (falling back to the owner's default
-                    godown when no godown is picked yet, matching backend resolveGodownId).
-                    With a single godown (or none), item.stock/stockKg IS the whole picture,
-                    so we skip the per-location lookup and use those directly. */}
+              <button type="button" onClick={() => setShowPicker(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-brand-300 bg-brand-50 px-4 py-3 text-sm font-bold text-brand-700 transition hover:bg-brand-100 active:scale-[0.99]">
+                <Plus size={18} /> Add items
+              </button>
+              {lines.length > 0 && (
+              <div className="mt-3 overflow-hidden rounded-xl border border-line bg-paper/40">
                 {lines.map((ln, i) => {
                   const it = itemById(ln.itemId);
+                  if (!ln.itemId) {
+                    // an empty row (only possible on an old document) — shown so it can be removed, ignored on save
+                    return (
+                      <div key={i} id={`line-${i}`} className="flex items-center justify-between gap-2 border-t border-line px-3 py-2 first:border-t-0">
+                        <span className="text-xs text-ink/40">Empty row (ignored when saving)</span>
+                        <button type="button" onClick={() => removeLine(i)} className="rounded-full p-1.5 text-bad-500 hover:bg-bad-50"><Trash2 size={15} /></button>
+                      </div>
+                    );
+                  }
                   const isWeight = it?.trackingMode === "weight";
-                  const isOverridden = type === "estimate" && it && Number(ln.rate) !== Number(it.sellingPrice);
+                  const isEstimate = type === "estimate";
+                  const isOverridden = isEstimate && it && Number(ln.rate) !== Number(it.sellingPrice);
                   const lineGross = Number(ln.qty || 0) * Number(ln.rate || 0);
                   const lineDiscount = Number(ln.discountAmount || 0);
                   const lineSubtotal = lineGross - lineDiscount;
-                  const stockAtLineGodown = (itm: any) => {
-                    if (!itm) return { stock: 0, stockKg: 0 };
-                    if (!godowns || godowns.length <= 1) return { stock: itm.stock ?? 0, stockKg: itm.stockKg ?? 0 };
-                    const gid = ln.godownId || godowns.find((g: any) => g.isDefault)?.id || godowns[0]?.id;
-                    const entry = (itm.stockByGodown || []).find((g: any) => String(g.godownId) === String(gid));
-                    return { stock: entry?.stock ?? 0, stockKg: entry?.stockKg ?? 0 };
-                  };
-                  const godownStock = stockAtLineGodown(it);
+                  const godownStock = stockAt(it, ln.godownId);
                   const exceedsStock = it && (isWeight ? Number(ln.qty) > (godownStock.stockKg ?? 0) : Number(ln.qty) > (godownStock.stock ?? 0));
                   const exceedsPieces = it && isWeight && Number(ln.piecesQty || 0) > (godownStock.stock ?? 0);
+                  const isOpen = openIdx === i;
+                  const unit = isWeight ? "kg" : (it?.unit || "");
+                  const stockText = isWeight ? `${godownStock.stockKg ?? 0}kg` : `${godownStock.stock ?? 0}`;
                   return (
-                    <div key={i} style={{ animationDelay: `${Math.min(i, 6) * 25}ms` }} className="animate-row-in rounded-xl border border-line bg-paper/60 p-2.5">
-                      <div className="mb-2.5 flex items-center gap-2 border-b border-line/70 pb-2.5">
-                        <div className="min-w-0 flex-1">
-                          <SearchableSelect
-                            options={(it?.deleted ? [...activeItems, it] : activeItems).map((opt: any) => {
-                              const s = stockAtLineGodown(opt);
-                              return {
-                                value: opt.id,
-                                label: opt.deleted ? `${opt.name} (deleted)` : `${opt.name} (stock: ${opt.trackingMode === "weight" ? `${s.stockKg ?? 0}kg / ${s.stock ?? 0}pc` : s.stock ?? 0})`,
-                                keywords: opt.category || "",
-                              };
-                            })}
-                            value={ln.itemId}
-                            onChange={(v: string) => setLineItem(i, v)}
-                            placeholder="Select item"
-                          />
-                        </div>
-                        {(exceedsStock || exceedsPieces) && <span title="Exceeds stock" className="shrink-0"><AlertTriangle size={14} className="text-warn-500" /></span>}
-                        {lines.length > 1 && <button onClick={() => removeLine(i)} className="shrink-0 rounded-full p-1.5 text-bad-500 hover:bg-bad-50"><Trash2 size={15} /></button>}
+                    <div key={i} id={`line-${i}`} className={`border-t border-line first:border-t-0 ${errorRow === i ? "bg-bad-50" : ""}`}>
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 px-3 py-2">
+                        <button type="button" onClick={() => setOpenIdx(isOpen ? -1 : i)} className="min-w-0 text-left">
+                          <span className={`flex gap-1.5 ${isOpen ? "flex-wrap items-center" : "items-center"}`}>
+                            <span className={`text-sm font-semibold leading-snug text-ink ${isOpen ? "break-words" : "truncate"}`}>{it?.deleted ? `${it.name} (deleted)` : it?.name || "Item"}</span>
+                            {(exceedsStock || exceedsPieces) && <span title="Exceeds stock" className="shrink-0"><AlertTriangle size={14} className="text-warn-500" /></span>}
+                            {isOverridden && <span className="shrink-0 rounded-full bg-warn-50 px-1.5 py-px text-[10px] font-semibold text-warn-700">rate changed</span>}
+                            {isEstimate && lineDiscount > 0 && <span className="shrink-0 rounded-full bg-good-50 px-1.5 py-px text-[10px] font-semibold text-good-700">disc −{fmtMoney(lineDiscount, "")}</span>}
+                          </span>
+                          <span className="block truncate text-[11.5px] text-ink/50">
+                            {Number(ln.qty || 0)} {unit}{isEstimate ? ` × ${fmtMoney(Number(ln.rate || 0), "")}` : ""}{isWeight && Number(ln.piecesQty) > 0 ? ` · ${ln.piecesQty} pcs` : ""} · stock {stockText}
+                          </span>
+                        </button>
+                        <input type="number" inputMode="decimal" min="0.01" step="0.01" value={ln.qty} onChange={(e) => updateLine(i, { qty: e.target.value })}
+                          aria-label="Quantity" className="h-8 w-14 rounded-lg border border-line bg-card px-1 text-center text-sm font-semibold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+                        <div className="min-w-[4rem] text-right font-display text-sm font-bold tabular-nums text-ink">{isEstimate ? fmtMoney(lineSubtotal, "") : ""}</div>
                       </div>
-                      <div className={`grid gap-1.5 ${type === "estimate" ? "grid-cols-4" : "grid-cols-2"}`}>
-                        <div>
-                          <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink/35">{isWeight ? "Weight (kg)" : "Qty"}</span>
-                          <input type="number" min="0.01" step="0.01" value={ln.qty} onChange={(e) => updateLine(i, { qty: e.target.value })} className="w-full rounded-lg border border-line px-2 py-1.5 text-sm" />
-                        </div>
-                        {type === "estimate" && (
-                          <div>
-                            <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink/35">Rate{isWeight ? "/kg" : ""}</span>
-                            <button type="button" onClick={() => setRateEditIndex(i)}
-                              className={`relative flex w-full items-center justify-between gap-1 rounded-lg border px-2 py-1.5 text-sm font-semibold tabular-nums ${isOverridden ? "border-warn-200 bg-warn-50 text-warn-700" : "border-brand-100 bg-brand-50 text-brand-700"}`}>
-                              <span className="truncate">{fmtMoney(Number(ln.rate || 0), "")}</span>
-                              <Pencil size={11} className="shrink-0 opacity-70" />
-                              {isOverridden && <span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-warn-500" />}
-                            </button>
+                      {isOpen && (
+                        <div className="bg-paper px-3 pb-3 pt-1">
+                          <div className="grid grid-cols-2 gap-2">
+                            {isEstimate && (
+                              <div>
+                                <span className="mb-0.5 block text-[11px] font-semibold text-ink/40">Rate{isWeight ? " / kg" : ""}</span>
+                                <button type="button" onClick={() => setRateEditIndex(i)}
+                                  className={`relative flex w-full items-center justify-between gap-1 rounded-lg border px-2 py-1.5 text-sm font-semibold tabular-nums ${isOverridden ? "border-warn-200 bg-warn-50 text-warn-700" : "border-brand-100 bg-brand-50 text-brand-700"}`}>
+                                  <span className="truncate">{fmtMoney(Number(ln.rate || 0), "")}</span>
+                                  <Pencil size={11} className="shrink-0 opacity-70" />
+                                </button>
+                              </div>
+                            )}
+                            {isEstimate && (
+                              <div>
+                                <span className="mb-0.5 block text-[11px] font-semibold text-ink/40">Discount</span>
+                                <input type="number" min="0" max={lineGross || undefined} value={ln.discountAmount || ""}
+                                  onChange={(e) => updateLine(i, { discountAmount: e.target.value })}
+                                  placeholder="0" className="w-full rounded-lg border border-line bg-card px-2 py-1.5 text-sm" />
+                              </div>
+                            )}
+                            {isWeight && (
+                              <>
+                                <div>
+                                  <span className="mb-0.5 block text-[11px] font-semibold text-ink/40">Pieces removed</span>
+                                  <input type="number" min="1" value={ln.piecesQty ?? ""} onChange={(e) => updateLine(i, { piecesQty: e.target.value })} placeholder="0" className="w-full rounded-lg border border-line bg-card px-2 py-1.5 text-sm" />
+                                </div>
+                                {Number(it?.avgWeightPerPiece) > 0 && (
+                                  <div className="flex items-end pb-1.5 text-[11px] text-ink/40">
+                                    avg {Number(it.avgWeightPerPiece).toFixed(2)}kg/pc — expect ~{(Number(it.avgWeightPerPiece) * Number(ln.piecesQty || 0)).toFixed(1)}kg
+                                  </div>
+                                )}
+                              </>
+                            )}
+                            {godowns && godowns.length > 1 && (
+                              <div className="col-span-2">
+                                <span className="mb-0.5 block text-[11px] font-semibold text-ink/40">Dispatch from</span>
+                                <div className="relative">
+                                  <select
+                                    value={ln.godownId || godowns.find((g: any) => g.isDefault)?.id || godowns[0]?.id || ""}
+                                    onChange={(e) => updateLine(i, { godownId: e.target.value })}
+                                    className="w-full appearance-none rounded-lg border border-line bg-card px-2 py-1.5 pr-7 text-sm text-ink focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                                  >
+                                    {godowns.map((g: any) => <option key={g.id} value={g.id}>{g.name}{g.isDefault ? " (Default)" : ""}</option>)}
+                                  </select>
+                                  <ChevronDown size={14} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-ink/40" />
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        )}
-                        {type === "estimate" && (
-                          <div>
-                            <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink/35">Disc.</span>
-                            <input
-                              type="number" min="0" max={lineGross || undefined} value={ln.discountAmount || ""}
-                              onChange={(e) => updateLine(i, { discountAmount: e.target.value })}
-                              placeholder="0" className="w-full rounded-lg border border-line px-2 py-1.5 text-sm"
-                            />
-                          </div>
-                        )}
-                        <div>
-                          <span className="mb-0.5 block text-right text-[10px] font-semibold uppercase tracking-wide text-ink/35">Amount</span>
-                          <div className="py-1.5 text-right font-display text-sm font-bold text-ink tabular-nums">{fmtMoney(lineSubtotal, "")}</div>
-                        </div>
-                      </div>
-                      {isWeight && (
-                        <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-                          <div>
-                            <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink/35">Pieces removed</span>
-                            <input type="number" min="1" value={ln.piecesQty ?? ""} onChange={(e) => updateLine(i, { piecesQty: e.target.value })} placeholder="0" className="w-full rounded-lg border border-line px-2 py-1.5 text-sm" />
-                          </div>
-                          {Number(it?.avgWeightPerPiece) > 0 && (
-                            <div className="flex items-end pb-1.5 text-[11px] text-ink/40">
-                              avg {Number(it.avgWeightPerPiece).toFixed(2)}kg/pc — expect ~{(Number(it.avgWeightPerPiece) * Number(ln.piecesQty || 0)).toFixed(1)}kg
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {godowns && godowns.length > 1 && (
-                        <div className="mt-1.5">
-                          <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink/35">Dispatch from</span>
-                          {/* A bare <select> keeps the browser/OS's native border and
-                              focus ring no matter what border classes we give it, so it
-                              always looked heavier and less rounded than every other
-                              field on the card. appearance-none strips that chrome and
-                              we draw our own chevron so it matches the rest of the form. */}
-                          <div className="relative">
-                            <select
-                              value={ln.godownId || godowns.find((g: any) => g.isDefault)?.id || godowns[0]?.id || ""}
-                              onChange={(e) => updateLine(i, { godownId: e.target.value })}
-                              className="w-full appearance-none rounded-lg border border-line bg-card px-2 py-1.5 pr-7 text-sm text-ink focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                            >
-                              {godowns.map((g: any) => <option key={g.id} value={g.id}>{g.name}{g.isDefault ? " (Default)" : ""}</option>)}
-                            </select>
-                            <ChevronDown size={14} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-ink/40" />
+                          <div className="mt-2 flex items-center justify-between">
+                            <span className="text-[11px] text-ink/40">{isEstimate && it ? `List rate ${fmtMoney(Number(it.sellingPrice || 0), "")}` : ""}</span>
+                            <button type="button" onClick={() => removeLine(i)} className="flex items-center gap-1 text-xs font-semibold text-bad-600"><Trash2 size={13} /> Remove</button>
                           </div>
                         </div>
                       )}
@@ -344,13 +415,16 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
                   );
                 })}
               </div>
-              <button
-                type="button"
-                onClick={addLine}
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-brand-300 bg-brand-50 px-4 py-3.5 text-sm font-bold text-brand-600 transition hover:bg-brand-100 hover:border-brand-400 active:scale-[0.98]"
-              >
-                <Plus size={19} /> Add line
-              </button>
+              )}
+            </div>
+
+            {/* quick totals for the items, right above the contractor name */}
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-brand-100 bg-brand-50 px-3 py-2.5">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="shrink-0 rounded-full bg-brand-600 px-2.5 py-0.5 text-xs font-bold text-white">{itemCount} item{itemCount === 1 ? "" : "s"}</span>
+                <span className="truncate text-xs text-brand-700">Qty <b className="font-semibold">{totalQty.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</b></span>
+              </div>
+              {type === "estimate" && <span className="shrink-0 font-display text-base font-bold tabular-nums text-brand-700">{fmtMoney(itemsSubtotal, "")}</span>}
             </div>
 
             {type === "estimate" && (
@@ -420,7 +494,7 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
             </div>
 
             {showPaymentPanel && (
-              <div>
+              <div id="doc-payment">
                 <label className="mb-2 block text-xs font-semibold text-ink/50">Payment status</label>
                 <div className="grid grid-cols-4 gap-1.5">
                   {PAYMENT_CHOICES.map((c) => (
@@ -456,9 +530,10 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
             )}
           </div>
         )}
+        {saveError && <p className="mt-4 rounded-xl bg-bad-50 px-3 py-2 text-xs font-semibold text-bad-700">{saveError}</p>}
         <div className="mt-6 flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
-          <button disabled={!canSave || saving} onClick={handleSaveClick}
+          <button disabled={saving} onClick={handleSaveClick}
             className="flex-1 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40">{saving ? "Saving…" : isEditing ? "Save changes" : `Save ${type}`}</button>
         </div>
       </div>
@@ -476,6 +551,18 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
           />
         );
       })()}
+      {showPicker && (
+        <ItemPickerSheet
+          items={activeItems}
+          customerName={selectedCustomer?.name}
+          usualItems={usualItems}
+          onTheEstimateIds={new Set(lines.map((l) => l.itemId))}
+          stockLabel={searchStockLabel}
+          onConfirm={addPickedItems}
+          onClose={() => setShowPicker(false)}
+          onAddNew={onQuickAddItem ? () => { setShowPicker(false); setShowAddItem(true); } : undefined}
+        />
+      )}
       {showAddCustomer && (
         <QuickAddCustomerPopup
           saving={addingCustomer}

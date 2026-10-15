@@ -3,6 +3,7 @@ const User = require("../models/User");
 const Settings = require("../models/Settings");
 const { sendMail } = require("../utils/mailer");
 const { findOwnerUsers } = require("../utils/ownerAccounts");
+const { invalidateAuthCache } = require("../middleware/auth");
 
 function signToken(id) {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "30d" });
@@ -226,6 +227,7 @@ exports.removeStaff = async (req, res, next) => {
   try {
     const staff = await User.findOneAndDelete({ _id: req.params.id, ownerId: req.userId, role: "staff" });
     if (!staff) return res.status(404).json({ message: "Not found" });
+    invalidateAuthCache(staff._id);
     res.json({ message: "Staff account removed", id: req.params.id });
   } catch (err) {
     next(err);

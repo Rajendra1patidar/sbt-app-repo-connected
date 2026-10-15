@@ -3,7 +3,7 @@ jest.mock("../../models/User");
 
 const jwt = require("jsonwebtoken");
 const User = require("../../models/User");
-const { protect } = require("../../middleware/auth");
+const { protect, invalidateAuthCache } = require("../../middleware/auth");
 
 function fakeReq(token) {
   return { headers: { authorization: token ? `Bearer ${token}` : "" } };
@@ -14,6 +14,7 @@ function fakeRes() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  invalidateAuthCache(); // the lookup cache would otherwise leak between tests
 });
 
 describe("protect", () => {
@@ -74,5 +75,18 @@ describe("protect", () => {
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();
+  });
+
+  test("caches the account lookup, and invalidateAuthCache forces a fresh read", async () => {
+    jwt.verify.mockReturnValue({ id: "staffAccount1" });
+    User.findById.mockReturnValue({ select: jest.fn().mockResolvedValue({ role: "staff", ownerId: "owner1" }) });
+
+    await protect(fakeReq("t"), fakeRes(), jest.fn());
+    await protect(fakeReq("t"), fakeRes(), jest.fn());
+    expect(User.findById).toHaveBeenCalledTimes(1);
+
+    invalidateAuthCache("staffAccount1");
+    await protect(fakeReq("t"), fakeRes(), jest.fn());
+    expect(User.findById).toHaveBeenCalledTimes(2);
   });
 });

@@ -25,13 +25,13 @@ exports.list = async (req, res, next) => {
     const limit = parseInt(req.query.limit, 10);
     if (page > 0 && limit > 0) {
       const [docs, total] = await Promise.all([
-        query.skip((page - 1) * limit).limit(limit),
+        query.skip((page - 1) * limit).limit(limit).lean(),
         Purchase.countDocuments(filter),
       ]);
       res.set("X-Total-Count", String(total));
       return res.json(docs);
     }
-    const docs = await query;
+    const docs = await query.lean();
     res.json(docs);
   } catch (err) {
     next(err);

@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
+const compression = require("compression");
 const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
 const connectDB = require("./config/db");
@@ -44,6 +45,8 @@ app.set("trust proxy", 1);
 connectDB();
 // ---- core middleware ----
 app.use(helmet());
+// gzip JSON responses — the startup lists are large and mobile data is slow.
+app.use(compression());
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 app.use(express.json({ limit: "2mb" }));
 const allowedOrigins = (process.env.CORS_ORIGIN || "")

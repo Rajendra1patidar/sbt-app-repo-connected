@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Item = require("../models/Item");
 const StockMovement = require("../models/StockMovement");
 
@@ -34,27 +35,29 @@ async function computeDeadStock(owner, { daysThreshold = DEAD_STOCK_DAYS } = {})
   const cutoffDate = daysAgoDateString(daysThreshold);
   const cutoffCreatedAt = new Date(Date.now() - daysThreshold * 24 * 60 * 60 * 1000);
 
-  const items = await Item.find({ owner, deleted: { $ne: true } });
-  const results = [];
+  // Two queries total, regardless of how many items there are: the item list, and
+  // each item's most recent Estimate sale date in one grouped pass. (This used to
+  // run 1–2 StockMovement queries per item.) "Has a recent sale" is just
+  // lastSaleDate >= cutoff, and lastSaleDate doubles as the report's last-sale column.
+  const ownerId = mongoose.Types.ObjectId.isValid(owner) ? new mongoose.Types.ObjectId(owner) : owner;
+  const [items, lastSales] = await Promise.all([
+    Item.find({ owner, deleted: { $ne: true } }).lean(),
+    StockMovement.aggregate([
+      { $match: { owner: ownerId, direction: "out", sourceType: "Estimate" } },
+      { $group: { _id: "$itemId", lastSaleDate: { $max: "$date" } } },
+    ]),
+  ]);
+  const lastSaleByItem = new Map(lastSales.map((r) => [String(r._id), r.lastSaleDate]));
 
+  const results = [];
   for (const item of items) {
     const isWeight = item.trackingMode === "weight";
     const onHand = isWeight ? Number(item.stockKg || 0) : Number(item.stock || 0);
     if (onHand <= 0) continue;
     if (item.createdAt && item.createdAt > cutoffCreatedAt) continue;
 
-    const hasRecentSale = await StockMovement.exists({
-      owner,
-      itemId: item._id,
-      direction: "out",
-      sourceType: "Estimate",
-      date: { $gte: cutoffDate },
-    });
-    if (hasRecentSale) continue;
-
-    const lastSale = await StockMovement.findOne({ owner, itemId: item._id, direction: "out", sourceType: "Estimate" })
-      .sort({ date: -1 })
-      .select("date");
+    const lastSaleDate = lastSaleByItem.get(String(item._id)) || null; // null = never sold, not just "not recently"
+    if (lastSaleDate && lastSaleDate >= cutoffDate) continue;
 
     const unitCost = Number(item.purchasePrice) || 0;
     results.push({
@@ -65,7 +68,7 @@ async function computeDeadStock(owner, { daysThreshold = DEAD_STOCK_DAYS } = {})
       stock: item.stock,
       stockKg: item.stockKg,
       value: round2(onHand * unitCost),
-      lastSaleDate: lastSale ? lastSale.date : null, // null = never sold, not just "not recently"
+      lastSaleDate,
     });
   }
 

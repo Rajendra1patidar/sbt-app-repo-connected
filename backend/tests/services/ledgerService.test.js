@@ -231,3 +231,27 @@ describe("partyStatement", () => {
     expect(closingBalance).toBe(250);
   });
 });
+describe("customerAccountStatement", () => {
+  const { customerAccountStatement } = require("../../services/ledgerService");
+
+  test("queries only the AccountsReceivable leg and returns a sanitized running statement", async () => {
+    LedgerEntry.find.mockReturnValue({
+      sort: jest.fn().mockReturnValue({
+        lean: jest.fn().mockResolvedValue([
+          { date: "2026-01-01", account: "AccountsReceivable", type: "debit", amount: 1000, narration: "Estimate E-1", sourceType: "Estimate", sourceId: "secret" },
+          { date: "2026-01-05", account: "AccountsReceivable", type: "credit", amount: 400, narration: "Payment received · E-1", sourceType: "Payment", sourceId: "secret2" },
+        ]),
+      }),
+    });
+
+    const result = await customerAccountStatement("o1", "c1");
+
+    expect(LedgerEntry.find).toHaveBeenCalledWith({ owner: "o1", customerId: "c1", account: "AccountsReceivable" });
+    expect(result.closingBalance).toBe(600);
+    expect(result.totalDebit).toBe(1000);
+    expect(result.totalCredit).toBe(400);
+    expect(result.rows.map((r) => r.balance)).toEqual([1000, 600]);
+    expect(result.rows[0]).not.toHaveProperty("sourceId");
+    expect(result.rows[0]).not.toHaveProperty("account");
+  });
+});

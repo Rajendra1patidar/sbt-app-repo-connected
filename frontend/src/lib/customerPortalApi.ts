@@ -61,4 +61,5 @@ export const customerPortalApi = {
   isLoggedIn: () => !!getToken(),
   login: (phone: string, pin: string) => request("/api/customer-portal/login", { method: "POST", body: JSON.stringify({ phone, pin }) }),
   bookings: () => request("/api/customer-portal/bookings"),
+  ledger: () => request("/api/customer-portal/ledger"),
 };

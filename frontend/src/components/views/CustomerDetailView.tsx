@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, MapPin, Pencil, Receipt } from "lucide-react";
+import { ChevronLeft, KeyRound, MapPin, Pencil, Receipt } from "lucide-react";
 import { Badge, Card, EmptyState, SmsButton, WhatsAppButton } from "../common/UIPrimitives";
 import { fmtDate, fmtMoney } from "../../lib/format";
 import { api } from "../../lib/api";
 
 /* ---- Customer Ledger / Detail ---- */
 
-export function CustomerDetailView({ customer, estimates, payments, items, currency, openModal, onBack }: any){
+export function CustomerDetailView({ customer, estimates, payments, items, currency, openModal, onBack, onSharePortalAccess }: any){
   const [statement, setStatement] = useState<any>(null);
   const [statementLoading, setStatementLoading] = useState(false);
 
@@ -61,6 +61,15 @@ export function CustomerDetailView({ customer, estimates, payments, items, curre
             </p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            {onSharePortalAccess && (
+              <button
+                onClick={() => { if (window.confirm(`Generate a new portal PIN for ${customer.name}? Any PIN they already have will stop working.`)) onSharePortalAccess(customer.id); }}
+                title="Give this customer a PIN to view their own ledger and bookings"
+                className="flex items-center gap-1 rounded-full border border-line px-2.5 py-1.5 text-xs font-semibold text-ink/70 hover:bg-paper"
+              >
+                <KeyRound size={12} /> Portal
+              </button>
+            )}
             <button
               onClick={() => openModal("customer", { editingCustomer: customer })}
               className="flex items-center gap-1 rounded-full border border-line px-2.5 py-1.5 text-xs font-semibold text-ink/70 hover:bg-paper"

@@ -3,6 +3,7 @@ const Customer = require("../models/Customer");
 const Document = require("../models/Document");
 const Item = require("../models/Item");
 const Settings = require("../models/Settings");
+const ledgerService = require("../services/ledgerService");
 
 const normPhone = (s) => (s || "").replace(/\D/g, "");
 
@@ -139,6 +140,20 @@ exports.bookings = async (req, res, next) => {
     });
 
     res.json({ bookings });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+// GET /api/customer-portal/ledger
+// Same scoping rule as bookings: customerId/ownerId come only from the verified
+// portal token, so a customer can only ever read their own account. Works for any
+// customer with a PIN — not just advance-booking ones.
+exports.ledger = async (req, res, next) => {
+  try {
+    const statement = await ledgerService.customerAccountStatement(req.ownerId, req.customerId);
+    res.json(statement);
   } catch (err) {
     next(err);
   }

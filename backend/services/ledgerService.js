@@ -250,6 +250,37 @@ async function partyStatement(owner, { customerId, vendorId }) {
   return { rows, closingBalance: running };
 }
 
+/**
+ * Customer-facing statement (Customer Portal). Unlike partyStatement — which returns
+ * both legs of every posting for the owner's own books (AR + Sales/Funds) — this
+ * keeps only the AccountsReceivable leg, i.e. the customer's actual account with
+ * the shop: Dr = billed / refunded, Cr = paid / returned. Account names, source ids
+ * and every non-receivable line (COGS, Stock, Sales) are deliberately left out so
+ * nothing about the shop's margins or internals can reach the customer.
+ */
+async function customerAccountStatement(owner, customerId) {
+  const entries = await LedgerEntry.find({ owner, customerId, account: "AccountsReceivable" })
+    .sort({ date: 1, createdAt: 1 })
+    .lean();
+
+  let running = 0;
+  let totalDebit = 0;
+  let totalCredit = 0;
+  const rows = entries.map((e) => {
+    const amount = Number(e.amount) || 0;
+    if (e.type === "debit") {
+      running = round2(running + amount);
+      totalDebit = round2(totalDebit + amount);
+    } else {
+      running = round2(running - amount);
+      totalCredit = round2(totalCredit + amount);
+    }
+    return { date: e.date, narration: e.narration, type: e.type, amount, sourceType: e.sourceType, balance: running };
+  });
+
+  return { rows, closingBalance: running, totalDebit, totalCredit };
+}
+
 /** All ledger postings in a date range, chronological — the Day Book. */
 async function dayBook(owner, { startDate, endDate } = {}) {
   const match = { owner };
@@ -269,6 +300,7 @@ module.exports = {
   profitAndLoss,
   balanceSheet,
   partyStatement,
+  customerAccountStatement,
   dayBook,
   ASSET_ACCOUNTS,
   LIABILITY_ACCOUNTS,

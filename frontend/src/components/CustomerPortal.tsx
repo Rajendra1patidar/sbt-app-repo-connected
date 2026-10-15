@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { Package, ShieldCheck } from "lucide-react";
+import { Package, ShieldCheck, Receipt } from "lucide-react";
 import { customerPortalApi } from "../lib/customerPortalApi";
+import { fmtDate, fmtMoney } from "../lib/format";
+
+const CURRENCY = "₹";
 
 const NAME_KEY = "sbt_customer_portal_name";
 const ORG_KEY = "sbt_customer_portal_org";
@@ -8,6 +11,8 @@ const ORG_KEY = "sbt_customer_portal_org";
 type BookingItem = { itemId: string; name: string; unit: string; booked: number; delivered: number; returned: number; remaining: number };
 type CollectionItem = { itemId: string; name: string; unit: string; qty: number };
 type Collection = { date: string; items: CollectionItem[] };
+type LedgerRow = { date: string; narration: string; type: "debit" | "credit"; amount: number; balance: number };
+type Statement = { rows: LedgerRow[]; closingBalance: number; totalDebit: number; totalCredit: number };
 type Booking = { number: string; date: string; fullyCollected: boolean; items: BookingItem[]; collections: Collection[] };
 
 function ProgressBar({ booked, remaining }: { booked: number; remaining: number }) {
@@ -53,8 +58,8 @@ function LoginScreen({ onLoggedIn }: { onLoggedIn: (name: string, orgName: strin
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-100">
             <Package size={26} className="text-brand-600" />
           </div>
-          <h1 className="font-display text-2xl font-bold text-ink">Booking Status</h1>
-          <p className="mt-1 text-sm text-ink/50">Check what you've booked and how much is still with us to collect.</p>
+          <h1 className="font-display text-2xl font-bold text-ink">My Account</h1>
+          <p className="mt-1 text-sm text-ink/50">See your ledger, what you owe or have paid, and your bookings.</p>
         </div>
         <form onSubmit={submit} className="rounded-card border border-line/70 bg-card p-6 shadow-card">
           <label className="mb-1.5 block text-xs font-semibold text-ink/60">Phone number</label>
@@ -69,11 +74,11 @@ function LoginScreen({ onLoggedIn }: { onLoggedIn: (name: string, orgName: strin
             placeholder="••••"
             className="mb-1 w-full rounded-xl border border-line bg-paper px-4 py-3 text-lg tracking-[0.5em] text-ink outline-none focus:border-brand-400"
           />
-          <p className="mb-4 text-xs text-ink/40">Given to you by the shop when you booked.</p>
+          <p className="mb-4 text-xs text-ink/40">Given to you by the shop.</p>
           {error && <p className="mb-4 text-sm font-semibold text-bad-500">{error}</p>}
           <button type="submit" disabled={loading}
             className="w-full rounded-pill bg-brand-500 px-5 py-3 text-sm font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-50">
-            {loading ? "Checking…" : "View my booking"}
+            {loading ? "Checking…" : "View my account"}
           </button>
         </form>
         <p className="mt-6 flex items-center justify-center gap-1.5 text-center text-xs text-ink/35">
@@ -152,7 +157,68 @@ function BookingCard({ booking }: { booking: Booking }) {
   );
 }
 
-function Dashboard({ name, orgName, onLogout }: { name: string; orgName: string; onLogout: () => void }) {
+function LedgerTab() {
+  const [statement, setStatement] = useState<Statement | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    customerPortalApi.ledger()
+      .then((res: any) => { if (!cancelled) setStatement(res); })
+      .catch((err: any) => { if (!cancelled) setError(err?.message || "Couldn't load your ledger."); });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (error) return <div className="rounded-card border border-bad-200 bg-bad-50 p-4 text-sm font-semibold text-bad-600">{error}</div>;
+  if (!statement) return <p className="py-10 text-center text-sm text-ink/40">Loading your ledger…</p>;
+
+  // Closing balance > 0 means the customer owes the shop; < 0 means they're in credit
+  // (e.g. an advance payment that hasn't been billed against yet).
+  const bal = statement.closingBalance;
+  const label = bal > 0 ? "You owe" : bal < 0 ? "Advance with us" : "All settled";
+  const tone = bal > 0 ? "text-bad-600" : "text-good-600";
+  const newestFirst = [...statement.rows].reverse();
+
+  return (
+    <>
+      <div className="rounded-card border border-line/70 bg-card p-5 shadow-card">
+        <p className="text-xs font-semibold uppercase tracking-wide text-ink/40">{label}</p>
+        <p className={`mt-1 text-3xl font-bold ${tone}`}>{fmtMoney(Math.abs(bal), CURRENCY)}</p>
+        <div className="mt-4 flex gap-6 border-t border-line/60 pt-3 text-xs">
+          <div><p className="text-ink/40">Total billed</p><p className="font-semibold text-ink">{fmtMoney(statement.totalDebit, CURRENCY)}</p></div>
+          <div><p className="text-ink/40">Total paid</p><p className="font-semibold text-good-700">{fmtMoney(statement.totalCredit, CURRENCY)}</p></div>
+        </div>
+      </div>
+
+      {newestFirst.length === 0 ? (
+        <div className="rounded-card border border-line/70 bg-card p-8 text-center">
+          <Receipt size={28} className="mx-auto mb-3 text-ink/25" />
+          <p className="font-semibold text-ink">No transactions yet</p>
+          <p className="mt-1 text-sm text-ink/45">Your purchases and payments will show up here.</p>
+        </div>
+      ) : (
+        <div className="rounded-card border border-line/70 bg-card px-5 py-2 shadow-card">
+          {newestFirst.map((r, i) => (
+            <div key={i} className="flex items-center justify-between gap-3 border-b border-line/60 py-3 last:border-0">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-ink">{r.narration || (r.type === "debit" ? "Purchase" : "Payment")}</p>
+                <p className="text-xs text-ink/40">{fmtDate(r.date)}</p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className={`text-sm font-bold ${r.type === "debit" ? "text-ink" : "text-good-700"}`}>
+                  {r.type === "debit" ? "+" : "−"} {fmtMoney(r.amount, CURRENCY)}
+                </p>
+                <p className="text-xs text-ink/40">Balance {fmtMoney(r.balance, CURRENCY)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function BookingsTab() {
   const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [error, setError] = useState("");
 
@@ -165,11 +231,34 @@ function Dashboard({ name, orgName, onLogout }: { name: string; orgName: string;
   }, []);
 
   return (
+    <>
+      {error && (
+        <div className="rounded-card border border-bad-200 bg-bad-50 p-4 text-sm font-semibold text-bad-600">{error}</div>
+      )}
+      {!error && bookings === null && (
+        <p className="py-10 text-center text-sm text-ink/40">Loading your bookings…</p>
+      )}
+      {!error && bookings && bookings.length === 0 && (
+        <div className="rounded-card border border-line/70 bg-card p-8 text-center">
+          <Package size={28} className="mx-auto mb-3 text-ink/25" />
+          <p className="font-semibold text-ink">No active bookings right now</p>
+          <p className="mt-1 text-sm text-ink/45">Once you book items with an advance payment, they'll show up here.</p>
+        </div>
+      )}
+      {bookings?.map((b) => <BookingCard key={b.number} booking={b} />)}
+    </>
+  );
+}
+
+function Dashboard({ name, orgName, onLogout }: { name: string; orgName: string; onLogout: () => void }) {
+  const [tab, setTab] = useState<"ledger" | "bookings">("ledger");
+
+  return (
     <div className="min-h-screen bg-paper pb-10">
       <div className="border-b border-line/70 bg-card px-5 py-4">
         <div className="mx-auto flex max-w-lg items-center justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink/40">{orgName || "Booking Status"}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink/40">{orgName || "My Account"}</p>
             <p className="font-display text-lg font-bold text-ink">Hi, {name || "there"}</p>
           </div>
           <button onClick={onLogout} className="rounded-pill border border-line px-3 py-1.5 text-xs font-semibold text-ink/60 hover:bg-paper">
@@ -178,21 +267,18 @@ function Dashboard({ name, orgName, onLogout }: { name: string; orgName: string;
         </div>
       </div>
 
-      <div className="mx-auto max-w-lg space-y-4 px-5 pt-5">
-        {error && (
-          <div className="rounded-card border border-bad-200 bg-bad-50 p-4 text-sm font-semibold text-bad-600">{error}</div>
-        )}
-        {!error && bookings === null && (
-          <p className="py-10 text-center text-sm text-ink/40">Loading your bookings…</p>
-        )}
-        {!error && bookings && bookings.length === 0 && (
-          <div className="rounded-card border border-line/70 bg-card p-8 text-center">
-            <Package size={28} className="mx-auto mb-3 text-ink/25" />
-            <p className="font-semibold text-ink">No active bookings right now</p>
-            <p className="mt-1 text-sm text-ink/45">Once you book items with an advance payment, they'll show up here.</p>
-          </div>
-        )}
-        {bookings?.map((b) => <BookingCard key={b.number} booking={b} />)}
+      <div className="mx-auto max-w-lg px-5 pt-4">
+        <div className="mb-4 flex gap-1 rounded-pill bg-line/50 p-1">
+          {([["ledger", "My Ledger"], ["bookings", "Bookings"]] as const).map(([key, label]) => (
+            <button
+              key={key} type="button" onClick={() => setTab(key)}
+              className={`flex-1 rounded-pill py-2 text-sm font-semibold transition ${tab === key ? "bg-card text-ink shadow-sm" : "text-ink/50"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="space-y-4">{tab === "ledger" ? <LedgerTab /> : <BookingsTab />}</div>
       </div>
     </div>
   );

@@ -522,7 +522,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 function CustomerDetailRoute() {
   const { customerId } = useParams();
   const navigate = useNavigate();
-  const { customers, estimates, payments, items, openModal, settings } = useAppStore();
+  const { customers, estimates, payments, items, openModal, settings, shareCustomerPortalAccess } = useAppStore();
   const customer = customers.find((c: any) => c.id === customerId);
   const activeEstimates = estimates.filter((i: any) => !i.deleted);
   return (
@@ -530,6 +530,7 @@ function CustomerDetailRoute() {
       customer={customer}
       estimates={activeEstimates} payments={payments} items={items} openModal={openModal} currency={settings.currency}
       onBack={() => navigate("/customers")}
+      onSharePortalAccess={shareCustomerPortalAccess}
     />
   );
 }

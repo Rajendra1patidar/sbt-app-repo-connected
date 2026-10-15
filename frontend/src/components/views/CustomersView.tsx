@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { MapPin, MessageSquare, Plus, Search, Trash2 } from "lucide-react";
+import { KeyRound, MapPin, MessageSquare, Plus, Search, Trash2 } from "lucide-react";
 import { Card, EmptyState, PillButton, WhatsAppButton } from "../common/UIPrimitives";
 import { RowActionMenu } from "../common/RowActionMenu";
 import { Pagination } from "../common/Pagination";
@@ -7,11 +7,13 @@ import { usePagination } from "../../hooks/usePagination";
 import { PAGE_SIZE } from "../../lib/constants";
 import { smsLink } from "../../lib/contactLinks";
 import { fmtMoney } from "../../lib/format";
+import { CustomerPortalSharePopup } from "../modals/CustomerPortalSharePopup";
 
 /* ---- Customers ---- */
 
 export function CustomersView({ customers, openModal, removeCustomer, estimates, onSelectCustomer }: any) {
   const [search, setSearch] = useState("");
+  const [portalCustomer, setPortalCustomer] = useState<any>(null);
   const balanceFor = (customerId: string) =>
     (estimates || [])
       .filter((e: any) => String(e.customerId) === String(customerId))
@@ -28,6 +30,7 @@ export function CustomersView({ customers, openModal, removeCustomer, estimates,
 
   return (
     <div className="space-y-3 px-5 pb-28">
+      {portalCustomer && <CustomerPortalSharePopup customer={portalCustomer} onClose={() => setPortalCustomer(null)} />}
       <div className="flex items-center justify-between pt-1">
         <p className="text-sm text-ink/40">{customers.length} customer{customers.length !== 1 ? "s" : ""}</p>
         <PillButton onClick={() => openModal("customer")}><Plus size={16} /> New Customer</PillButton>
@@ -72,6 +75,14 @@ export function CustomersView({ customers, openModal, removeCustomer, estimates,
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => setPortalCustomer(c)}
+                  aria-label="Share account link with customer"
+                  title="Share account link"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-brand-300 bg-brand-50 text-brand-700 active:scale-[0.94]"
+                >
+                  <KeyRound size={15} />
+                </button>
                 <WhatsAppButton compact phone={c.phone} message={`Hi ${c.name}, reaching out from ${c.name}'s account.`} />
                 <RowActionMenu
                   actions={[

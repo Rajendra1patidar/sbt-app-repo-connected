@@ -31,6 +31,7 @@ export const VIEW_PATHS: Record<string, string> = {
   sharereport: "/share-report",
   billing: "/billing",
   settings: "/settings",
+  portalAdmin: "/customer-portal",
   auditLog: "/audit-log",
 };
 

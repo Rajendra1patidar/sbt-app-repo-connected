@@ -14,7 +14,7 @@ const PINNED_IDS = ["dashboard", "estimates", "customers", "items"];
 // day than Trading/Documents — collapsed by default so the rail opens onto
 // what's actually used daily, without hiding anything permanently.
 const DEFAULT_OPEN_SECTIONS: Record<string, boolean> = {
-  Overview: true, Trading: true, Documents: true, Insights: false, Finance: false,
+  Overview: true, Trading: true, Documents: true, Insights: false, Finance: false, "Customer Portal": true,
 };
 
 const SECTION_COLLAPSE_KEY = "sbt_sidebar_collapsed_sections";

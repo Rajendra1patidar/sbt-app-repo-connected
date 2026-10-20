@@ -2,6 +2,7 @@ const express = require("express");
 const rateLimit = require("express-rate-limit");
 const router = express.Router();
 const { login, bookings, ledger } = require("../controllers/customerPortalController");
+const { catalog } = require("../controllers/portalCatalogController");
 const { protectCustomerPortal } = require("../middleware/customerPortalAuth");
 
 // A 4-digit PIN is guessable fast without a tight limit — tighter than the owner
@@ -16,5 +17,6 @@ const portalLoginLimiter = rateLimit({
 router.post("/login", portalLoginLimiter, login);
 router.get("/bookings", protectCustomerPortal, bookings);
 router.get("/ledger", protectCustomerPortal, ledger);
+router.get("/catalog", protectCustomerPortal, catalog);
 
 module.exports = router;

@@ -44,6 +44,7 @@ import { PaymentsView } from "./views/PaymentsView";
 import { PurchasesView } from "./views/PurchasesView";
 import { ReportsView } from "./views/ReportsView";
 import { SettingsView } from "./views/SettingsView";
+import { PortalAdminView } from "./views/PortalAdminView";
 import { ShareReportView } from "./views/ShareReportView";
 import { VendorsView } from "./views/VendorsView";
 import { GodownsView } from "./views/GodownsView";
@@ -252,6 +253,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <Route path="/share-report" element={<ShareReportView invoices={activeEstimates} items={items} customers={customers} currency={settings.currency} settings={settings} />} />
       <Route path="/billing" element={<AdvancedBillingView autoReminder={autoReminder} setAutoReminder={setAutoReminder} overdueCount={overdueCount} settings={settings} />} />
       <Route path="/settings" element={<SettingsView settings={settings} setSettings={saveSettings} />} />
+      <Route path="/customer-portal" element={<PortalAdminView settings={settings} showToast={showToast} />} />
       <Route path="/audit-log" element={<AuditLogView />} />
       <Route path="*" element={<Dashboard data={data} settings={settings} openModal={openModal} go={goToView} reorderSuggestions={reorderSuggestions} saveDocument={saveDocument} savePayment={savePayment} savePurchase={savePurchase} saveCustomer={saveCustomer} saveExpense={saveExpense} saveReturn={saveReturn} showToast={showToast} />} />
     </Routes>

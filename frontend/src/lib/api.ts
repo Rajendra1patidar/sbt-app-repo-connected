@@ -334,6 +334,12 @@ export const api = {
     workers: () => request("/api/labour-sessions/meta/workers"),
   },
 
+  portalAdmin: {
+    get: () => request("/api/portal-admin"),
+    saveContent: (v: any) => request("/api/portal-admin/content", { method: "PUT", body: JSON.stringify(v) }),
+    saveItem: (v: any) => request("/api/portal-admin/items", { method: "POST", body: JSON.stringify(v) }),
+    removeItem: (id: string) => request(`/api/portal-admin/items/${id}`, { method: "DELETE" }),
+  },
   settings: {
     get: () => request("/api/settings"),
     update: (v: any) => request("/api/settings", { method: "PUT", body: JSON.stringify(v) }),

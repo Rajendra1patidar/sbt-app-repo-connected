@@ -1,4 +1,4 @@
-import { ArrowDownToLine, Award, BarChart3, Building2, CalendarClock, ClipboardList, Globe2, HardHat, History, Home, Landmark, PackagePlus, Receipt, Send, ShieldCheck, ShoppingBag, ShoppingCart, TrendingDown, TrendingUp, Truck, Users, Wallet, Warehouse, Settings as SettingsIcon } from "lucide-react";
+import { ArrowDownToLine, Award, BarChart3, Building2, CalendarClock, ClipboardList, Globe2, HardHat, History, Home, Landmark, PackagePlus, Receipt, Send, ShieldCheck, ShoppingBag, ShoppingCart, TrendingDown, TrendingUp, Truck, Users, Wallet, Warehouse, Store, Settings as SettingsIcon } from "lucide-react";
 
 export const WHATSAPP_GREEN = "#25D366";
 
@@ -62,6 +62,8 @@ export const NAV = [
 
   { id: "settings",   label: "Settings",             icon: SettingsIcon, section: "Finance" },
   { id: "auditLog",   label: "Audit Log",            icon: History, section: "Finance" },
+
+  { id: "portalAdmin", label: "Customer Portal",     icon: Store, section: "Customer Portal" },
 ];
 
 /* ---- Bottom nav (mobile) + radial quick-add FAB ---- */

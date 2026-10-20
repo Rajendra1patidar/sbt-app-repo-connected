@@ -1,0 +1,18 @@
+name: SBT Keep Awake
+
+on:
+  schedule:
+    # GitHub cron is UTC. IST = UTC + 5:30.
+    # These 3 lines together = every 10 minutes, 8:00 AM to 6:00 PM IST.
+    - cron: "30-59/10 2 * * *"   # 8:00-8:20 AM IST
+    - cron: "*/10 3-11 * * *"    # 8:30 AM - 5:20 PM IST
+    - cron: "0-30/10 12 * * *"   # 5:30-6:00 PM IST
+  workflow_dispatch: {} # lets you run it manually from the Actions tab to test
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping /api/health to keep Render awake
+        run: curl -fsS --max-time 90 --retry 3 --retry-delay 10 "${{ secrets.SBT_API_URL }}/api/health"

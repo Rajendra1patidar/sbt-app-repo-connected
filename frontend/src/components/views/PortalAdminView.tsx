@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Plus, Trash2, Loader2, ArrowUp, ArrowDown } from "lucide-react";
 import { api } from "../../lib/api";
+import { PortalUploadButton } from "./PortalUploadButton";
 
 type Tab = "categories" | "items" | "schemes" | "media" | "whatsapp";
 const TABS: { id: Tab; label: string }[] = [
@@ -84,7 +85,8 @@ export function PortalAdminView({ settings, showToast }: any) {
               <button aria-label="Move up" onClick={() => moveCat(i, -1)}><ArrowUp size={16} /></button>
               <button aria-label="Move down" onClick={() => moveCat(i, 1)}><ArrowDown size={16} /></button>
               <input aria-label="Category name" className={`${inputCls} flex-1 min-w-[140px]`} value={c.name} onChange={(e) => setCat(i, { name: e.target.value })} />
-              <input aria-label="Cover image URL" className={`${inputCls} flex-1 min-w-[160px]`} placeholder="Cover image URL (https)" value={c.imageUrl || ""} onChange={(e) => setCat(i, { imageUrl: e.target.value })} />
+              {c.imageUrl && <img src={c.imageUrl} alt="" className="h-10 w-10 rounded-lg object-cover" />}
+              <PortalUploadButton label={c.imageUrl ? "Change cover" : "Upload cover"} accept="image/jpeg,image/png,image/webp" onUploaded={(u) => setCat(i, { imageUrl: u[0] })} />
               <label className="flex items-center gap-1 text-sm"><input type="checkbox" checked={c.visible !== false} onChange={(e) => setCat(i, { visible: e.target.checked })} /> Visible</label>
               <button aria-label="Delete category" onClick={() => setContent((x: any) => ({ ...x, categories: x.categories.filter((_: any, k: number) => k !== i) }))}><Trash2 size={16} /></button>
             </div>
@@ -113,8 +115,20 @@ export function PortalAdminView({ settings, showToast }: any) {
               <option value="">Category…</option>
               {content.categories.filter((c: any) => c._id).map((c: any) => <option key={c._id} value={c._id}>{c.name}</option>)}
             </select>
-            <textarea aria-label="Photo URLs" className={inputCls} rows={3} placeholder="Photo URLs (https), one per line" value={(draft.photos || []).join("\n")} onChange={(e) => setDraft({ ...draft, photos: e.target.value.split("\n").map((s: string) => s.trim()).filter(Boolean) })} />
-            <input aria-label="Video URL" className={inputCls} placeholder="Video URL (https, optional)" value={draft.videoUrl} onChange={(e) => setDraft({ ...draft, videoUrl: e.target.value })} />
+            <div className="flex flex-wrap gap-2">
+              {(draft.photos || []).map((u: string, k: number) => (
+                <div key={u} className="relative">
+                  <img src={u} alt={`Photo ${k + 1}`} className="h-16 w-16 rounded-lg object-cover" />
+                  <button type="button" aria-label="Remove photo" className="absolute -right-1 -top-1 rounded-full bg-white px-1 text-xs shadow" onClick={() => setDraft({ ...draft, photos: draft.photos.filter((x: string) => x !== u) })}>✕</button>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-start gap-2">
+              <PortalUploadButton label="Upload photos" accept="image/jpeg,image/png,image/webp" multiple onUploaded={(urls) => setDraft((d: any) => ({ ...d, photos: [...(d.photos || []), ...urls].slice(0, 10) }))} />
+              <PortalUploadButton label={draft.videoUrl ? "Replace video" : "Upload video"} accept="video/mp4,video/webm,video/quicktime" onUploaded={(u) => setDraft((d: any) => ({ ...d, videoUrl: u[0] }))} />
+              {draft.videoUrl && <button type="button" className="self-center text-sm text-red-700" onClick={() => setDraft({ ...draft, videoUrl: "" })}>Remove video</button>}
+            </div>
+            <p className="text-xs text-slate-600">Up to 10 photos (resized automatically) and one video up to 40 MB. Keep videos short (under a minute).</p>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.show} onChange={(e) => setDraft({ ...draft, show: e.target.checked })} /> Show on portal</label>
             <div className="flex gap-2"><button className={btnCls} disabled={saving || !draft.name.trim()} onClick={saveItem}>Save item</button>{draft._id && <button className="text-sm" onClick={() => setDraft(emptyItem)}>Cancel</button>}</div>
           </div>
@@ -154,10 +168,14 @@ export function PortalAdminView({ settings, showToast }: any) {
 
       {tab === "media" && (
         <div className="space-y-3 rounded-2xl bg-white p-4">
-          <label className="text-sm" htmlFor="hero">Shop walkthrough video URL (https)</label>
-          <input id="hero" className={inputCls} value={content.heroVideoUrl || ""} onChange={(e) => setContent({ ...content, heroVideoUrl: e.target.value })} />
-          <button className={btnCls} disabled={saving} onClick={saveContent}>Save</button>
-          <p className="text-xs text-slate-600">Paste links for now. Direct upload to Firebase Storage comes with the portal project.</p>
+          <b className="text-sm">Shop walkthrough video</b>
+          {content.heroVideoUrl && <video src={content.heroVideoUrl} controls preload="metadata" className="max-h-64 w-full rounded-xl bg-black" />}
+          <div className="flex flex-wrap items-center gap-2">
+            <PortalUploadButton label={content.heroVideoUrl ? "Replace video" : "Upload video"} accept="video/mp4,video/webm,video/quicktime" onUploaded={(u) => setContent((c: any) => ({ ...c, heroVideoUrl: u[0] }))} />
+            {content.heroVideoUrl && <button type="button" className="text-sm text-red-700" onClick={() => setContent({ ...content, heroVideoUrl: "" })}>Remove</button>}
+            <button className={btnCls} disabled={saving} onClick={saveContent}>Save</button>
+          </div>
+          <p className="text-xs text-slate-600">After uploading, press Save so customers see it. Videos up to 40 MB (MP4 recommended). Keep it short: the free plan allows about 1 GB of video viewing a month.</p>
         </div>
       )}
 

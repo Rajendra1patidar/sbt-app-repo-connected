@@ -5,6 +5,8 @@ const mongoose = require("mongoose");
 const portalContentSchema = new mongoose.Schema(
   {
     owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, unique: true },
+    heroTitle: { type: String, trim: true, default: "", maxlength: 80 },
+    heroSubtitle: { type: String, trim: true, default: "", maxlength: 200 },
     heroVideoUrl: { type: String, trim: true, default: "" },
     categories: [
       {

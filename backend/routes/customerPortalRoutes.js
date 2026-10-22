@@ -2,7 +2,7 @@ const express = require("express");
 const rateLimit = require("express-rate-limit");
 const router = express.Router();
 const { login, bookings, ledger } = require("../controllers/customerPortalController");
-const { catalog } = require("../controllers/portalCatalogController");
+const { catalog, publicCatalog } = require("../controllers/portalCatalogController");
 const { protectCustomerPortal } = require("../middleware/customerPortalAuth");
 
 // A 4-digit PIN is guessable fast without a tight limit — tighter than the owner
@@ -14,6 +14,10 @@ const portalLoginLimiter = rateLimit({
   message: { message: "Too many attempts from this device. Please wait a few minutes and try again." },
 });
 
+// Anonymous browsing: generous but bounded so the open endpoint can't be hammered.
+const publicLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, message: { message: "Too many requests. Please slow down." } });
+
+router.get("/public-catalog", publicLimiter, publicCatalog);
 router.post("/login", portalLoginLimiter, login);
 router.get("/bookings", protectCustomerPortal, bookings);
 router.get("/ledger", protectCustomerPortal, ledger);

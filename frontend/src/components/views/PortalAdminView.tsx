@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Plus, Trash2, Loader2, ArrowUp, ArrowDown } from "lucide-react";
 import { api } from "../../lib/api";
-import { PortalUploadButton } from "./PortalUploadButton";
+import { PortalUploadButton, AddByLink } from "./PortalUploadButton";
 
 type Tab = "categories" | "items" | "schemes" | "media" | "whatsapp";
 const TABS: { id: Tab; label: string }[] = [
@@ -35,6 +35,8 @@ export function PortalAdminView({ settings, showToast }: any) {
     try {
       const saved = await api.portalAdmin.saveContent({
         heroVideoUrl: content.heroVideoUrl,
+        heroTitle: content.heroTitle,
+        heroSubtitle: content.heroSubtitle,
         categories: content.categories,
         schemes: content.schemes.map((s: any) => ({ ...s, startsAt: s.startsAt || null, endsAt: s.endsAt || null })),
       });
@@ -128,6 +130,10 @@ export function PortalAdminView({ settings, showToast }: any) {
               <PortalUploadButton label={draft.videoUrl ? "Replace video" : "Upload video"} accept="video/mp4,video/webm,video/quicktime" onUploaded={(u) => setDraft((d: any) => ({ ...d, videoUrl: u[0] }))} />
               {draft.videoUrl && <button type="button" className="self-center text-sm text-red-700" onClick={() => setDraft({ ...draft, videoUrl: "" })}>Remove video</button>}
             </div>
+            <div className="flex flex-wrap gap-3">
+              <AddByLink placeholder="Add photo by link (https)" onAdd={(u) => setDraft((d: any) => ({ ...d, photos: [...(d.photos || []), u].slice(0, 10) }))} />
+              <AddByLink placeholder="Add video by link (https)" onAdd={(u) => setDraft((d: any) => ({ ...d, videoUrl: u }))} />
+            </div>
             <p className="text-xs text-slate-600">Up to 10 photos (resized automatically) and one video up to 40 MB. Keep videos short (under a minute).</p>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.show} onChange={(e) => setDraft({ ...draft, show: e.target.checked })} /> Show on portal</label>
             <div className="flex gap-2"><button className={btnCls} disabled={saving || !draft.name.trim()} onClick={saveItem}>Save item</button>{draft._id && <button className="text-sm" onClick={() => setDraft(emptyItem)}>Cancel</button>}</div>
@@ -168,6 +174,9 @@ export function PortalAdminView({ settings, showToast }: any) {
 
       {tab === "media" && (
         <div className="space-y-3 rounded-2xl bg-white p-4">
+          <b className="text-sm">Home page headline</b>
+          <input aria-label="Headline" className={inputCls} maxLength={80} placeholder="Headline, e.g. your shop's tagline (optional)" value={content.heroTitle || ""} onChange={(e) => setContent({ ...content, heroTitle: e.target.value })} />
+          <input aria-label="Sub-headline" className={inputCls} maxLength={200} placeholder="One line under the headline (optional)" value={content.heroSubtitle || ""} onChange={(e) => setContent({ ...content, heroSubtitle: e.target.value })} />
           <b className="text-sm">Shop walkthrough video</b>
           {content.heroVideoUrl && <video src={content.heroVideoUrl} controls preload="metadata" className="max-h-64 w-full rounded-xl bg-black" />}
           <div className="flex flex-wrap items-center gap-2">
@@ -175,6 +184,7 @@ export function PortalAdminView({ settings, showToast }: any) {
             {content.heroVideoUrl && <button type="button" className="text-sm text-red-700" onClick={() => setContent({ ...content, heroVideoUrl: "" })}>Remove</button>}
             <button className={btnCls} disabled={saving} onClick={saveContent}>Save</button>
           </div>
+          <AddByLink placeholder="Or paste a video link (https)" onAdd={(u) => setContent((c: any) => ({ ...c, heroVideoUrl: u }))} />
           <p className="text-xs text-slate-600">After uploading, press Save so customers see it. Videos up to 40 MB (MP4 recommended). Keep it short: the free plan allows about 1 GB of video viewing a month.</p>
         </div>
       )}

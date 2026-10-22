@@ -1,6 +1,7 @@
 const PortalContent = require("../models/PortalContent");
 const PortalItem = require("../models/PortalItem");
 const Item = require("../models/Item");
+const { createSignedUpload, StorageConfigError } = require("../services/storageService");
 
 // Portal content is owner-only (staff get 403) — it controls what customers see.
 const ownerOnly = (req, res) => {
@@ -36,9 +37,11 @@ exports.getAll = async (req, res, next) => {
 exports.saveContent = async (req, res, next) => {
   try {
     if (!ownerOnly(req, res)) return;
-    const { heroVideoUrl, categories, schemes } = req.body;
+    const { heroVideoUrl, heroTitle, heroSubtitle, categories, schemes } = req.body;
     const set = {};
     if (heroVideoUrl !== undefined) set.heroVideoUrl = cleanUrl(heroVideoUrl);
+    if (heroTitle !== undefined) set.heroTitle = String(heroTitle).trim().slice(0, 80);
+    if (heroSubtitle !== undefined) set.heroSubtitle = String(heroSubtitle).trim().slice(0, 200);
     if (Array.isArray(categories)) {
       set.categories = categories.slice(0, 100).map((c, i) => ({
         ...(c._id ? { _id: c._id } : {}),
@@ -100,6 +103,19 @@ exports.removeItem = async (req, res, next) => {
     await PortalItem.deleteOne({ _id: req.params.id, owner: req.userId });
     res.json({ ok: true });
   } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/portal-admin/upload-url  { contentType, size }  → signed PUT url for Firebase Storage
+exports.uploadUrl = async (req, res, next) => {
+  try {
+    if (!ownerOnly(req, res)) return;
+    const out = await createSignedUpload({ owner: req.userId, contentType: String(req.body.contentType || ""), size: Number(req.body.size) });
+    res.json(out);
+  } catch (err) {
+    if (err instanceof StorageConfigError) return res.status(503).json({ message: err.message });
+    if (err.status === 400) return res.status(400).json({ message: err.message });
     next(err);
   }
 };

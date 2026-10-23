@@ -16,7 +16,9 @@ export function CustomerPortalSharePopup({ customer, onClose }: { customer: any;
   const [copied, setCopied] = useState(false);
 
   const portalUrl = `${window.location.origin}/booking-status`;
-  const message = `Hi ${customer.name}, you can see your account ledger and bookings with us anytime here: ${portalUrl}\nLog in with your phone number and this PIN: ${pin}`;
+  // The public shop (browse + "Enquire now"). Same phone number + PIN works there too.
+  const shopUrl = (import.meta.env.VITE_PORTAL_URL as string | undefined)?.replace(/\/$/, "") || "https://portal-sbt.web.app";
+  const message = `Hi ${customer.name}, you can see your account ledger and bookings with us anytime here: ${portalUrl}\nLog in with your phone number and this PIN: ${pin}\n\nYou can also browse our shop and send enquiries here: ${shopUrl} (same number and PIN).`;
 
   const generate = async () => {
     setLoading(true);

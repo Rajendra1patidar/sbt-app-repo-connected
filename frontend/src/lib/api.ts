@@ -68,7 +68,12 @@ class ApiError extends Error {
   }
 }
 
-async function request(path: string, options: RequestInit = {}) {
+/**
+ * `raw` skips normalize(): the Customer Portal admin screen links products to
+ * categories by their Mongo `_id` and sends those ids back on save, so it needs
+ * the response exactly as the server sent it (normalize() renames `_id` to `id`).
+ */
+async function request(path: string, options: RequestInit = {}, raw = false) {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string> | undefined),
@@ -93,7 +98,7 @@ async function request(path: string, options: RequestInit = {}) {
     if (res.status === 401) handleUnauthorized();
     throw new ApiError(body?.message || `Request failed (${res.status})`, res.status);
   }
-  return normalize(body);
+  return raw ? body : normalize(body);
 }
 
 /**
@@ -334,11 +339,15 @@ export const api = {
     workers: () => request("/api/labour-sessions/meta/workers"),
   },
 
+  // Customer Portal admin: every call is `raw` (see request()) because PortalAdminView works with `_id`.
   portalAdmin: {
-    get: () => request("/api/portal-admin"),
-    saveContent: (v: any) => request("/api/portal-admin/content", { method: "PUT", body: JSON.stringify(v) }),
-    saveItem: (v: any) => request("/api/portal-admin/items", { method: "POST", body: JSON.stringify(v) }),
-    removeItem: (id: string) => request(`/api/portal-admin/items/${id}`, { method: "DELETE" }),
+    get: () => request("/api/portal-admin", {}, true),
+    saveContent: (v: any) => request("/api/portal-admin/content", { method: "PUT", body: JSON.stringify(v) }, true),
+    saveItem: (v: any) => request("/api/portal-admin/items", { method: "POST", body: JSON.stringify(v) }, true),
+    removeItem: (id: string) => request(`/api/portal-admin/items/${id}`, { method: "DELETE" }, true),
+    // Asks the server for a signed Cloudinary upload; the file itself then goes browser → Cloudinary.
+    uploadUrl: (v: { contentType: string; size: number }) =>
+      request("/api/portal-admin/upload-url", { method: "POST", body: JSON.stringify(v) }, true),
   },
   settings: {
     get: () => request("/api/settings"),

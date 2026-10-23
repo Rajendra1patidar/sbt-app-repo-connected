@@ -65,6 +65,7 @@ export function PortalAdminView({ settings, showToast }: any) {
     [a[i], a[j]] = [a[j], a[i]]; return { ...c, categories: a };
   });
   const setScheme = (i: number, patch: any) => setContent((c: any) => ({ ...c, schemes: c.schemes.map((x: any, k: number) => (k === i ? { ...x, ...patch } : x)) }));
+  const uploadedHint = () => showToast?.("Uploaded. Press Save to show it to customers.");
   const catName = (id: string) => content.categories.find((c: any) => String(c._id) === id)?.name || "—";
 
   if (loading) return <div className="p-8"><Loader2 className="animate-spin" /></div>;
@@ -72,7 +73,7 @@ export function PortalAdminView({ settings, showToast }: any) {
   return (
     <div className="mx-auto max-w-5xl space-y-4 p-4 md:p-8">
       <h1 className="text-2xl font-semibold">Customer Portal</h1>
-      <p className="text-sm text-slate-600">What customers see after they log in. Prices are never shown; customers tap "Enquire for rate" to message you on WhatsApp.</p>
+      <p className="text-sm text-slate-600">What visitors see on your customer portal. Anyone can browse; they sign in with their mobile number and PIN only when they tap "Enquire now". Prices are never shown, and enquiries go to you on WhatsApp.</p>
       <div className="flex gap-5 border-b border-slate-200 overflow-x-auto">
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)} className={`py-2.5 text-sm whitespace-nowrap ${tab === t.id ? "border-b-2 border-blue-600 font-semibold" : "text-slate-600"}`}>{t.label}</button>
@@ -88,7 +89,7 @@ export function PortalAdminView({ settings, showToast }: any) {
               <button aria-label="Move down" onClick={() => moveCat(i, 1)}><ArrowDown size={16} /></button>
               <input aria-label="Category name" className={`${inputCls} flex-1 min-w-[140px]`} value={c.name} onChange={(e) => setCat(i, { name: e.target.value })} />
               {c.imageUrl && <img src={c.imageUrl} alt="" className="h-10 w-10 rounded-lg object-cover" />}
-              <PortalUploadButton label={c.imageUrl ? "Change cover" : "Upload cover"} accept="image/jpeg,image/png,image/webp" onUploaded={(u) => setCat(i, { imageUrl: u[0] })} />
+              <PortalUploadButton label={c.imageUrl ? "Change cover" : "Upload cover"} accept="image/jpeg,image/png,image/webp" onUploaded={(u) => { setCat(i, { imageUrl: u[0] }); uploadedHint(); }} />
               <label className="flex items-center gap-1 text-sm"><input type="checkbox" checked={c.visible !== false} onChange={(e) => setCat(i, { visible: e.target.checked })} /> Visible</label>
               <button aria-label="Delete category" onClick={() => setContent((x: any) => ({ ...x, categories: x.categories.filter((_: any, k: number) => k !== i) }))}><Trash2 size={16} /></button>
             </div>
@@ -117,6 +118,9 @@ export function PortalAdminView({ settings, showToast }: any) {
               <option value="">Category…</option>
               {content.categories.filter((c: any) => c._id).map((c: any) => <option key={c._id} value={c._id}>{c.name}</option>)}
             </select>
+            {content.categories.some((c: any) => !c._id && c.name?.trim()) && (
+              <p className="text-xs text-amber-700">New categories appear in this list after you press Save on the Categories tab.</p>
+            )}
             <div className="flex flex-wrap gap-2">
               {(draft.photos || []).map((u: string, k: number) => (
                 <div key={u} className="relative">
@@ -126,8 +130,8 @@ export function PortalAdminView({ settings, showToast }: any) {
               ))}
             </div>
             <div className="flex flex-wrap items-start gap-2">
-              <PortalUploadButton label="Upload photos" accept="image/jpeg,image/png,image/webp" multiple onUploaded={(urls) => setDraft((d: any) => ({ ...d, photos: [...(d.photos || []), ...urls].slice(0, 10) }))} />
-              <PortalUploadButton label={draft.videoUrl ? "Replace video" : "Upload video"} accept="video/mp4,video/webm,video/quicktime" onUploaded={(u) => setDraft((d: any) => ({ ...d, videoUrl: u[0] }))} />
+              <PortalUploadButton label="Upload photos" accept="image/jpeg,image/png,image/webp" multiple onUploaded={(urls) => { setDraft((d: any) => ({ ...d, photos: [...(d.photos || []), ...urls].slice(0, 10) })); uploadedHint(); }} />
+              <PortalUploadButton label={draft.videoUrl ? "Replace video" : "Upload video"} accept="video/mp4,video/webm,video/quicktime" onUploaded={(u) => { setDraft((d: any) => ({ ...d, videoUrl: u[0] })); uploadedHint(); }} />
               {draft.videoUrl && <button type="button" className="self-center text-sm text-red-700" onClick={() => setDraft({ ...draft, videoUrl: "" })}>Remove video</button>}
             </div>
             <div className="flex flex-wrap gap-3">
@@ -180,7 +184,7 @@ export function PortalAdminView({ settings, showToast }: any) {
           <b className="text-sm">Shop walkthrough video</b>
           {content.heroVideoUrl && <video src={content.heroVideoUrl} controls preload="metadata" className="max-h-64 w-full rounded-xl bg-black" />}
           <div className="flex flex-wrap items-center gap-2">
-            <PortalUploadButton label={content.heroVideoUrl ? "Replace video" : "Upload video"} accept="video/mp4,video/webm,video/quicktime" onUploaded={(u) => setContent((c: any) => ({ ...c, heroVideoUrl: u[0] }))} />
+            <PortalUploadButton label={content.heroVideoUrl ? "Replace video" : "Upload video"} accept="video/mp4,video/webm,video/quicktime" onUploaded={(u) => { setContent((c: any) => ({ ...c, heroVideoUrl: u[0] })); uploadedHint(); }} />
             {content.heroVideoUrl && <button type="button" className="text-sm text-red-700" onClick={() => setContent({ ...content, heroVideoUrl: "" })}>Remove</button>}
             <button className={btnCls} disabled={saving} onClick={saveContent}>Save</button>
           </div>

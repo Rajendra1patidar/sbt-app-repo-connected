@@ -107,7 +107,7 @@ exports.removeItem = async (req, res, next) => {
   }
 };
 
-// POST /api/portal-admin/upload-url  { contentType, size }  → signed PUT url for Firebase Storage
+// POST /api/portal-admin/upload-url  { contentType, size }  → signed Cloudinary upload (url + form fields)
 exports.uploadUrl = async (req, res, next) => {
   try {
     if (!ownerOnly(req, res)) return;

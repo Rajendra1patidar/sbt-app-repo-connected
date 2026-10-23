@@ -7,6 +7,14 @@ const ledgerService = require("../services/ledgerService");
 
 const normPhone = (s) => (s || "").replace(/\D/g, "");
 
+// Shops save numbers in different shapes (9876543210, 919876543210, 09876543210) and customers
+// type them just as loosely (+91 98765 43210). Match all the usual forms of the same 10-digit number.
+function phoneKeyVariants(phoneKey) {
+  if (phoneKey.length < 10) return [phoneKey];
+  const last10 = phoneKey.slice(-10);
+  return [...new Set([phoneKey, last10, `91${last10}`, `0${last10}`])];
+}
+
 function signPortalToken(customer) {
   return jwt.sign(
     { customerId: String(customer._id), ownerId: String(customer.owner), scope: "customer-portal" },
@@ -49,7 +57,7 @@ exports.login = async (req, res, next) => {
     // narrow by — so this deliberately searches globally by phoneKey, then requires
     // the PIN to disambiguate. A shared phone number with two different bookings is
     // a rare edge case;  logs in to whichever profile that PIN belongs to.
-    const candidates = await Customer.find({ phoneKey }).select("+portalPinHash +portalFailedAttempts +portalLockUntil");
+    const candidates = await Customer.find({ phoneKey: { $in: phoneKeyVariants(phoneKey) } }).select("+portalPinHash +portalFailedAttempts +portalLockUntil");
     if (candidates.length === 0) {
       return res.status(401).json({ message: "No booking account found for this phone number" });
     }
@@ -158,3 +166,5 @@ exports.ledger = async (req, res, next) => {
     next(err);
   }
 };
+
+exports._phoneKeyVariants = phoneKeyVariants;

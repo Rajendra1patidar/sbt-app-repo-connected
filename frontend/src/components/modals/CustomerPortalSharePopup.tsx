@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Check, Copy, KeyRound, X } from "lucide-react";
 import { api } from "../../lib/api";
 import { waLink } from "../../lib/contactLinks";
+import { PORTAL_URL, portalAccessMessage } from "../../lib/portalAccess";
 
 /**
  * Lets the owner give a customer access to their own account page (ledger + bookings).
@@ -15,10 +16,7 @@ export function CustomerPortalSharePopup({ customer, onClose }: { customer: any;
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
 
-  const portalUrl = `${window.location.origin}/booking-status`;
-  // The public shop (browse + "Enquire now"). Same phone number + PIN works there too.
-  const shopUrl = (import.meta.env.VITE_PORTAL_URL as string | undefined)?.replace(/\/$/, "") || "https://portal-sbt.web.app";
-  const message = `Hi ${customer.name}, you can see your account ledger and bookings with us anytime here: ${portalUrl}\nLog in with your phone number and this PIN: ${pin}\n\nYou can also browse our shop and send enquiries here: ${shopUrl} (same number and PIN).`;
+  const message = portalAccessMessage(customer.name, pin);
 
   const generate = async () => {
     setLoading(true);
@@ -82,7 +80,7 @@ export function CustomerPortalSharePopup({ customer, onClose }: { customer: any;
               <p className="text-xs font-semibold text-ink/40">PIN</p>
               <p className="font-display text-3xl font-bold tracking-[0.4em] text-ink">{pin}</p>
             </div>
-            <p className="mt-3 break-all rounded-xl border border-line/70 p-3 text-xs text-ink/60">{portalUrl}</p>
+            <p className="mt-3 break-all rounded-xl border border-line/70 p-3 text-xs text-ink/60">{PORTAL_URL}</p>
             <p className="mt-2 text-xs text-ink/40">Note this PIN down or send it now — it can't be shown again (you can always generate a new one).</p>
             {error && <p className="mt-2 text-sm font-semibold text-bad-500">{error}</p>}
             <div className="mt-4 flex gap-2">

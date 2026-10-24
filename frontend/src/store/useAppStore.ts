@@ -6,6 +6,7 @@ import { enqueueOfflineAction, findQueuedAction, updateQueuedAction, cancelQueue
 import { saveDataCache, loadDataCache } from "../lib/dataCache";
 import { withOfflinePending, pickEditableFields } from "../lib/offlineRehydrate";
 import { waLink } from "../lib/contactLinks";
+import { portalAccessMessage } from "../lib/portalAccess";
 import { compressImage } from "../lib/imageCompress";
 
 /**
@@ -415,8 +416,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
     try {
       const { phone, pin } = await api.customers.regeneratePortalPin(customerId);
       const usePhone = phone || customer?.phone;
-      const portalUrl = `${window.location.origin}/booking-status`;
-      const message = `Hi ${customer?.name || ""}, you can check your account and bookings with us anytime here: ${portalUrl}\nLog in with your phone number and this PIN: ${pin}`;
+      const message = portalAccessMessage(customer?.name || "", pin);
       showToast(`New Customer Portal PIN for ${customer?.name || "this customer"}: ${pin}`, {
         duration: 15000,
         actionLabel: "Send on WhatsApp",
@@ -1349,8 +1349,7 @@ export function announcePortalAccess(get: () => AppState, doc: any, portalAccess
   const { showToast, customers } = get();
   const customer = customers.find((c: any) => c.id === doc.customerId);
   const phone = portalAccess.phone || customer?.phone;
-  const portalUrl = `${window.location.origin}/booking-status`;
-  const message = `Hi ${customer?.name || ""}, you can check your account and bookings with us anytime here: ${portalUrl}\nLog in with your phone number and this PIN: ${portalAccess.pin}`;
+  const message = portalAccessMessage(customer?.name || "", portalAccess.pin);
 
   showToast(`${doc.number}: Booking Portal PIN for ${customer?.name || "this customer"} is ${portalAccess.pin} — share it with them`, {
     duration: 15000,

@@ -348,6 +348,10 @@ export const api = {
     // Asks the server for a signed Cloudinary upload; the file itself then goes browser → Cloudinary.
     uploadUrl: (v: { contentType: string; size: number }) =>
       request("/api/portal-admin/upload-url", { method: "POST", body: JSON.stringify(v) }, true),
+    // "Request access" from the public portal: list who is waiting, approve (makes the customer + PIN), dismiss.
+    accessRequests: () => request("/api/portal-admin/access-requests", {}, true),
+    approveRequest: (id: string) => request(`/api/portal-admin/access-requests/${id}/approve`, { method: "POST" }, true),
+    dismissRequest: (id: string) => request(`/api/portal-admin/access-requests/${id}/dismiss`, { method: "POST" }, true),
   },
   settings: {
     get: () => request("/api/settings"),

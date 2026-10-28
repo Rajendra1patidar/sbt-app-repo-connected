@@ -1,20 +1,34 @@
 import React, { useEffect, useState } from "react";
 import { Plus, Trash2, Loader2, ArrowUp, ArrowDown } from "lucide-react";
 import { api } from "../../lib/api";
+import { waLink } from "../../lib/contactLinks";
+import { portalAccessMessage } from "../../lib/portalAccess";
 import { PortalUploadButton, AddByLink } from "./PortalUploadButton";
 
-type Tab = "categories" | "items" | "schemes" | "media" | "whatsapp";
+type Tab = "categories" | "items" | "schemes" | "media" | "requests" | "whatsapp";
 const TABS: { id: Tab; label: string }[] = [
   { id: "categories", label: "Categories" }, { id: "items", label: "Items" }, { id: "schemes", label: "Schemes" },
-  { id: "media", label: "Media" }, { id: "whatsapp", label: "WhatsApp" },
+  { id: "media", label: "Media" }, { id: "requests", label: "Requests" }, { id: "whatsapp", label: "WhatsApp" },
 ];
 const inputCls = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm";
 const btnCls = "inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-medium text-white disabled:opacity-50";
 const toDateInput = (d: any) => (d ? new Date(d).toISOString().slice(0, 10) : "");
-const emptyItem = { name: "", description: "", categoryId: "", photos: [] as string[], videoUrl: "", show: true, item: "" };
+const timeAgo = (iso: string) => {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} h ago`;
+  return `${Math.floor(hours / 24)} days ago`;
+};
+const hiNote = "Optional. If you leave a Hindi box empty, people who pick Hindi see the English text.";
+const emptyItem = { name: "", nameHi: "", description: "", descriptionHi: "", categoryId: "", photos: [] as string[], videoUrl: "", show: true, item: "" };
 
 export function PortalAdminView({ settings, showToast }: any) {
-  const [tab, setTab] = useState<Tab>("categories");
+  const [tab, setTab] = useState<Tab>(() => (new URLSearchParams(window.location.search).get("tab") === "requests" ? "requests" : "categories"));
+  const [requests, setRequests] = useState<any[]>([]);
+  const [busyId, setBusyId] = useState("");
+  const [approved, setApproved] = useState<{ name: string; pin: string; link: string; isNew: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -28,7 +42,41 @@ export function PortalAdminView({ settings, showToast }: any) {
       .then((r: any) => { setContent(r.content); setItems(r.items); setInventory(r.inventory); })
       .catch((e: any) => setError(e.message || "Could not load"))
       .finally(() => setLoading(false));
+    refreshRequests();
   }, []);
+
+  useEffect(() => { if (tab === "requests") refreshRequests(); }, [tab]);
+
+  function refreshRequests() {
+    api.portalAdmin.accessRequests().then((r: any) => setRequests(r.requests || [])).catch(() => {});
+  }
+
+  // One tap: makes the customer (if new), issues the PIN and opens WhatsApp with the message ready to send.
+  // The WhatsApp window is opened right away, while the tap still counts, so the browser doesn't block it.
+  const approve = async (r: any) => {
+    const win = window.open("", "_blank");
+    setBusyId(r._id); setError("");
+    try {
+      const out = await api.portalAdmin.approveRequest(r._id);
+      const link = waLink(out.customer.phone, portalAccessMessage(out.customer.name, out.pin, out.lang === "hi" ? "hi" : "en"));
+      setApproved({ name: out.customer.name, pin: out.pin, link, isNew: out.isNew });
+      setRequests((l) => l.filter((x) => x._id !== r._id));
+      if (win) win.location.href = link;
+      showToast?.(`PIN ${out.pin} ready for ${out.customer.name}`);
+    } catch (e: any) {
+      win?.close();
+      setError(e.message || "Could not approve this request");
+    } finally { setBusyId(""); }
+  };
+
+  const dismiss = async (r: any) => {
+    setBusyId(r._id); setError("");
+    try {
+      await api.portalAdmin.dismissRequest(r._id);
+      setRequests((l) => l.filter((x) => x._id !== r._id));
+      showToast?.("Request dismissed");
+    } catch (e: any) { setError(e.message || "Could not dismiss"); } finally { setBusyId(""); }
+  };
 
   const saveContent = async () => {
     setSaving(true); setError("");
@@ -37,6 +85,8 @@ export function PortalAdminView({ settings, showToast }: any) {
         heroVideoUrl: content.heroVideoUrl,
         heroTitle: content.heroTitle,
         heroSubtitle: content.heroSubtitle,
+        heroTitleHi: content.heroTitleHi,
+        heroSubtitleHi: content.heroSubtitleHi,
         categories: content.categories,
         schemes: content.schemes.map((s: any) => ({ ...s, startsAt: s.startsAt || null, endsAt: s.endsAt || null })),
       });
@@ -76,9 +126,17 @@ export function PortalAdminView({ settings, showToast }: any) {
       <p className="text-sm text-slate-600">What visitors see on your customer portal. Anyone can browse; they sign in with their mobile number and PIN only when they tap "Enquire now". Prices are never shown, and enquiries go to you on WhatsApp.</p>
       <div className="flex gap-5 border-b border-slate-200 overflow-x-auto">
         {TABS.map((t) => (
-          <button key={t.id} onClick={() => setTab(t.id)} className={`py-2.5 text-sm whitespace-nowrap ${tab === t.id ? "border-b-2 border-blue-600 font-semibold" : "text-slate-600"}`}>{t.label}</button>
+          <button key={t.id} onClick={() => setTab(t.id)} className={`py-2.5 text-sm whitespace-nowrap ${tab === t.id ? "border-b-2 border-blue-600 font-semibold" : "text-slate-600"}`}>
+            {t.label}
+            {t.id === "requests" && requests.length > 0 && <span className="ml-1.5 rounded-full bg-red-600 px-1.5 py-0.5 text-xs font-semibold text-white">{requests.length}</span>}
+          </button>
         ))}
       </div>
+      {requests.length > 0 && tab !== "requests" && (
+        <button onClick={() => setTab("requests")} className="w-full rounded-xl bg-blue-50 px-4 py-2.5 text-left text-sm text-blue-900">
+          {requests.length} {requests.length === 1 ? "person is" : "people are"} waiting for a PIN. Tap to review.
+        </button>
+      )}
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
 
       {tab === "categories" && (
@@ -88,6 +146,7 @@ export function PortalAdminView({ settings, showToast }: any) {
               <button aria-label="Move up" onClick={() => moveCat(i, -1)}><ArrowUp size={16} /></button>
               <button aria-label="Move down" onClick={() => moveCat(i, 1)}><ArrowDown size={16} /></button>
               <input aria-label="Category name" className={`${inputCls} flex-1 min-w-[140px]`} value={c.name} onChange={(e) => setCat(i, { name: e.target.value })} />
+              <input aria-label="Category name in Hindi (optional)" lang="hi" className={`${inputCls} flex-1 min-w-[120px]`} placeholder="Hindi name (optional)" value={c.nameHi || ""} onChange={(e) => setCat(i, { nameHi: e.target.value })} />
               {c.imageUrl && <img src={c.imageUrl} alt="" className="h-10 w-10 rounded-lg object-cover" />}
               <PortalUploadButton label={c.imageUrl ? "Change cover" : "Upload cover"} accept="image/jpeg,image/png,image/webp" onUploaded={(u) => { setCat(i, { imageUrl: u[0] }); uploadedHint(); }} />
               <label className="flex items-center gap-1 text-sm"><input type="checkbox" checked={c.visible !== false} onChange={(e) => setCat(i, { visible: e.target.checked })} /> Visible</label>
@@ -98,6 +157,7 @@ export function PortalAdminView({ settings, showToast }: any) {
             <button className={btnCls} onClick={() => setContent((c: any) => ({ ...c, categories: [...c.categories, { name: "", imageUrl: "", visible: true }] }))}><Plus size={14} /> Add category</button>
             <button className={btnCls} disabled={saving} onClick={saveContent}>Save</button>
           </div>
+          <p className="text-xs text-slate-600">{hiNote}</p>
         </div>
       )}
 
@@ -114,6 +174,9 @@ export function PortalAdminView({ settings, showToast }: any) {
             </select>
             <input aria-label="Display name" className={inputCls} placeholder="Name shown to customers" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
             <textarea aria-label="Short description" className={inputCls} rows={2} placeholder="Short description" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
+            <input aria-label="Name in Hindi (optional)" lang="hi" className={inputCls} placeholder="Name in Hindi (optional)" value={draft.nameHi || ""} onChange={(e) => setDraft({ ...draft, nameHi: e.target.value })} />
+            <textarea aria-label="Description in Hindi (optional)" lang="hi" className={inputCls} rows={2} placeholder="Description in Hindi (optional)" value={draft.descriptionHi || ""} onChange={(e) => setDraft({ ...draft, descriptionHi: e.target.value })} />
+            <p className="text-xs text-slate-600">{hiNote}</p>
             <select aria-label="Category" className={inputCls} value={draft.categoryId} onChange={(e) => setDraft({ ...draft, categoryId: e.target.value })}>
               <option value="">Category…</option>
               {content.categories.filter((c: any) => c._id).map((c: any) => <option key={c._id} value={c._id}>{c.name}</option>)}
@@ -159,7 +222,8 @@ export function PortalAdminView({ settings, showToast }: any) {
       {tab === "schemes" && (
         <div className="space-y-3 rounded-2xl bg-white p-4">
           {content.schemes.map((s: any, i: number) => (
-            <div key={s._id || i} className="grid gap-2 border-b border-slate-100 pb-3 md:grid-cols-[2fr_3fr_1fr_1fr_auto_auto]">
+            <div key={s._id || i} className="space-y-2 border-b border-slate-100 pb-3">
+            <div className="grid gap-2 md:grid-cols-[2fr_3fr_1fr_1fr_auto_auto]">
               <input aria-label="Scheme title" className={inputCls} placeholder="Title" value={s.title} onChange={(e) => setScheme(i, { title: e.target.value })} />
               <input aria-label="Description" className={inputCls} placeholder="Description" value={s.description || ""} onChange={(e) => setScheme(i, { description: e.target.value })} />
               <input aria-label="Starts" type="date" className={inputCls} value={toDateInput(s.startsAt)} onChange={(e) => setScheme(i, { startsAt: e.target.value })} />
@@ -167,12 +231,17 @@ export function PortalAdminView({ settings, showToast }: any) {
               <label className="flex items-center gap-1 text-sm"><input type="checkbox" checked={s.active !== false} onChange={(e) => setScheme(i, { active: e.target.checked })} /> Active</label>
               <button aria-label="Delete scheme" onClick={() => setContent((c: any) => ({ ...c, schemes: c.schemes.filter((_: any, k: number) => k !== i) }))}><Trash2 size={16} /></button>
             </div>
+            <div className="grid gap-2 md:grid-cols-2">
+              <input aria-label="Scheme title in Hindi (optional)" lang="hi" className={inputCls} placeholder="Title in Hindi (optional)" value={s.titleHi || ""} onChange={(e) => setScheme(i, { titleHi: e.target.value })} />
+              <input aria-label="Description in Hindi (optional)" lang="hi" className={inputCls} placeholder="Description in Hindi (optional)" value={s.descriptionHi || ""} onChange={(e) => setScheme(i, { descriptionHi: e.target.value })} />
+            </div>
+            </div>
           ))}
           <div className="flex gap-2">
             <button className={btnCls} onClick={() => setContent((c: any) => ({ ...c, schemes: [...c.schemes, { title: "", description: "", active: true }] }))}><Plus size={14} /> Add scheme</button>
             <button className={btnCls} disabled={saving} onClick={saveContent}>Save</button>
           </div>
-          <p className="text-xs text-slate-600">Customers see a scheme only while it is active and today falls between its start and end dates.</p>
+          <p className="text-xs text-slate-600">Customers see a scheme only while it is active and today falls between its start and end dates. {hiNote}</p>
         </div>
       )}
 
@@ -181,6 +250,9 @@ export function PortalAdminView({ settings, showToast }: any) {
           <b className="text-sm">Home page headline</b>
           <input aria-label="Headline" className={inputCls} maxLength={80} placeholder="Headline, e.g. your shop's tagline (optional)" value={content.heroTitle || ""} onChange={(e) => setContent({ ...content, heroTitle: e.target.value })} />
           <input aria-label="Sub-headline" className={inputCls} maxLength={200} placeholder="One line under the headline (optional)" value={content.heroSubtitle || ""} onChange={(e) => setContent({ ...content, heroSubtitle: e.target.value })} />
+          <input aria-label="Headline in Hindi (optional)" lang="hi" className={inputCls} maxLength={120} placeholder="Headline in Hindi (optional)" value={content.heroTitleHi || ""} onChange={(e) => setContent({ ...content, heroTitleHi: e.target.value })} />
+          <input aria-label="Sub-headline in Hindi (optional)" lang="hi" className={inputCls} maxLength={300} placeholder="Sub-headline in Hindi (optional)" value={content.heroSubtitleHi || ""} onChange={(e) => setContent({ ...content, heroSubtitleHi: e.target.value })} />
+          <p className="text-xs text-slate-600">{hiNote}</p>
           <b className="text-sm">Shop walkthrough video</b>
           {content.heroVideoUrl && <video src={content.heroVideoUrl} controls preload="metadata" className="max-h-64 w-full rounded-xl bg-black" />}
           <div className="flex flex-wrap items-center gap-2">
@@ -190,6 +262,41 @@ export function PortalAdminView({ settings, showToast }: any) {
           </div>
           <AddByLink placeholder="Or paste a video link (https)" onAdd={(u) => setContent((c: any) => ({ ...c, heroVideoUrl: u }))} />
           <p className="text-xs text-slate-600">After uploading, press Save so customers see it. Videos up to 40 MB (MP4 recommended). Keep it short: the free plan allows about 1 GB of video viewing a month.</p>
+        </div>
+      )}
+
+      {tab === "requests" && (
+        <div className="space-y-3">
+          {approved && (
+            <div className="space-y-2 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm">
+              <div><b>PIN for {approved.name}: <span className="font-mono text-base">{approved.pin}</span></b>{approved.isNew && " (added to Customers)"}</div>
+              <p className="text-xs text-slate-600">WhatsApp should have opened with the message ready: just press Send there. If it did not open, use the button.</p>
+              <div className="flex items-center gap-3">
+                <a className={btnCls} href={approved.link} target="_blank" rel="noopener noreferrer">Open WhatsApp</a>
+                <button className="text-sm text-slate-600" onClick={() => setApproved(null)}>Close</button>
+              </div>
+            </div>
+          )}
+          <div className="rounded-2xl bg-white p-4">
+            {requests.length === 0 && <p className="text-sm text-slate-600">No one is waiting. When someone taps "Request access" on your portal they appear here, and you get an alert.</p>}
+            {requests.map((r) => (
+              <div key={r._id} className="flex flex-wrap items-center gap-3 border-b border-slate-100 py-3 text-sm last:border-b-0">
+                <div className="min-w-[200px] flex-1">
+                  <div className="font-medium">{r.name} <span className="font-normal text-slate-600">&middot; {r.phone}</span></div>
+                  {r.note && <div className="text-xs text-slate-600">&ldquo;{r.note}&rdquo;</div>}
+                  <div className="text-xs text-slate-500">{timeAgo(r.updatedAt)}{r.requestCount > 1 ? ` · asked ${r.requestCount} times` : ""}{r.lang === "hi" ? " · using Hindi" : ""}</div>
+                  {r.existingCustomer
+                    ? <div className="text-xs text-amber-700">Already a customer ({r.existingCustomer.name}). Approving gives a NEW PIN; the old PIN stops working.</div>
+                    : <div className="text-xs text-green-700">New person. Approving adds them to Customers.</div>}
+                </div>
+                <button className={btnCls} disabled={busyId === r._id} onClick={() => approve(r)}>
+                  {busyId === r._id && <Loader2 className="animate-spin" size={14} />}{r.existingCustomer ? "Send new PIN" : "Approve & send PIN"}
+                </button>
+                <button className="text-sm text-slate-600" disabled={busyId === r._id} onClick={() => dismiss(r)}>Dismiss</button>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-slate-600">Approving opens WhatsApp with the PIN message in the customer's language. Nothing is sent until you press Send.</p>
         </div>
       )}
 

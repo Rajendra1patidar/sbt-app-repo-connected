@@ -144,6 +144,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
     email: "SARANGPUR SANDAWTA ROAD PADLYA MATAJI",
     currency: "₹",
     businessWhatsApp: "",
+    upiId: "",
     itemCategories: ITEM_CATEGORIES,
   },
   customers: [],

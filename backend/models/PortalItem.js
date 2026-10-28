@@ -8,6 +8,8 @@ const portalItemSchema = new mongoose.Schema(
     item: { type: mongoose.Schema.Types.ObjectId, ref: "Item", default: null }, // optional link to inventory
     name: { type: String, required: true, trim: true, maxlength: 120 },
     description: { type: String, trim: true, default: "", maxlength: 600 },
+    nameHi: { type: String, trim: true, default: "", maxlength: 180 }, // optional Hindi name
+    descriptionHi: { type: String, trim: true, default: "", maxlength: 900 }, // optional Hindi description
     categoryId: { type: String, default: "" }, // _id of a PortalContent.categories entry
     photos: { type: [String], default: [] },
     videoUrl: { type: String, trim: true, default: "" },

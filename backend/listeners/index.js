@@ -1,5 +1,6 @@
 const eventBus = require("../services/eventBus");
 const notificationService = require("../services/notificationService");
+const { sendTelegramMessage } = require("../utils/telegramClient");
 
 // Wires business events to their in-app notifications. registerListeners()
 // runs once at server startup (see server.js). Keeping every listener in one
@@ -79,6 +80,22 @@ function registerListeners() {
       body: "A staff member submitted this above your approval limit — review it in Approvals.",
       refId: approvalId,
     });
+  });
+
+  // Someone asked for a PIN on the public customer portal. Shows in the app's bell and, when the
+  // report bot is set up, as a Telegram message so it isn't missed while the app is closed.
+  eventBus.on("portal.access-requested", async ({ owner, requestId, name, phone, note }) => {
+    await notificationService.notify(owner, {
+      type: "portal.access-requested",
+      title: `Portal access request: ${name}`,
+      body: `${phone}${note ? ` - ${note}` : ""}. Approve it in Customer Portal > Requests.`,
+      refId: requestId,
+    });
+    await sendTelegramMessage(
+      process.env.TELEGRAM_REPORT_BOT_TOKEN,
+      process.env.TELEGRAM_REPORT_CHAT_ID,
+      `New customer portal access request\nName: ${name}\nMobile: ${phone}${note ? `\nNote: ${note}` : ""}\n\nOpen the app > Customer Portal > Requests to approve and send the PIN.`
+    );
   });
 
   eventBus.on("customer.credit-risk", async ({ owner, customerId, name, overdue, oldestDaysPastDue }) => {

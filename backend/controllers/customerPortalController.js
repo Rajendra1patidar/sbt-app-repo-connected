@@ -4,6 +4,10 @@ const Document = require("../models/Document");
 const Item = require("../models/Item");
 const Settings = require("../models/Settings");
 const ledgerService = require("../services/ledgerService");
+const PortalAccessRequest = require("../models/PortalAccessRequest");
+const eventBus = require("../services/eventBus");
+const { publicOwnerId } = require("./portalCatalogController");
+const { buildStatementPdf } = require("../services/statementPdf");
 
 const normPhone = (s) => (s || "").replace(/\D/g, "");
 
@@ -168,3 +172,69 @@ exports.ledger = async (req, res, next) => {
 };
 
 exports._phoneKeyVariants = phoneKeyVariants;
+
+// POST /api/customer-portal/request-access  { name, phone, note, lang, website }   (public)
+// Anyone can ask for a PIN. This only records the request for the owner to approve in the app;
+// it never creates a customer and never says whether a number is already registered.
+exports.requestAccess = async (req, res, next) => {
+  try {
+    const b = req.body || {};
+    if (b.website) return res.json({ ok: true }); // hidden "website" field: only bots fill it in — pretend it worked
+    const name = String(b.name || "").trim().replace(/\s+/g, " ").slice(0, 80);
+    const digits = normPhone(b.phone);
+    const last10 = digits.slice(-10);
+    if (name.length < 2) return res.status(400).json({ message: "Please enter your name" });
+    if (digits.length < 10 || digits.length > 13) return res.status(400).json({ message: "Please enter a valid 10-digit mobile number" });
+    const note = String(b.note || "").trim().slice(0, 300);
+    const lang = b.lang === "hi" ? "hi" : "en";
+
+    const owner = await publicOwnerId();
+    if (!owner) return res.status(503).json({ message: "The shop isn't taking requests yet. Please message us on WhatsApp." });
+
+    const waiting = await PortalAccessRequest.findOne({ owner, phoneKey: last10, status: "pending" });
+    if (waiting) {
+      // Same person asking again: keep one request, refresh it so it moves to the top.
+      waiting.name = name;
+      if (note) waiting.note = note;
+      waiting.lang = lang;
+      waiting.requestCount += 1;
+      await waiting.save();
+    } else {
+      const doc = await PortalAccessRequest.create({ owner, name, phone: last10, phoneKey: last10, note, lang });
+      eventBus.emit("portal.access-requested", { owner, requestId: doc._id, name, phone: last10, note });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/customer-portal/statement.pdf?lang=en|hi   (customer token)
+exports.statementPdf = async (req, res, next) => {
+  try {
+    const lang = req.query.lang === "hi" ? "hi" : "en";
+    const [statement, customer, settings] = await Promise.all([
+      ledgerService.customerAccountStatement(req.ownerId, req.customerId),
+      Customer.findById(req.customerId).select("name phone").lean(),
+      Settings.findOne({ owner: req.ownerId }).select("orgName email").lean(),
+    ]);
+    if (!customer) return res.status(404).json({ message: "Account not found" });
+    const pdf = await buildStatementPdf({
+      orgName: settings?.orgName || "",
+      address: settings?.email || "",
+      customerName: customer.name,
+      customerPhone: customer.phone || "",
+      statement,
+      lang,
+    });
+    const slug = String(customer.name || "").normalize("NFKD").replace(/[^\x20-\x7E]/g, "").trim().replace(/\s+/g, "-").toLowerCase().slice(0, 30) || "customer";
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="statement-${slug}.pdf"`,
+      "Cache-Control": "no-store",
+    });
+    res.send(pdf);
+  } catch (err) {
+    next(err);
+  }
+};

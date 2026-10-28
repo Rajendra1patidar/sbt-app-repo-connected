@@ -21,6 +21,12 @@ exports.update = async (req, res, next) => {
     );
     res.json(settings);
   } catch (err) {
+    // A mistyped value (for example a UPI ID without "@") is the person's typo, not a server fault:
+    // answer 400 with the plain message instead of a 500 that also fires the error alert.
+    if (err.name === "ValidationError") {
+      const first = Object.values(err.errors || {})[0];
+      return res.status(400).json({ message: (first && first.message) || "Please check the values you entered" });
+    }
     next(err);
   }
 };

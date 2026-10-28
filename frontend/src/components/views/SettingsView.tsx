@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Phone, Plus, X, Download, Loader2, ShieldCheck } from "lucide-react";
+import { Phone, Plus, X, Download, Loader2, ShieldCheck, Wallet } from "lucide-react";
 import { Card, PillButton } from "../common/UIPrimitives";
 import { ChangePinCard } from "./ChangePinCard";
 import { StaffManagementCard } from "./StaffManagementCard";
@@ -111,6 +111,19 @@ export function SettingsView({ settings, setSettings }: any) {
         <div className="flex items-center gap-2"><Phone size={16} style={{ color: WHATSAPP_GREEN }} /><h3 className="text-sm font-bold text-ink">WhatsApp integration</h3></div>
         <div><label className="mb-1 block text-xs font-semibold text-ink/50">Business WhatsApp number (with country code)</label>
         <input value={local.businessWhatsApp} onChange={(e) => set("businessWhatsApp", e.target.value)} placeholder="+91 98765 43210" className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" /></div>
+      </Card>
+      <Card className="space-y-3">
+        <div className="flex items-center gap-2"><Wallet size={16} className="text-brand-500" /><h3 className="text-sm font-bold text-ink">UPI payments (customer portal)</h3></div>
+        <p className="text-xs text-ink/40">
+          Customers who owe money see a "Pay now" button on your portal. It opens GPay or PhonePe with the amount filled in, and the
+          payment goes straight to this UPI ID. Leave it empty to hide the button.
+        </p>
+        <div><label className="mb-1 block text-xs font-semibold text-ink/50">Shop UPI ID</label>
+        <input value={local.upiId || ""} onChange={(e) => set("upiId", e.target.value.trim())} placeholder="shopname@okicici" autoCapitalize="none" autoCorrect="off" spellCheck={false} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" /></div>
+        <p className="text-xs text-ink/40">
+          A business (merchant) UPI ID works best. Test it once with ₹1 from your own phone. Payments are not added to the app by themselves:
+          when money arrives, record it in Payments as you do today.
+        </p>
       </Card>
       <Card className="space-y-3">
         <div className="flex items-center gap-2"><ShieldCheck size={16} className="text-brand-500" /><h3 className="text-sm font-bold text-ink">Staff approval limit</h3></div>

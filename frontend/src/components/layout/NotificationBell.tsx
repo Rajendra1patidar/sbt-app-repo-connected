@@ -14,6 +14,7 @@ const ICONS: Record<string, any> = {
   "reconciliation.failed": ShieldAlert,
   "approval.requested": Users,
   "customer.credit-risk": TrendingDown,
+  "portal.access-requested": Users,
   "estimate.created": FileText,
 };
 
@@ -33,6 +34,8 @@ function targetPath(n: any): string | null {
       return "/ledger";
     case "customer.credit-risk":
       return n.refId ? `/customers/${n.refId}` : "/customers";
+    case "portal.access-requested":
+      return "/customer-portal?tab=requests";
     case "estimate.created":
       return "/estimates";
     default:

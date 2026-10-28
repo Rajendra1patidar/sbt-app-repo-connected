@@ -7,10 +7,14 @@ const portalContentSchema = new mongoose.Schema(
     owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, unique: true },
     heroTitle: { type: String, trim: true, default: "", maxlength: 80 },
     heroSubtitle: { type: String, trim: true, default: "", maxlength: 200 },
+    // Optional Hindi versions, shown when a visitor picks Hindi. Empty = fall back to the English text.
+    heroTitleHi: { type: String, trim: true, default: "", maxlength: 120 },
+    heroSubtitleHi: { type: String, trim: true, default: "", maxlength: 300 },
     heroVideoUrl: { type: String, trim: true, default: "" },
     categories: [
       {
         name: { type: String, required: true, trim: true, maxlength: 60 },
+        nameHi: { type: String, trim: true, default: "", maxlength: 90 },
         imageUrl: { type: String, trim: true, default: "" },
         visible: { type: Boolean, default: true },
         order: { type: Number, default: 0 },
@@ -20,6 +24,8 @@ const portalContentSchema = new mongoose.Schema(
       {
         title: { type: String, required: true, trim: true, maxlength: 120 },
         description: { type: String, trim: true, default: "", maxlength: 500 },
+        titleHi: { type: String, trim: true, default: "", maxlength: 180 },
+        descriptionHi: { type: String, trim: true, default: "", maxlength: 750 },
         startsAt: { type: Date, default: null },
         endsAt: { type: Date, default: null },
         active: { type: Boolean, default: true },

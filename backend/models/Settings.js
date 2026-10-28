@@ -8,6 +8,18 @@ const settingsSchema = new mongoose.Schema(
     email: { type: String, default: "SARANGPUR SANDAWTA ROAD PADLYA MATAJI" },
     currency: { type: String, default: "₹" },
     businessWhatsApp: { type: String, default: "" },
+    // The shop's UPI ID (e.g. shopname@okicici). The customer portal uses it for the "Pay now"
+    // button on dues, which opens GPay / PhonePe with the amount filled in. Empty = no Pay button.
+    upiId: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 100,
+      validate: {
+        validator: (v) => !v || /^[a-zA-Z0-9.\-_]{2,100}@[a-zA-Z][a-zA-Z0-9]{1,63}$/.test(v),
+        message: "That UPI ID doesn't look right. It should look like shopname@okicici",
+      },
+    },
     // 0 = disabled. Above this ₹ amount, a staff-created manual purchase
     // queues for owner approval instead of executing immediately — see
     // purchaseController.js and models/ApprovalRequest.js. Never gates the

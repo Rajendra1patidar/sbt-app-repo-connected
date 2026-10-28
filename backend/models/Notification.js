@@ -21,6 +21,7 @@ const notificationSchema = new mongoose.Schema(
         "approval.requested",
         "customer.credit-risk",
         "stock.dead-stock",
+        "portal.access-requested",
       ],
       index: true,
     },

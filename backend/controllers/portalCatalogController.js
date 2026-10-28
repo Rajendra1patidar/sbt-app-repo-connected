@@ -7,26 +7,29 @@ const PortalItem = require("../models/PortalItem");
 async function buildCatalog(owner) {
   const [content, items, settings] = await Promise.all([
     PortalContent.findOne({ owner }).lean(),
-    PortalItem.find({ owner, show: true }).select("name description categoryId photos videoUrl").sort({ createdAt: -1 }).lean(),
-    Settings.findOne({ owner }).select("orgName businessWhatsApp").lean(),
+    PortalItem.find({ owner, show: true }).select("name nameHi description descriptionHi categoryId photos videoUrl").sort({ createdAt: -1 }).lean(),
+    Settings.findOne({ owner }).select("orgName businessWhatsApp upiId").lean(),
   ]);
   const now = new Date();
   const categories = (content?.categories || [])
     .filter((c) => c.visible)
     .sort((a, b) => a.order - b.order)
-    .map((c) => ({ id: String(c._id), name: c.name, imageUrl: c.imageUrl }));
+    .map((c) => ({ id: String(c._id), name: c.name, nameHi: c.nameHi || "", imageUrl: c.imageUrl }));
   const schemes = (content?.schemes || [])
     .filter((s) => s.active && (!s.startsAt || s.startsAt <= now) && (!s.endsAt || s.endsAt >= now))
-    .map((s) => ({ id: String(s._id), title: s.title, description: s.description, endsAt: s.endsAt }));
+    .map((s) => ({ id: String(s._id), title: s.title, titleHi: s.titleHi || "", description: s.description, descriptionHi: s.descriptionHi || "", endsAt: s.endsAt }));
   return {
     orgName: settings?.orgName || "",
     whatsapp: (settings?.businessWhatsApp || "").replace(/\D/g, ""),
+    upiId: settings?.upiId || "", // public by nature (it's what a payment QR shows); lets the portal offer "Pay now"
     heroTitle: content?.heroTitle || "",
+    heroTitleHi: content?.heroTitleHi || "",
     heroSubtitle: content?.heroSubtitle || "",
+    heroSubtitleHi: content?.heroSubtitleHi || "",
     heroVideoUrl: content?.heroVideoUrl || "",
     categories,
     schemes,
-    items: items.map((i) => ({ id: String(i._id), name: i.name, description: i.description, categoryId: i.categoryId, photos: i.photos, videoUrl: i.videoUrl })),
+    items: items.map((i) => ({ id: String(i._id), name: i.name, nameHi: i.nameHi || "", description: i.description, descriptionHi: i.descriptionHi || "", categoryId: i.categoryId, photos: i.photos, videoUrl: i.videoUrl })),
   };
 }
 
@@ -55,7 +58,7 @@ async function publicOwnerId() {
 exports.publicCatalog = async (req, res, next) => {
   try {
     const owner = await publicOwnerId();
-    if (!owner) return res.json({ orgName: "", whatsapp: "", heroTitle: "", heroSubtitle: "", heroVideoUrl: "", categories: [], schemes: [], items: [] });
+    if (!owner) return res.json({ orgName: "", whatsapp: "", upiId: "", heroTitle: "", heroTitleHi: "", heroSubtitle: "", heroSubtitleHi: "", heroVideoUrl: "", categories: [], schemes: [], items: [] });
     res.set("Cache-Control", "public, max-age=30");
     res.json(await buildCatalog(owner));
   } catch (err) {
@@ -64,3 +67,4 @@ exports.publicCatalog = async (req, res, next) => {
 };
 
 exports._buildCatalog = buildCatalog;
+exports.publicOwnerId = publicOwnerId;

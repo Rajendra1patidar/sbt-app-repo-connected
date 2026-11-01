@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ChevronDown, LogOut, Search, X } from "lucide-react";
-import { NAV } from "../../lib/constants";
+import { NAV, OWNER_ONLY_NAV_IDS } from "../../lib/constants";
 import { LOW_STOCK_DEFAULT } from "../../lib/constants";
 
 /* ---- Sidebar: a permanent dark nav rail (independent of the light/dark app theme) ---- */
@@ -68,12 +68,14 @@ function SalesSpark({ estimates }: { estimates: any[] }) {
   );
 }
 
-export function Sidebar({ open, onClose, active, onNav, settings, onSignOut, estimates = [], items = [], overdueCount = 0 }: any) {
+export function Sidebar({ open, onClose, active, onNav, settings, onSignOut, estimates = [], items = [], overdueCount = 0, role = "owner" }: any) {
+  // A staff login never sees the owner-only screens (ledger, reports, portal admin, ...).
+  const navItems = NAV.filter((n: any) => role !== "staff" || !OWNER_ONLY_NAV_IDS.has(n.id));
   const lowStockCount = items.filter((it: any) => !it.deleted && (it.stock ?? 0) <= (it.lowStock ?? LOW_STOCK_DEFAULT)).length;
   const badgeFor: Record<string, number> = { estimates: overdueCount, items: lowStockCount };
 
   const sections: { name: string; items: typeof NAV }[] = [];
-  NAV.forEach((n: any) => {
+  navItems.forEach((n: any) => {
     const sec = n.section || "Other";
     let group = sections.find((s) => s.name === sec);
     if (!group) { group = { name: sec, items: [] }; sections.push(group); }
@@ -94,7 +96,7 @@ export function Sidebar({ open, onClose, active, onNav, settings, onSignOut, est
   // otherwise navigating here from elsewhere (a shortcut, a deep link) would
   // leave the highlighted item tucked inside a collapsed section.
   useEffect(() => {
-    const activeSection = NAV.find((n: any) => n.id === active)?.section;
+    const activeSection = navItems.find((n: any) => n.id === active)?.section;
     if (activeSection && !openSections[activeSection]) {
       setOpenSections((prev) => ({ ...prev, [activeSection]: true }));
     }
@@ -119,7 +121,7 @@ export function Sidebar({ open, onClose, active, onNav, settings, onSignOut, est
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, isSearching]);
 
-  const pinned = PINNED_IDS.map((id) => NAV.find((n: any) => n.id === id)).filter(Boolean) as typeof NAV;
+  const pinned = PINNED_IDS.map((id) => navItems.find((n: any) => n.id === id)).filter(Boolean) as typeof NAV;
   const attentionCount = overdueCount + lowStockCount;
 
   const initials = (settings.ownerName || "SB").trim().split(/\s+/).map((s: string) => s[0]).slice(0, 2).join("").toUpperCase();

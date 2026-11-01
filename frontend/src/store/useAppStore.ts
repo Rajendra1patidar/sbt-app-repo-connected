@@ -401,9 +401,19 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
 
   removeCustomer: (id) => {
-    const { customers } = get();
+    const { customers, estimates, challans, payments } = get();
     const c = customers.find((x) => x.id === id);
-    get().confirmThenDelete(c?.name || "this customer", "This removes the customer and their ledger history.", () => {
+    // A customer with bills or payments can't be deleted - it would leave those
+    // pointing at nobody. Say so right away (the server enforces the same rule,
+    // plus labour jobs and ledger entries, which this screen doesn't hold).
+    const bills = [...estimates, ...challans].filter((d: any) => d.customerId === id).length;
+    const paid = payments.filter((p: any) => p.customerId === id).length;
+    if (bills || paid) {
+      const parts = [bills ? `${bills} bill${bills === 1 ? "" : "s"}` : "", paid ? `${paid} payment${paid === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and ");
+      get().showToast(`${c?.name || "This customer"} has ${parts}, so they can't be deleted without breaking your records. You can edit their details instead.`, { duration: 7000 });
+      return;
+    }
+    get().confirmThenDelete(c?.name || "this customer", "This removes the customer.", () => {
       scheduleDelete(set, get, "Customer", "customers", id, () => api.customers.remove(id));
     });
   },
@@ -679,8 +689,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
       if (type === "estimate") {
         payload.freightCost = v.freightCost || 0;
         payload.labourCost = v.labourCost || 0;
-        payload.previousDue = v.previousDue || 0;
-        payload.rolledEstimateIds = v.rolledEstimateIds || [];
+        payload.previousDue = v.previousDue || 0; // only non-zero when editing an OLD bill that carried one
+        payload.previousBalance = v.previousBalance || 0; // information for the printed bill, never part of the total
         payload.contractorName = v.contractorName || "";
         payload.destination = v.destination || "";
         if (v.status) payload.status = v.status;
@@ -720,11 +730,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
       let partialPaymentFailed = false;
       if (type === "estimate") {
-        if (v.rolledEstimateIds && v.rolledEstimateIds.length) {
-          set((state) => ({
-            estimates: state.estimates.map((e) => (v.rolledEstimateIds.includes(e.id) ? { ...e, status: "Paid" } : e)),
-          }));
-        }
+        // (Earlier estimates used to be marked Paid here when their balance was
+        // rolled into this one. That is gone: they stay open until really paid.)
 
         // customer paid part of the total up front — record it the same way a
         // normal partial payment against an invoice is recorded (Payment row +
@@ -819,26 +826,18 @@ export const useAppStore = create<AppState>()((set, get) => ({
           freightCost: payload.freightCost,
           labourCost: payload.labourCost,
           previousDue: payload.previousDue,
+          previousBalance: payload.previousBalance,
           _offlinePending: true,
         };
         if (!queueOrWarn("estimate", {
           payload, idempotencyKey, placeholderId,
           partialAmountPaid: v.partialAmountPaid, customerId: v.customerId, date: v.date,
-          rolledEstimateIds: v.rolledEstimateIds,
         }, placeholder)) return;
-        set((state) => {
-          let estimates = [placeholder, ...state.estimates];
-          if (v.rolledEstimateIds && v.rolledEstimateIds.length) {
-            // Mirrors the online path's optimistic update so the rolled-in
-            // estimates don't keep showing as due while this one is queued.
-            // Stock itself is deliberately left untouched here (unlike Stock
-            // Take's optimistic numbers) — estimate lines mix weight/piece
-            // units in a way that's easy to get subtly wrong client-side;
-            // safer to show the last-known real stock until sync corrects it.
-            estimates = estimates.map((e: any) => (v.rolledEstimateIds.includes(e.id) ? { ...e, status: "Paid" } : e));
-          }
-          return { estimates };
-        });
+        // Stock itself is deliberately left untouched here (unlike Stock Take's
+        // optimistic numbers) — estimate lines mix weight/piece units in a way
+        // that's easy to get subtly wrong client-side; safer to show the
+        // last-known real stock until sync corrects it.
+        set((state) => ({ estimates: [placeholder, ...state.estimates] }));
         showToast("You're offline — estimate saved and will sync automatically once you're back online. Stock won't update until then.");
         closeModal();
         return placeholder;
@@ -1389,6 +1388,12 @@ function scheduleDelete(
   commit: () => Promise<void>,
   listOverride?: any[]
 ) {
+  // Staff can't delete anything (the server refuses). Say so up front instead of
+  // hiding the row for five seconds and then bringing it back with an error.
+  if (get().role === "staff") {
+    get().showToast(`Only the business owner can delete a ${label.toLowerCase()}.`);
+    return;
+  }
   const list: any[] = listOverride ?? (get()[listKey] as any);
   const index = list.findIndex((x) => x.id === id);
   if (index === -1) return;

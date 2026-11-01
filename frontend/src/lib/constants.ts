@@ -70,6 +70,14 @@ export const NAV = [
 
 export const BOTTOM_NAV_IDS = ["dashboard", "estimates", "customers"];
 
+// Screens a staff login can't open. The server enforces this too (see
+// backend/middleware/roles.js); hiding them here just keeps the menu honest.
+// Staff still get Settings, but only their own PIN change (see SettingsView).
+export const OWNER_ONLY_NAV_IDS = new Set([
+  "approvals", "ledger", "bankReconciliation", "financialYears", "cashFlowForecast",
+  "reports", "vendorScorecard", "sharereport", "billing", "auditLog", "portalAdmin",
+]);
+
 /* ---- ChallanModal ---- */
 
 export const MAX_ENTRY_ROWS = 10;

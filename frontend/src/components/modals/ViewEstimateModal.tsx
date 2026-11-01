@@ -131,6 +131,19 @@ export function ViewEstimateModal({ doc, customers, items, currency, scoreRules,
                 <span className="font-display text-lg font-bold text-ink">{fmtMoney(doc.total, currency)}</span>
               </div>
 
+              {Number(doc.previousBalance || 0) > 0 && (
+                <>
+                  <div className="mt-1.5 flex items-center justify-between text-sm text-ink/60">
+                    <span>Previous balance</span>
+                    <span>{fmtMoney(doc.previousBalance, currency)}</span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between text-sm font-semibold text-ink">
+                    <span>Total with previous balance</span>
+                    <span>{fmtMoney(Number(doc.total || 0) + Number(doc.previousBalance || 0), currency)}</span>
+                  </div>
+                </>
+              )}
+
               {Number(doc.amountPaid || 0) > 0 && (
                 <>
                   <div className="mt-1.5 flex items-center justify-between text-sm">

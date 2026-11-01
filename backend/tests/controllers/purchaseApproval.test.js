@@ -10,6 +10,8 @@
 jest.mock("../../models/Purchase");
 jest.mock("../../models/Item");
 jest.mock("../../models/Vendor");
+// the closed-financial-year lock has its own tests (tests/utils/yearLock.test.js); here it is a no-op
+jest.mock("../../utils/yearLock", () => ({ assertYearNotLocked: jest.fn().mockResolvedValue(undefined) }));
 jest.mock("../../models/Settings");
 jest.mock("../../models/ApprovalRequest");
 jest.mock("../../services/ledgerService");

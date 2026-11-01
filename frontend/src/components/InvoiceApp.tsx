@@ -44,6 +44,8 @@ import { PaymentsView } from "./views/PaymentsView";
 import { PurchasesView } from "./views/PurchasesView";
 import { ReportsView } from "./views/ReportsView";
 import { SettingsView } from "./views/SettingsView";
+import { OwnerOnlyNotice } from "./common/OwnerOnlyNotice";
+import { OWNER_ONLY_NAV_IDS } from "../lib/constants";
 import { PortalAdminView } from "./views/PortalAdminView";
 import { ShareReportView } from "./views/ShareReportView";
 import { VendorsView } from "./views/VendorsView";
@@ -66,7 +68,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
 
   const {
-    loading, loadError, settings, customers, items, orders, estimates, challans,
+    loading, loadError, role, settings, customers, items, orders, estimates, challans,
     expenses, payments, labourSessions, labourWorkers, contractors, scoreRules, vendors, purchases, godowns,
     reorderSuggestions, deadStock, toast, modal, confirmDeleteFor, shareInvoice, autoReminder,
     fetchAll, setOnSignOut, showToast, openModal, closeModal, cancelConfirmDelete,
@@ -118,6 +120,11 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     ];
     const extraRowCount = extraRows.filter(Boolean).length;
     const extrasHtml = extraRows.join("");
+    // earlier balance: printed for reference below the total, never part of it
+    const previousBalance = Number(invoice.previousBalance || 0);
+    const previousBalanceHtml = previousBalance > 0
+      ? `<div class="ln"><span>Previous balance</span><span>${fmtMoney(previousBalance, settings.currency)}</span></div><div class="ln"><span>Total with previous balance</span><span>${fmtMoney(Number(invoice.total || 0) + previousBalance, settings.currency)}</span></div>`
+      : "";
 
     const statusNote = invoice.isAdvanceBooking
       ? "Advance Booked"
@@ -142,6 +149,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <div class="divider"></div>
       <div class="lines">${rowsHtml}${extrasHtml}</div>
       <div class="tot"><span>Total</span><span>${fmtMoney(invoice.total, settings.currency)}</span></div>
+      ${previousBalanceHtml}
       ${paidHtml}
       ${notesHtml}
       <div class="stat">${statusNote}</div>
@@ -160,6 +168,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       5.5 /* header row */ + (customer?.location ? 4.5 : 0) /* place row */ + 3.5 /* divider */ +
       (lines.length + discountLineCount + extraRowCount) * rowLineMm +
       7 /* total row */ +
+      (previousBalance > 0 ? rowLineMm * 2 : 0) /* previous balance rows */ +
       (amountPaid > 0 ? 11 : 0) /* paid + balance rows */ +
       (notesLines * 3.6) +
       5.5 /* status row */ +
@@ -459,10 +468,10 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   return (
     <div className="flex h-screen bg-paper font-sans text-ink">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} active={view} onNav={goToView} settings={settings} onSignOut={onSignOut}
-        estimates={activeEstimates} items={items} overdueCount={overdueCount} />
+        estimates={activeEstimates} items={items} overdueCount={overdueCount} role={role} />
       <div className="flex-1 overflow-y-auto pb-24 md:pb-0">
         <Topbar onMenu={() => setSidebarOpen(true)} settings={settings} view={view} onOpenSearch={() => setGlobalSearchOpen(true)} />
-        {routes}
+        {role === "staff" && OWNER_ONLY_NAV_IDS.has(view) ? <OwnerOnlyNotice onHome={() => goToView("dashboard")} /> : routes}
       </div>
 
       <BottomNav

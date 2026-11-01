@@ -1,9 +1,18 @@
 const Customer = require("../models/Customer");
+const Document = require("../models/Document");
+const Payment = require("../models/Payment");
+const LabourSession = require("../models/LabourSession");
+const LedgerEntry = require("../models/LedgerEntry");
 const crudController = require("./crudController");
 const { logAudit, diffFields } = require("../services/auditLogger");
 const customerPortalService = require("../services/customerPortalService");
+const { stripProtected } = require("../utils/sanitize");
 
-const base = crudController(Customer);
+// The booking-portal PIN hash and its lockout counters are only ever written by
+// the server (customerPortalService) - never accepted from a request body.
+const PROTECTED_CUSTOMER_FIELDS = ["portalPinHash", "portalFailedAttempts", "portalLockUntil"];
+
+const base = crudController(Customer, { protectedFields: PROTECTED_CUSTOMER_FIELDS });
 
 const normName = (s) => (s || "").trim().toLowerCase();
 const normPhone = (s) => (s || "").replace(/\D/g, "");
@@ -40,7 +49,7 @@ base.regeneratePortalPin = async (req, res, next) => {
 
 base.create = async (req, res, next) => {
   try {
-    const v = req.body;
+    const v = stripProtected(req.body, PROTECTED_CUSTOMER_FIELDS);
     const existing = await Customer.find({ owner: req.userId });
     const isDuplicate = existing.some(
       (c) => normName(c.name) === normName(v.name) && normPhone(c.phone) === normPhone(v.phone)
@@ -65,7 +74,7 @@ base.create = async (req, res, next) => {
 
 base.update = async (req, res, next) => {
   try {
-    const v = req.body;
+    const v = stripProtected(req.body, PROTECTED_CUSTOMER_FIELDS);
     if (v.name !== undefined && v.phone !== undefined) {
       const others = await Customer.find({ owner: req.userId, _id: { $ne: req.params.id } });
       const collision = others.some(
@@ -88,6 +97,42 @@ base.update = async (req, res, next) => {
     if (err.code === 11000) {
       return res.status(409).json({ message: "A customer with this name and phone number already exists" });
     }
+    next(err);
+  }
+};
+
+// Deleting a customer who has bills, payments, labour jobs or ledger entries
+// leaves all of those pointing at nobody (the lists then show "Unknown
+// customer", and the books lose the party). So a customer with any history
+// can't be deleted - edit their details instead. A customer with no history at
+// all (a mistaken duplicate, say) can still be removed.
+base.remove = async (req, res, next) => {
+  try {
+    const customer = await Customer.findOne({ _id: req.params.id, owner: req.userId });
+    if (!customer) return res.status(404).json({ message: "Not found" });
+
+    const where = { owner: req.userId, customerId: req.params.id };
+    const [bills, payments, jobs, entries] = await Promise.all([
+      Document.countDocuments(where),
+      Payment.countDocuments(where),
+      LabourSession.countDocuments(where),
+      LedgerEntry.countDocuments(where),
+    ]);
+    if (bills || payments || jobs || entries) {
+      const parts = [];
+      if (bills) parts.push(`${bills} bill${bills === 1 ? "" : "s"}`);
+      if (payments) parts.push(`${payments} payment${payments === 1 ? "" : "s"}`);
+      if (jobs) parts.push(`${jobs} labour job${jobs === 1 ? "" : "s"}`);
+      if (!parts.length) parts.push("entries in your accounts");
+      return res.status(409).json({
+        message: `${customer.name} has ${parts.join(" and ")}, so they can't be deleted without breaking your records. You can edit their details instead.`,
+      });
+    }
+
+    await Customer.findOneAndDelete({ _id: req.params.id, owner: req.userId });
+    logAudit({ owner: req.userId, actorId: req.actorId, action: "delete", model: "Customer", docId: customer._id, label: customer.name });
+    res.json({ message: "Deleted", id: req.params.id });
+  } catch (err) {
     next(err);
   }
 };

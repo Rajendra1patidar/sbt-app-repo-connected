@@ -22,7 +22,7 @@ const User = require("../models/User");
 // immediately instead of after the TTL.
 const AUTH_CACHE_TTL_MS = 60 * 1000;
 const AUTH_CACHE_MAX = 500;
-const authCache = new Map(); // accountId -> { role, ownerId, expires }
+const authCache = new Map(); // accountId -> { role, ownerId, tokenVersion, expires }
 
 function invalidateAuthCache(accountId) {
   if (accountId) authCache.delete(String(accountId));
@@ -34,13 +34,21 @@ async function resolveAccount(id) {
   const hit = authCache.get(key);
   if (hit && hit.expires > Date.now()) return hit;
 
-  const account = await User.findById(id).select("role ownerId");
+  const account = await User.findById(id).select("role ownerId tokenVersion");
   if (!account) {
     authCache.delete(key);
     return null;
   }
   if (authCache.size >= AUTH_CACHE_MAX) authCache.delete(authCache.keys().next().value);
-  const entry = { role: account.role || "owner", ownerId: account.ownerId ? account.ownerId : null, expires: Date.now() + AUTH_CACHE_TTL_MS };
+  const entry = {
+    role: account.role || "owner",
+    ownerId: account.ownerId ? account.ownerId : null,
+    // Bumped whenever the PIN changes or is reset. A token minted before that
+    // carries an older number and stops working, so a stolen token does not
+    // survive a PIN reset. Accounts and tokens that predate this count as 0.
+    tokenVersion: Number(account.tokenVersion) || 0,
+    expires: Date.now() + AUTH_CACHE_TTL_MS,
+  };
   authCache.set(key, entry);
   return entry;
 }
@@ -56,6 +64,11 @@ async function protect(req, res, next) {
     const account = await resolveAccount(decoded.id);
     if (!account) {
       return res.status(401).json({ message: "Not authorized, account not found" });
+    }
+
+    const tokenVersion = Number.isInteger(decoded.tv) ? decoded.tv : 0;
+    if (tokenVersion !== account.tokenVersion) {
+      return res.status(401).json({ message: "Your session has ended. Please sign in again." });
     }
 
     req.actorId = String(decoded.id);

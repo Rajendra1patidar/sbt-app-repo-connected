@@ -1,5 +1,6 @@
 const express = require("express");
 const ctrl = require("../controllers/documentController");
+const { requireOwner } = require("../middleware/roles");
 
 // builds a router for one document type: "estimate" | "challan"
 function makeDocumentRouter(type) {
@@ -13,7 +14,7 @@ function makeDocumentRouter(type) {
   router.post("/:id/returns", ctrl.addReturn(type));
   router.post("/:id/deliveries", ctrl.addDelivery(type));
   router.delete("/:id", ctrl.remove(type));
-  router.post("/:id/restore", ctrl.restore(type));
+  router.post("/:id/restore", requireOwner, ctrl.restore(type));
 
   return router;
 }

@@ -14,7 +14,7 @@ import { getOfflineQueue, isUnresolvedOfflineId } from "./offlineQueue";
 /** Estimate fields an edit is allowed to change (mirrors saveDocument's payload). */
 export const EDITABLE_ESTIMATE_FIELDS = [
   "customerId", "date", "dueDate", "lines", "notes", "total",
-  "freightCost", "labourCost", "previousDue", "contractorName", "destination",
+  "freightCost", "labourCost", "previousDue", "previousBalance", "contractorName", "destination",
 ] as const;
 
 export function pickEditableFields(src: Record<string, any>) {
@@ -50,8 +50,6 @@ export function applyOfflineQueue(state: any): Record<string, any> {
       case "estimate":
         if (ph && isUnresolvedOfflineId(ph.id) && !has(estimates, ph.id)) {
           estimates = [ph, ...estimates];
-          const rolled: string[] = a.payload?.rolledEstimateIds || [];
-          if (rolled.length) estimates = estimates.map((e: any) => (rolled.includes(e.id) ? { ...e, status: "Paid" } : e));
           out.estimates = estimates;
         }
         break;

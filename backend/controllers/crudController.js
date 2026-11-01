@@ -3,8 +3,12 @@
 // Every document is scoped to req.userId (the logged-in owner).
 
 const { logAudit, diffFields } = require("../services/auditLogger");
+const { stripProtected } = require("../utils/sanitize");
 
-function crudController(Model) {
+// options.protectedFields: extra fields clients may never set for this model
+// (owner, _id and timestamps are always protected - see utils/sanitize.js).
+function crudController(Model, options = {}) {
+  const protectedFields = options.protectedFields || [];
   return {
     // GET /api/<resource>?page=1&limit=50
     // page/limit are both optional — omit them and this behaves exactly as
@@ -44,7 +48,7 @@ function crudController(Model) {
 
     create: async (req, res, next) => {
       try {
-        const doc = await Model.create({ ...req.body, owner: req.userId });
+        const doc = await Model.create({ ...stripProtected(req.body, protectedFields), owner: req.userId });
         logAudit({
           owner: req.userId,
           actorId: req.actorId,
@@ -61,10 +65,11 @@ function crudController(Model) {
 
     update: async (req, res, next) => {
       try {
+        const fields = stripProtected(req.body, protectedFields);
         const before = await Model.findOne({ _id: req.params.id, owner: req.userId }).lean();
         const doc = await Model.findOneAndUpdate(
           { _id: req.params.id, owner: req.userId },
-          { $set: req.body },
+          { $set: fields },
           { new: true, runValidators: true }
         );
         if (!doc) return res.status(404).json({ message: "Not found" });
@@ -75,7 +80,7 @@ function crudController(Model) {
           model: Model.modelName,
           docId: doc._id,
           label: doc.name || doc.number || "",
-          changedFields: diffFields(before, req.body),
+          changedFields: diffFields(before, fields),
         });
         res.json(doc);
       } catch (err) {

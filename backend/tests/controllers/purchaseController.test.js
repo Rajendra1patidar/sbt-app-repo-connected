@@ -13,6 +13,8 @@
 jest.mock("../../models/Purchase");
 jest.mock("../../models/Item");
 jest.mock("../../models/Vendor");
+// the closed-financial-year lock has its own tests (tests/utils/yearLock.test.js); here it is a no-op
+jest.mock("../../utils/yearLock", () => ({ assertYearNotLocked: jest.fn().mockResolvedValue(undefined) }));
 jest.mock("../../services/ledgerService");
 jest.mock("../../services/stockService");
 jest.mock("../../utils/withTransaction", () => ({
@@ -186,5 +188,40 @@ describe("remove", () => {
     const res = fakeRes();
     await controller.remove(req, res, jest.fn());
     expect(ledgerService.reverseSource).toHaveBeenCalledWith("owner1", "Purchase", "doc1", expect.any(String));
+  });
+});
+
+describe("closed financial year", () => {
+  const { assertYearNotLocked } = require("../../utils/yearLock");
+  const closedYear = () => Object.assign(new Error("This falls in a closed financial year"), { status: 400 });
+
+  test("a purchase dated in a closed year is refused before anything is written", async () => {
+    assertYearNotLocked.mockRejectedValueOnce(closedYear());
+    const req = { userId: "owner1", role: "owner", body: { source: "manual", vendorId: "vendor1", itemId: "item1", qty: 5, rate: 10, date: "2025-10-02" } };
+    const res = fakeRes();
+    const next = jest.fn();
+    await controller.create(req, res, next);
+    expect(assertYearNotLocked).toHaveBeenCalledWith("owner1", "2025-10-02");
+    expect(Purchase.create).not.toHaveBeenCalled();
+    expect(stockService.recordStockIn).not.toHaveBeenCalled();
+  });
+
+  test("recording a payment dated in a closed year is refused", async () => {
+    assertYearNotLocked.mockRejectedValueOnce(closedYear());
+    const doc = fakeDoc({ amount: 100 });
+    Purchase.findOne.mockReturnValue({ session: jest.fn().mockResolvedValue(doc) });
+    const res = fakeRes();
+    await controller.recordPayment({ userId: "owner1", params: { id: "doc1" }, body: { amount: 40, date: "2025-10-02" } }, res, jest.fn());
+    expect(assertYearNotLocked).toHaveBeenCalledWith("owner1", "2025-10-02");
+    expect(doc.amountPaid).toBe(0);
+    expect(ledgerService.postEntries).not.toHaveBeenCalled();
+  });
+
+  test("deleting a purchase dated in a closed year is refused", async () => {
+    Purchase.findOne.mockResolvedValue(fakeDoc({ date: "2025-10-02" }));
+    assertYearNotLocked.mockRejectedValueOnce(closedYear());
+    await controller.remove({ userId: "owner1", params: { id: "doc1" } }, fakeRes(), jest.fn());
+    expect(assertYearNotLocked).toHaveBeenCalledWith("owner1", "2025-10-02");
+    expect(Purchase.findOneAndDelete).not.toHaveBeenCalled();
   });
 });

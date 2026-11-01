@@ -6,9 +6,19 @@ function notFound(req, res, next) {
 
 function errorHandler(err, req, res, next) {
   console.error(err.stack || err);
-  const status = res.statusCode && res.statusCode !== 200 ? res.statusCode : 500;
 
-  // Only unexpected, server-side failures get pushed to the webhook — routine
+  // Honour a status the error carries (validation errors thrown with .status,
+  // body-parser's 400 on bad JSON, the CORS 403) before falling back to
+  // whatever the response already had, then to 500.
+  const carried = Number(err.status || err.statusCode);
+  const status =
+    carried >= 400 && carried < 600
+      ? carried
+      : res.statusCode && res.statusCode !== 200
+        ? res.statusCode
+        : 500;
+
+  // Only unexpected, server-side failures get pushed to the webhook - routine
   // 4xx validation responses are handled inline in controllers with
   // res.status(400)/(404).json(...) and never reach this handler at all, so
   // anything landing here is genuinely "something broke", not "bad input".
@@ -22,9 +32,15 @@ function errorHandler(err, req, res, next) {
     });
   }
 
+  // In production a 500 never shows internal wording (database errors, file
+  // paths) to the client - the real message is in the server log and the alert.
+  const isProd = process.env.NODE_ENV === "production";
+  const message =
+    status >= 500 && isProd ? "Something went wrong on the server. Please try again." : err.message || "Server error";
+
   res.status(status).json({
-    message: err.message || "Server error",
-    ...(process.env.NODE_ENV !== "production" && { stack: err.stack }),
+    message,
+    ...(!isProd && { stack: err.stack }),
   });
 }
 

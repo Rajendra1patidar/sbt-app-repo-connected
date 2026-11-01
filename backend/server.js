@@ -7,6 +7,8 @@ const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
 const connectDB = require("./config/db");
 const { protect } = require("./middleware/auth");
+const { requireOwner, ownerOnlyDeletes, ownerOnlyWrites, ledgerPolicy, reportsPolicy } = require("./middleware/roles");
+const { sendErrorAlert } = require("./utils/alertWebhook");
 const { notFound, errorHandler } = require("./middleware/error");
 const authRoutes = require("./routes/authRoutes");
 const customerRoutes = require("./routes/customerRoutes");
@@ -54,6 +56,12 @@ const allowedOrigins = (process.env.CORS_ORIGIN || "")
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean);
+// With no CORS_ORIGIN set every website may call this API from a browser. Tokens
+// travel in a header (not a cookie) so that is low risk, but it should be a
+// choice, not an accident - say so loudly in the logs of a live server.
+if (allowedOrigins.length === 0 && process.env.NODE_ENV === "production") {
+  console.warn("WARNING: CORS_ORIGIN is not set, so any website can call this API from a browser. Set it to your app's address (comma-separate more than one, e.g. the customer portal).");
+}
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -61,7 +69,9 @@ app.use(
       if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-      return callback(new Error("Not allowed by CORS"));
+      const blocked = new Error("Not allowed by CORS");
+      blocked.status = 403; // a plain 403, not a 500 that pages the alert channel
+      return callback(blocked);
     },
     credentials: true,
     exposedHeaders: ["X-Total-Count"],
@@ -93,30 +103,40 @@ app.use("/api/auth", authRoutes);
 // protectCustomerPortal rather than the owner `protect` middleware every route below uses.
 app.use("/api/customer-portal", customerPortalRoutes);
 // ---- protected routes (require Bearer JWT) ----
-app.use("/api/customers", protect, customerRoutes);
-app.use("/api/items", protect, itemRoutes);
-app.use("/api/orders", protect, orderRoutes);
-app.use("/api/expenses", protect, expenseRoutes);
-app.use("/api/payments", protect, paymentRoutes);
-app.use("/api/settings", protect, settingsRoutes);
-app.use("/api/portal-admin", protect, portalAdminRoutes);
-app.use("/api/reports", protect, reportRoutes);
-app.use("/api/estimates", protect, makeDocumentRouter("estimate"));
-app.use("/api/challans", protect, makeDocumentRouter("challan"));
-app.use("/api/labour-sessions", protect, labourSessionRoutes);
-app.use("/api/contractors", protect, contractorRoutes);
-app.use("/api/score-rules", protect, scoreRuleRoutes);
-app.use("/api/vendors", protect, vendorRoutes);
-app.use("/api/godowns", protect, godownRoutes);
+//
+// Staff rules (see middleware/roles.js). A staff login can create and edit the
+// day-to-day records, but:
+//   - can't delete anything                                (ownerOnlyDeletes)
+//   - can read Settings but never change them              (ownerOnlyWrites)
+//   - can't touch the Customer Portal admin                (requireOwner)
+//   - can't export data, see the ledger/P&L, close years,
+//     or use bank reconciliation                           (requireOwner / policies)
+// The estimate-specific limits (no re-pricing a bill that has payments, no item
+// price changes) live in documentController and itemController.
+app.use("/api/customers", protect, ownerOnlyDeletes, customerRoutes);
+app.use("/api/items", protect, ownerOnlyDeletes, itemRoutes);
+app.use("/api/orders", protect, ownerOnlyDeletes, orderRoutes);
+app.use("/api/expenses", protect, ownerOnlyDeletes, expenseRoutes);
+app.use("/api/payments", protect, ownerOnlyDeletes, paymentRoutes);
+app.use("/api/settings", protect, ownerOnlyWrites, settingsRoutes);
+app.use("/api/portal-admin", protect, requireOwner, portalAdminRoutes);
+app.use("/api/reports", protect, reportsPolicy, reportRoutes);
+app.use("/api/estimates", protect, ownerOnlyDeletes, makeDocumentRouter("estimate"));
+app.use("/api/challans", protect, ownerOnlyDeletes, makeDocumentRouter("challan"));
+app.use("/api/labour-sessions", protect, ownerOnlyDeletes, labourSessionRoutes);
+app.use("/api/contractors", protect, ownerOnlyDeletes, contractorRoutes);
+app.use("/api/score-rules", protect, ownerOnlyDeletes, scoreRuleRoutes);
+app.use("/api/vendors", protect, ownerOnlyDeletes, vendorRoutes);
+app.use("/api/godowns", protect, ownerOnlyDeletes, godownRoutes);
 app.post("/api/inventory/transfer", protect, require("./controllers/godownController").transferStock);
-app.use("/api/purchases", protect, purchaseRoutes);
+app.use("/api/purchases", protect, ownerOnlyDeletes, purchaseRoutes);
 app.use("/api/stock-adjustments", protect, stockAdjustmentRoutes);
-app.use("/api/ledger", protect, ledgerRoutes);
-app.use("/api/financial-years", protect, financialYearRoutes);
-app.use("/api/export", protect, exportRoutes);
+app.use("/api/ledger", protect, ledgerPolicy, ledgerRoutes);
+app.use("/api/financial-years", protect, requireOwner, financialYearRoutes);
+app.use("/api/export", protect, requireOwner, exportRoutes);
 app.use("/api/notifications", protect, notificationRoutes);
 app.use("/api/approvals", protect, approvalRoutes);
-app.use("/api/bank-statement", protect, bankStatementRoutes);
+app.use("/api/bank-statement", protect, requireOwner, bankStatementRoutes);
 app.use("/api/capture", protect, captureRoutes);
 app.use("/api/audit-logs", protect, auditLogRoutes);
 app.get("/", (req, res) => res.send("SBT backend API is running."));
@@ -126,3 +146,24 @@ const PORT = process.env.PORT || 5000;
 registerListeners();
 scheduler.start();
 app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+
+// A promise that fails with nobody listening used to vanish silently (or, on
+// newer Node versions, kill the process with no trace). Log it and ping the
+// alert channel, but keep serving.
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled promise rejection:", reason);
+  sendErrorAlert({
+    message: String((reason && reason.message) || reason),
+    method: "-",
+    path: "unhandledRejection",
+    status: 500,
+  });
+});
+// After an uncaught exception the process state can't be trusted: report it,
+// then exit so the host restarts a clean instance.
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught exception:", err);
+  Promise.resolve(
+    sendErrorAlert({ message: String((err && err.message) || err), method: "-", path: "uncaughtException", status: 500 })
+  ).finally(() => setTimeout(() => process.exit(1), 1500));
+});

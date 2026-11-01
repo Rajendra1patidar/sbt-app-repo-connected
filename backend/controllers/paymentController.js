@@ -3,6 +3,7 @@ const Document = require("../models/Document");
 const crudController = require("./crudController");
 const ledgerService = require("../services/ledgerService");
 const { withTransaction } = require("../utils/withTransaction");
+const { assertYearNotLocked } = require("../utils/yearLock");
 const eventBus = require("../services/eventBus");
 const { logAudit } = require("../services/auditLogger");
 
@@ -40,6 +41,7 @@ base.create = async (req, res, next) => {
     if (!Number.isFinite(amount) || amount === 0) {
       return res.status(400).json({ message: "Payment amount must be a non-zero number" });
     }
+    await assertYearNotLocked(req.userId, v.date || new Date().toISOString().slice(0, 10));
 
     const result = await withTransaction(async (session) => {
       let invoiceNumber;
@@ -137,6 +139,8 @@ base.create = async (req, res, next) => {
 // removing a payment doesn't leave it stuck showing as Paid/Partially Paid
 base.remove = async (req, res, next) => {
   try {
+    const existingPayment = await Payment.findOne({ _id: req.params.id, owner: req.userId });
+    if (existingPayment) await assertYearNotLocked(req.userId, existingPayment.date);
     const result = await withTransaction(async (session) => {
       const payment = await Payment.findOneAndDelete(
         { _id: req.params.id, owner: req.userId },

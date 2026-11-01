@@ -46,7 +46,12 @@ const documentSchema = new mongoose.Schema(
     // estimate-specific extra charges/carry-forward
     freightCost: { type: Number, default: 0, min: [0, "Freight cost can't be negative"] },
     labourCost: { type: Number, default: 0, min: [0, "Labour cost can't be negative"] },
+    // OLD bills only: an earlier balance that was folded into `total`. New bills always store 0 here.
     previousDue: { type: Number, default: 0, min: [0, "Previous due can't be negative"] },
+    // What the customer already owed when this bill was made. Information for the
+    // printed bill ("Previous balance", "Amount payable") - NOT part of `total`,
+    // the sales figure or the ledger.
+    previousBalance: { type: Number, default: 0, min: [0, "Previous balance can't be negative"] },
     contractorName: { type: String },
     destination: { type: String },
     // challan-specific fields (route sheet)

@@ -6,6 +6,7 @@ const ApprovalRequest = require("../models/ApprovalRequest");
 const ledgerService = require("../services/ledgerService");
 const stockService = require("../services/stockService");
 const { withTransaction } = require("../utils/withTransaction");
+const { assertYearNotLocked } = require("../utils/yearLock");
 const eventBus = require("../services/eventBus");
 const { logAudit } = require("../services/auditLogger");
 const telegramStorage = require("../services/telegramStorage");
@@ -152,6 +153,7 @@ async function createPurchaseRecord(userId, v) {
 
   const amount = round2((isWeight ? qtyKg : qty) * rate);
   const date = v.date || new Date().toISOString().slice(0, 10);
+  await assertYearNotLocked(userId, date); // nothing new can be dated inside a closed financial year
 
   const result = await withTransaction(async (session) => {
     if (source === "manual") {
@@ -278,6 +280,7 @@ exports.recordPayment = async (req, res, next) => {
     const { amount, date, method, notes, godownId } = req.body;
     const amt = Number(amount);
     if (!(amt > 0)) return res.status(400).json({ message: "Amount must be greater than zero" });
+    await assertYearNotLocked(req.userId, date || new Date().toISOString().slice(0, 10));
 
     const result = await withTransaction(async (session) => {
       const doc = await Purchase.findOne({ _id: req.params.id, owner: req.userId }).session(session || null);
@@ -367,6 +370,8 @@ exports.recordPayment = async (req, res, next) => {
 // creating it, not for arbitrary historical edits.
 exports.remove = async (req, res, next) => {
   try {
+    const existingPurchase = await Purchase.findOne({ _id: req.params.id, owner: req.userId });
+    if (existingPurchase) await assertYearNotLocked(req.userId, existingPurchase.date);
     const doc = await Purchase.findOneAndDelete({ _id: req.params.id, owner: req.userId });
     if (!doc) return res.status(404).json({ message: "Not found" });
 

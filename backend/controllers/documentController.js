@@ -3,13 +3,15 @@ const Document = require("../models/Document");
 const Item = require("../models/Item");
 const Payment = require("../models/Payment");
 const Counter = require("../models/Counter");
-const FinancialYear = require("../models/FinancialYear");
 const ledgerService = require("../services/ledgerService");
 const stockService = require("../services/stockService");
 const customerPortalService = require("../services/customerPortalService");
 const paymentController = require("./paymentController");
 const { withTransaction } = require("../utils/withTransaction");
 const idempotency = require("../utils/idempotency");
+const { assertYearNotLocked } = require("../utils/yearLock");
+const { computeEstimateTotals, totalsDiffer, round2: money2 } = require("../utils/money");
+const { stripProtected } = require("../utils/sanitize");
 const eventBus = require("../services/eventBus");
 const { logAudit, diffFields } = require("../services/auditLogger");
 
@@ -34,14 +36,33 @@ async function nextNumber(owner, type, session) {
 // closing a year snapshots opening balances for the next one, so editing,
 // deleting, or restoring a document dated inside it after the fact would make
 // that snapshot wrong. No-ops if the document has no date.
-async function assertYearNotLocked(owner, date, session) {
-  if (!date) return;
-  const fy = await FinancialYear.findOne({ owner, closed: true, startDate: { $lte: date }, endDate: { $gte: date } }).session(session || null);
-  if (fy) {
-    const err = new Error(`This falls in the financial year ${fy.startDate} to ${fy.endDate}, which is closed and can't be modified.`);
-    err.status = 400;
-    throw err;
-  }
+// (The check itself lives in utils/yearLock.js so payments, expenses, purchases
+// and stock adjustments share exactly the same lock.)
+
+// Fields a client may never set on an existing document: its identity and the
+// bookkeeping the server maintains itself.
+const DOCUMENT_PROTECTED_FIELDS = ["type", "number", "history", "cogsTotal", "deleted", "deletedAt"];
+
+const linesSignature = (lines) =>
+  JSON.stringify(
+    (lines || []).map((l) => [
+      String((l && l.itemId) || ""),
+      Number((l && l.qty) || 0),
+      Number((l && l.rate) || 0),
+      Number((l && l.discountAmount) || 0),
+      Number((l && l.piecesQty) || 0),
+    ])
+  );
+
+// True when this edit would change what the customer owes: the lines, freight,
+// labour or who the bill is for. Used to keep staff from re-pricing a bill that
+// already has payments against it.
+function changesMoney(existing, fields) {
+  if ("lines" in fields && linesSignature(fields.lines) !== linesSignature(existing.lines)) return true;
+  if ("freightCost" in fields && Number(fields.freightCost || 0) !== Number(existing.freightCost || 0)) return true;
+  if ("labourCost" in fields && Number(fields.labourCost || 0) !== Number(existing.labourCost || 0)) return true;
+  if ("customerId" in fields && String(fields.customerId || "") !== String(existing.customerId || "")) return true;
+  return false;
 }
 
 // Rejects lines with a zero/negative quantity or a negative rate before anything
@@ -308,13 +329,36 @@ async function reverseEstimateEffects(owner, doc, session, { skipStock = false }
 // request after a slow/dropped response) — the second attempt gets back the
 // first attempt's result instead of creating a duplicate document.
 exports.create = (type) => async (req, res, next) => {
+  let idem = null;
   try {
     const v = req.body;
-    const idempotencyKey = req.get("Idempotency-Key");
-    const cached = idempotency.getCached(req.userId, idempotencyKey);
-    if (cached) return res.status(201).json(cached);
+    // The key is stored in the database (7 days), so it also protects against a
+    // retry after a server restart and against an offline queue replaying later.
+    idem = await idempotency.begin(req.userId, req.get("Idempotency-Key"));
+    if (idem.replay) return res.status(201).json(idem.response);
+    if (idem.inProgress) {
+      return res.status(409).json({ message: "This save is already in progress. Wait a moment and check your list before saving again." });
+    }
 
     if (type === "estimate") assertLinesValid(v.lines);
+
+    // The server owns the total: it is rebuilt from the bill's own lines, so the
+    // books can never hold a number that disagrees with the bill. If the app
+    // sent a different figure (a stale offline payload, an old app version) we
+    // save the correct one rather than reject the sale, and say so in the reply.
+    // New bills never carry a previousDue (see the note further down).
+    const computedTotal =
+      type === "estimate"
+        ? computeEstimateTotals({ lines: v.lines, freightCost: v.freightCost, labourCost: v.labourCost, previousDue: 0 }).total
+        : Number(v.total || 0);
+    const totalAdjusted =
+      type === "estimate" && totalsDiffer(v.total, computedTotal)
+        ? { sent: money2(v.total), saved: computedTotal }
+        : null;
+    if (totalAdjusted) {
+      console.warn(`create(${type}): app sent total ${totalAdjusted.sent}, rebuilt from lines as ${totalAdjusted.saved}`);
+    }
+    const initialStatus = v.status || DEFAULT_STATUS[type];
 
     const result = await withTransaction(async (session) => {
       const number = await nextNumber(req.userId, type, session);
@@ -329,15 +373,21 @@ exports.create = (type) => async (req, res, next) => {
           dueDate: v.dueDate,
           lines: v.lines || [],
           notes: v.notes,
-          total: v.total || 0,
-          status: v.status || DEFAULT_STATUS[type],
+          total: computedTotal,
+          status: initialStatus,
           // if created as already Paid (customer paid in full up front, no separate Payment
           // row), reflect that in amountPaid; otherwise nothing has been paid yet
-          amountPaid: (v.status || DEFAULT_STATUS[type]) === "Paid" ? Number(v.total || 0) : 0,
+          amountPaid: initialStatus === "Paid" ? computedTotal : 0,
           isAdvanceBooking: type === "estimate" ? !!v.isAdvanceBooking : false,
           freightCost: v.freightCost || 0,
           labourCost: v.labourCost || 0,
-          previousDue: v.previousDue || 0,
+          // previousDue is only for OLD bills that had an earlier balance folded
+          // into their total. New bills never do: what the customer owed before
+          // is shown as previousBalance - information on the printed bill that
+          // is NOT part of the total, the sales figure or the ledger - and gets
+          // paid through the normal payment allocation.
+          previousDue: 0,
+          previousBalance: type === "estimate" && Number(v.previousBalance) > 0 ? money2(v.previousBalance) : 0,
           contractorName: v.contractorName || "",
           destination: v.destination || "",
           route: v.route,
@@ -354,17 +404,10 @@ exports.create = (type) => async (req, res, next) => {
         { session: session || undefined }
       );
 
-      // the previous-due amount just folded into this estimate's total came from these
-      // older, still-unpaid estimates for the same customer — mark them settled so the
-      // balance isn't counted twice in outstanding totals.
-      if (type === "estimate" && Array.isArray(v.rolledEstimateIds) && v.rolledEstimateIds.length) {
-        const rolled = await Document.find({ _id: { $in: v.rolledEstimateIds }, owner: req.userId, type: "estimate", customerId: v.customerId, status: { $ne: "Paid" } }).session(session || null);
-        for (const r of rolled) {
-          r.status = "Paid";
-          r.amountPaid = Number(r.total || 0);
-          await r.save({ session: session || undefined });
-        }
-      }
+      // (Older versions folded a customer's earlier unpaid estimates into this
+      // one's total and marked those estimates Paid, with no payment and no
+      // ledger entry behind it. That is gone: earlier bills stay open until they
+      // are really paid. A rolledEstimateIds sent by an old app version is ignored.)
 
       // deduct stock + post ledger entries for the new estimate (Sales/AR, COGS/Stock,
       // Paid-in-full) — routed through stockService/ledgerService so it also logs a
@@ -393,7 +436,8 @@ exports.create = (type) => async (req, res, next) => {
       }
     }
 
-    idempotency.remember(req.userId, idempotencyKey, result);
+    if (totalAdjusted) result.totalAdjusted = totalAdjusted;
+    await idem.finish(result);
 
     logAudit({
       owner: req.userId,
@@ -421,6 +465,7 @@ exports.create = (type) => async (req, res, next) => {
 
     res.status(201).json(result);
   } catch (err) {
+    if (idem) await idem.abort();
     if (err.status) return res.status(err.status).json({ message: err.message });
     next(err);
   }
@@ -450,7 +495,37 @@ exports.update = (type) => async (req, res, next) => {
     }
     if (type === "estimate" && "lines" in req.body) assertLinesValid(req.body.lines);
 
-    const { expectedUpdatedAt, ...updateFields } = req.body;
+    const { expectedUpdatedAt, ...rawFields } = req.body;
+    // Identity and server-kept fields can't be set from the client, and a stored
+    // previousDue on an old bill is never overwritten (an older app version sent
+    // 0 here whenever such a bill was edited, which silently dropped that amount).
+    const updateFields = stripProtected(rawFields, DOCUMENT_PROTECTED_FIELDS);
+    if (type === "estimate") delete updateFields.previousDue;
+
+    // Staff can fix an unpaid bill, but not re-price one that already has payments.
+    if (
+      req.role === "staff" &&
+      type === "estimate" &&
+      (existing.status === "Paid" || Number(existing.amountPaid) > 0) &&
+      changesMoney(existing, updateFields)
+    ) {
+      return res.status(403).json({ message: "Only the business owner can change the amounts on an estimate that already has payments." });
+    }
+
+    // The server owns the total (see create). Old bills keep their stored previousDue in it.
+    let totalAdjusted = null;
+    if (type === "estimate" && ("lines" in updateFields || "freightCost" in updateFields || "labourCost" in updateFields || "total" in updateFields)) {
+      const computed = computeEstimateTotals({
+        lines: "lines" in updateFields ? updateFields.lines : existing.lines,
+        freightCost: "freightCost" in updateFields ? updateFields.freightCost : existing.freightCost,
+        labourCost: "labourCost" in updateFields ? updateFields.labourCost : existing.labourCost,
+        previousDue: existing.previousDue,
+      }).total;
+      if ("total" in updateFields && totalsDiffer(updateFields.total, computed)) {
+        totalAdjusted = { sent: money2(updateFields.total), saved: computed };
+      }
+      updateFields.total = computed;
+    }
 
     // estimates drive stock deductions and ledger postings at creation time — if
     // anything that affects those (lines, total, paid amount, status) is changing,
@@ -527,6 +602,7 @@ exports.update = (type) => async (req, res, next) => {
       eventBus.emit("stock.low", { owner: req.userId, itemId: low.itemId, name: low.name, stock: low.stock });
     }
 
+    if (totalAdjusted) result.totalAdjusted = totalAdjusted;
     res.json(result);
   } catch (err) {
     if (err.status) return res.status(err.status).json({ message: err.message });

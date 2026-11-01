@@ -1,8 +1,8 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const { applyFailedAttempt } = require("../utils/pin");
 
 const MAX_FAILED_ATTEMPTS = 5;
-const LOCK_TIME_MS = 15 * 60 * 1000; // 15 minutes
 
 const userSchema = new mongoose.Schema(
   {
@@ -11,6 +11,13 @@ const userSchema = new mongoose.Schema(
     pinHash: { type: String, required: true }, // hashed PIN (replaces insecure localStorage PIN)
     failedAttempts: { type: Number, default: 0 },
     lockUntil: { type: Date, default: null },
+    // Escalating lockouts: each repeat lockout within 24h waits longer
+    // (15 min, 1 h, 6 h, 24 h) - see utils/pin.js. Reset by a good login.
+    lockoutCount: { type: Number, default: 0 },
+    lastLockoutAt: { type: Date, default: null },
+    // Bumped when the PIN changes or is reset; JWTs carry the value they were
+    // issued under (claim "tv"), so older tokens stop working. See middleware/auth.js.
+    tokenVersion: { type: Number, default: 0 },
     // Forgot-PIN flow: we store a hash of the reset token (never the raw
     // token) so that a database leak alone can't be used to reset the PIN —
     // same reasoning as storing pinHash instead of the PIN itself.
@@ -39,18 +46,24 @@ userSchema.methods.isLocked = function () {
   return !!(this.lockUntil && this.lockUntil.getTime() > Date.now());
 };
 
+// Returns { lockedNow, lockoutCount } so the caller can raise an alert when
+// somebody keeps getting locked out (a sign of PIN guessing).
 userSchema.methods.registerFailedAttempt = async function () {
-  this.failedAttempts += 1;
-  if (this.failedAttempts >= MAX_FAILED_ATTEMPTS) {
-    this.lockUntil = new Date(Date.now() + LOCK_TIME_MS);
-    this.failedAttempts = 0;
+  const next = applyFailedAttempt(this, MAX_FAILED_ATTEMPTS);
+  this.failedAttempts = next.failedAttempts;
+  if (next.lockedNow) {
+    this.lockoutCount = next.lockoutCount;
+    this.lastLockoutAt = next.lastLockoutAt;
+    this.lockUntil = next.lockUntil;
   }
   await this.save();
+  return { lockedNow: next.lockedNow, lockoutCount: this.lockoutCount || 0 };
 };
 
 userSchema.methods.registerSuccessfulLogin = async function () {
   this.failedAttempts = 0;
   this.lockUntil = null;
+  this.lockoutCount = 0;
   await this.save();
 };
 

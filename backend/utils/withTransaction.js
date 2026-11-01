@@ -1,4 +1,18 @@
 const mongoose = require("mongoose");
+const { sendAlert } = require("./alertWebhook");
+
+// Once per server run: running without transactions means a crash halfway
+// through a sale could leave stock, ledger and document out of step. That is
+// fine on a laptop, but on the live database it deserves to be noticed.
+let warnedNoTransactions = false;
+function warnNoTransactions() {
+  if (warnedNoTransactions) return;
+  warnedNoTransactions = true;
+  console.warn("WARNING: MongoDB transactions are not available - multi-step writes are NOT atomic.");
+  if (process.env.NODE_ENV === "production") {
+    sendAlert("⚠️ SBT backend: the database is running WITHOUT transactions, so sales/stock/ledger writes are not atomic. Use a replica-set database (MongoDB Atlas has one on every tier).");
+  }
+}
 
 // Runs fn(session) inside a real MongoDB transaction, so a multi-step write
 // (stock deduction + ledger postings + document save, for example) commits or
@@ -20,6 +34,7 @@ async function withTransaction(fn) {
     return result;
   } catch (err) {
     if (isTransactionsUnsupported(err)) {
+      warnNoTransactions();
       return fn(null);
     }
     throw err;

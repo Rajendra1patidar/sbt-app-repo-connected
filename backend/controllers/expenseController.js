@@ -2,6 +2,7 @@ const Expense = require("../models/Expense");
 const crudController = require("./crudController");
 const ledgerService = require("../services/ledgerService");
 const { logAudit } = require("../services/auditLogger");
+const { assertYearNotLocked } = require("../utils/yearLock");
 
 const base = crudController(Expense);
 
@@ -21,6 +22,7 @@ base.create = async (req, res, next) => {
     const v = req.body;
     const amount = Number(v.amount);
     const date = v.date || new Date().toISOString().slice(0, 10);
+    await assertYearNotLocked(req.userId, date);
     const doc = await Expense.create({
       owner: req.userId,
       category: v.category,
@@ -49,6 +51,8 @@ base.create = async (req, res, next) => {
 
 base.remove = async (req, res, next) => {
   try {
+    const existingExpense = await Expense.findOne({ _id: req.params.id, owner: req.userId });
+    if (existingExpense) await assertYearNotLocked(req.userId, existingExpense.date);
     const doc = await Expense.findOneAndDelete({ _id: req.params.id, owner: req.userId });
     if (!doc) return res.status(404).json({ message: "Not found" });
     await ledgerService.reverseSource(req.userId, "Expense", doc._id, "Expense entry removed");

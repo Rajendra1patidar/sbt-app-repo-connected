@@ -3,6 +3,7 @@ const StockAdjustment = require("../models/StockAdjustment");
 const stockService = require("../services/stockService");
 const ledgerService = require("../services/ledgerService");
 const { withTransaction } = require("../utils/withTransaction");
+const { assertYearNotLocked } = require("../utils/yearLock");
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
@@ -97,6 +98,7 @@ exports.create = async (req, res, next) => {
     }
     const date = req.body.date || new Date().toISOString().slice(0, 10);
     const owner = req.userId;
+    await assertYearNotLocked(owner, date);
     const result = await withTransaction((session) =>
       applyOne({
         owner,
@@ -131,6 +133,7 @@ exports.bulk = async (req, res, next) => {
     }
     const date = req.body.date || new Date().toISOString().slice(0, 10);
     const owner = req.userId;
+    await assertYearNotLocked(owner, date);
     const batchId = randomUUID();
 
     const results = [];

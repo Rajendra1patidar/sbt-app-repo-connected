@@ -69,4 +69,32 @@ async function sendErrorAlert(details) {
   }
 }
 
-module.exports = { sendErrorAlert };
+/**
+ * Generic fire-and-forget alert for things that are not request errors:
+ * repeated PIN lockouts, a changed UPI ID, the database running without
+ * transactions. Same channels and same never-throws promise as sendErrorAlert.
+ * Identical messages are de-duplicated for 5 minutes.
+ */
+async function sendAlert(text) {
+  try {
+    const message = String(text || "").trim();
+    if (!message || !shouldSend(message)) return;
+
+    const { DISCORD_WEBHOOK_URL, SLACK_WEBHOOK_URL, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = process.env;
+
+    if (DISCORD_WEBHOOK_URL) {
+      await postJson(DISCORD_WEBHOOK_URL, { content: message.slice(0, 1900) });
+    } else if (SLACK_WEBHOOK_URL) {
+      await postJson(SLACK_WEBHOOK_URL, { text: message });
+    } else if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
+      await postJson(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        chat_id: TELEGRAM_CHAT_ID,
+        text: message,
+      });
+    }
+  } catch (alertErr) {
+    console.error("alertWebhook: failed to send alert:", alertErr.message);
+  }
+}
+
+module.exports = { sendErrorAlert, sendAlert };

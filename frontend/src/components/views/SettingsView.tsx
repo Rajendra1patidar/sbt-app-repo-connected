@@ -5,8 +5,28 @@ import { ChangePinCard } from "./ChangePinCard";
 import { StaffManagementCard } from "./StaffManagementCard";
 import { WHATSAPP_GREEN, ITEM_CATEGORIES, ITEM_BRANDS } from "../../lib/constants";
 import { api } from "../../lib/api";
+import { useAppStore } from "../../store/useAppStore";
 
-export function SettingsView({ settings, setSettings }: any) {
+// A staff login can read what the app needs from Settings but can't change any of
+// it (the server refuses too) - all they get here is their own PIN.
+export function SettingsView(props: any) {
+  const role = useAppStore((s) => s.role);
+  return role === "staff" ? <StaffSettingsView /> : <OwnerSettingsView {...props} />;
+}
+
+function StaffSettingsView() {
+  return (
+    <div className="space-y-4 px-5 pb-28">
+      <Card className="space-y-1">
+        <h3 className="text-sm font-bold text-ink">Settings</h3>
+        <p className="text-xs text-ink/60">Only the business owner can change settings. You can change your own PIN below.</p>
+      </Card>
+      <ChangePinCard />
+    </div>
+  );
+}
+
+function OwnerSettingsView({ settings, setSettings }: any) {
   const [local, setLocal] = useState({ itemCategories: ITEM_CATEGORIES, itemBrands: ITEM_BRANDS, ...settings });
   const [newCategory, setNewCategory] = useState("");
   const [newBrand, setNewBrand] = useState("");

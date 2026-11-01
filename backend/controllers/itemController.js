@@ -2,6 +2,7 @@ const Item = require("../models/Item");
 const crudController = require("./crudController");
 const { logAudit, diffFields } = require("../services/auditLogger");
 const { computeItemInsights } = require("../services/itemInsightsService");
+const { stripProtected } = require("../utils/sanitize");
 
 const base = crudController(Item);
 
@@ -67,11 +68,22 @@ base.create = async (req, res, next) => {
 // override update so renaming an item can't collide with another active item's name
 base.update = async (req, res, next) => {
   try {
-    const v = { ...req.body };
+    // owner/_id/timestamps and the soft-delete flag are never client-editable
+    const v = stripProtected(req.body, ["deleted", "deletedAt"]);
     const existing = await Item.findOne({ _id: req.params.id, owner: req.userId });
     if (!existing) return res.status(404).json({ message: "Not found" });
     if (existing.deleted) {
       return res.status(400).json({ message: "This item is deleted and can't be edited." });
+    }
+    // Staff can fix an item's name, unit or stock level, but selling and
+    // purchase prices are the owner's call. The edit form sends every field,
+    // so only a price that actually differs is refused.
+    if (req.role === "staff") {
+      for (const field of ["sellingPrice", "purchasePrice"]) {
+        if (v[field] !== undefined && Number(v[field]) !== Number(existing[field] || 0)) {
+          return res.status(403).json({ message: "Only the business owner can change item prices." });
+        }
+      }
     }
     if (v.name !== undefined) {
       const others = await Item.find({ owner: req.userId, _id: { $ne: req.params.id }, deleted: { $ne: true } });

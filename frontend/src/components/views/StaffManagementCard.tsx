@@ -28,7 +28,7 @@ export function StaffManagementCard() {
   const addStaff = async () => {
     setError("");
     if (!form.email.trim()) { setError("Email is required"); return; }
-    if (form.pin.length < 4) { setError("PIN must be at least 4 digits"); return; }
+    if (!/^\d{4,6}$/.test(form.pin)) { setError("PIN must be 4 to 6 digits"); return; }
     setSaving(true);
     try {
       const created = await api.staff.create({ email: form.email.trim(), pin: form.pin, name: form.name.trim() || undefined });

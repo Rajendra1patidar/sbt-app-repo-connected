@@ -1,17 +1,35 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { api } from "../lib/api";
 
+// The reset email links to /reset-pin?token=...&email=... - open that and the
+// code and email are already filled in, so nobody has to copy a long code.
+function readResetLink(): { token: string; email: string } | null {
+  if (typeof window === "undefined") return null;
+  if (window.location.pathname.replace(/\/$/, "") !== "/reset-pin") return null;
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("token");
+  return token ? { token, email: params.get("email") || "" } : null;
+}
+
+const PIN_OK = /^\d{4,6}$/;
+
 export function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
-  const [mode, setMode] = useState<"login" | "register" | "forgot" | "reset">("login");
+  const [resetLink] = useState(readResetLink);
+  const [mode, setMode] = useState<"login" | "register" | "forgot" | "reset">(resetLink ? "reset" : "login");
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(resetLink?.email || "");
   const [pin, setPin] = useState("");
-  const [resetToken, setResetToken] = useState("");
+  const [resetToken, setResetToken] = useState(resetLink?.token || "");
   const [newPin, setNewPin] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Don't leave the one-time code sitting in the address bar and browser history.
+  useEffect(() => {
+    if (resetLink) window.history.replaceState({}, "", "/");
+  }, [resetLink]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,6 +53,7 @@ export function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
 
     if (mode === "reset") {
       if (!email || !resetToken || !newPin) { setError("Email, reset code, and new PIN are all required"); return; }
+      if (!PIN_OK.test(newPin)) { setError("New PIN must be 4 to 6 digits"); return; }
       setBusy(true);
       try {
         await api.auth.resetPin(email.trim(), resetToken.trim(), newPin);
@@ -52,6 +71,8 @@ export function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
     }
 
     if (!email || !pin) { setError("Email and PIN are required"); return; }
+    // The 4-6 digit rule is for choosing a PIN. Signing in accepts whatever the PIN already is.
+    if (mode === "register" && !PIN_OK.test(pin)) { setError("PIN must be 4 to 6 digits"); return; }
     setBusy(true);
     try {
       const res: any = mode === "login"
@@ -103,12 +124,13 @@ export function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
         {(mode === "login" || mode === "register") && (
           <input
             className="mb-4 w-full rounded-xl border border-line bg-paper/60 px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition-all"
-            placeholder="PIN (4+ digits)"
+            placeholder={mode === "register" ? "Choose a PIN (4 to 6 digits)" : "PIN"}
             type="password"
             inputMode="numeric"
+            maxLength={mode === "register" ? 6 : undefined}
             autoComplete={mode === "login" ? "current-password" : "new-password"}
             value={pin}
-            onChange={(e) => setPin(e.target.value)}
+            onChange={(e) => setPin(mode === "register" ? e.target.value.replace(/\D/g, "") : e.target.value)}
           />
         )}
         {mode === "reset" && (
@@ -121,12 +143,13 @@ export function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
             />
             <input
               className="mb-4 w-full rounded-xl border border-line bg-paper/60 px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition-all"
-              placeholder="New PIN (4+ digits)"
+              placeholder="New PIN (4 to 6 digits)"
               type="password"
               inputMode="numeric"
+              maxLength={6}
               autoComplete="new-password"
               value={newPin}
-              onChange={(e) => setNewPin(e.target.value)}
+              onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
             />
           </>
         )}

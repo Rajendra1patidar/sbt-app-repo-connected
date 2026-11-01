@@ -37,12 +37,15 @@ export function InvoiceShareModal({ invoice, customer, items, settings, payment,
       ["Labour", Number(invoice.labourCost || 0)],
       ["Previous due", Number(invoice.previousDue || 0)],
     ] as [string, number][]).filter(([, v]) => v > 0);
+    // Earlier balance, printed for reference only (not part of the total).
+    const previousBalance = Number(invoice.previousBalance || 0);
 
     const HEADER_H = 96;   // name/date + location + divider
     const TOTAL_H = 78;
     const NOTES_H = invoice.notes ? 34 : 0;
     const STAT_H = 40;
-    const H = HEADER_H + (lines.length + discountRowCount + extras.length) * rowH + TOTAL_H + NOTES_H + STAT_H + PAD * 2;
+    const PREV_H = previousBalance > 0 ? 68 : 0;
+    const H = HEADER_H + (lines.length + discountRowCount + extras.length) * rowH + TOTAL_H + PREV_H + NOTES_H + STAT_H + PAD * 2;
 
     canvas.width = CARD_W; canvas.height = H;
 
@@ -94,6 +97,17 @@ export function InvoiceShareModal({ invoice, customer, items, settings, payment,
     ctx.fillText("Total", PAD, y);
     ctx.textAlign = "right"; ctx.fillText(fmtMoney(invoice.total, settings.currency), CARD_W - PAD, y);
     ctx.textAlign = "left";
+
+    // earlier balance - for reference, below the total
+    if (previousBalance > 0) {
+      y += 34; ctx.font = "22px Arial"; ctx.fillStyle = "#475569"; ctx.textAlign = "left";
+      ctx.fillText("Previous balance", PAD, y);
+      ctx.textAlign = "right"; ctx.fillText(fmtMoney(previousBalance, settings.currency), CARD_W - PAD, y);
+      y += 34; ctx.font = "bold 22px Arial"; ctx.fillStyle = "#0f172a"; ctx.textAlign = "left";
+      ctx.fillText("Total with previous balance", PAD, y);
+      ctx.textAlign = "right"; ctx.fillText(fmtMoney(Number(invoice.total || 0) + previousBalance, settings.currency), CARD_W - PAD, y);
+      ctx.textAlign = "left";
+    }
 
     // notes — small italic
     if (invoice.notes) {

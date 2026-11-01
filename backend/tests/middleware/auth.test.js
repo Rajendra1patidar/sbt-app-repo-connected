@@ -90,3 +90,44 @@ describe("protect", () => {
     expect(User.findById).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("protect - token version (sign out after a PIN change or reset)", () => {
+  const withAccount = (account) =>
+    User.findById.mockReturnValue({ select: jest.fn().mockResolvedValue(account) });
+
+  test("a token whose version matches the account is accepted", async () => {
+    jwt.verify.mockReturnValue({ id: "owner1", tv: 2 });
+    withAccount({ role: "owner", ownerId: null, tokenVersion: 2 });
+    const next = jest.fn();
+    await protect(fakeReq("t"), fakeRes(), next);
+    expect(next).toHaveBeenCalled();
+  });
+
+  test("a token minted before the PIN was changed is refused", async () => {
+    jwt.verify.mockReturnValue({ id: "owner1", tv: 1 });
+    withAccount({ role: "owner", ownerId: null, tokenVersion: 2 });
+    const res = fakeRes();
+    const next = jest.fn();
+    await protect(fakeReq("t"), res, next);
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  test("an old token with no version still works for an account that has never changed its PIN", async () => {
+    jwt.verify.mockReturnValue({ id: "owner1" }); // issued before versions existed
+    withAccount({ role: "owner", ownerId: null }); // no tokenVersion stored yet
+    const next = jest.fn();
+    await protect(fakeReq("t"), fakeRes(), next);
+    expect(next).toHaveBeenCalled();
+  });
+
+  test("an old token with no version stops working once the account's version has moved on", async () => {
+    jwt.verify.mockReturnValue({ id: "owner1" });
+    withAccount({ role: "owner", ownerId: null, tokenVersion: 1 });
+    const res = fakeRes();
+    const next = jest.fn();
+    await protect(fakeReq("t"), res, next);
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+  });
+});

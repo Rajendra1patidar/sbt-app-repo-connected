@@ -36,7 +36,8 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
   const [rateEditIndex, setRateEditIndex] = useState<number | null>(null);
   const [freightCost, setFreightCost] = useState(editingDoc?.freightCost ? String(editingDoc.freightCost) : "");
   const [labourCost, setLabourCost] = useState(editingDoc?.labourCost ? String(editingDoc.labourCost) : "");
-  const [includePreviousDue, setIncludePreviousDue] = useState(!isEditing);
+  // Whether to print the customer's earlier balance on this bill (information only - see below).
+  const [showPreviousBalance, setShowPreviousBalance] = useState(true);
   const [contractorName, setContractorName] = useState(editingDoc?.contractorName || "");
   const [destination, setDestination] = useState(editingDoc?.destination || "");
   const [destinationTouched, setDestinationTouched] = useState(!!editingDoc?.destination);
@@ -138,7 +139,14 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
 
   const previousDueEstimates = type === "estimate" && !isEditing ? (estimates || []).filter((e: any) => e.customerId === customerId && e.status !== "Paid") : [];
   const previousDueAmount = round2(previousDueEstimates.reduce((s: number, e: any) => s + (Number(e.total || 0) - Number(e.amountPaid || 0)), 0));
-  const previousDue = includePreviousDue ? previousDueAmount : 0;
+  // What the customer already owed before this bill. It is shown on the printed
+  // bill for reference but is NOT added to this estimate's total (that used to
+  // inflate sales and mark the older estimates Paid without any payment). The
+  // older estimates stay open until they are really paid.
+  const previousBalance = showPreviousBalance ? previousDueAmount : 0;
+  // OLD bills only: an earlier balance that was folded into the total back when
+  // that was done. Keep it when such a bill is edited so editing never drops it.
+  const previousDue = isEditing ? Number(editingDoc?.previousDue || 0) : 0;
 
   const total = round2(itemsSubtotal + Number(freightCost || 0) + Number(labourCost || 0) + previousDue);
 
@@ -209,7 +217,7 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
   const buildPayload = () => ({
     customerId, date, dueDate, lines: lines.filter((l) => l.itemId), notes, total,
     freightCost: Number(freightCost || 0), labourCost: Number(labourCost || 0), previousDue,
-    rolledEstimateIds: includePreviousDue ? previousDueEstimates.map((e: any) => e.id) : [],
+    previousBalance: isEditing ? Number(editingDoc?.previousBalance || 0) : previousBalance,
     contractorName, destination,
     ...(showPaymentPanel ? {
       status: paymentChoice === "paid" || paymentChoice === "advance" ? "Paid" : "Due",
@@ -315,14 +323,14 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
               <div className="rounded-xl border border-warn-200 bg-warn-50 px-4 py-3">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-warn-800">Previous due — {fmtMoney(previousDueAmount, "")}</p>
+                    <p className="text-sm font-semibold text-warn-800">Previous balance — {fmtMoney(previousDueAmount, "")}</p>
                     <p className="mt-0.5 text-xs text-warn-700">From {previousDueEstimates.length} earlier unpaid estimate{previousDueEstimates.length !== 1 ? "s" : ""}: {previousDueEstimates.map((e: any) => e.number).join(", ")}</p>
                   </div>
-                  <button type="button" onClick={() => setIncludePreviousDue((v) => !v)} className={`h-6 w-11 shrink-0 rounded-full p-0.5 transition ${includePreviousDue ? "bg-warn-500" : "bg-paper"}`}>
-                    <span className={`block h-5 w-5 rounded-full bg-card transition ${includePreviousDue ? "translate-x-5" : "translate-x-0"}`} />
+                  <button type="button" role="switch" aria-checked={showPreviousBalance} aria-label="Show the previous balance on this bill" onClick={() => setShowPreviousBalance((v) => !v)} className={`h-6 w-11 shrink-0 rounded-full p-0.5 transition ${showPreviousBalance ? "bg-warn-500" : "bg-paper"}`}>
+                    <span className={`block h-5 w-5 rounded-full bg-card transition ${showPreviousBalance ? "translate-x-5" : "translate-x-0"}`} />
                   </button>
                 </div>
-                {includePreviousDue && <p className="mt-2 text-[11px] text-warn-700">Included in this estimate's total. Those {previousDueEstimates.length} earlier estimate{previousDueEstimates.length !== 1 ? "s" : ""} will be marked Paid once this one is saved.</p>}
+                <p className="mt-2 text-[11px] text-warn-700">{showPreviousBalance ? "Shown on the bill for reference. It is not added to this estimate's total, and those earlier estimates stay open until they are paid." : "Hidden from the bill. Those earlier estimates stay open until they are paid."}</p>
               </div>
             )}
 
@@ -520,6 +528,9 @@ export function DocumentModal({ type, customers, items, godowns, estimates, edit
                 <span className="text-sm font-semibold text-ink/50">Total</span>
                 <span className="font-display text-lg font-bold text-ink">{total.toFixed(2)}</span>
               </div>
+              {type === "estimate" && !isEditing && previousBalance > 0 && (
+                <div className="flex items-center justify-between text-xs text-ink/50"><span>Previous balance (not in the total)</span><span>{previousBalance.toFixed(2)}</span></div>
+              )}
             </div>
 
             {showPaymentPanel && (

@@ -1,8 +1,10 @@
 const zlib = require("zlib");
 
-// Minimal single/multi-file ZIP writer using only Node's built-in zlib
-// (deflateRawSync) — no new npm dependency for what is otherwise a
-// one-file backup attachment.
+// Minimal single/multi-file ZIP writer and reader using only Node's built-in
+// zlib (deflateRawSync / inflateRawSync) — no new npm dependency for what is
+// otherwise a one-file backup attachment. The reader only has to understand
+// archives this file wrote (plus any ordinary ZIP without ZIP64 or encryption),
+// which is all the restore script needs to unwrap an emailed backup.
 //
 // Why this exists: Brevo's transactional email API validates attachments
 // by file extension against an allow-list, and ".gz" isn't on it (see
@@ -105,4 +107,60 @@ function buildZip(files) {
   return Buffer.concat([...localChunks, centralDir, end]);
 }
 
-module.exports = { buildZip, crc32 };
+
+/**
+ * Reads a ZIP archive (stored or deflated entries, no encryption, no ZIP64)
+ * into a list of { name, data: Buffer }. Directory entries are skipped. Every
+ * entry's CRC-32 is checked, so a damaged download is reported instead of
+ * silently restoring bad data.
+ */
+function readZip(buf) {
+  if (!Buffer.isBuffer(buf) || buf.length < 22) throw new Error("Not a ZIP file");
+
+  // The end-of-central-directory record sits at the very end (followed only by an optional comment).
+  const lowest = Math.max(0, buf.length - 22 - 0xffff);
+  let end = -1;
+  for (let i = buf.length - 22; i >= lowest; i--) {
+    if (buf.readUInt32LE(i) === 0x06054b50) {
+      end = i;
+      break;
+    }
+  }
+  if (end < 0) throw new Error("Not a ZIP file");
+
+  const entryCount = buf.readUInt16LE(end + 10);
+  let pos = buf.readUInt32LE(end + 16);
+  const out = [];
+
+  for (let n = 0; n < entryCount; n++) {
+    if (pos + 46 > buf.length || buf.readUInt32LE(pos) !== 0x02014b50) throw new Error("Damaged ZIP directory");
+    const method = buf.readUInt16LE(pos + 10);
+    const crc = buf.readUInt32LE(pos + 16);
+    const compressedSize = buf.readUInt32LE(pos + 20);
+    const nameLen = buf.readUInt16LE(pos + 28);
+    const extraLen = buf.readUInt16LE(pos + 30);
+    const commentLen = buf.readUInt16LE(pos + 32);
+    const localOffset = buf.readUInt32LE(pos + 42);
+    const name = buf.toString("utf8", pos + 46, pos + 46 + nameLen);
+    pos += 46 + nameLen + extraLen + commentLen;
+
+    if (name.endsWith("/")) continue; // a folder, nothing to extract
+
+    if (localOffset + 30 > buf.length || buf.readUInt32LE(localOffset) !== 0x04034b50) {
+      throw new Error("Damaged ZIP entry");
+    }
+    const dataStart = localOffset + 30 + buf.readUInt16LE(localOffset + 26) + buf.readUInt16LE(localOffset + 28);
+    const raw = buf.subarray(dataStart, dataStart + compressedSize);
+
+    let data;
+    if (method === 0) data = Buffer.from(raw);
+    else if (method === 8) data = zlib.inflateRawSync(raw);
+    else throw new Error(`Unsupported ZIP compression method ${method}`);
+
+    if (crc32(data) !== crc) throw new Error(`ZIP entry "${name}" is damaged (checksum mismatch)`);
+    out.push({ name, data });
+  }
+  return out;
+}
+
+module.exports = { buildZip, readZip, crc32 };

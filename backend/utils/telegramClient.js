@@ -88,6 +88,38 @@ async function sendTelegramPhoto(botToken, chatId, photoBuffer, caption, filenam
 }
 
 /**
+ * Sends a file (Buffer) as a document, via multipart/form-data. Used for the
+ * nightly encrypted database backup. Telegram bots can upload files up to
+ * 50 MB this way. Never throws; returns { ok, messageId, fileId } on success
+ * or { ok: false, error } so the caller can say why in its own alert.
+ */
+async function sendTelegramDocument(botToken, chatId, fileBuffer, filename, caption) {
+  if (!botToken || !chatId) return { ok: false, error: "Telegram is not configured" };
+
+  try {
+    const form = new FormData();
+    form.append("chat_id", chatId);
+    if (caption) form.append("caption", caption.slice(0, 1024)); // Telegram caption cap
+    form.append("document", new Blob([fileBuffer]), filename);
+
+    const res = await fetch(`${TELEGRAM_API}/bot${botToken}/sendDocument`, {
+      method: "POST",
+      body: form,
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.ok) {
+      const reason = (data && data.description) || `HTTP ${res.status}`;
+      console.error("telegramClient: sendDocument failed:", reason);
+      return { ok: false, error: reason };
+    }
+    return { ok: true, messageId: data.result.message_id, fileId: data.result.document?.file_id };
+  } catch (err) {
+    console.error("telegramClient: sendDocument network error:", err.message);
+    return { ok: false, error: err.message };
+  }
+}
+
+/**
  * Downloads a previously-sent photo's bytes, given the file_id returned by
  * sendTelegramPhoto. Two Bot API calls under the hood (getFile to resolve a
  * path, then a plain fetch of that path) — Telegram doesn't expose file
@@ -144,4 +176,4 @@ function splitMessage(text, maxLen) {
   return chunks;
 }
 
-module.exports = { sendTelegramMessage, sendTelegramPhoto, getTelegramFileBuffer, deleteTelegramMessage };
+module.exports = { sendTelegramMessage, sendTelegramPhoto, sendTelegramDocument, getTelegramFileBuffer, deleteTelegramMessage };

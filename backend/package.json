@@ -10,10 +10,12 @@
     "test": "jest",
     "seed": "node scripts/seed/seedDocumentCounters.js",
     "migrate:estimate": "node scripts/migrations/migrateToEstimate.js",
-    "backfill:ledger": "node scripts/migrations/backfillLedger.js"
+    "backfill:ledger": "node scripts/migrations/backfillLedger.js",
+    "restore": "node scripts/restoreBackup.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "bson": "^6.10.4",
     "compression": "^1.8.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -26,7 +28,6 @@
     "morgan": "^1.10.0",
     "multer": "^2.3.0",
     "node-cron": "^3.0.3",
-    "nodemailer": "^9.0.3",
     "pdfkit": "^0.20.2"
   },
   "devDependencies": {

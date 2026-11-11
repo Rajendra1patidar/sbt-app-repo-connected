@@ -1,22 +1,23 @@
 const express = require("express");
 const { requireCronSecret } = require("../middleware/cronAuth");
-const { runAllJobs } = require("../jobs/runAllJobs");
+const { run } = require("../controllers/cronController");
 
 const router = express.Router();
 
 /**
  * POST /api/cron/run
  *
- * Meant to be called by an external scheduler (cron-job.org) instead of
- * relying on the in-process node-cron timer + a separate wake-up ping.
+ * Meant to be called by an external scheduler (cron-job.org, with the GitHub
+ * workflow as a backup) instead of relying on an in-process timer.
  * The HTTP request itself does double duty: it wakes the sleeping Render
  * free-tier instance AND triggers the job run — no timing gap between
  * "hopefully awake by now" and "cron fires" to worry about.
  *
- * Responds only after the run completes, so cron-job.org's execution log
- * shows you exactly what happened each night (see results in the response
- * body / your cron-job.org history), and a non-200 status shows up there
- * as a visible failure instead of silently vanishing into server logs only.
+ * Responds only after the run completes (unless ?async=1), so the scheduler's
+ * execution log shows exactly what happened each night, and a non-200 status
+ * shows up there as a visible failure instead of vanishing into server logs
+ * only. Each job runs at most once a day (see jobs/runAllJobs.js), so a second
+ * trigger the same day, such as the GitHub backup, is harmless.
  */
 router.post(
   "/run",
@@ -29,18 +30,7 @@ router.post(
     next();
   },
   requireCronSecret,
-  async (req, res) => {
-    try {
-      const outcome = await runAllJobs();
-      const body = { status: "ok", ...outcome };
-      const payload = JSON.stringify(body);
-      console.log(`cronRoutes: /run responding with ${Buffer.byteLength(payload)} bytes`);
-      res.type("application/json").send(payload);
-    } catch (err) {
-      console.error("cronRoutes: /run crashed unexpectedly:", err.message);
-      res.status(500).json({ status: "error", message: err.message });
-    }
-  }
+  run
 );
 
 module.exports = router;

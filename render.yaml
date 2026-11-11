@@ -22,3 +22,14 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
+      # Nightly jobs and backups (see BACKUPS.md)
+      - key: CRON_SECRET
+        sync: false
+      - key: BACKUP_PASSPHRASE
+        sync: false
+      - key: BACKUP_EMAIL_TO
+        sync: false
+      - key: TELEGRAM_REPORT_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_REPORT_CHAT_ID
+        sync: false

@@ -102,6 +102,24 @@ async function request(path: string, options: RequestInit = {}, raw = false) {
 }
 
 /**
+ * True when the server answers its health check. Never throws. Used to find out
+ * whether a sleeping free-plan server has woken up yet (see lib/serverWake.ts).
+ * Deliberately a plain request with no auth header, so it needs no CORS preflight.
+ */
+async function ping(timeoutMs = 8000): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${API_URL}/api/health`, { cache: "no-store", signal: controller.signal });
+    return res.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
  * Downloads a file from an authenticated endpoint and triggers a browser
  * "Save As" for it. Separate from `request()` because that helper always
  * parses the response as JSON — this streams back binary/text and hands
@@ -240,6 +258,7 @@ export const api = {
   setToken,
   getToken,
   onUnauthorized,
+  ping,
 
   auth: {
     register: (email: string, pin: string, name?: string) =>
@@ -380,6 +399,14 @@ export const api = {
   dataExport: {
     toJson: () => downloadFile("/api/export/json", "sbt-export.json"),
     toExcel: () => downloadFile("/api/export/excel", "sbt-export.xlsx"),
+  },
+
+  // Owner-only. `download` saves the encrypted copy of the whole database (open it
+  // with backend/scripts/restoreBackup.js and your BACKUP_PASSPHRASE); `status` says
+  // when the last good nightly backup happened and how each nightly job last went.
+  backup: {
+    status: () => request("/api/backup/status"),
+    download: () => downloadFile("/api/backup/download", "sbt-backup.sbtbackup"),
   },
 
   documents,

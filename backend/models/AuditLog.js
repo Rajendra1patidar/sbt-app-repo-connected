@@ -1,9 +1,11 @@
 const mongoose = require("mongoose");
 
 // Immutable trail of who did what. Written by auditLogger.js, never updated
-// or deleted by the app itself — that's what makes it useful for resolving
-// "who deleted this challan?" disputes. No route exposes update/delete for
-// this model; only a read endpoint (see routes/auditLogRoutes.js).
+// by the app, and no route exposes update/delete for this model; only a read
+// endpoint (see routes/auditLogRoutes.js). That's what makes it useful for
+// resolving "who deleted this challan?" disputes. The one thing that removes
+// entries is the nightly clean-up in jobs/retentionJob.js, and only for entries
+// older than three years.
 const auditLogSchema = new mongoose.Schema(
   {
     owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
@@ -26,5 +28,7 @@ const auditLogSchema = new mongoose.Schema(
 
 auditLogSchema.index({ owner: 1, createdAt: -1 });
 auditLogSchema.index({ owner: 1, model: 1, docId: 1 });
+// Lets the retention clean-up (3 years) find old rows without scanning everything.
+auditLogSchema.index({ createdAt: 1 });
 
 module.exports = mongoose.model("AuditLog", auditLogSchema);

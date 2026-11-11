@@ -1,3 +1,7 @@
 node_modules
 frontend/dist/
-README.md
+
+# Backups and restore safety copies hold your business data: never commit them.
+*.sbtbackup
+*.sbtbackup.zip
+restore-safety-*.json

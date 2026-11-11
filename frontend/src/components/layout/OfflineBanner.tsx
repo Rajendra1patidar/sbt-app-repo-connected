@@ -9,13 +9,16 @@ import { useAppStore } from "../../store/useAppStore";
  * is currently offline, there are queued Challans/Payments/Stock Takes still
  * waiting to sync (which can briefly outlast the offline period itself,
  * right after reconnecting), or the screen is showing a cached snapshot from
- * the last time the app opened offline. Invisible the rest of the time.
+ * the last time the app opened offline, or the (free-plan) server is still
+ * waking up after a quiet spell and the saved copy is on screen meanwhile.
+ * Invisible the rest of the time.
  */
 export function OfflineBanner() {
   const [queue, setQueue] = useState<OfflineAction[]>([]);
   const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
   const [syncing, setSyncing] = useState(false);
   const offlineDataAsOf = useAppStore((s) => s.offlineDataAsOf);
+  const serverWaking = useAppStore((s) => s.serverWaking);
 
   useEffect(() => subscribeOfflineQueue(setQueue), []);
 
@@ -30,7 +33,7 @@ export function OfflineBanner() {
     };
   }, []);
 
-  if (online && queue.length === 0 && !offlineDataAsOf) return null;
+  if (online && queue.length === 0 && !offlineDataAsOf && !serverWaking) return null;
 
   const handleRetry = async () => {
     setSyncing(true);
@@ -49,6 +52,9 @@ export function OfflineBanner() {
     message = queue.length > 0
       ? `You're offline — ${queue.length} change${queue.length === 1 ? "" : "s"} saved, will sync automatically`
       : "You're offline — new estimates (plus edits, payments and returns), customers, challans and stock takes are still saved";
+  } else if (serverWaking) {
+    message = `Waking the server, this can take up to a minute. You're seeing your last saved data from ${asOfLabel}.`;
+    if (queue.length > 0) message += ` ${queue.length} change${queue.length === 1 ? "" : "s"} will sync once it's up.`;
   } else if (queue.length > 0) {
     message = `${queue.length} change${queue.length === 1 ? "" : "s"} waiting to sync`;
   } else {
@@ -57,9 +63,9 @@ export function OfflineBanner() {
 
   return (
     <div className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold ${online ? "bg-warn-50 text-warn-700" : "bg-bad-50 text-bad-700"}`}>
-      <WifiOff size={14} className="shrink-0" />
+      {online && serverWaking ? <RefreshCw size={14} className="shrink-0 animate-spin" /> : <WifiOff size={14} className="shrink-0" />}
       <span className="flex-1">{message}</span>
-      {online && (queue.length > 0 || offlineDataAsOf) && (
+      {online && !serverWaking && (queue.length > 0 || offlineDataAsOf) && (
         <button
           onClick={handleRetry}
           disabled={syncing}

@@ -1,12 +1,16 @@
-name: SBT Keep Awake
+name: SBT Keep Awake (backup)
 
+# cron-job.org is the main keep-alive pinger (setup in BACKUPS.md). This workflow is the
+# backup, so it pings half as often (every 30 minutes): that is plenty to catch the gaps if
+# cron-job.org ever stops, and it uses far fewer of GitHub's free Actions minutes.
+# (To go back to every 10 minutes, use the three cron lines in git history for this file.)
 on:
   schedule:
     # GitHub cron is UTC. IST = UTC + 5:30.
-    # These 3 lines together = every 10 minutes, 8:00 AM to 6:00 PM IST.
-    - cron: "30-59/10 2 * * *"   # 8:00-8:20 AM IST
-    - cron: "*/10 3-11 * * *"    # 8:30 AM - 5:20 PM IST
-    - cron: "0-30/10 12 * * *"   # 5:30-6:00 PM IST
+    # These 3 lines together = every 30 minutes, 8:00 AM to 6:00 PM IST.
+    - cron: "30 2 * * *"        # 8:00 AM IST
+    - cron: "0,30 3-11 * * *"   # 8:30 AM - 5:00 PM IST
+    - cron: "0,30 12 * * *"     # 5:30 PM and 6:00 PM IST
   workflow_dispatch: {} # lets you run it manually from the Actions tab to test
 
 jobs:

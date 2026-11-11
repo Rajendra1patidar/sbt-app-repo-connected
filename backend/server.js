@@ -5,6 +5,7 @@ const helmet = require("helmet");
 const compression = require("compression");
 const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
+const mongoose = require("mongoose");
 const connectDB = require("./config/db");
 const { protect } = require("./middleware/auth");
 const { requireOwner, ownerOnlyDeletes, ownerOnlyWrites, ledgerPolicy, reportsPolicy } = require("./middleware/roles");
@@ -30,6 +31,7 @@ const stockAdjustmentRoutes = require("./routes/stockAdjustmentRoutes");
 const ledgerRoutes = require("./routes/ledgerRoutes");
 const financialYearRoutes = require("./routes/financialYearRoutes");
 const exportRoutes = require("./routes/exportRoutes");
+const backupRoutes = require("./routes/backupRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const approvalRoutes = require("./routes/approvalRoutes");
 const bankStatementRoutes = require("./routes/bankStatementRoutes");
@@ -39,6 +41,7 @@ const customerPortalRoutes = require("./routes/customerPortalRoutes");
 const { registerListeners } = require("./listeners");
 const cronRoutes = require("./routes/cronRoutes");
 const scheduler = require("./jobs/scheduler");
+const { maybeCheckMissedRuns } = require("./services/jobRunService");
 const app = express();
 // Render (and most PaaS hosts) sit the app behind one reverse proxy that sets
 // X-Forwarded-For. Trusting exactly 1 hop lets express-rate-limit/req.ip read
@@ -74,7 +77,8 @@ app.use(
       return callback(blocked);
     },
     credentials: true,
-    exposedHeaders: ["X-Total-Count"],
+    // Content-Disposition lets the browser read the real file name of a download (the backup).
+    exposedHeaders: ["X-Total-Count", "Content-Disposition"],
   })
 );
 // 600/15min — comfortably covers a full app reload (~14 requests from fetchAll)
@@ -92,8 +96,13 @@ const authLimiter = rateLimit({
   message: { message: "Too many attempts from this device. Please wait a few minutes and try again." },
 });
 app.use("/api/auth", authLimiter);
-// ---- health check (used by Railway / uptime monitors) ----
-app.get("/api/health", (req, res) => res.json({ status: "ok", time: new Date().toISOString() }));
+// ---- health check (used by Render, cron-job.org and the GitHub keep-alive) ----
+// Every ping also gives the missed-run watchdog a chance to look at last night's
+// jobs (it is throttled to once per 10 minutes, never waits, and never fails the ping).
+app.get("/api/health", (req, res) => {
+  maybeCheckMissedRuns({ ready: mongoose.connection.readyState === 1 });
+  res.json({ status: "ok", time: new Date().toISOString() });
+});
 // ---- cron trigger (own secret-based auth, not JWT) ----
 app.use("/api/cron", cronRoutes);
 // ---- public routes ----
@@ -134,6 +143,7 @@ app.use("/api/stock-adjustments", protect, stockAdjustmentRoutes);
 app.use("/api/ledger", protect, ledgerPolicy, ledgerRoutes);
 app.use("/api/financial-years", protect, requireOwner, financialYearRoutes);
 app.use("/api/export", protect, requireOwner, exportRoutes);
+app.use("/api/backup", protect, requireOwner, backupRoutes);
 app.use("/api/notifications", protect, notificationRoutes);
 app.use("/api/approvals", protect, approvalRoutes);
 app.use("/api/bank-statement", protect, requireOwner, bankStatementRoutes);
@@ -146,6 +156,9 @@ const PORT = process.env.PORT || 5000;
 registerListeners();
 scheduler.start();
 app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+// A server that was just woken up (by a person opening the app, say) checks last
+// night's jobs shortly after it has connected to the database.
+setTimeout(() => maybeCheckMissedRuns({ ready: mongoose.connection.readyState === 1 }), 30 * 1000).unref();
 
 // A promise that fails with nobody listening used to vanish silently (or, on
 // newer Node versions, kill the process with no trace). Log it and ping the

@@ -1,86 +1,123 @@
 const mongoose = require("mongoose");
+const zlib = require("zlib");
 const { buildZip } = require("./zip");
+const { encryptBackup } = require("./backupCrypto");
+const { istDay } = require("./istDate");
 
-// Fields never worth putting in an emailed backup: they're either not
-// secrets that matter for a restore (failedAttempts/lockUntil are runtime
-// login-throttle state, not data) or are hashes whose only purpose is
-// auth and would just be extra attack surface sitting in an inbox forever.
-// pinHash/resetTokenHash are bcrypt/sha256 hashes (not plaintext), so
-// omitting them is defense-in-depth, not a fix for an active leak — a
-// restored owner account just needs its PIN reset once via the existing
-// forgot-PIN flow.
+// Fields never worth putting in a backup: runtime login-throttle state and
+// reset tokens are not data anyone wants back, and PIN hashes are the one thing
+// that would let somebody sign in to the live app if a backup AND its
+// passphrase both leaked. A restored account gets a fresh temporary PIN from the
+// restore script instead (see scripts/restoreBackup.js).
 const FIELD_STRIPS = {
   users: ["pinHash", "resetTokenHash", "resetTokenExpires", "failedAttempts", "lockUntil"],
 };
 
-// Emailed backups only make sense up to whatever the SMTP provider's
-// attachment cap is (Gmail/most providers: ~25MB app-attachment limit,
-// often lower in practice once base64 + gzip's own overhead is counted).
-// This is a guardrail, not a tuned figure — if a real business genuinely
-// grows past this, the fix is moving off "email as backup transport"
-// entirely, not raising the number.
-const MAX_GZIP_BYTES = 15 * 1024 * 1024; // 15MB
+// Bookkeeping collections that describe the live server, not the business:
+// restoring them would only confuse the once-a-day guard or replay old save keys.
+const SKIPPED_COLLECTIONS = new Set(["jobruns", "idempotencykeys"]);
+
+// What each delivery channel can carry. Telegram bots may upload up to 50 MB.
+// Brevo allows 20 MB per email including content, and base64 adds about a third,
+// so 12 MB of attachment leaves comfortable headroom.
+const MAX_TELEGRAM_BYTES = 49 * 1024 * 1024;
+const MAX_EMAIL_BYTES = 12 * 1024 * 1024;
 
 function stripFields(doc, fields) {
-  if (!fields || !fields.length) return doc;
   const copy = { ...doc };
   for (const f of fields) delete copy[f];
   return copy;
 }
 
+// Extended JSON keeps database types intact (ObjectId stays an ObjectId, a Date
+// stays a Date), which is what makes the restore exact instead of "strings everywhere".
+function getEJSON() {
+  try {
+    return require("bson").EJSON;
+  } catch (_) {
+    /* fall through to the copy that ships inside the driver */
+  }
+  const viaDriver = mongoose.mongo && mongoose.mongo.BSON && mongoose.mongo.BSON.EJSON;
+  if (viaDriver) return viaDriver;
+  throw new Error("dbBackup: no Extended JSON serializer found (the bson package is missing)");
+}
+
 /**
- * Dumps every collection in the connected database to one JSON document
- * (collection name -> array of raw documents), gzips it, and returns the
- * buffer plus a small summary for the email body / logs.
- *
- * Uses the native driver's listCollections/find directly rather than
- * importing every Mongoose model by name, so a newly added model is
- * automatically included in tomorrow's backup with zero code changes here.
- *
- * This is a full, unscoped dump (every owner's data, not just one) — the
- * app enforces a single owner account at registration (see
- * utils/ownerAccounts.js), so per-owner scoping a whole-database backup
- * would be a pointless extra layer for what's currently always one
- * business anyway.
+ * Reads every collection through the native driver (so a newly added model is
+ * in tomorrow's backup with no code change here) and writes one JSON document:
+ *   { format: "sbt-backup", version: 1, generatedAt, collections: { name: [docs] } }
+ * Each collection is serialized as soon as it is read and then released, so the
+ * server never holds the whole database as objects at once (the free Render
+ * instance has 512 MB).
  */
-async function buildBackupArchive() {
+async function dumpDatabase() {
   const db = mongoose.connection.db;
   if (!db) {
-    const err = new Error("buildBackupArchive: no active MongoDB connection");
+    const err = new Error("buildEncryptedBackup: no active MongoDB connection");
     err.status = 503;
     throw err;
   }
-
+  const EJSON = getEJSON();
   const collections = await db.listCollections().toArray();
-  const dump = {};
+  const generatedAt = new Date().toISOString();
+  const parts = [];
   const summary = []; // [{ name, count }]
 
-  for (const { name } of collections) {
-    // Mongo's own internal collections (e.g. system.*) never carry app
-    // data and would just be noise/possibly-restricted to read.
-    if (name.startsWith("system.")) continue;
+  for (const { name, type } of collections) {
+    if (name.startsWith("system.") || SKIPPED_COLLECTIONS.has(name)) continue;
+    if (type && type !== "collection") continue; // views hold no data of their own
 
+    let docs = await db.collection(name).find({}).toArray();
+    const count = docs.length;
     const strips = FIELD_STRIPS[name];
-    const docs = await db.collection(name).find({}).toArray();
-    dump[name] = strips ? docs.map((d) => stripFields(d, strips)) : docs;
-    summary.push({ name, count: docs.length });
+    if (strips) docs = docs.map((d) => stripFields(d, strips));
+    parts.push(`${JSON.stringify(name)}:${EJSON.stringify(docs, { relaxed: true })}`);
+    summary.push({ name, count });
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-  const json = JSON.stringify({ generatedAt: new Date().toISOString(), collections: dump });
-  // Packaged as a .zip (not a bare .gz) because Brevo's email API rejects
-  // ".gz" as an unsupported attachment format — ".zip" is on its allow-list.
-  // See utils/zip.js for why this is a hand-rolled writer instead of a new
-  // dependency.
-  const zipBuffer = buildZip([{ name: `sbt-backup-${today}.json`, data: Buffer.from(json, "utf8") }]);
+  const text = `{"format":"sbt-backup","version":1,"generatedAt":${JSON.stringify(generatedAt)},"collections":{${parts.join(",")}}}`;
+  return { json: Buffer.from(text, "utf8"), summary, generatedAt };
+}
 
+let inFlight = null;
+
+async function build(passphrase) {
+  const { json, summary, generatedAt } = await dumpDatabase();
+  const encrypted = encryptBackup(zlib.gzipSync(json), passphrase);
   return {
-    filename: `sbt-backup-${today}.zip`,
-    buffer: zipBuffer,
-    sizeBytes: zipBuffer.length,
-    tooLarge: zipBuffer.length > MAX_GZIP_BYTES,
+    filename: `sbt-backup-${istDay(new Date(generatedAt))}.sbtbackup`,
+    buffer: encrypted,
+    sizeBytes: encrypted.length,
     summary,
+    totalDocs: summary.reduce((sum, c) => sum + c.count, 0),
+    generatedAt,
   };
 }
 
-module.exports = { buildBackupArchive, MAX_GZIP_BYTES };
+/**
+ * Builds the encrypted backup file (gzip, then AES-256-GCM; see backupCrypto.js).
+ * If the nightly job and an owner's "Download backup" tap overlap, they share the
+ * one build in progress rather than reading the database twice.
+ */
+function buildEncryptedBackup(passphrase) {
+  if (!inFlight) {
+    inFlight = build(passphrase).finally(() => {
+      inFlight = null;
+    });
+  }
+  return inFlight;
+}
+
+/**
+ * Brevo only accepts a short list of attachment types (".zip" is on it, an
+ * unknown extension is not), so the emailed copy is the same encrypted file
+ * inside a plain ZIP wrapper. The restore script unwraps it automatically.
+ */
+function wrapForEmail(backup) {
+  return {
+    filename: `${backup.filename}.zip`,
+    buffer: buildZip([{ name: backup.filename, data: backup.buffer }]),
+  };
+}
+
+module.exports = { buildEncryptedBackup, wrapForEmail, getEJSON, MAX_TELEGRAM_BYTES, MAX_EMAIL_BYTES, SKIPPED_COLLECTIONS, FIELD_STRIPS };

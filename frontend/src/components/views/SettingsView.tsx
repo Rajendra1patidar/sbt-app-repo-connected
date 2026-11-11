@@ -3,6 +3,7 @@ import { Phone, Plus, X, Download, Loader2, ShieldCheck, Wallet } from "lucide-r
 import { Card, PillButton } from "../common/UIPrimitives";
 import { ChangePinCard } from "./ChangePinCard";
 import { StaffManagementCard } from "./StaffManagementCard";
+import { BackupCard } from "./BackupCard";
 import { WHATSAPP_GREEN, ITEM_CATEGORIES, ITEM_BRANDS } from "../../lib/constants";
 import { api } from "../../lib/api";
 import { useAppStore } from "../../store/useAppStore";
@@ -164,11 +165,12 @@ function OwnerSettingsView({ settings, setSettings }: any) {
         </div>
       </Card>
       <StaffManagementCard />
+      <BackupCard />
       <Card className="space-y-3">
         <h3 className="text-sm font-bold text-ink">Export your data</h3>
         <p className="text-xs text-ink/40">
           Download everything — customers, items, orders, expenses, payments, purchases, ledger entries and more —
-          as a single file. Useful as a manual backup, or to work with your data in Excel.
+          as a readable file for Excel or your accountant. For a safe copy of the whole app, use Backups above.
         </p>
         <div className="flex gap-2">
           <button

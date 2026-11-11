@@ -4,6 +4,8 @@ import { ITEM_CATEGORIES } from "../lib/constants";
 import { fmtMoney, fmtNum, today } from "../lib/format";
 import { enqueueOfflineAction, findQueuedAction, updateQueuedAction, cancelQueuedAction } from "../lib/offlineQueue";
 import { saveDataCache, loadDataCache } from "../lib/dataCache";
+import { currentAccountId } from "../lib/account";
+import { waitForServer } from "../lib/serverWake";
 import { withOfflinePending, pickEditableFields } from "../lib/offlineRehydrate";
 import { waLink } from "../lib/contactLinks";
 import { portalAccessMessage } from "../lib/portalAccess";
@@ -27,6 +29,13 @@ import { compressImage } from "../lib/imageCompress";
 // nothing needs to re-render when a timer is scheduled or cleared.
 const pendingDeletes: Record<string, () => void> = {};
 
+// fetchAll() bookkeeping (see the comments inside it).
+// shownForAccount: whose data is on screen right now. Lets a refresh keep the screen as it is, but
+// never lets one login see another login's data while its own loads.
+let shownForAccount: string | undefined;
+let wakingTimer: ReturnType<typeof setTimeout> | undefined;
+let retryingLoad = false;
+
 type Toast = { message: string; undo?: () => void; actionLabel?: string } | null;
 type ConfirmDelete = { label: string; description?: string; onConfirm: () => void } | null;
 
@@ -39,6 +48,9 @@ interface AppState {
   // of that snapshot, so the UI can tell the user the data on screen isn't
   // live. Empty string when showing real, freshly-fetched data.
   offlineDataAsOf: string;
+  // True while the saved copy is on screen and the (free-plan) server is still waking up.
+  // The offline banner turns this into a "Waking the server" note. Never persisted.
+  serverWaking: boolean;
   settings: any;
   customers: any[];
   items: any[];
@@ -138,6 +150,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   loading: true,
   loadError: "",
   offlineDataAsOf: "",
+  serverWaking: false,
   settings: {
     orgName: "SHREE BALAJI TRADERS",
     ownerName: "SBT",
@@ -176,7 +189,29 @@ export const useAppStore = create<AppState>()((set, get) => ({
   setOnSignOut: (fn) => set({ onSignOut: fn }),
 
   fetchAll: async () => {
-    set({ loading: true, loadError: "" });
+    const account = currentAccountId();
+    // Nothing on screen belongs to this login yet. If this device saved a copy of the data last time,
+    // show it at once instead of a spinner: the free server can need up to a minute to wake after a
+    // quiet spell, and nobody should stare at "Loading" meanwhile. It is replaced the moment the
+    // server answers. (loadDataCache never returns another account's copy; the derived lists are
+    // cleared so nothing from a previous login lingers either.)
+    if (!account || shownForAccount !== account) {
+      const cached = loadDataCache();
+      if (cached) {
+        set({ ...cached.data, reorderSuggestions: [], notifications: [], deadStock: [], loading: false, loadError: "", offlineDataAsOf: cached.savedAt });
+        const pending = withOfflinePending(get());
+        if (Object.keys(pending).length) set(pending);
+        shownForAccount = account;
+      }
+    }
+    const showingData = !!account && shownForAccount === account;
+    // With data already on screen a refresh leaves the screen alone; only a start with nothing
+    // to show gets the full-screen loader.
+    set({ loading: !showingData, loadError: "" });
+    clearTimeout(wakingTimer);
+    // Still showing the saved copy after a moment: the server is most likely waking up. Say so
+    // rather than looking frozen (the banner reads serverWaking).
+    if (showingData && get().offlineDataAsOf) wakingTimer = setTimeout(() => set({ serverWaking: true }), 2500);
     try {
       const [c, it, o, est, ch, ex, pay, st, ls, lw, ct, sr, vd, pu, rs, nt, me, gd, ds] = await Promise.all([
         api.customers.list(),
@@ -199,6 +234,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
         api.godowns.list().catch(() => []),
         api.reports.deadStock().catch(() => []),
       ]);
+      clearTimeout(wakingTimer);
       set((state) => ({
         customers: c,
         items: it,
@@ -221,7 +257,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
         deadStock: ds || [],
         loading: false,
         offlineDataAsOf: "",
+        serverWaking: false,
       }));
+      shownForAccount = account;
       // Snapshot this fresh state for the next time the app opens with no
       // connectivity — see the offline fallback below and lib/dataCache.ts.
       saveDataCache(get());
@@ -229,17 +267,44 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const pending = withOfflinePending(get());
       if (Object.keys(pending).length) set(pending);
     } catch (err: any) {
-      if (err?.status === 401) { get().onSignOut?.(); return; }
-      if (err?.status === 0) {
-        const cached = loadDataCache();
-        if (cached) {
-          set({ ...cached.data, loading: false, loadError: "", offlineDataAsOf: cached.savedAt });
-          const pending = withOfflinePending(get());
-          if (Object.keys(pending).length) set(pending);
+      clearTimeout(wakingTimer);
+      if (err?.status === 401) { set({ serverWaking: false }); get().onSignOut?.(); return; }
+
+      // The server could not be reached (status 0: no signal, or the connection dropped while it
+      // was waking) or its front door answered 502/503/504 while it starts up.
+      const serverDown = err?.status === 0 || err?.status === 502 || err?.status === 503 || err?.status === 504;
+      if (serverDown) {
+        if (!(!!account && shownForAccount === account)) {
+          const cached = loadDataCache();
+          if (cached) {
+            set({ ...cached.data, reorderSuggestions: [], notifications: [], deadStock: [], loading: false, loadError: "", offlineDataAsOf: cached.savedAt });
+            const pending = withOfflinePending(get());
+            if (Object.keys(pending).length) set(pending);
+            shownForAccount = account;
+          }
+        }
+        if (!!account && shownForAccount === account) {
+          // Keep what is on screen and say it is not live. Truly offline: the banner says so and the
+          // app refreshes by itself when the connection returns (lib/offlineSync.ts). Server asleep:
+          // keep checking quietly and reload as soon as it answers.
+          const asOf = get().offlineDataAsOf || loadDataCache()?.savedAt || new Date().toISOString();
+          const offline = err?.status === 0 && typeof navigator !== "undefined" && !navigator.onLine;
+          set({ loading: false, loadError: "", offlineDataAsOf: asOf, serverWaking: !offline });
+          if (!offline && !retryingLoad) {
+            retryingLoad = true;
+            void (async () => {
+              try {
+                if (await waitForServer()) await get().fetchAll();
+              } finally {
+                retryingLoad = false;
+                set({ serverWaking: false });
+              }
+            })();
+          }
           return;
         }
       }
-      set({ loadError: err.message || "Failed to load your data", loading: false });
+      set({ loadError: err?.message || "Failed to load your data", loading: false, serverWaking: false });
     }
   },
 

@@ -5,6 +5,7 @@ import { useAppStore } from "../store/useAppStore";
 import { pathForView, viewForPath } from "../lib/routes";
 import { BottomNav } from "./layout/BottomNav";
 import { GlobalSearchOverlay } from "./layout/GlobalSearchOverlay";
+import { OfflineBanner } from "./layout/OfflineBanner";
 import { Sidebar } from "./layout/Sidebar";
 import { Topbar } from "./layout/Topbar";
 import { ChallanModal } from "./modals/ChallanModal";
@@ -53,6 +54,7 @@ import { GodownsView } from "./views/GodownsView";
 import { VendorScorecardView } from "./views/VendorScorecardView";
 import { ITEM_BRANDS, ITEM_CATEGORIES, ITEM_UNITS, LOW_STOCK_DEFAULT, WHATSAPP_GREEN } from "../lib/constants";
 import { waLink } from "../lib/contactLinks";
+import { initOfflineSync } from "../lib/offlineSync";
 import { fmtDate, fmtMoney, today } from "../lib/format";
 
 /* ---- Main App shell: layout + router. All domain data/handlers live in useAppStore now. ---- */
@@ -83,7 +85,9 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 
   useEffect(() => {
     setOnSignOut(onSignOut);
-    fetchAll();
+    // Start syncing queued offline work (and refreshing when the connection returns) once the
+    // first load has settled, so the two never fetch everything at the same moment.
+    fetchAll().finally(initOfflineSync);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -470,6 +474,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} active={view} onNav={goToView} settings={settings} onSignOut={onSignOut}
         estimates={activeEstimates} items={items} overdueCount={overdueCount} role={role} />
       <div className="flex-1 overflow-y-auto pb-24 md:pb-0">
+        <OfflineBanner />
         <Topbar onMenu={() => setSidebarOpen(true)} settings={settings} view={view} onOpenSearch={() => setGlobalSearchOpen(true)} />
         {role === "staff" && OWNER_ONLY_NAV_IDS.has(view) ? <OwnerOnlyNotice onHome={() => goToView("dashboard")} /> : routes}
       </div>

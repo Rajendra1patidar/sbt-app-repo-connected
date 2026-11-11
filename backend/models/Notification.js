@@ -36,5 +36,7 @@ const notificationSchema = new mongoose.Schema(
 );
 
 notificationSchema.index({ owner: 1, read: 1, createdAt: -1 });
+// Lets the nightly clean-up (jobs/retentionJob.js, 90 days) find old rows without scanning everything.
+notificationSchema.index({ createdAt: 1 });
 
 module.exports = mongoose.model("Notification", notificationSchema);

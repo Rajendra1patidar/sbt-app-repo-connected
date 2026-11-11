@@ -1,5 +1,9 @@
 name: SBT Daily Cron
 
+# Backup trigger for the nightly jobs. cron-job.org can be the main one (BACKUPS.md); because each job
+# runs at most once a day, it does not matter that both fire: whichever arrives second just reports
+# "already ran today".
+
 on:
   schedule:
     # 14:30 UTC = 20:00 IST (8 PM). GitHub Actions cron is UTC only.

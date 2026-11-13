@@ -12,7 +12,7 @@ export function BalanceBeam({ receivable, tiedUp, currency }: { receivable: numb
 
   return (
     <div className="rounded-card bg-card border border-line p-5 sm:p-6 shadow-card">
-      <div className="mb-3.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-ink/40">
+      <div className="mb-3.5 flex items-center justify-between text-[12px] font-semibold text-faint">
         <span>Position — receivable vs. tied-up value</span>
       </div>
       <svg viewBox="0 0 700 108" className="block h-[100px] w-full">
@@ -27,14 +27,14 @@ export function BalanceBeam({ receivable, tiedUp, currency }: { receivable: numb
       </svg>
       <div className="mt-1.5 flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-1.5 text-[11px] text-ink/40">
+          <div className="flex items-center gap-1.5 text-[12px] text-faint">
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#2F5AA8" }} />
             Receivable (customer dues)
           </div>
           <div className="mt-0.5 font-mono text-[17px] font-semibold" style={{ color: "#2F5AA8" }}>{fmtMoney(receivable, currency)}</div>
         </div>
         <div className="text-right">
-          <div className="flex items-center justify-end gap-1.5 text-[11px] text-ink/40">
+          <div className="flex items-center justify-end gap-1.5 text-[12px] text-faint">
             Tied up (stock + payable)
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#B27B1E" }} />
           </div>

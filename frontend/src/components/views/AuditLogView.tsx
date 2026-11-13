@@ -61,16 +61,16 @@ export function AuditLogView() {
     <div className="space-y-4 px-5 pb-28">
       <Card className="space-y-1">
         <div className="flex items-center gap-2">
-          <History size={17} className="text-ink/50" />
-          <h3 className="font-display text-base font-bold text-ink">Audit Log</h3>
+          <History size={17} className="text-mute" />
+          <h3 className="font-display text-base font-semibold text-ink">Audit Log</h3>
         </div>
-        <p className="text-xs text-ink/40">
+        <p className="text-xs text-faint">
           Every record created, edited, or deleted across the app, with who did it and when.
         </p>
       </Card>
 
       <div className="relative">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -85,8 +85,8 @@ export function AuditLogView() {
             key={a || "all"}
             onClick={() => setActionFilter(a)}
             className={`rounded-pill px-3 py-1.5 text-xs font-semibold capitalize ${
-              actionFilter === a ? "bg-brand-500 text-white" : "bg-card border border-line text-ink/50"
-            }`}
+ actionFilter === a ? "bg-brand-500 text-white" : "bg-card border border-line text-mute"
+ }`}
           >
             {a || "All"}
           </button>
@@ -94,7 +94,7 @@ export function AuditLogView() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-10 text-ink/40"><Loader2 size={20} className="animate-spin" /></div>
+        <div className="flex items-center justify-center py-10 text-faint"><Loader2 size={20} className="animate-spin" /></div>
       ) : error ? (
         <Card><p className="text-center text-sm text-bad-600">{error}</p></Card>
       ) : filtered.length === 0 ? (
@@ -107,14 +107,14 @@ export function AuditLogView() {
                 <p className="font-semibold text-ink truncate">
                   {r.model}{r.label ? ` · ${r.label}` : ""}
                 </p>
-                <p className="text-xs text-ink/40">
+                <p className="text-xs text-faint">
                   {r.actorId?.name || "Unknown user"}{r.actorId?.role ? ` (${r.actorId.role})` : ""} · {formatWhen(r.createdAt)}
                 </p>
                 {r.changedFields?.length > 0 && (
-                  <p className="text-xs text-ink/40 italic truncate">Changed: {r.changedFields.join(", ")}</p>
+                  <p className="text-xs text-faint italic truncate">Changed: {r.changedFields.join(", ")}</p>
                 )}
               </div>
-              <span className={`shrink-0 rounded-pill px-2.5 py-1 text-xs font-bold capitalize ${ACTION_STYLES[r.action] || "bg-line text-ink/50"}`}>
+              <span className={`shrink-0 rounded-pill px-2.5 py-1 text-xs font-semibold capitalize ${ACTION_STYLES[r.action] || "bg-line text-mute"}`}>
                 {r.action}
               </span>
             </Card>

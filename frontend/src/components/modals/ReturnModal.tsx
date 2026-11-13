@@ -42,16 +42,16 @@ export function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
   const canSave = lines.length > 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4 animate-fade-in">
-      <div className="animate-sheet-up w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4 animate-fade-in">
+      <div className="animate-sheet-up sheet-grab w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
         <div className="flex items-center justify-between mb-1">
-          <h3 className="font-display text-lg font-bold text-ink">Return items</h3>
+          <h3 className="font-display text-lg font-semibold text-ink">Return items</h3>
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
-        <p className="mb-4 text-xs text-ink/50">{doc.number} — enter how many of each item are being returned.</p>
+        <p className="mb-4 text-xs text-mute">{doc.number} — enter how many of each item are being returned.</p>
 
         {returnableLines.length === 0 ? (
-          <p className="text-sm text-ink/50">Every item on this estimate has already been returned.</p>
+          <p className="text-sm text-mute">Every item on this estimate has already been returned.</p>
         ) : (
           <>
             {returnableLines.length > 1 && (
@@ -67,12 +67,12 @@ export function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
                   setQtyMap(qm);
                   setPiecesMap(pm);
                 }}
-                className="mb-3 w-full rounded-xl border-2 border-dashed border-bad-300 bg-bad-50 px-4 py-2.5 text-xs font-bold text-bad-600 hover:bg-bad-100"
+                className="mb-3 w-full rounded-xl border-2 border-dashed border-bad-300 bg-bad-50 px-4 py-2.5 text-xs font-semibold text-bad-600 hover:bg-bad-100"
               >
                 Customer returning everything — fill all quantities
               </button>
             )}
-            <div className="hidden sm:grid mb-1 grid-cols-[1fr_72px_96px] gap-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-ink/35">
+            <div className="hidden sm:grid mb-1 grid-cols-[1fr_72px_96px] gap-2 px-1 text-[12px] font-semibold text-faint">
               <span>Item</span><span>Qty</span><span className="text-right">Refund</span>
             </div>
             <div className="space-y-2">
@@ -83,13 +83,13 @@ export function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
                   <div key={l.itemId} style={{ animationDelay: `${Math.min(i, 6) * 25}ms` }} className="animate-row-in rounded-xl border border-line bg-paper/60 p-2.5 sm:grid sm:grid-cols-[1fr_72px_96px] sm:gap-2 sm:items-center">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-ink truncate">{l.name}</p>
-                      <p className="text-xs text-ink/40">
+                      <p className="text-xs text-faint">
                         {l.qty - l.returned}{l.isWeight ? "kg" : ""} available · {fmtMoney(l.rate, currency)}{l.isWeight ? "/kg" : " each"}
                         {l.returned > 0 ? ` · ${l.returned} already returned` : ""}
                       </p>
                     </div>
                     <div className="mt-2 sm:mt-0">
-                      <span className="mb-0.5 block text-[10px] font-semibold text-ink/35 sm:hidden">{l.isWeight ? "Kg to return" : "Qty to return"}</span>
+                      <span className="mb-0.5 block text-[11px] font-semibold text-faint sm:hidden">{l.isWeight ? "Kg to return" : "Qty to return"}</span>
                       <input
                         type="number" min="0" max={l.qty - l.returned} placeholder="0"
                         value={qtyMap[l.itemId] || ""} onChange={(e) => setQty(l.itemId, e.target.value)}
@@ -97,12 +97,12 @@ export function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
                       />
                     </div>
                     <div className="mt-2 flex items-center justify-between sm:mt-0 sm:block sm:text-right">
-                      <span className="text-[10px] font-semibold text-ink/35 sm:hidden">Refund</span>
-                      <span className="font-display text-sm font-bold text-ink tabular-nums">{lineRefund > 0 ? fmtMoney(lineRefund, currency) : "—"}</span>
+                      <span className="text-[11px] font-semibold text-faint sm:hidden">Refund</span>
+                      <span className="font-display text-sm font-semibold text-ink tabular-nums">{lineRefund > 0 ? fmtMoney(lineRefund, currency) : "—"}</span>
                     </div>
                     {l.isWeight && (
                       <div className="col-span-full mt-2 sm:mt-1.5">
-                        <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink/35">Pieces returned</span>
+                        <span className="mb-0.5 block text-[11px] font-semibold text-faint">Pieces returned</span>
                         <input
                           type="number" min="0" max={Number(l.piecesQty || 0) - l.returnedPieces} placeholder="0"
                           value={piecesMap[l.itemId] || ""} onChange={(e) => setPieces(l.itemId, e.target.value)}
@@ -120,7 +120,7 @@ export function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
         {refundTotal > 0 && (
           <div className="mt-4 flex items-center justify-between rounded-xl bg-bad-50 px-4 py-3">
             <span className="text-sm font-semibold text-bad-600">Refund due</span>
-            <span className="font-display text-lg font-bold text-bad-700">{fmtMoney(refundTotal, currency)}</span>
+            <span className="font-display text-lg font-semibold text-bad-700">{fmtMoney(refundTotal, currency)}</span>
           </div>
         )}
 

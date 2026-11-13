@@ -22,15 +22,15 @@ export function TransactionDetailModal({ title, subtitle, rows, accent = "brand"
     warn: "text-warn-600 bg-warn-50",
   };
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4" onClick={onClose}>
       <div
-        className="w-full sm:max-w-sm max-h-[85vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card px-6 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl"
+        className="w-full sm:max-w-sm max-h-[85vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-line sm:hidden" />
         <div className="flex items-start justify-between mb-4 gap-3">
           <div className="min-w-0">
-            <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${accentClass[accent]}`}>{title}</span>
+            <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${accentClass[accent]}`}>{title}</span>
             {subtitle && <p className="mt-1.5 text-base font-semibold text-ink truncate">{subtitle}</p>}
           </div>
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper shrink-0"><X size={18} /></button>
@@ -38,8 +38,8 @@ export function TransactionDetailModal({ title, subtitle, rows, accent = "brand"
         <div className="divide-y divide-line">
           {rows.map((r, i) => (
             <div key={i} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-              <span className="text-ink/40">{r.label}</span>
-              <span className={`text-right font-mono ${r.emphasis ? "font-bold text-ink" : "font-medium text-ink/80"}`}>{r.value}</span>
+              <span className="text-faint">{r.label}</span>
+              <span className={`text-right font-mono ${r.emphasis ? "font-semibold text-ink" : "font-medium text-ink/80"}`}>{r.value}</span>
             </div>
           ))}
         </div>

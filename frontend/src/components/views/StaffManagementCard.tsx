@@ -61,9 +61,9 @@ export function StaffManagementCard() {
       <Card className="space-y-2">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-paper"><Users size={14} className="text-ink/70" /></div>
-          <h3 className="text-sm font-bold text-ink">Staff accounts</h3>
+          <h3 className="text-sm font-semibold text-ink">Staff accounts</h3>
         </div>
-        <p className="text-xs text-ink/40">Only the business owner can manage staff accounts.</p>
+        <p className="text-xs text-faint">Only the business owner can manage staff accounts.</p>
       </Card>
     );
   }
@@ -72,15 +72,15 @@ export function StaffManagementCard() {
     <Card className="space-y-3">
       <div className="flex items-center gap-2">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-paper"><Users size={14} className="text-ink/70" /></div>
-        <h3 className="text-sm font-bold text-ink">Staff accounts</h3>
+        <h3 className="text-sm font-semibold text-ink">Staff accounts</h3>
       </div>
-      <p className="text-xs text-ink/40">
+      <p className="text-xs text-faint">
         Staff log in on their own and see your business data, scoped the same way yours is. A large manual purchase
         they create above your approval limit (below) waits for your review instead of going through right away.
       </p>
 
       {loading ? (
-        <p className="text-xs text-ink/40">Loading…</p>
+        <p className="text-xs text-faint">Loading…</p>
       ) : (
         staff.length > 0 && (
           <div className="space-y-1.5">
@@ -88,7 +88,7 @@ export function StaffManagementCard() {
               <div key={m.id} className="flex items-center justify-between rounded-xl bg-paper px-3 py-2.5">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-ink">{m.name || m.email}</p>
-                  <p className="truncate text-xs text-ink/40">{m.email}</p>
+                  <p className="truncate text-xs text-faint">{m.email}</p>
                 </div>
                 <button
                   onClick={() => removeStaffAccount(m.id)}
@@ -129,7 +129,7 @@ export function StaffManagementCard() {
             className="w-full rounded-xl border border-line px-3 py-2.5 text-sm"
           />
           <div className="flex gap-2">
-            <button onClick={() => { setAdding(false); setError(""); }} className="flex-1 rounded-xl border border-line py-2 text-sm text-ink/50">
+            <button onClick={() => { setAdding(false); setError(""); }} className="flex-1 rounded-xl border border-line py-2 text-sm text-mute">
               Cancel
             </button>
             <button

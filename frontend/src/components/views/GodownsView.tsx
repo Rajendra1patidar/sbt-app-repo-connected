@@ -54,7 +54,7 @@ export function GodownsView({ godowns, items, openModal, removeGodown, saveGodow
   return (
     <div className="space-y-3 px-5 pb-28">
       <div className="flex items-center justify-between pt-1">
-        <p className="text-sm text-ink/40">{godowns.length} godown{godowns.length !== 1 ? "s" : ""}</p>
+        <p className="text-sm text-faint">{godowns.length} godown{godowns.length !== 1 ? "s" : ""}</p>
         <div className="flex gap-2">
           {godowns.length > 1 && (
             <GhostButton onClick={() => openModal("stockTransfer")}>
@@ -117,16 +117,16 @@ export function GodownsView({ godowns, items, openModal, removeGodown, saveGodow
                     <div className="flex items-center gap-1.5">
                       <p className="font-semibold text-ink truncate">{g.name}</p>
                       {g.isDefault && (
-                        <span className="inline-flex items-center gap-0.5 rounded-full bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-600">
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-brand-50 px-1.5 py-0.5 text-[11px] font-semibold text-brand-600">
                           <Star size={9} fill="currentColor" /> Default
                         </span>
                       )}
                     </div>
                     {g.location && (
-                      <p className="mt-0.5 flex items-center gap-1 text-xs text-ink/40 truncate"><MapPin size={11} /> {g.location}</p>
+                      <p className="mt-0.5 flex items-center gap-1 text-xs text-faint truncate"><MapPin size={11} /> {g.location}</p>
                     )}
                     {g.manager && (
-                      <p className="mt-0.5 flex items-center gap-1 text-xs text-ink/40 truncate"><UserIcon size={11} /> {g.manager}</p>
+                      <p className="mt-0.5 flex items-center gap-1 text-xs text-faint truncate"><UserIcon size={11} /> {g.manager}</p>
                     )}
                     {totalValue > 0 && (
                       <div className="mt-1.5 h-1 w-24 overflow-hidden rounded-full bg-paper">
@@ -138,7 +138,7 @@ export function GodownsView({ godowns, items, openModal, removeGodown, saveGodow
                 <div className="flex shrink-0 items-center gap-2">
                   <div className="text-right">
                     <p className="text-base font-semibold text-ink">{fmtMoney(value, settings?.currency)}</p>
-                    <p className="text-xs text-ink/40">{itemCount} item{itemCount !== 1 ? "s" : ""} · {share.toFixed(0)}% of total</p>
+                    <p className="text-xs text-faint">{itemCount} item{itemCount !== 1 ? "s" : ""} · {share.toFixed(0)}% of total</p>
                   </div>
                   {itemCount > 0 && (isExpanded ? <ChevronUp size={16} className="text-ink/30" /> : <ChevronDown size={16} className="text-ink/30" />)}
                 </div>
@@ -150,11 +150,11 @@ export function GodownsView({ godowns, items, openModal, removeGodown, saveGodow
                     <div className="mb-3 space-y-1.5">
                       {catBars.map(([cat, v]) => (
                         <div key={cat} className="flex items-center gap-2">
-                          <span className="w-14 shrink-0 truncate text-[11px] text-ink/60">{cat}</span>
+                          <span className="w-14 shrink-0 truncate text-[12px] text-mute">{cat}</span>
                           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-paper">
                             <div className="h-full rounded-full bg-brand-300" style={{ width: `${Math.max(4, (v / maxCat) * 100)}%` }} />
                           </div>
-                          <span className="w-14 shrink-0 text-right font-mono text-[11px] text-ink/40">{fmtMoney(v, settings?.currency)}</span>
+                          <span className="w-14 shrink-0 text-right font-mono text-[12px] text-faint">{fmtMoney(v, settings?.currency)}</span>
                         </div>
                       ))}
                     </div>
@@ -169,32 +169,32 @@ export function GodownsView({ godowns, items, openModal, removeGodown, saveGodow
                           className="w-full rounded-lg border border-line py-1.5 pl-7 pr-2 text-xs"
                         />
                       </div>
-                      <select value={breakdownSort} onChange={(e) => setBreakdownSort(e.target.value as any)} className="rounded-lg border border-line px-2 py-1.5 text-[11px] font-semibold text-ink/70">
+                      <select value={breakdownSort} onChange={(e) => setBreakdownSort(e.target.value as any)} className="rounded-lg border border-line px-2 py-1.5 text-[12px] font-semibold text-ink/70">
                         <option value="value">Value ↓</option>
                         <option value="name">Name A-Z</option>
                       </select>
                     </div>
                   )}
 
-                  <p className="mb-2 text-xs font-semibold text-ink/40">{showAll ? `All ${breakdown.length} items` : "Top items by value"}</p>
+                  <p className="mb-2 text-xs font-semibold text-faint">{showAll ? `All ${breakdown.length} items` : "Top items by value"}</p>
                   {breakdown.length === 0 ? (
-                    <p className="text-xs text-ink/40">No items match that search.</p>
+                    <p className="text-xs text-faint">No items match that search.</p>
                   ) : (
                     <ul className="space-y-1.5">
                       {visibleBreakdown.map((it: any) => (
                         <li key={it.id} className="flex items-center justify-between text-sm">
                           <span className="flex min-w-0 items-center gap-1.5">
                             <span className="min-w-0 truncate text-ink/80">{it.name}</span>
-                            {it.isLow && <span className="shrink-0 rounded-full bg-warn-100 px-1.5 py-0.5 text-[9px] font-bold text-warn-700">Low</span>}
-                            {!it.isLow && it.isDead && <span className="shrink-0 rounded-full bg-paper px-1.5 py-0.5 text-[9px] font-semibold text-ink/40">Dead</span>}
+                            {it.isLow && <span className="shrink-0 rounded-full bg-warn-100 px-1.5 py-0.5 text-[11px] font-semibold text-warn-700">Low</span>}
+                            {!it.isLow && it.isDead && <span className="shrink-0 rounded-full bg-paper px-1.5 py-0.5 text-[11px] font-semibold text-faint">Dead</span>}
                           </span>
-                          <span className="shrink-0 pl-2 font-mono text-xs text-ink/50">{fmtMoney(it.value, settings?.currency)}</span>
+                          <span className="shrink-0 pl-2 font-mono text-xs text-mute">{fmtMoney(it.value, settings?.currency)}</span>
                         </li>
                       ))}
                     </ul>
                   )}
                   {!showAll && breakdown.length > 5 && (
-                    <button onClick={() => setShowAllFor(g.id)} className="mt-2.5 w-full rounded-full border border-line py-2 text-xs font-semibold text-ink/60">
+                    <button onClick={() => setShowAllFor(g.id)} className="mt-2.5 w-full rounded-full border border-line py-2 text-xs font-semibold text-mute">
                       View all {breakdown.length} items
                     </button>
                   )}
@@ -207,7 +207,7 @@ export function GodownsView({ godowns, items, openModal, removeGodown, saveGodow
                     <Star size={15} />
                   </button>
                 )}
-                <button onClick={() => openModal("godown", { editingGodown: g })} title="Edit" className="rounded-full p-1.5 text-ink/30 hover:bg-paper hover:text-ink/60">
+                <button onClick={() => openModal("godown", { editingGodown: g })} title="Edit" className="rounded-full p-1.5 text-ink/30 hover:bg-paper hover:text-mute">
                   <Pencil size={15} />
                 </button>
                 <button onClick={() => removeGodown(g.id)} title="Archive" className="rounded-full p-1.5 text-bad-400 hover:bg-bad-50">

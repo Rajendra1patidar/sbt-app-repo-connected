@@ -113,8 +113,8 @@ export function ItemDetailDrawer({ item, items, godowns, open, onClose, currency
 
   return (
     <>
-      {open && <div onClick={onClose} className="fixed inset-0 z-[70] bg-ink/40 backdrop-blur-[1px] animate-fade-in" />}
-      <aside className={`fixed z-[71] inset-y-0 right-0 w-full sm:w-[380px] transform bg-card border-l border-line shadow-2xl transition-transform duration-300 ease-out ${open ? "translate-x-0" : "translate-x-full"}`}>
+      {open && <div onClick={onClose} className="fixed inset-0 z-[70] bg-[var(--scrim)] backdrop-blur-[1px] animate-fade-in" />}
+      <aside className={`fixed z-[71] inset-y-0 right-0 w-full sm:w-[380px] transform bg-card border-l border-line shadow-sheet transition-transform duration-300 ease-out ${open ? "translate-x-0" : "translate-x-full"}`}>
         <div className="flex h-full flex-col overflow-y-auto p-6">
           <button onClick={onClose} className="mb-4 self-end rounded-full bg-paper p-1.5 hover:bg-line/50"><X size={16} /></button>
 
@@ -122,11 +122,11 @@ export function ItemDetailDrawer({ item, items, godowns, open, onClose, currency
             <span className="font-display text-sm font-semibold">{(liveItem.name || "?").slice(0, 2).toUpperCase()}</span>
           </div>
           <h3 className="font-display text-xl font-medium text-ink">{liveItem.name}</h3>
-          <p className="text-xs text-ink/40">{liveItem.category || "Others"}{liveItem.brand ? ` · ${liveItem.brand}` : ""}</p>
+          <p className="text-xs text-faint">{liveItem.category || "Others"}{liveItem.brand ? ` · ${liveItem.brand}` : ""}</p>
 
           <div className="mt-3 divide-y divide-line/70">
             <div className="flex items-center justify-between py-3 text-sm">
-              <span className="text-ink/60">On hand</span>
+              <span className="text-mute">On hand</span>
               <span className="flex items-center gap-2">
                 <span className="font-mono font-semibold text-ink">
                   {isWeight ? `${fmtNum(stockKg)}kg / ${fmtNum(stock)}pc` : `${fmtNum(stock)} ${liveItem.unit || "unit"}`}
@@ -138,7 +138,7 @@ export function ItemDetailDrawer({ item, items, godowns, open, onClose, currency
             </div>
             {godowns && godowns.length > 1 && (liveItem.stockByGodown || []).length > 0 && (
               <div className="py-2.5 text-sm">
-                <span className="mb-1.5 block text-xs font-semibold text-ink/40">By location</span>
+                <span className="mb-1.5 block text-xs font-semibold text-faint">By location</span>
                 <div className="space-y-1">
                   {liveItem.stockByGodown
                     .filter((g: any) => g.stock > 0 || g.stockKg > 0)
@@ -146,7 +146,7 @@ export function ItemDetailDrawer({ item, items, godowns, open, onClose, currency
                       const gd = godowns.find((x: any) => x.id === String(g.godownId));
                       return (
                         <div key={String(g.godownId)} className="flex items-center justify-between text-xs">
-                          <span className="text-ink/60">{gd?.name || "Unknown godown"}</span>
+                          <span className="text-mute">{gd?.name || "Unknown godown"}</span>
                           <span className="font-mono font-medium text-ink">
                             {isWeight ? `${fmtNum(g.stockKg || 0)}kg / ${fmtNum(g.stock || 0)}pc` : `${fmtNum(g.stock || 0)} ${liveItem.unit || "unit"}`}
                           </span>
@@ -157,11 +157,11 @@ export function ItemDetailDrawer({ item, items, godowns, open, onClose, currency
               </div>
             )}
             <div className="flex items-center justify-between py-3 text-sm">
-              <span className="text-ink/60">Stock value</span>
+              <span className="text-mute">Stock value</span>
               <span className="font-mono font-semibold text-ink">{fmtMoney(value, currency)}</span>
             </div>
             <div className="flex items-center justify-between py-3 text-sm">
-              <span className="text-ink/60">Status</span>
+              <span className="text-mute">Status</span>
               <span className={`font-semibold text-right ${statusColor}`}>{statusLabel}</span>
             </div>
           </div>
@@ -169,12 +169,12 @@ export function ItemDetailDrawer({ item, items, godowns, open, onClose, currency
           {adjustOpen && (
             <div className="mt-3 rounded-xl border border-line bg-paper p-3 space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-ink/60">Correct stock to</p>
+                <p className="text-xs font-semibold text-mute">Correct stock to</p>
                 <button onClick={() => setAdjustOpen(false)} className="text-ink/30 hover:text-bad-500"><X size={13} /></button>
               </div>
               {hasMultipleGodowns && (
                 <div>
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-ink/35">Counted at</p>
+                  <p className="mb-1 text-[11px] font-semibold text-faint">Counted at</p>
                   <select
                     value={adjustGodownId}
                     onChange={(e) => changeAdjustGodown(e.target.value)}
@@ -187,7 +187,7 @@ export function ItemDetailDrawer({ item, items, godowns, open, onClose, currency
                 </div>
               )}
               <div>
-                {isWeight && <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-ink/35">Pieces</p>}
+                {isWeight && <p className="mb-1 text-[11px] font-semibold text-faint">Pieces</p>}
                 <input
                   type="number"
                   value={newStock}
@@ -197,7 +197,7 @@ export function ItemDetailDrawer({ item, items, godowns, open, onClose, currency
               </div>
               {isWeight && (
                 <div>
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-ink/35">Weight (kg) — re-weigh, don't estimate</p>
+                  <p className="mb-1 text-[11px] font-semibold text-faint">Weight (kg) — re-weigh, don't estimate</p>
                   <input
                     type="number"
                     value={newStockKg}
@@ -223,7 +223,7 @@ export function ItemDetailDrawer({ item, items, godowns, open, onClose, currency
             </div>
           )}
 
-          <div className="mt-4 text-[10.5px] font-semibold uppercase tracking-wide text-ink/40">Last 7 days movement</div>
+          <div className="mt-4 text-[11px] font-semibold text-faint">Last 7 days movement</div>
           <div className="mt-3 flex h-[70px] items-end gap-1.5">
             {movement.map((m) => {
               const h = Math.max(4, (Math.abs(m.net) / maxAbs) * 70);
@@ -231,7 +231,7 @@ export function ItemDetailDrawer({ item, items, godowns, open, onClose, currency
               return (
                 <div key={m.day} className="group relative flex-1">
                   <div className={`w-full rounded-t-[3px] ${color} opacity-85`} style={{ height: h }} />
-                  <div className="pointer-events-none absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-ink px-1.5 py-0.5 text-[9px] font-semibold text-paper opacity-0 transition-opacity group-hover:opacity-100">
+                  <div className="pointer-events-none absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-ink px-1.5 py-0.5 text-[11px] font-semibold text-paper opacity-0 transition-opacity group-hover:opacity-100">
                     {m.net > 0 ? "+" : ""}{fmtNum(m.net)}
                   </div>
                 </div>

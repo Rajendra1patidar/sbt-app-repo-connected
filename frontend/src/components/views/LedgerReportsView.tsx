@@ -127,24 +127,24 @@ export function LedgerReportsView({ currency }: any) {
       <Card>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5">
-            <label className="text-xs font-semibold text-ink/50">From</label>
+            <label className="text-xs font-semibold text-mute">From</label>
             <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="rounded-lg border border-line px-2 py-1.5 text-xs" />
           </div>
           <div className="flex items-center gap-1.5">
-            <label className="text-xs font-semibold text-ink/50">To</label>
+            <label className="text-xs font-semibold text-mute">To</label>
             <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="rounded-lg border border-line px-2 py-1.5 text-xs" />
           </div>
           <button onClick={load} className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white">
             Refresh
           </button>
         </div>
-        <p className="mt-2 text-xs text-ink/40">
+        <p className="mt-2 text-xs text-faint">
           Profit & Loss and Day Book cover this date range. Balance Sheet and Stock Valuation are as of the "To" date — a snapshot, not a range.
         </p>
       </Card>
 
       {loading ? (
-        <Card className="flex items-center justify-center gap-2 py-10 text-ink/40">
+        <Card className="flex items-center justify-center gap-2 py-10 text-faint">
           <Loader2 size={18} className="animate-spin" /> Loading ledger...
         </Card>
       ) : error ? (
@@ -155,14 +155,14 @@ export function LedgerReportsView({ currency }: any) {
           <Card className={trialBalance?.balanced ? "border border-good-100 bg-good-50/40" : "border border-bad-200 bg-bad-50/40"}>
             <div className="flex items-center gap-2">
               <Scale size={16} className={trialBalance?.balanced ? "text-good-600" : "text-bad-600"} />
-              <h3 className="font-display text-base font-bold text-ink">Trial Balance</h3>
+              <h3 className="font-display text-base font-semibold text-ink">Trial Balance</h3>
               {trialBalance?.balanced ? (
-                <span className="ml-auto inline-flex items-center gap-1 text-xs font-bold text-good-700"><CheckCircle2 size={14} /> Balanced</span>
+                <span className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-good-700"><CheckCircle2 size={14} /> Balanced</span>
               ) : (
-                <span className="ml-auto inline-flex items-center gap-1 text-xs font-bold text-bad-700"><XCircle size={14} /> Not balanced</span>
+                <span className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-bad-700"><XCircle size={14} /> Not balanced</span>
               )}
             </div>
-            <p className="mt-1 text-xs text-ink/50">
+            <p className="mt-1 text-xs text-mute">
               Total Debits {fmtMoney(trialBalance?.totalDebit || 0, currency)} · Total Credits {fmtMoney(trialBalance?.totalCredit || 0, currency)}
             </p>
             {!trialBalance?.balanced && (
@@ -174,7 +174,7 @@ export function LedgerReportsView({ currency }: any) {
               {(trialBalance?.accounts || []).map((a: any) => (
                 <div key={a.account} className="flex items-center justify-between text-sm">
                   <span className="text-ink/70">{a.account}</span>
-                  <span className="font-mono text-xs text-ink/50">Dr {fmtMoney(a.debit, currency)} · Cr {fmtMoney(a.credit, currency)}</span>
+                  <span className="font-mono text-xs text-mute">Dr {fmtMoney(a.debit, currency)} · Cr {fmtMoney(a.credit, currency)}</span>
                 </div>
               ))}
             </div>
@@ -182,18 +182,18 @@ export function LedgerReportsView({ currency }: any) {
 
           {/* Profit & Loss */}
           <Card>
-            <h3 className="font-display text-base font-bold text-ink">Profit & Loss</h3>
+            <h3 className="font-display text-base font-semibold text-ink">Profit & Loss</h3>
             <div className="mt-3 space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-ink/60">Sales</span><span className="font-semibold text-ink">{fmtMoney(profitAndLoss?.sales || 0, currency)}</span></div>
-              <div className="flex justify-between"><span className="text-ink/60">Cost of Goods Sold</span><span className="font-semibold text-bad-600">-{fmtMoney(profitAndLoss?.cogs || 0, currency)}</span></div>
-              <div className="flex justify-between border-t border-line pt-2"><span className="font-semibold text-ink">Gross Profit</span><span className="font-bold text-good-700">{fmtMoney(profitAndLoss?.grossProfit || 0, currency)}</span></div>
+              <div className="flex justify-between"><span className="text-mute">Sales</span><span className="font-semibold text-ink">{fmtMoney(profitAndLoss?.sales || 0, currency)}</span></div>
+              <div className="flex justify-between"><span className="text-mute">Cost of Goods Sold</span><span className="font-semibold text-bad-600">-{fmtMoney(profitAndLoss?.cogs || 0, currency)}</span></div>
+              <div className="flex justify-between border-t border-line pt-2"><span className="font-semibold text-ink">Gross Profit</span><span className="font-semibold text-good-700">{fmtMoney(profitAndLoss?.grossProfit || 0, currency)}</span></div>
               {!!profitAndLoss?.otherIncome && (
-                <div className="flex justify-between"><span className="text-ink/60">Other Income</span><span className="font-semibold text-good-700">+{fmtMoney(profitAndLoss.otherIncome, currency)}</span></div>
+                <div className="flex justify-between"><span className="text-mute">Other Income</span><span className="font-semibold text-good-700">+{fmtMoney(profitAndLoss.otherIncome, currency)}</span></div>
               )}
-              <div className="flex justify-between"><span className="text-ink/60">Freight</span><span className="text-bad-600">-{fmtMoney(profitAndLoss?.expenses?.freight || 0, currency)}</span></div>
-              <div className="flex justify-between"><span className="text-ink/60">Labour</span><span className="text-bad-600">-{fmtMoney(profitAndLoss?.expenses?.labour || 0, currency)}</span></div>
-              <div className="flex justify-between"><span className="text-ink/60">Other Expenses</span><span className="text-bad-600">-{fmtMoney(profitAndLoss?.expenses?.other || 0, currency)}</span></div>
-              <div className="flex justify-between border-t border-line pt-2"><span className="font-bold text-ink">Net Profit</span><span className={`font-bold text-lg ${(profitAndLoss?.netProfit || 0) >= 0 ? "text-good-700" : "text-bad-600"}`}>{fmtMoney(profitAndLoss?.netProfit || 0, currency)}</span></div>
+              <div className="flex justify-between"><span className="text-mute">Freight</span><span className="text-bad-600">-{fmtMoney(profitAndLoss?.expenses?.freight || 0, currency)}</span></div>
+              <div className="flex justify-between"><span className="text-mute">Labour</span><span className="text-bad-600">-{fmtMoney(profitAndLoss?.expenses?.labour || 0, currency)}</span></div>
+              <div className="flex justify-between"><span className="text-mute">Other Expenses</span><span className="text-bad-600">-{fmtMoney(profitAndLoss?.expenses?.other || 0, currency)}</span></div>
+              <div className="flex justify-between border-t border-line pt-2"><span className="font-semibold text-ink">Net Profit</span><span className={`font-semibold text-lg ${(profitAndLoss?.netProfit || 0) >= 0 ? "text-good-700" : "text-bad-600"}`}>{fmtMoney(profitAndLoss?.netProfit || 0, currency)}</span></div>
             </div>
           </Card>
 
@@ -201,7 +201,7 @@ export function LedgerReportsView({ currency }: any) {
           <Card>
             <div className="flex items-center gap-2">
               <Landmark size={16} className="text-brand-600" />
-              <h3 className="font-display text-base font-bold text-ink">Balance Sheet</h3>
+              <h3 className="font-display text-base font-semibold text-ink">Balance Sheet</h3>
               {balanceSheet?.balanced ? (
                 <span className="ml-auto text-xs font-semibold text-good-700">Balanced ✓</span>
               ) : (
@@ -210,19 +210,19 @@ export function LedgerReportsView({ currency }: any) {
             </div>
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <p className="mb-1 text-xs font-semibold text-ink/50">Assets</p>
+                <p className="mb-1 text-xs font-semibold text-mute">Assets</p>
                 <div className="space-y-1 text-sm">
-                  <div className="flex justify-between"><span className="text-ink/60">Funds</span><span>{fmtMoney(balanceSheet?.assets?.funds || 0, currency)}</span></div>
-                  <div className="flex justify-between"><span className="text-ink/60">Receivable</span><span>{fmtMoney(balanceSheet?.assets?.accountsReceivable || 0, currency)}</span></div>
-                  <div className="flex justify-between"><span className="text-ink/60">Stock</span><span>{fmtMoney(balanceSheet?.assets?.stock || 0, currency)}</span></div>
+                  <div className="flex justify-between"><span className="text-mute">Funds</span><span>{fmtMoney(balanceSheet?.assets?.funds || 0, currency)}</span></div>
+                  <div className="flex justify-between"><span className="text-mute">Receivable</span><span>{fmtMoney(balanceSheet?.assets?.accountsReceivable || 0, currency)}</span></div>
+                  <div className="flex justify-between"><span className="text-mute">Stock</span><span>{fmtMoney(balanceSheet?.assets?.stock || 0, currency)}</span></div>
                   <div className="flex justify-between border-t border-line pt-1 font-semibold"><span>Total</span><span>{fmtMoney(balanceSheet?.assets?.total || 0, currency)}</span></div>
                 </div>
               </div>
               <div>
-                <p className="mb-1 text-xs font-semibold text-ink/50">Liabilities + Capital</p>
+                <p className="mb-1 text-xs font-semibold text-mute">Liabilities + Capital</p>
                 <div className="space-y-1 text-sm">
-                  <div className="flex justify-between"><span className="text-ink/60">Vendor Payable</span><span>{fmtMoney(balanceSheet?.liabilities?.vendorPayable || 0, currency)}</span></div>
-                  <div className="flex justify-between"><span className="text-ink/60">Capital (incl. retained profit)</span><span>{fmtMoney(balanceSheet?.capital?.total || 0, currency)}</span></div>
+                  <div className="flex justify-between"><span className="text-mute">Vendor Payable</span><span>{fmtMoney(balanceSheet?.liabilities?.vendorPayable || 0, currency)}</span></div>
+                  <div className="flex justify-between"><span className="text-mute">Capital (incl. retained profit)</span><span>{fmtMoney(balanceSheet?.capital?.total || 0, currency)}</span></div>
                   <div className="flex justify-between border-t border-line pt-1 font-semibold"><span>Total</span><span>{fmtMoney((balanceSheet?.liabilities?.total || 0) + (balanceSheet?.capital?.total || 0), currency)}</span></div>
                 </div>
               </div>
@@ -231,14 +231,14 @@ export function LedgerReportsView({ currency }: any) {
 
           {/* Stock Valuation */}
           <Card>
-            <h3 className="font-display text-base font-bold text-ink">Stock Valuation</h3>
-            <p className="mt-1 text-xs text-ink/40">Current inventory value: {fmtMoney(stockValuation?.totalValue || 0, currency)}</p>
+            <h3 className="font-display text-base font-semibold text-ink">Stock Valuation</h3>
+            <p className="mt-1 text-xs text-faint">Current inventory value: {fmtMoney(stockValuation?.totalValue || 0, currency)}</p>
             {(stockValuation?.rows || []).filter((r: any) => r.stock > 0).length > 0 && (
               <div className="mt-3 space-y-1.5">
                 {stockValuation.rows.filter((r: any) => r.stock > 0).slice(0, 15).map((r: any) => (
                   <div key={r.itemId} className="flex items-center justify-between text-sm">
                     <span className="text-ink/70 truncate">{r.name}</span>
-                    <span className="text-xs text-ink/50">{r.stock} @ {fmtMoney(r.avgCost, currency)} = <b className="text-ink">{fmtMoney(r.value, currency)}</b></span>
+                    <span className="text-xs text-mute">{r.stock} @ {fmtMoney(r.avgCost, currency)} = <b className="text-ink">{fmtMoney(r.value, currency)}</b></span>
                   </div>
                 ))}
               </div>
@@ -249,12 +249,12 @@ export function LedgerReportsView({ currency }: any) {
           <Card>
             <div className="flex items-center gap-2">
               <BookOpen size={16} className="text-brand-600" />
-              <h3 className="font-display text-base font-bold text-ink">Day Book</h3>
-              <span className="ml-auto text-xs text-ink/40">{displayedDayBook.length} of {dayBook.length} entries</span>
+              <h3 className="font-display text-base font-semibold text-ink">Day Book</h3>
+              <span className="ml-auto text-xs text-faint">{displayedDayBook.length} of {dayBook.length} entries</span>
             </div>
 
             <div className="relative mt-3">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
               <input
                 value={dbSearch}
                 onChange={(e) => setDbSearch(e.target.value)}
@@ -277,16 +277,16 @@ export function LedgerReportsView({ currency }: any) {
             </div>
 
             {dbAccount !== "all" && (
-              <p className="mt-2 text-xs text-ink/40">
+              <p className="mt-2 text-xs text-faint">
                 {openingBalanceLoading ? "Loading opening balance..." : `Opening balance before ${fromDate}: ${fmtMoney(openingBalance || 0, currency)}`}
               </p>
             )}
 
             {displayedDayBook.length === 0 ? (
-              <p className="mt-3 text-sm text-ink/40">No ledger activity matches this range/filter.</p>
+              <p className="mt-3 text-sm text-faint">No ledger activity matches this range/filter.</p>
             ) : (
               <div className="mt-3 max-h-96 overflow-y-auto">
-                <div className="grid grid-cols-12 gap-2 border-b border-line pb-1.5 text-[10px] font-bold uppercase tracking-wide text-ink/40 sticky top-0 bg-card">
+                <div className="grid grid-cols-12 gap-2 border-b border-line pb-1.5 text-[11px] font-semibold text-faint sticky top-0 bg-card">
                   <button onClick={() => handleSort("date")} className="col-span-3 flex items-center gap-1 text-left">Date {sortIcon("date")}</button>
                   <span className="col-span-4">Narration</span>
                   <button onClick={() => handleSort("account")} className="col-span-2 flex items-center gap-1 text-left">Account {sortIcon("account")}</button>
@@ -295,9 +295,9 @@ export function LedgerReportsView({ currency }: any) {
                 </div>
                 {displayedDayBook.map((e: any) => (
                   <div key={e._id} className="grid grid-cols-12 items-center gap-2 border-b border-line/60 py-1.5 text-sm last:border-0">
-                    <span className="col-span-3 truncate text-xs text-ink/50">{e.date}</span>
+                    <span className="col-span-3 truncate text-xs text-mute">{e.date}</span>
                     <span className="col-span-4 truncate text-ink/80">{e.narration}</span>
-                    <span className="col-span-2 truncate text-xs text-ink/50">{e.account}</span>
+                    <span className="col-span-2 truncate text-xs text-mute">{e.account}</span>
                     <span className={`${dbAccount !== "all" ? "col-span-1" : "col-span-3"} shrink-0 truncate text-right font-mono text-xs font-semibold ${e.type === "debit" ? "text-ink" : "text-good-700"}`}>
                       {e.type === "debit" ? "Dr" : "Cr"} {fmtMoney(e.amount, currency)}
                     </span>

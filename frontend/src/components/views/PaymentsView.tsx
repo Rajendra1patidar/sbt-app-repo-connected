@@ -66,7 +66,7 @@ export function PaymentsView({ payments, customers, currency, openModal, removeP
   return (
     <div className="space-y-3 px-5 pb-28">
       <div className="flex items-center justify-between pt-1">
-        <p className="text-sm text-ink/40">{payments.length} total</p>
+        <p className="text-sm text-faint">{payments.length} total</p>
         <PillButton onClick={() => openModal("payment")}><Plus size={16} /> Record Payment</PillButton>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -85,7 +85,7 @@ export function PaymentsView({ payments, customers, currency, openModal, removeP
         })}
       </div>
       <div className="relative">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -96,21 +96,21 @@ export function PaymentsView({ payments, customers, currency, openModal, removeP
       {activeList.length === 0
         ? <Card><EmptyState text={emptyStateText[tab]} cta={tab === "refund" ? undefined : "Record Payment"} onCta={() => openModal("payment")} /></Card>
         : filtered.length === 0
-        ? <Card><p className="text-center text-sm text-ink/40">No matches for "{search}".</p></Card>
+        ? <Card><p className="text-center text-sm text-faint">No matches for "{search}".</p></Card>
         : <>
           {pageItems.map((p: any) => (
             <Card key={p.id} className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <p className="font-semibold text-ink truncate">{customerName(p.customerId)}</p>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                  <span className="text-xs text-ink/40">{fmtDate(p.date)}{p.method ? ` · ${p.method}` : ""}</span>
+                  <span className="text-xs text-faint">{fmtDate(p.date)}{p.method ? ` · ${p.method}` : ""}</span>
                   {p.invoiceNumber
                     ? <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-600">{p.invoiceNumber}</span>
-                    : <span className="rounded-full bg-paper px-2 py-0.5 text-xs font-semibold text-ink/40">No estimate linked</span>}
+                    : <span className="rounded-full bg-paper px-2 py-0.5 text-xs font-semibold text-faint">No estimate linked</span>}
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <span className={`font-bold ${Number(p.amount) < 0 ? "text-bad-600" : "text-good-600"}`}>{Number(p.amount) < 0 ? "−" : "+"}{fmtMoney(Math.abs(p.amount), currency)}</span>
+                <span className={`font-semibold ${Number(p.amount) < 0 ? "text-bad-600" : "text-good-600"}`}>{Number(p.amount) < 0 ? "−" : "+"}{fmtMoney(Math.abs(p.amount), currency)}</span>
                 <button onClick={() => removePayment(p.id)} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
               </div>
             </Card>

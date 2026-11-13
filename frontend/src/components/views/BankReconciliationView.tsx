@@ -41,9 +41,9 @@ function MatchButton({ line, currency, onMatched }: { line: any; currency: strin
       {open && (
         <div className="mt-2 space-y-1.5 rounded-xl bg-paper p-2">
           {loading ? (
-            <p className="px-2 py-2 text-xs text-ink/40">Searching…</p>
+            <p className="px-2 py-2 text-xs text-faint">Searching…</p>
           ) : candidates.length === 0 ? (
-            <p className="px-2 py-2 text-xs text-ink/40">No unclaimed ledger entries with this amount nearby.</p>
+            <p className="px-2 py-2 text-xs text-faint">No unclaimed ledger entries with this amount nearby.</p>
           ) : (
             candidates.map((c) => (
               <button
@@ -118,8 +118,8 @@ export function BankReconciliationView({ currency }: { currency: string }) {
   return (
     <div className="space-y-4 px-5 pb-28">
       <Card className="space-y-3">
-        <h3 className="text-sm font-bold text-ink">Import a bank statement</h3>
-        <p className="text-xs text-ink/40">
+        <h3 className="text-sm font-semibold text-ink">Import a bank statement</h3>
+        <p className="text-xs text-faint">
           Export a CSV from your bank (date, description, and either a signed amount or separate
           debit/credit columns work). Nothing is imported until you review the preview below and confirm.
         </p>
@@ -127,14 +127,14 @@ export function BankReconciliationView({ currency }: { currency: string }) {
         {!preview && (
           <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-line py-8 text-center hover:border-brand-300">
             <Upload size={20} className="text-ink/30" />
-            <span className="text-xs font-semibold text-ink/50">Tap to choose a CSV file</span>
+            <span className="text-xs font-semibold text-mute">Tap to choose a CSV file</span>
             <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={onFileSelected} className="hidden" />
           </label>
         )}
 
         {preview && (
           <div className="space-y-3">
-            <p className="text-xs font-semibold text-ink/60">{fileName} — {preview.length} row{preview.length !== 1 ? "s" : ""} parsed</p>
+            <p className="text-xs font-semibold text-mute">{fileName} — {preview.length} row{preview.length !== 1 ? "s" : ""} parsed</p>
             {preview.length === 0 ? (
               <p className="rounded-xl bg-warn-50 px-3 py-2 text-xs text-warn-700">
                 Couldn't find any usable rows — check the CSV has a date column and an amount (or debit/credit) column.
@@ -143,21 +143,21 @@ export function BankReconciliationView({ currency }: { currency: string }) {
               <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl bg-paper p-2">
                 {preview.slice(0, 50).map((r, i) => (
                   <div key={i} className="flex items-center justify-between text-xs">
-                    <span className="text-ink/50">{fmtDate(r.date)}</span>
+                    <span className="text-mute">{fmtDate(r.date)}</span>
                     <span className="mx-2 flex-1 truncate text-ink/70">{r.description}</span>
                     <span className={`font-semibold ${r.amount > 0 ? "text-good-600" : "text-bad-600"}`}>
                       {r.amount > 0 ? "+" : ""}{fmtMoney(r.amount, currency)}
                     </span>
                   </div>
                 ))}
-                {preview.length > 50 && <p className="pt-1 text-center text-[11px] text-ink/30">+ {preview.length - 50} more</p>}
+                {preview.length > 50 && <p className="pt-1 text-center text-[12px] text-ink/30">+ {preview.length - 50} more</p>}
               </div>
             )}
             {importError && <p className="rounded-xl bg-bad-50 px-3 py-2 text-xs font-semibold text-bad-600">{importError}</p>}
             <div className="flex gap-2">
               <button
                 onClick={() => { setPreview(null); setFileName(""); if (fileInputRef.current) fileInputRef.current.value = ""; }}
-                className="flex-1 rounded-xl border border-line py-2.5 text-sm text-ink/50"
+                className="flex-1 rounded-xl border border-line py-2.5 text-sm text-mute"
               >
                 Cancel
               </button>
@@ -184,7 +184,7 @@ export function BankReconciliationView({ currency }: { currency: string }) {
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`rounded-pill px-4 py-2 text-xs font-semibold transition-colors ${tab === t ? "bg-brand-500 text-white" : "bg-white border border-line text-ink/60"}`}
+            className={`rounded-pill px-4 py-2 text-xs font-semibold transition-colors ${tab === t ? "bg-brand-500 text-white" : "bg-white border border-line text-mute"}`}
           >
             {t === "unmatched" ? "Needs review" : "Matched"}
           </button>
@@ -192,7 +192,7 @@ export function BankReconciliationView({ currency }: { currency: string }) {
       </div>
 
       {loadingLines ? (
-        <p className="py-10 text-center text-sm text-ink/40">Loading…</p>
+        <p className="py-10 text-center text-sm text-faint">Loading…</p>
       ) : lines.length === 0 ? (
         <EmptyState text={tab === "unmatched" ? "Nothing waiting for review." : "No matched lines yet."} />
       ) : (
@@ -202,7 +202,7 @@ export function BankReconciliationView({ currency }: { currency: string }) {
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-ink">{l.description || "—"}</p>
-                  <p className="text-xs text-ink/40">{fmtDate(l.date)}</p>
+                  <p className="text-xs text-faint">{fmtDate(l.date)}</p>
                 </div>
                 <span className={`shrink-0 font-semibold ${l.amount > 0 ? "text-good-600" : "text-bad-600"}`}>
                   {l.amount > 0 ? "+" : ""}{fmtMoney(l.amount, currency)}
@@ -211,7 +211,7 @@ export function BankReconciliationView({ currency }: { currency: string }) {
               {tab === "unmatched" ? (
                 <MatchButton line={l} currency={currency} onMatched={loadLines} />
               ) : (
-                <button onClick={() => unmatchLine(l.id)} className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink/40 hover:text-bad-600">
+                <button onClick={() => unmatchLine(l.id)} className="inline-flex items-center gap-1.5 text-xs font-semibold text-faint hover:text-bad-600">
                   <Unlink size={13} /> {l.matchedManually ? "Manually matched — unmatch" : "Auto-matched — unmatch"}
                 </button>
               )}

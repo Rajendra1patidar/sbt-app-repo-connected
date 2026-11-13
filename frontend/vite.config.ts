@@ -16,8 +16,8 @@ export default defineConfig({
         name: "Shree Balaji Traders",
         short_name: "SBT",
         description: "Business management app for Shree Balaji Traders",
-        theme_color: "#2F5AA8",
-        background_color: "#EAF1FB",
+        theme_color: "#F2F3F5",
+        background_color: "#F2F3F5",
         display: "standalone",
         start_url: "/",
         icons: [

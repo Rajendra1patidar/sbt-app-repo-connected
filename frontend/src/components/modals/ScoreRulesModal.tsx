@@ -74,28 +74,28 @@ export function ScoreRulesModal({ scoreRules, items, onSave, onRemove, onClose }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
-      <div className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4">
+      <div className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
         <div className="flex items-center justify-between mb-1">
-          <h3 className="font-display text-lg font-bold text-ink">Points settings</h3>
+          <h3 className="font-display text-lg font-semibold text-ink">Points settings</h3>
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
-        <p className="mb-4 text-xs text-ink/50">
+        <p className="mb-4 text-xs text-mute">
           Set a category's base points-per-unit, or add a bonus/penalty for a specific brand. Any rule can be permanent or limited to a scheme window — a scheme always wins over the permanent rate while it's active. New rules only affect estimates from today onward.
         </p>
 
         <div className="mb-4 flex flex-wrap gap-1.5">
           <GhostButton onClick={() => openAdd({ scheduleType: "always" })}><Plus size={14} /> Add rule</GhostButton>
           <button onClick={() => openAdd({ scheduleType: "scheme", ...presetRange("thisMonth") })}
-            className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-ink/60 hover:bg-paper">This month scheme</button>
+            className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-mute hover:bg-paper">This month scheme</button>
           <button onClick={() => openAdd({ scheduleType: "scheme", ...presetRange("nextMonth") })}
-            className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-ink/60 hover:bg-paper">Next month scheme</button>
+            className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-mute hover:bg-paper">Next month scheme</button>
           <button onClick={() => openAdd({ scheduleType: "scheme", ...presetRange("thisQuarter") })}
-            className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-ink/60 hover:bg-paper">This quarter scheme</button>
+            className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-mute hover:bg-paper">This quarter scheme</button>
         </div>
 
         {rules.length === 0 ? (
-          <p className="rounded-xl bg-paper px-3 py-4 text-center text-sm text-ink/40">
+          <p className="rounded-xl bg-paper px-3 py-4 text-center text-sm text-faint">
             No custom rules yet — Cement defaults to 1 pt/bag and Saria to 0.1 pt/kg.
           </p>
         ) : (
@@ -106,10 +106,10 @@ export function ScoreRulesModal({ scoreRules, items, onSave, onRemove, onClose }
                 <div key={r.id} className="flex items-center justify-between gap-2 rounded-xl border border-line px-3 py-2.5">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-ink truncate">{d.scope}</p>
-                    <p className="text-xs text-ink/50">{d.rate} · {d.window}{r.label ? ` · ${r.label}` : ""}</p>
+                    <p className="text-xs text-mute">{d.rate} · {d.window}{r.label ? ` · ${r.label}` : ""}</p>
                   </div>
                   <div className="flex shrink-0 gap-1">
-                    <button onClick={() => openEdit(r)} className="rounded-full p-1.5 hover:bg-paper"><Pencil size={14} className="text-ink/50" /></button>
+                    <button onClick={() => openEdit(r)} className="rounded-full p-1.5 hover:bg-paper"><Pencil size={14} className="text-mute" /></button>
                     <button onClick={() => onRemove(r.id)} className="rounded-full p-1.5 hover:bg-bad-50"><Trash2 size={14} className="text-bad-500" /></button>
                   </div>
                 </div>

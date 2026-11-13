@@ -1,269 +1,260 @@
-import React, { useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { ArrowUp, Check, Sparkles, X } from "lucide-react";
-import { parseCapture, actionFromAiResult, CaptureAction, MatchCandidate } from "../../lib/captureParser";
-import { fmtMoney, today } from "../../lib/format";
+import { useMemo, useRef, useState } from "react";
+import { ArrowUpIcon, SparkIcon } from "../ui/icons";
+import { Group, GroupRow, PrimaryButton, Sheet, StatusChip, TextButton, cx } from "../ui/kit";
+import { parseCapture, actionFromAiResult, type CaptureAction, type MatchCandidate } from "../../lib/captureParser";
 import { api } from "../../lib/api";
 import { useAppStore } from "../../store/useAppStore";
-import { StatusChoicePopup } from "../modals/StatusChoicePopup";
+import { inr, inrRate, qtyText } from "../../lib/money";
+import { localToday } from "../../lib/estimates";
+import { findDestination } from "../../lib/destinations";
 
-const CHIPS = [
+/* ---- Capture bar ----
+ * Type a sentence ("Sold 5 bags PPC to Ramesh"), see what the app understood as
+ * violet chips, then Review and save. Nothing is written until you confirm.
+ *
+ *   sale        → opens the estimate form already filled in (straight to Review when
+ *                 every name matched exactly once)
+ *   everything  → a short confirm sheet (payment, purchase, return, expense, customer)
+ *   a screen's name ("ledger") → offers to open it
+ */
+
+const EXAMPLES = [
   { label: "Sold cement", fill: "Sold 5 bags PPC to " },
   { label: "Sold saria", fill: "Sold 50 kg 10mm to " },
   { label: "Logged payment", fill: "Logged payment of ₹ from " },
   { label: "Log return", fill: "Returned 2 12mm Saria from " },
   { label: "Logged expense", fill: "Logged expense of ₹ for " },
-  { label: "New estimate", fill: "New estimate for " },
   { label: "Add customer", fill: "Add customer " },
 ];
 
-// Kinds that get a preview-and-confirm step before anything is written.
-type PendingAction = Extract<CaptureAction, { kind: "sale" | "purchase" | "payment" | "return" | "expense" | "add_customer" }>;
-const PREVIEWABLE: PendingAction["kind"][] = ["sale", "purchase", "payment", "return", "expense", "add_customer"];
+type PendingAction = Extract<CaptureAction, { kind: "purchase" | "payment" | "return" | "expense" | "add_customer" }>;
+const CONFIRMABLE = ["purchase", "payment", "return", "expense", "add_customer"];
 
-// A "sale" doesn't just get a single preview/confirm — it walks through a
-// full invoice: item & customer first, then price, discount, labour,
-// freight, and contractor one at a time, then a final paid/partial/due
-// choice. Each step is skippable (a plain "Skip" moves on with 0 / blank),
-// and any value the parser already pulled out of the typed sentence (e.g.
-// "...discount 500...") pre-fills that step instead of being asked again
-// from scratch.
-type SaleWizardStep = "review" | "price" | "discount" | "labour" | "freight" | "contractor";
-const SALE_STEP_ORDER: SaleWizardStep[] = ["review", "price", "discount", "labour", "freight", "contractor"];
-interface SaleExtras { rate?: number; discountAmount?: number; labourCost?: number; freightCost?: number; contractorName?: string }
-
-/* ---- Undo helpers for the capture bar's toast ----
- * These call the API directly and patch the store's state by hand, rather
- * than going through removeDoc/removePurchase/removePayment/removeCustomer —
- * those go through confirmThenDelete (a confirmation modal) and/or their own
- * 5s optimistic-delete-with-undo window, which is the right UX for a
- * deliberate delete elsewhere in the app but wrong here: this is a single
- * "oops, undo that" click within the capture bar's own toast window right
- * after creation, so it should just happen — no second confirmation, no
- * second undo-of-the-undo. Best-effort: if the delete call fails, the
- * record simply stays, same as if any other delete failed. */
-
-async function undoEstimate(id: string) {
-  try {
-    const result = await api.documents("estimate").remove(id);
-    useAppStore.setState((state: any) => ({
-      estimates: state.estimates.map((x: any) => (x.id === id ? result.doc : x)),
-      items: result.items || state.items,
-    }));
-  } catch { /* best-effort */ }
-}
-
+/* ---- Undo helpers for the confirm toast ----
+ * Direct API calls that patch the store by hand: this is a single "oops" within the
+ * toast window right after creating something, so no second confirmation is wanted.
+ * Best effort: if the delete fails the record simply stays. */
 async function undoPurchase(id: string) {
   try {
     await api.purchases.remove(id);
-    useAppStore.setState((state: any) => ({
-      purchases: state.purchases.filter((x: any) => x.id !== id),
-      orders: state.orders.filter((x: any) => x.id !== id),
-    }));
-  } catch { /* best-effort */ }
+    useAppStore.setState((s: any) => ({ purchases: s.purchases.filter((x: any) => x.id !== id), orders: s.orders.filter((x: any) => x.id !== id) }));
+  } catch { /* best effort */ }
 }
-
 async function undoPayment(id: string) {
   try {
     const result = await api.payments.remove(id);
-    useAppStore.setState((state: any) => ({
-      payments: state.payments.filter((x: any) => x.id !== id),
-      estimates: result?.invoice ? state.estimates.map((x: any) => (x.id === result.invoice.id ? result.invoice : x)) : state.estimates,
+    useAppStore.setState((s: any) => ({
+      payments: s.payments.filter((x: any) => x.id !== id),
+      estimates: result?.invoice ? s.estimates.map((x: any) => (x.id === result.invoice.id ? result.invoice : x)) : s.estimates,
     }));
-  } catch { /* best-effort */ }
+  } catch { /* best effort */ }
 }
-
 async function undoCustomer(id: string) {
   try {
     await api.customers.remove(id);
-    useAppStore.setState((state: any) => ({ customers: state.customers.filter((x: any) => x.id !== id) }));
-  } catch { /* best-effort */ }
+    useAppStore.setState((s: any) => ({ customers: s.customers.filter((x: any) => x.id !== id) }));
+  } catch { /* best effort */ }
 }
-
 async function undoExpense(id: string) {
   try {
     await api.expenses.remove(id);
-    useAppStore.setState((state: any) => ({ expenses: state.expenses.filter((x: any) => x.id !== id) }));
-  } catch { /* best-effort */ }
+    useAppStore.setState((s: any) => ({ expenses: s.expenses.filter((x: any) => x.id !== id) }));
+  } catch { /* best effort */ }
 }
 
-export function CaptureBar({ items, customers, vendors, estimates, currency, saveDocument, savePayment, savePurchase, saveCustomer, saveExpense, saveReturn, openModal, showToast }: any) {
+/* ---- words ---- */
+
+function unitOf(item: any): string {
+  return item?.trackingMode === "weight" ? "kg" : (item?.unit || "pc");
+}
+function plural(unit: string, qty: number): string {
+  if (qty === 1) return unit;
+  if (/^(kg|ft|mm|cm|m|g|l|pcs|ton)$/i.test(unit)) return unit;
+  if (/(x|s|ch|sh)$/i.test(unit)) return `${unit}es`;
+  return `${unit}s`;
+}
+const nameWithBrand = (e: any) => (e.brand ? `${e.name} (${e.brand})` : e.name);
+
+interface ChipSpec { text: string; muted?: boolean }
+interface Understood { chips: ChipSpec[]; caption: string; kind: string }
+
+/** What the app understood so far, as chips. Pure: only reads the parsed action. */
+function understand(action: CaptureAction | null, destination: { label: string; tab: string } | null, currency: string): Understood | null {
+  if (!action) return null;
+  const chips: ChipSpec[] = [];
+  const matched = "Matched to your customers and items. Nothing saves until you confirm.";
+
+  switch (action.kind) {
+    case "sale": {
+      const rate = action.rate ?? (action.amount ? action.amount / action.qty : (action.item.sellingPrice ?? action.item.price ?? 0));
+      const subtotal = action.amount ?? rate * action.qty;
+      const discount = Math.min(action.discountAmount ?? 0, subtotal);
+      const u = unitOf(action.item);
+      chips.push({ text: action.customer.name });
+      chips.push({ text: `${action.item.name}, ${qtyText(action.qty)} ${plural(u, action.qty)}` });
+      chips.push({ text: `${inr(subtotal - discount, currency)} at ${inrRate(rate, currency)} a ${u}` });
+      if (discount > 0) chips.push({ text: `${inr(discount, currency)} off` });
+      if (action.freightCost) chips.push({ text: `Freight ${inr(action.freightCost, currency)}` });
+      if (action.labourCost) chips.push({ text: `Labour ${inr(action.labourCost, currency)}` });
+      if (action.contractorName) chips.push({ text: `Contractor ${action.contractorName}` });
+      const ambiguous = action.itemCandidates.length > 1 || action.customerCandidates.length > 1;
+      return { chips, kind: "sale", caption: ambiguous ? "More than one match — you can change it on the next screen. Nothing saves until you confirm." : matched };
+    }
+    case "sale_needs_review": {
+      if (action.customer) chips.push({ text: action.customer.name }); else if (action.customerName) chips.push({ text: `No customer “${action.customerName}”`, muted: true });
+      if (action.item) chips.push({ text: `${action.item.name}, ${qtyText(action.qty)} ${plural(unitOf(action.item), action.qty)}` }); else if (action.itemName) chips.push({ text: `No item “${action.itemName}”`, muted: true });
+      return { chips, kind: "sale", caption: "Part of this didn't match. The form opens with what did, and you finish the rest." };
+    }
+    case "purchase": {
+      const rate = action.rate ?? action.item.purchasePrice ?? 0;
+      const u = unitOf(action.item);
+      chips.push({ text: action.vendor.name });
+      chips.push({ text: `${action.item.name}, ${qtyText(action.qty)} ${plural(u, action.qty)}` });
+      if (rate) chips.push({ text: `${inrRate(rate, currency)} a ${u}` });
+      return { chips, kind: "purchase", caption: matched };
+    }
+    case "purchase_needs_review": {
+      if (action.vendor) chips.push({ text: action.vendor.name }); else if (action.vendorName) chips.push({ text: `No vendor “${action.vendorName}”`, muted: true });
+      if (action.item) chips.push({ text: action.item.name }); else if (action.itemName) chips.push({ text: `No item “${action.itemName}”`, muted: true });
+      return { chips, kind: "purchase", caption: "Part of this didn't match. Purchases opens so you can finish it." };
+    }
+    case "payment":
+      chips.push({ text: action.customer.name }, { text: inr(action.amount, currency) });
+      return { chips, kind: "payment", caption: matched };
+    case "payment_needs_review":
+      chips.push({ text: `No customer “${action.customerName}”`, muted: true }, { text: inr(action.amount, currency) });
+      return { chips, kind: "payment", caption: "Couldn't find that customer. Payments opens so you can pick one." };
+    case "return":
+      chips.push({ text: action.customer.name }, { text: `${action.item.name}, ${qtyText(action.qty)}` }, { text: action.doc.number });
+      return { chips, kind: "return", caption: matched };
+    case "return_needs_review":
+      if (action.customer) chips.push({ text: action.customer.name });
+      if (action.item) chips.push({ text: action.item.name });
+      return { chips, kind: "return", caption: "No matching bill found to return against. Open the customer's estimate to log it." };
+    case "expense":
+      chips.push({ text: action.category }, { text: inr(action.amount, currency) });
+      if (action.vendor) chips.push({ text: action.vendor });
+      return { chips, kind: "expense", caption: "Logged as an expense. Nothing saves until you confirm." };
+    case "new_estimate":
+      if (action.customer) chips.push({ text: action.customer.name });
+      return { chips, kind: "sale", caption: "Opens a new estimate." };
+    case "add_customer":
+      chips.push({ text: action.name });
+      if (action.location) chips.push({ text: action.location });
+      if (action.existing) chips.push({ text: "Already a customer", muted: true });
+      return { chips, kind: "customer", caption: action.existing ? "They're already in your customers. Opens their profile to edit." : "Nothing saves until you confirm." };
+    default:
+      if (destination) {
+        return { chips: [{ text: `Open ${destination.label}` }], kind: "go", caption: destination.tab ? `In ${destination.tab}. Press the arrow to open it.` : "Press the arrow to open it." };
+      }
+      return null;
+  }
+}
+
+export function CaptureBar({ items, customers, vendors, estimates, currency, role, savePurchase, savePayment, saveCustomer, saveExpense, saveReturn, openModal, showToast, go }: any) {
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<PendingAction | null>(null);
-  // User's picks when a name matched more than one record — keyed by entity type.
   const [picked, setPicked] = useState<{ item?: any; customer?: any; vendor?: any; doc?: any }>({});
-  // Sale-only invoice wizard: which step we're on, the discount/labour/freight/
-  // contractor values collected along the way, and whether the final
-  // paid/partial/due popup is showing.
-  const [saleStep, setSaleStep] = useState<SaleWizardStep>("review");
-  const [saleExtras, setSaleExtras] = useState<SaleExtras>({});
-  const [showStatusPopup, setShowStatusPopup] = useState(false);
+  const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const fill = (text: string) => {
-    setValue(text);
-    inputRef.current?.focus();
+  const ctx = { items, customers, vendors, estimates };
+
+  // Live read of what's typed — local only, so it costs nothing and never touches the network.
+  const live = useMemo(() => {
+    const text = value.trim();
+    if (text.length < 3) return null;
+    let action: CaptureAction | null = null;
+    try { action = parseCapture(text, { items, customers, vendors, estimates }); } catch { action = null; }
+    const destination = action && action.kind !== "unknown" ? null : findDestination(text, role);
+    return { action, destination, understood: understand(action, destination, currency) };
+  }, [value, items, customers, vendors, estimates, currency, role]);
+
+  const fill = (text: string) => { setValue(text); inputRef.current?.focus(); };
+  const resetAll = () => { setValue(""); setPending(null); setPicked({}); };
+
+  const openEstimateFor = (action: Extract<CaptureAction, { kind: "sale" | "sale_needs_review" | "new_estimate" }>) => {
+    if (action.kind === "new_estimate") {
+      openModal("estimate", action.customer ? { customerId: action.customer.id } : undefined);
+      return;
+    }
+    const item = action.item, customer = action.customer;
+    if (action.kind === "sale_needs_review") {
+      showToast(!item ? `Couldn't find an item matching “${action.itemName}” — opening the form with the rest` : `Couldn't find a customer matching “${action.customerName}” — opening the form with the rest`);
+    }
+    const rate = action.rate ?? (action.amount && action.qty ? action.amount / action.qty : undefined);
+    const exact = action.kind === "sale" && action.itemCandidates.length <= 1 && action.customerCandidates.length <= 1 && !action.priceWarning;
+    openModal("estimate", {
+      prefill: {
+        customerId: customer?.id,
+        lines: item ? [{ itemId: item.id, qty: action.qty, rate, discountAmount: action.discountAmount || 0 }] : [],
+        freightCost: action.freightCost, labourCost: action.labourCost, contractorName: action.contractorName,
+        note: action.kind === "sale" ? action.priceWarning : undefined,
+        startAtReview: exact,
+      },
+    });
   };
 
-  const resetAll = () => {
-    setValue(""); setPending(null); setPicked({});
-    setSaleStep("review"); setSaleExtras({}); setShowStatusPopup(false);
-  };
-
-  const runImmediate = async (action: CaptureAction) => {
+  const runImmediate = (action: CaptureAction) => {
     switch (action.kind) {
-      case "new_estimate":
-        openModal("estimate", action.customer ? { customerId: action.customer.id } : undefined);
-        break;
-      case "sale_needs_review":
-        showToast(!action.item ? `Couldn't find an item matching "${action.itemName}" — opening a blank estimate` : `Couldn't find a customer matching "${action.customerName}" — opening a blank estimate`);
-        openModal("estimate");
-        break;
       case "purchase_needs_review":
-        showToast(!action.item ? `Couldn't find an item matching "${action.itemName}" — opening Purchases` : `Couldn't find a vendor matching "${action.vendorName}" — opening Purchases`);
+        showToast(!action.item ? `Couldn't find an item matching “${action.itemName}” — opening Purchases` : `Couldn't find a vendor matching “${action.vendorName}” — opening Purchases`);
         openModal("purchase");
         break;
       case "payment_needs_review":
-        showToast(`Couldn't find a customer matching "${action.customerName}" — opening Payments`);
+        showToast(`Couldn't find a customer matching “${action.customerName}” — opening Payments`);
         openModal("payment");
         break;
       case "return_needs_review":
         showToast(
-          !action.item ? `Couldn't find an item matching "${action.itemName}" — open the customer's estimate to log the return manually.`
-          : !action.customer ? `Couldn't find a customer matching "${action.customerName}" — open the customer's estimate to log the return manually.`
-          : `No returnable "${action.item.name}" found on an estimate for ${action.customer.name} — open that estimate to log the return manually.`
+          !action.item ? `Couldn't find an item matching “${action.itemName}” — open the customer's estimate to log the return manually.`
+            : !action.customer ? `Couldn't find a customer matching “${action.customerName}” — open the customer's estimate to log the return manually.`
+              : `No returnable “${action.item.name}” found on an estimate for ${action.customer.name} — open that estimate to log the return manually.`,
         );
         break;
       default:
-        showToast("Couldn't quite parse that — try one of the examples below, or use + New.");
+        showToast("Couldn't quite parse that — try one of the examples, or the name of a screen.");
     }
     resetAll();
   };
 
-  // Only hand a total miss to the AI (Gemini) parser. A "*_needs_review" result
-  // means the local regex parser already understood the sentence structure and
-  // even resolved a name partway (typo, near-match, etc.) — that case is cheap
-  // to fix by hand in the form the toast opens, so it stays fully local. Only
-  // "unknown" (the local parser found nothing to work with at all) goes over
-  // the network, since the free-tier Gemini quota is easy to exhaust otherwise.
-  const NEEDS_AI_FALLBACK = new Set(["unknown"]);
-
+  // Only a total miss is handed to the AI parser; a "needs_review" result is already
+  // understood well enough to finish by hand (and the free AI quota is easy to exhaust).
   const submit = async () => {
     const text = value.trim();
     if (!text || busy || pending) return;
     let action = parseCapture(text, { items, customers, vendors, estimates });
-    if (NEEDS_AI_FALLBACK.has(action.kind)) {
-      // Nothing local matched at all — give the AI parser (Gemini) one shot
-      // before falling back to a blank form, since unusual phrasing still
-      // deserves a chance to resolve correctly.
+
+    if (action.kind === "unknown") {
+      const dest = findDestination(text, role);
+      if (dest) { go?.(dest.id); resetAll(); return; }
       setBusy(true);
       try {
         const { action: aiResult } = await api.capture.parse(text);
         const resolved = actionFromAiResult(aiResult, { items, customers, vendors, estimates });
-        // Keep the AI's read whenever it managed to produce anything at all —
-        // even a "needs_review" from AI usually has a better fuzzy-matched
-        // guess at the name than the regex parser's stricter matching did.
-        // Only fall back to the regex parser's own guess if AI drew a total
-        // blank too.
         if (resolved.kind !== "unknown") action = resolved;
       } catch (err: any) {
-        showToast(err?.message || "Couldn't parse that — try one of the examples below.");
+        showToast(err?.message || "Couldn't parse that — try one of the examples.");
         setBusy(false);
         return;
       }
       setBusy(false);
     }
+
     if (action.kind === "add_customer" && action.existing) {
-      showToast(`"${action.existing.name}" already exists — opening their edit form`);
+      showToast(`“${action.existing.name}” already exists — opening their edit form`);
       openModal("customer", { editingCustomer: action.existing });
       resetAll();
       return;
     }
-    if (PREVIEWABLE.includes(action.kind as any)) {
-      const p = action as PendingAction;
-      setPending(p);
-      // Pre-fill the invoice wizard with anything the typed sentence already
-      // gave us (e.g. "...discount 500 labour 200...") so those steps just
-      // need a tap to confirm instead of being re-typed.
-      if (p.kind === "sale") {
-        // Only pre-fill if the typed sentence itself gave an explicit rate/
-        // amount — otherwise leave it blank and let the price step fall back
-        // to the *finally selected* item's own price (picking a different
-        // item/customer candidate happens after this, on the review step).
-        const parsedRate = p.rate ?? (p.amount ? p.amount / p.qty : undefined);
-        setSaleExtras({
-          rate: parsedRate, discountAmount: p.discountAmount, labourCost: p.labourCost,
-          freightCost: p.freightCost, contractorName: p.contractorName,
-        });
-      }
+    if (action.kind === "sale" || action.kind === "sale_needs_review" || action.kind === "new_estimate") {
+      openEstimateFor(action);
+      resetAll();
       return;
     }
+    if (CONFIRMABLE.includes(action.kind)) { setPending(action as PendingAction); return; }
     runImmediate(action);
-  };
-
-  // Shared math for the sale wizard — used both by the live step previews
-  // and by the final save, so what the person sees while stepping through
-  // is exactly what gets written.
-  const saleTotals = () => {
-    if (pending?.kind !== "sale") return null;
-    const item = picked.item ?? pending.item;
-    const customer = picked.customer ?? pending.customer;
-    const defaultRate = pending.rate ?? (pending.amount ? pending.amount / pending.qty : (item.sellingPrice ?? item.price ?? 0));
-    const rate = saleExtras.rate ?? defaultRate;
-    // If the person hasn't touched the price step, and the typed sentence
-    // gave an exact total (rather than a per-unit rate), use that total
-    // as-is rather than rate × qty — avoids introducing rounding drift from
-    // dividing amount/qty back out. Once the price step is edited, the
-    // entered rate is what drives the subtotal.
-    const subtotal = (saleExtras.rate === undefined && pending.amount !== undefined) ? pending.amount : rate * pending.qty;
-    // Server rejects a discount that exceeds the line's own subtotal — clamp
-    // here too so a misheard/misread discount can't silently fail the whole
-    // estimate at save time.
-    const discountAmount = Math.min(saleExtras.discountAmount ?? 0, subtotal);
-    const labourCost = saleExtras.labourCost ?? 0;
-    const freightCost = saleExtras.freightCost ?? 0;
-    const contractorName = saleExtras.contractorName || "";
-    // labour/freight are flat charges on the whole estimate (not the item
-    // line) — same total formula the estimate form itself uses.
-    const total = (subtotal - discountAmount) + labourCost + freightCost;
-    return { item, customer, rate, qty: pending.qty, subtotal, discountAmount, labourCost, freightCost, contractorName, total };
-  };
-
-  // Item & customer step confirmed — move into the price → discount → labour
-  // → freight → contractor walk-through instead of saving right away.
-  const startSaleWizard = () => setSaleStep("price");
-
-  const saleStepBack = () => {
-    const idx = SALE_STEP_ORDER.indexOf(saleStep);
-    if (idx > 0) setSaleStep(SALE_STEP_ORDER[idx - 1]);
-  };
-  const saleStepNext = () => {
-    const idx = SALE_STEP_ORDER.indexOf(saleStep);
-    if (idx < SALE_STEP_ORDER.length - 1) setSaleStep(SALE_STEP_ORDER[idx + 1]);
-    else setShowStatusPopup(true); // contractor was the last step — ask paid/partial/due
-  };
-
-  // Final step: paid in full, partial, due, or an advance booking. Only then
-  // does anything actually get written.
-  const finalizeSale = async (status: string, isAdvanceBooking: boolean, partialAmountPaid?: number) => {
-    const totals = saleTotals();
-    if (pending?.kind !== "sale" || !totals || busy) return;
-    setBusy(true);
-    try {
-      const { item, customer, rate, discountAmount, labourCost, freightCost, contractorName, total } = totals;
-      const doc = await saveDocument("estimate", {
-        customerId: customer.id, date: today(), dueDate: today(),
-        lines: [{ itemId: item.id, qty: pending.qty, rate, discountAmount }], total, status,
-        labourCost, freightCost, contractorName, isAdvanceBooking,
-        ...(partialAmountPaid ? { partialAmountPaid } : {}),
-      });
-      showToast(`Estimate created for ${customer.name} · ${fmtMoney(total, currency)}`, doc?.id ? { undo: () => undoEstimate(doc.id), duration: 6000 } : undefined);
-      resetAll();
-    } finally {
-      setBusy(false);
-      setShowStatusPopup(false);
-    }
   };
 
   const confirm = async () => {
@@ -275,14 +266,14 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, sav
           const item = picked.item ?? pending.item;
           const vendor = picked.vendor ?? pending.vendor;
           const rate = pending.rate ?? item.purchasePrice ?? 0;
-          const doc = await savePurchase({ vendorId: vendor.id, itemId: item.id, qty: pending.qty, rate, date: today() });
+          const doc = await savePurchase({ vendorId: vendor.id, itemId: item.id, qty: pending.qty, rate, date: localToday() });
           showToast(`Purchase recorded from ${vendor.name}`, doc?.id ? { undo: () => undoPurchase(doc.id), duration: 6000 } : undefined);
           break;
         }
         case "payment": {
           const customer = picked.customer ?? pending.customer;
-          const doc = await savePayment({ customerId: customer.id, amount: pending.amount, date: today(), method: "Cash" });
-          showToast(`Payment of ${fmtMoney(pending.amount, currency)} logged for ${customer.name}`, doc?.id ? { undo: () => undoPayment(doc.id), duration: 6000 } : undefined);
+          const doc = await savePayment({ customerId: customer.id, amount: pending.amount, date: localToday(), method: "Cash" });
+          showToast(`Payment of ${inr(pending.amount, currency)} logged for ${customer.name}`, doc?.id ? { undo: () => undoPayment(doc.id), duration: 6000 } : undefined);
           break;
         }
         case "return": {
@@ -294,14 +285,12 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, sav
         }
         case "add_customer": {
           const doc = await saveCustomer({ name: pending.name, location: pending.location || "" });
-          // saveCustomer can return undefined (e.g. its own duplicate-name-and-phone
-          // check) and already shows its own toast in that case — don't stomp it.
-          if (doc?.id) showToast(`Customer "${pending.name}" added`, { undo: () => undoCustomer(doc.id), duration: 6000 });
+          if (doc?.id) showToast(`Customer “${pending.name}” added`, { undo: () => undoCustomer(doc.id), duration: 6000 });
           break;
         }
         case "expense": {
           const doc = await saveExpense({ category: pending.category, vendor: pending.vendor, amount: pending.amount });
-          if (doc?.id) showToast(`Expense of ${fmtMoney(pending.amount, currency)} logged`, { undo: () => undoExpense(doc.id), duration: 6000 });
+          if (doc?.id) showToast(`Expense of ${inr(pending.amount, currency)} logged`, { undo: () => undoExpense(doc.id), duration: 6000 });
           break;
         }
       }
@@ -311,340 +300,156 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, sav
     }
   };
 
-  const cancel = () => {
-    setPending(null); setPicked({});
-    setSaleStep("review"); setSaleExtras({}); setShowStatusPopup(false);
-    inputRef.current?.focus();
-  };
-
-  const [focused, setFocused] = useState(false);
+  const u = live?.understood;
+  const canSubmit = value.trim().length > 0 && !busy;
 
   return (
-    <div className={`relative rounded-2xl bg-card border transition-colors duration-300 p-4 flex flex-col gap-3 ${focused || pending ? "border-orange-500/50" : "border-line"}`}>
-      {!pending ? (
-        <>
-          <div className="relative flex items-center gap-2.5">
-            <span className={`shrink-0 transition-colors duration-300 ${focused ? "text-orange-600" : "text-ink/35"}`}>
-              <ArrowUp size={15} className={`transition-transform duration-300 ${focused ? "-translate-y-0.5" : ""}`} />
-            </span>
-            <input
-              ref={inputRef}
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
-              placeholder="Sold 50 bags cement to Patel Traders at ₹450 each... or Logged expense of ₹500 for diesel"
-              disabled={busy}
-              className="flex-1 bg-transparent border-none outline-none text-[13.5px] text-ink placeholder:text-ink/40"
-            />
-            <span className={`hidden sm:inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 font-mono text-[10px] transition-colors duration-200 ${busy || focused ? "border-orange-500/40 text-orange-700" : "border-line text-ink/40"}`}>
-              {busy ? <><Sparkles size={10} className="animate-pulse" /> thinking…</> : "↵ enter"}
-            </span>
-          </div>
-          <div className="relative flex flex-wrap gap-2">
-            {CHIPS.map((c, i) => (
-              <button
-                key={c.label}
-                onClick={() => fill(c.fill)}
-                style={{ animationDelay: `${i * 35}ms` }}
-                className="animate-chip-in rounded-pill border border-line text-[11px] font-medium text-ink/55 px-2.5 py-1 transition-all duration-150 hover:border-orange-500 hover:bg-orange-50 hover:text-orange-700 hover:-translate-y-0.5 active:translate-y-0 active:scale-95"
-              >
-                {c.label}
-              </button>
-            ))}
-          </div>
-        </>
-      ) : pending.kind === "sale" && saleStep !== "review" ? (
-        <SaleWizardCard
-          step={saleStep}
-          extras={saleExtras}
-          setExtras={setSaleExtras}
-          totals={saleTotals()}
-          currency={currency}
-          onBack={saleStepBack}
-          onNext={saleStepNext}
-          onCancel={cancel}
-        />
-      ) : (
-        <PreviewCard
-          pending={pending}
-          picked={picked}
-          setPicked={setPicked}
-          currency={currency}
-          busy={busy}
-          onConfirm={pending.kind === "sale" ? startSaleWizard : confirm}
-          onCancel={cancel}
-        />
-      )}
-
-      {showStatusPopup && createPortal(
-        <StatusChoicePopup
-          total={saleTotals()?.total ?? 0}
-          currency={currency}
-          onChoose={finalizeSale}
-          onCancel={() => setShowStatusPopup(false)}
-        />,
-        document.body
-      )}
-    </div>
-  );
-}
-
-function CandidatePicker({ label, candidates, selected, onPick, nameOf }: { label: string; candidates: MatchCandidate[]; selected: any; onPick: (e: any) => void; nameOf: (e: any) => string }) {
-  if (candidates.length <= 1) return null;
-  return (
-    <div className="relative flex flex-wrap items-center gap-1.5">
-      <span className="text-[10.5px] text-ink/40">Which {label}?</span>
-      {candidates.map((c) => {
-        const isSelected = (selected ?? candidates[0].entity) === c.entity;
-        return (
-          <button
-            key={c.entity.id}
-            onClick={() => onPick(c.entity)}
-            className={`rounded-pill border px-2.5 py-1 text-[11px] font-medium transition-colors ${isSelected ? "border-orange-500 bg-orange-50 text-orange-700" : "border-line text-ink/60 hover:border-ink/30"}`}
-          >
-            {nameOf(c.entity)}
+    <>
+      <div className={cx("rounded-[20px] border bg-card px-3 pb-3 pt-2.5 shadow-capture transition-colors", focused ? "border-brand-400" : "border-edge")}>
+        <div className="flex h-11 items-center gap-2.5">
+          <span className="flex text-insight-500"><SparkIcon size={22} className={busy ? "animate-pulse" : ""} /></span>
+          <input
+            ref={inputRef} value={value} disabled={busy}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+            onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+            placeholder="Sold 5 bags PPC to Ramesh" enterKeyHint="go" aria-label="Say what happened"
+            className="min-w-0 flex-1 border-0 bg-transparent text-[16px] text-ink outline-none placeholder:text-faint"
+          />
+          <button type="button" aria-label="Review and save" onClick={submit} disabled={!canSubmit}
+            className={cx("flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white transition active:scale-95", canSubmit ? "bg-brand-500" : "bg-rule")}>
+            <ArrowUpIcon size={22} />
           </button>
-        );
-      })}
+        </div>
+
+        {u ? (
+          <>
+            <div className="mb-2.5 mt-1.5 h-px bg-line" />
+            <div className="flex flex-wrap gap-1.5">
+              {u.chips.map((c, i) => (
+                <StatusChip key={`${c.text}-${i}`} tone={c.muted ? "draft" : "insight"} className="animate-chip-in">{c.text}</StatusChip>
+              ))}
+            </div>
+            <p className="mt-2 text-micro text-mute">{u.caption}</p>
+          </>
+        ) : value.trim().length === 0 ? (
+          <>
+            <div className="mb-2.5 mt-1.5 h-px bg-line" />
+            <div className="flex flex-wrap gap-1.5">
+              {EXAMPLES.map((c) => (
+                <button key={c.label} type="button" onClick={() => fill(c.fill)}
+                  className="h-7 rounded-[14px] border border-edge px-2.5 text-[12px] font-medium text-mute transition active:scale-95">
+                  {c.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-micro text-mute">Say it the way you would to a helper, or type the name of any screen.</p>
+          </>
+        ) : value.trim().length >= 3 ? (
+          <>
+            <div className="mb-2 mt-1.5 h-px bg-line" />
+            <p className="text-micro text-mute">I'll read this when you press the arrow. Nothing saves until you confirm.</p>
+          </>
+        ) : null}
+      </div>
+
+      {pending && (
+        <ConfirmSheet pending={pending} picked={picked} setPicked={setPicked} currency={currency} busy={busy}
+          onConfirm={confirm} onCancel={() => { setPending(null); setPicked({}); inputRef.current?.focus(); }} />
+      )}
+    </>
+  );
+}
+
+/* ---- confirm sheet for everything that isn't a sale ---- */
+
+function Which({ label, candidates, selected, onPick, nameOf }: { label: string; candidates: MatchCandidate[]; selected: any; onPick: (e: any) => void; nameOf: (e: any) => string }) {
+  if (!candidates || candidates.length <= 1) return null;
+  return (
+    <div className="mt-4">
+      <p className="mb-1.5 px-1 text-caption text-mute">Which {label}?</p>
+      <div className="flex flex-wrap gap-2">
+        {candidates.map((c) => {
+          const isSel = (selected ?? candidates[0].entity) === c.entity;
+          return (
+            <button key={c.entity.id} type="button" onClick={() => onPick(c.entity)}
+              className={cx("h-9 rounded-full border px-3 text-[14px] font-medium transition", isSel ? "border-brand-500 bg-brand-50 text-brand-600" : "border-edge bg-card text-ink")}>
+              {nameOf(c.entity)}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function PreviewCard({ pending, picked, setPicked, currency, busy, onConfirm, onCancel }: any) {
+function ConfirmSheet({ pending, picked, setPicked, currency, busy, onConfirm, onCancel }: any) {
   let title = "";
-  let lines: string[] = [];
-
+  let rows: [string, string][] = [];
   let warning: string | undefined;
 
-  if (pending.kind === "sale") {
-    const item = picked.item ?? pending.item;
-    const customer = picked.customer ?? pending.customer;
-    const rate = pending.rate ?? (pending.amount ? pending.amount / pending.qty : (item.sellingPrice ?? item.price ?? 0));
-    const subtotal = pending.amount ?? rate * pending.qty;
-    const discountAmount = Math.min(pending.discountAmount ?? 0, subtotal);
-    const labourCost = pending.labourCost ?? 0;
-    const freightCost = pending.freightCost ?? 0;
-    const total = (subtotal - discountAmount) + labourCost + freightCost;
-    title = "New sale";
-    lines = [
-      `${pending.qty} × ${item.name} → ${customer.name}`,
-      discountAmount > 0
-        ? `${fmtMoney(total, currency)} (${fmtMoney(subtotal, currency)} − ${fmtMoney(discountAmount, currency)} discount) · ${fmtMoney(rate, currency)}/unit`
-        : `${fmtMoney(total, currency)} · ${fmtMoney(rate, currency)}/unit`,
-    ];
-    const extras: string[] = [];
-    if (labourCost > 0) extras.push(`Labour ${fmtMoney(labourCost, currency)}`);
-    if (freightCost > 0) extras.push(`Freight ${fmtMoney(freightCost, currency)}`);
-    if (pending.contractorName) extras.push(`Contractor: ${pending.contractorName}`);
-    if (extras.length) lines.push(extras.join(" · "));
-    warning = pending.priceWarning;
-  } else if (pending.kind === "purchase") {
+  if (pending.kind === "purchase") {
     const item = picked.item ?? pending.item;
     const vendor = picked.vendor ?? pending.vendor;
     const rate = pending.rate ?? item.purchasePrice ?? 0;
     title = "New purchase";
-    lines = [`${pending.qty} × ${item.name} ← ${vendor.name}`, rate ? `${fmtMoney(rate, currency)} / unit` : "Rate not specified — will use item default"];
+    rows = [["Vendor", vendor.name], ["Item", item.name], ["Quantity", qtyText(pending.qty)], ["Rate", rate ? inr(rate, currency) : "Item's usual price"]];
     warning = pending.priceWarning;
   } else if (pending.kind === "payment") {
     const customer = picked.customer ?? pending.customer;
     title = "Payment received";
-    lines = [`From ${customer.name}`, fmtMoney(pending.amount, currency)];
+    rows = [["From", customer.name], ["Amount", inr(pending.amount, currency)], ["Method", "Cash"]];
   } else if (pending.kind === "return") {
     const item = picked.item ?? pending.item;
     const doc = picked.doc ?? pending.doc;
     const line = (doc.lines || []).find((l: any) => l.itemId === item.id);
     const refund = (line?.rate || 0) * pending.qty;
     title = "Return items";
-    lines = [
-      `${pending.qty} × ${item.name} ← ${pending.customer.name}`,
-      `${doc.number}${refund > 0 ? ` · Refund ${fmtMoney(refund, currency)}` : ""}`,
-    ];
+    rows = [["Customer", pending.customer.name], ["Item", item.name], ["Quantity", qtyText(pending.qty)], ["Against", doc.number], ...(refund > 0 ? [["Refund", inr(refund, currency)] as [string, string]] : [])];
   } else if (pending.kind === "expense") {
     title = "New expense";
-    lines = [pending.category, `${fmtMoney(pending.amount, currency)}${pending.vendor ? ` · ${pending.vendor}` : ""}`];
+    rows = [["Category", pending.category], ["Amount", inr(pending.amount, currency)], ...(pending.vendor ? [["Vendor", pending.vendor] as [string, string]] : [])];
   } else if (pending.kind === "add_customer") {
     title = "New customer";
-    lines = [pending.name, pending.location || "No location given"];
+    rows = [["Name", pending.name], ["Location", pending.location || "Not given"]];
   }
 
   return (
-    <div className="relative flex flex-col gap-3">
-      <div>
-        <p className="text-[10.5px] font-semibold uppercase tracking-wide text-ink/40 flex items-center gap-1.5">
-          {title} {pending.kind === "sale" ? "— item & customer right?" : "— confirm?"}
-          {pending.source === "ai" && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-orange-500/40 bg-orange-50 px-1.5 py-0.5 text-[9.5px] font-semibold normal-case tracking-normal text-orange-700">
-              <Sparkles size={9} /> AI
-            </span>
-          )}
-        </p>
-        <p className="mt-1 text-[15px] font-semibold text-ink">{lines[0]}</p>
-        {lines[1] && <p className="font-mono text-[13px] text-ink/70">{lines[1]}</p>}
-        {lines[2] && <p className="mt-0.5 text-[12px] text-ink/45">{lines[2]}</p>}
-      </div>
+    <Sheet onClose={onCancel} title={title}
+      trailing={pending.source === "ai" ? <StatusChip tone="insight" dot={false}>Read by AI</StatusChip> : undefined}
+      footer={
+        <div>
+          <PrimaryButton onClick={onConfirm} disabled={busy}>{busy ? "Saving…" : "Save"}</PrimaryButton>
+          <div className="mt-1 flex justify-center"><TextButton tone="quiet" onClick={onCancel} disabled={busy}>Cancel</TextButton></div>
+        </div>
+      }>
+      <Group>
+        {rows.map(([k, v]) => (
+          <GroupRow key={k} className="h-12">
+            <span className="text-[15px] text-mute">{k}</span>
+            <span className="text-[16px] font-medium tabular-nums text-ink">{v}</span>
+          </GroupRow>
+        ))}
+      </Group>
 
-      {warning && (
-        <p className="rounded-lg border border-amber-400 bg-amber-50 px-2.5 py-2 text-[12px] leading-snug text-amber-800">
-          ⚠️ {warning}
-        </p>
-      )}
+      {warning && <p className="mt-3 rounded-control bg-warn-50 px-3 py-2.5 text-[14px] leading-[19px] text-warn-700">{warning}</p>}
 
-      {pending.kind === "sale" && (
-        <>
-          <CandidatePicker label="item" candidates={pending.itemCandidates} selected={picked.item} nameOf={(e) => e.brand ? `${e.name} (${e.brand})` : e.name} onPick={(e) => setPicked((p: any) => ({ ...p, item: e }))} />
-          <CandidatePicker label="customer" candidates={pending.customerCandidates} selected={picked.customer} nameOf={(e) => e.name} onPick={(e) => setPicked((p: any) => ({ ...p, customer: e }))} />
-        </>
-      )}
       {pending.kind === "purchase" && (
         <>
-          <CandidatePicker label="item" candidates={pending.itemCandidates} selected={picked.item} nameOf={(e) => e.brand ? `${e.name} (${e.brand})` : e.name} onPick={(e) => setPicked((p: any) => ({ ...p, item: e }))} />
-          <CandidatePicker label="vendor" candidates={pending.vendorCandidates} selected={picked.vendor} nameOf={(e) => e.name} onPick={(e) => setPicked((p: any) => ({ ...p, vendor: e }))} />
+          <Which label="item" candidates={pending.itemCandidates} selected={picked.item} nameOf={nameWithBrand} onPick={(e) => setPicked((p: any) => ({ ...p, item: e }))} />
+          <Which label="vendor" candidates={pending.vendorCandidates} selected={picked.vendor} nameOf={(e) => e.name} onPick={(e) => setPicked((p: any) => ({ ...p, vendor: e }))} />
         </>
       )}
       {pending.kind === "payment" && (
-        <CandidatePicker label="customer" candidates={pending.customerCandidates} selected={picked.customer} nameOf={(e) => e.name} onPick={(e) => setPicked((p: any) => ({ ...p, customer: e }))} />
+        <Which label="customer" candidates={pending.customerCandidates} selected={picked.customer} nameOf={(e) => e.name} onPick={(e) => setPicked((p: any) => ({ ...p, customer: e }))} />
       )}
       {pending.kind === "return" && (
         <>
-          <CandidatePicker label="item" candidates={pending.itemCandidates} selected={picked.item} nameOf={(e) => e.brand ? `${e.name} (${e.brand})` : e.name} onPick={(e) => setPicked((p: any) => ({ ...p, item: e }))} />
-          <CandidatePicker label="estimate" candidates={pending.docCandidates} selected={picked.doc} nameOf={(e) => e.number} onPick={(e) => setPicked((p: any) => ({ ...p, doc: e }))} />
+          <Which label="item" candidates={pending.itemCandidates} selected={picked.item} nameOf={nameWithBrand} onPick={(e) => setPicked((p: any) => ({ ...p, item: e }))} />
+          <Which label="estimate" candidates={pending.docCandidates} selected={picked.doc} nameOf={(e) => e.number} onPick={(e) => setPicked((p: any) => ({ ...p, doc: e }))} />
         </>
       )}
-
-      <div className="relative flex gap-2 pt-0.5">
-        <button
-          onClick={onConfirm}
-          disabled={busy}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-pill bg-orange-500 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-orange-600 disabled:opacity-50"
-        >
-          <Check size={15} /> {busy ? "Saving…" : pending.kind === "sale" ? "Next →" : "Confirm"}
-        </button>
-        <button
-          onClick={onCancel}
-          disabled={busy}
-          className="flex items-center justify-center gap-1.5 rounded-pill border border-line px-4 py-2.5 text-[13px] font-semibold text-ink/70 hover:border-ink/30 disabled:opacity-50"
-        >
-          <X size={15} /> Cancel
-        </button>
-      </div>
-    </div>
-  );
-}
-
-const SALE_STEP_META: Record<Exclude<SaleWizardStep, "review">, { title: string; hint: string }> = {
-  price: { title: "Confirm the price", hint: "Rate per unit — edit it if this sale is at a different price." },
-  discount: { title: "Any discount?", hint: "Leave it blank and skip if there isn't one." },
-  labour: { title: "Any labour cost?", hint: "A flat labour charge to add on top of the item total." },
-  freight: { title: "Any freight / transport cost?", hint: "Delivery or transport charge to add on top." },
-  contractor: { title: "Contractor name?", hint: "Who's this job or delivery for — optional." },
-};
-
-/** The step-by-step invoice walk-through shown after a "sale" capture's
- *  item & customer are confirmed: price → discount → labour → freight →
- *  contractor, one question at a time, each skippable (except price, which
- *  always needs a value — it's pre-filled with the item's own rate so a
- *  plain Continue accepts the default). The final paid/partial/due choice
- *  is handled separately by StatusChoicePopup once this card's last step
- *  is passed. */
-function SaleWizardCard({ step, extras, setExtras, totals, currency, onBack, onNext, onCancel }: {
-  step: Exclude<SaleWizardStep, "review">;
-  extras: SaleExtras;
-  setExtras: React.Dispatch<React.SetStateAction<SaleExtras>>;
-  totals: { item: any; customer: any; rate: number; qty: number; subtotal: number; discountAmount: number; labourCost: number; freightCost: number; contractorName: string; total: number } | null;
-  currency: string;
-  onBack: () => void;
-  onNext: () => void;
-  onCancel: () => void;
-}) {
-  const meta = SALE_STEP_META[step];
-  const isAmountStep = step === "price" || step === "discount" || step === "labour" || step === "freight";
-  const field: "rate" | "discountAmount" | "labourCost" | "freightCost" | "contractorName" =
-    step === "price" ? "rate" : step === "discount" ? "discountAmount" : step === "labour" ? "labourCost" : step === "freight" ? "freightCost" : "contractorName";
-  // Price always has a real value to show (the item's own rate, or whatever
-  // was already typed/edited) — everything else defaults to blank until the
-  // person types something.
-  const amountValue = field === "rate"
-    ? (extras.rate ?? totals?.rate ?? 0)
-    : (extras[field as "discountAmount" | "labourCost" | "freightCost"] as number | undefined) ?? "";
-
-  const skip = () => {
-    setExtras((e) => ({ ...e, [field]: isAmountStep ? undefined : "" }));
-    onNext();
-  };
-
-  return (
-    <div className="relative flex flex-col gap-3">
-      <div>
-        <p className="text-[10.5px] font-semibold uppercase tracking-wide text-ink/40">
-          Invoice for {totals?.customer?.name} — {meta.title}
-        </p>
-        <p className="mt-1 text-[12px] text-ink/45">{meta.hint}</p>
-      </div>
-
-      {totals && (
-        <p className="font-mono text-[12px] text-ink/40">
-          {step === "price" ? "Subtotal at this price: " : "Running total: "}
-          <span className="text-ink/70">
-            {fmtMoney(step === "price" ? (Number(amountValue) || 0) * totals.qty : totals.total, currency)}
-          </span>
-        </p>
-      )}
-
-      {isAmountStep ? (
-        <div className="flex items-center gap-2">
-          <span className="text-[15px] text-ink/70">₹</span>
-          <input
-            type="number" min="0" inputMode="decimal" autoFocus
-            value={amountValue}
-            onChange={(e) => setExtras((ex) => ({ ...ex, [field]: e.target.value === "" ? undefined : Number(e.target.value) }))}
-            onKeyDown={(e) => { if (e.key === "Enter") onNext(); }}
-            placeholder="0"
-            className="flex-1 rounded-lg border border-line bg-paper px-3 py-2.5 text-[15px] text-ink outline-none focus:border-orange-500"
-          />
-          {step === "price" && <span className="text-[12px] text-ink/40 whitespace-nowrap">/ unit</span>}
-        </div>
-      ) : (
-        <input
-          type="text" autoFocus
-          value={(extras.contractorName as string | undefined) ?? ""}
-          onChange={(e) => setExtras((ex) => ({ ...ex, contractorName: e.target.value }))}
-          onKeyDown={(e) => { if (e.key === "Enter") onNext(); }}
-          placeholder="Contractor name"
-          className="rounded-lg border border-line bg-paper px-3 py-2.5 text-[15px] text-ink outline-none focus:border-orange-500"
-        />
-      )}
-
-      <div className="relative flex gap-2 pt-0.5">
-        <button
-          onClick={onBack}
-          className="flex items-center justify-center gap-1.5 rounded-pill border border-line px-4 py-2.5 text-[13px] font-semibold text-ink/70 hover:border-ink/30"
-        >
-          Back
-        </button>
-        {step !== "price" && (
-          <button
-            onClick={skip}
-            className="flex items-center justify-center gap-1.5 rounded-pill border border-line px-4 py-2.5 text-[13px] font-semibold text-ink/70 hover:border-ink/30"
-          >
-            Skip
-          </button>
-        )}
-        <button
-          onClick={onNext}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-pill bg-orange-500 py-2.5 text-[13px] font-semibold text-white hover:bg-orange-600"
-        >
-          <Check size={15} /> {step === "contractor" ? "Continue → payment" : "Continue"}
-        </button>
-        <button
-          onClick={onCancel}
-          className="flex items-center justify-center rounded-pill border border-line px-3 py-2.5 text-ink/70 hover:border-ink/30"
-          aria-label="Cancel"
-        >
-          <X size={15} />
-        </button>
-      </div>
-    </div>
+      <div className="h-2" />
+    </Sheet>
   );
 }

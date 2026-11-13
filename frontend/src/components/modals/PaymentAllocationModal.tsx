@@ -104,10 +104,10 @@ export function PaymentAllocationModal({ customers, estimates, currency, initial
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
-      <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4">
+      <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-display text-lg font-bold text-ink">Record Payment</h3>
+          <h3 className="font-display text-lg font-semibold text-ink">Record Payment</h3>
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
 
@@ -115,17 +115,17 @@ export function PaymentAllocationModal({ customers, estimates, currency, initial
           {isContextual ? (
             <div className="rounded-xl bg-paper px-3 py-2.5">
               <p className="text-sm font-semibold text-ink">{contextEstimate ? `${contextEstimate.number} · ${customerName}` : customerName}</p>
-              {contextEstimate && <p className="text-xs text-ink/50">{fmtMoney(contextEstimate.due, currency)} due</p>}
+              {contextEstimate && <p className="text-xs text-mute">{fmtMoney(contextEstimate.due, currency)} due</p>}
             </div>
           ) : (
             <div>
-              <label className="mb-1 block text-xs font-semibold text-ink/50">Customer <span className="text-bad-500">*</span></label>
+              <label className="mb-1 block text-xs font-semibold text-mute">Customer <span className="text-bad-500">*</span></label>
               <SearchableSelect options={customerOptions} value={customerId} onChange={setCustomerId} placeholder="Select a customer" />
             </div>
           )}
 
           <div>
-            <label className="mb-1 block text-xs font-semibold text-ink/50">Amount received <span className="text-bad-500">*</span></label>
+            <label className="mb-1 block text-xs font-semibold text-mute">Amount received <span className="text-bad-500">*</span></label>
             <input
               type="number" min="0" placeholder="0.00" autoFocus
               value={totalAmount}
@@ -140,11 +140,11 @@ export function PaymentAllocationModal({ customers, estimates, currency, initial
 
           {customerId && !isSingle && (
             dueEstimates.length === 0 ? (
-              <p className="rounded-xl bg-paper px-3 py-2.5 text-xs text-ink/50">No due estimates for this customer — this will be recorded as a general advance.</p>
+              <p className="rounded-xl bg-paper px-3 py-2.5 text-xs text-mute">No due estimates for this customer — this will be recorded as a general advance.</p>
             ) : (
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
-                  <label className="block text-xs font-semibold text-ink/50">Apply to which estimate(s)?</label>
+                  <label className="block text-xs font-semibold text-mute">Apply to which estimate(s)?</label>
                   {!customized && (
                     <button type="button" onClick={startCustomizing} disabled={enteredTotal <= 0}
                       className="text-xs font-semibold text-brand-600 disabled:opacity-30">
@@ -159,7 +159,7 @@ export function PaymentAllocationModal({ customers, estimates, currency, initial
                       return (
                         <div key={e.id} className="flex items-center justify-between text-sm">
                           <span className="font-semibold text-ink">{e.number}</span>
-                          <span className={`font-semibold ${amt >= e.due ? "text-good-700" : "text-ink/50"}`}>{fmtMoney(amt, currency)} of {fmtMoney(e.due, currency)}</span>
+                          <span className={`font-semibold ${amt >= e.due ? "text-good-700" : "text-mute"}`}>{fmtMoney(amt, currency)} of {fmtMoney(e.due, currency)}</span>
                         </div>
                       );
                     })}
@@ -170,7 +170,7 @@ export function PaymentAllocationModal({ customers, estimates, currency, initial
                       <div key={e.id} className="flex items-center gap-2 rounded-xl border border-line p-2.5">
                         <div className="flex-1 min-w-0">
                           <p className="truncate text-sm font-semibold text-ink">{e.number}</p>
-                          <p className="text-xs text-ink/40">{fmtMoney(e.due, currency)} due</p>
+                          <p className="text-xs text-faint">{fmtMoney(e.due, currency)} due</p>
                         </div>
                         <input
                           type="number" min="0" max={e.due} placeholder="0.00"
@@ -180,7 +180,7 @@ export function PaymentAllocationModal({ customers, estimates, currency, initial
                         />
                       </div>
                     ))}
-                    <button type="button" onClick={() => setCustomized(false)} className="text-xs font-semibold text-ink/40">
+                    <button type="button" onClick={() => setCustomized(false)} className="text-xs font-semibold text-faint">
                       Use automatic split instead
                     </button>
                   </div>
@@ -200,14 +200,14 @@ export function PaymentAllocationModal({ customers, estimates, currency, initial
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-ink/50">Method</label>
+              <label className="mb-1 block text-xs font-semibold text-mute">Method</label>
               <select value={method} onChange={(e) => setMethod(e.target.value)}
                 className="w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400">
                 {["Cash", "Bank Transfer", "UPI", "Card"].map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-ink/50">Date</label>
+              <label className="mb-1 block text-xs font-semibold text-mute">Date</label>
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
                 className="w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400" />
             </div>

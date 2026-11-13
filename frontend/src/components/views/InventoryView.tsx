@@ -75,7 +75,7 @@ function CategoryValueCard({ items, currency }: any) {
             <div className="h-2 flex-1 overflow-hidden rounded-full bg-paper">
               <div className="h-full rounded-full bg-brand-400" style={{ width: `${Math.max(4, (value / max) * 100)}%` }} />
             </div>
-            <span className="w-16 shrink-0 text-right font-mono text-xs text-ink/50">{fmtMoney(value, currency)}</span>
+            <span className="w-16 shrink-0 text-right font-mono text-xs text-mute">{fmtMoney(value, currency)}</span>
           </div>
         ))}
       </div>
@@ -223,7 +223,7 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
         >
           <ClipboardList size={15} /> Stock take
         </button>
-        <Link to="/stock-adjustments" className="text-sm font-semibold text-ink/50">
+        <Link to="/stock-adjustments" className="text-sm font-semibold text-mute">
           History
         </Link>
       </div>
@@ -250,7 +250,7 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
       <div>
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-base font-semibold text-ink">Inventory · {fmtNum(items.length)}</h3>
-          <button onClick={printInventory} className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink/60">
+          <button onClick={printInventory} className="inline-flex items-center gap-1.5 text-xs font-semibold text-mute">
             <Printer size={12} /> Print
           </button>
         </div>
@@ -294,9 +294,9 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
         </div>
 
         {items.length === 0 ? (
-          <p className="text-sm text-ink/40">No items added yet. Go to Items to add your first product.</p>
+          <p className="text-sm text-faint">No items added yet. Go to Items to add your first product.</p>
         ) : allItems.length === 0 ? (
-          <p className="text-sm text-ink/40">No items match this search, category, or filter.</p>
+          <p className="text-sm text-faint">No items match this search, category, or filter.</p>
         ) : (
           <div ref={scrollRef} className="max-h-[560px] overflow-y-auto">
             <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>
@@ -325,7 +325,7 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
                       <div className="flex items-center justify-between">
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-ink">{it.name}</p>
-                          <p className="text-xs text-ink/40">
+                          <p className="text-xs text-faint">
                             {it.unit || "unit"} · {it.category || "Others"}
                             {locationLabel(it) && (
                               <span className="ml-1 inline-flex items-center gap-0.5"><MapPin size={9} className="inline" /> {locationLabel(it)}</span>
@@ -336,15 +336,15 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
                           <div className="text-right">
                             <div className="h-4">
                               {isLow ? (
-                                <span className="inline-block rounded-full bg-warn-100 px-2 py-0.5 text-[10px] font-bold text-warn-700">Low</span>
+                                <span className="inline-block rounded-full bg-warn-100 px-2 py-0.5 text-[11px] font-semibold text-warn-700">Low</span>
                               ) : dead ? (
-                                <span className="inline-block rounded-full bg-paper px-2 py-0.5 text-[10px] font-semibold text-ink/40">No sale 90d+</span>
+                                <span className="inline-block rounded-full bg-paper px-2 py-0.5 text-[11px] font-semibold text-faint">No sale 90d+</span>
                               ) : null}
                             </div>
-                            <p className={`font-display text-base font-bold ${stockColor(it)}`}>{stockBreakdown(it)}</p>
-                            <p className="text-xs text-ink/40">{fmtMoney(itemValue(it), settings?.currency)}</p>
+                            <p className={`font-display text-base font-semibold ${stockColor(it)}`}>{stockBreakdown(it)}</p>
+                            <p className="text-xs text-faint">{fmtMoney(itemValue(it), settings?.currency)}</p>
                           </div>
-                          <button type="button" onClick={(e) => { e.stopPropagation(); openModal("item", { editingItem: it }); }} className="rounded-full p-2 text-ink/40 hover:bg-paper">
+                          <button type="button" onClick={(e) => { e.stopPropagation(); openModal("item", { editingItem: it }); }} className="rounded-full p-2 text-faint hover:bg-paper">
                             <Pencil size={15} />
                           </button>
                           <ChevronDown size={15} className={`shrink-0 text-ink/30 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
@@ -359,19 +359,19 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
                         return (
                           <div className="mt-3 space-y-1.5 border-t border-line/70 pt-3">
                             <div className="flex items-center justify-between text-xs">
-                              <span className="text-ink/40">Value on hand</span>
+                              <span className="text-faint">Value on hand</span>
                               <span className="font-semibold text-ink">{fmtMoney(itemValue(it), settings?.currency)}</span>
                             </div>
 
                             {godowns && godowns.length > 1 && present.length > 0 && (
                               <div className="py-1">
-                                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-ink/35">By godown</p>
+                                <p className="mb-1 text-[11px] font-semibold text-faint">By godown</p>
                                 <div className="space-y-1">
                                   {present.map((g: any) => {
                                     const gd = godowns.find((x: any) => String(x.id) === String(g.godownId));
                                     return (
                                       <div key={String(g.godownId)} className="flex items-center justify-between text-xs">
-                                        <span className="text-ink/60">{gd?.name || "Unknown godown"}</span>
+                                        <span className="text-mute">{gd?.name || "Unknown godown"}</span>
                                         <span className="font-semibold text-ink">{qtyLabel(it, g.stock, g.stockKg)}</span>
                                       </div>
                                     );
@@ -381,7 +381,7 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
                             )}
 
                             <div className="flex items-center justify-between text-xs">
-                              <span className="text-ink/40">Last sold</span>
+                              <span className="text-faint">Last sold</span>
                               <span className="font-semibold text-ink">
                                 {lastSaleDate ? fmtDate(lastSaleDate) : "No sales yet"}
                                 {detail?.lastSale?.rate != null ? ` · ${fmtMoney(detail.lastSale.rate, settings?.currency)}` : ""}
@@ -390,7 +390,7 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
 
                             {reorder && (
                               <div className="flex items-center justify-between text-xs">
-                                <span className="text-ink/40">Sales pace</span>
+                                <span className="text-faint">Sales pace</span>
                                 <span className="font-semibold text-ink">
                                   {reorder.dailyRate != null ? `${fmtNum(reorder.dailyRate)}/day` : "—"}
                                   {reorder.daysLeft != null ? ` · ~${reorder.daysLeft}d cover left` : ""}
@@ -402,7 +402,7 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
 
                             {detail?.lastPurchase && (
                               <div className="flex items-center justify-between text-xs">
-                                <span className="text-ink/40">Last purchase</span>
+                                <span className="text-faint">Last purchase</span>
                                 <span className="font-semibold text-ink text-right">
                                   {fmtDate(detail.lastPurchase.date)} · {qtyLabel(it, detail.lastPurchase.qty, detail.lastPurchase.qtyKg)} @ {fmtMoney(detail.lastPurchase.rate, settings?.currency)}
                                   {detail.lastPurchase.vendor ? ` (${detail.lastPurchase.vendor.name})` : ""}
@@ -412,7 +412,7 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
 
                             {detail?.margin && (
                               <div className="flex items-center justify-between text-xs">
-                                <span className="text-ink/40">Margin</span>
+                                <span className="text-faint">Margin</span>
                                 <span className="font-semibold text-ink">
                                   {fmtMoney(detail.margin.perUnit, settings?.currency)}
                                   {detail.margin.percent != null ? ` (${fmtNum(detail.margin.percent)}%)` : ""}
@@ -423,7 +423,7 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
                             {reorder && (
                               <>
                                 {reorder.mode === "pace" && reorder.dailyRate != null && (
-                                  <p className="pt-1 text-[11px] text-ink/40">
+                                  <p className="pt-1 text-[12px] text-faint">
                                     At {fmtNum(reorder.dailyRate)}/day, stock won't cover the vendor's usual {reorder.leadTimeDays}-day lead time — ordering now keeps you covered.
                                   </p>
                                 )}

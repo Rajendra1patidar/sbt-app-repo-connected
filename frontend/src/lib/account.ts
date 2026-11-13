@@ -6,6 +6,8 @@
 import { api } from "./api";
 
 export const DATA_CACHE_KEY = "sbt_data_cache";
+/** The estimate form auto-saves here so a half-made bill survives a refresh or a dropped connection. */
+export const ESTIMATE_DRAFT_KEY = "sbt_estimate_draft_v1";
 const API_CACHE_NAME = "sbt-api-get-cache";
 
 /** The account id inside the current login token, or undefined when signed out. */
@@ -28,5 +30,6 @@ export function currentAccountId(): string | undefined {
  */
 export function clearPrivateCaches() {
   try { window.localStorage.removeItem(DATA_CACHE_KEY); } catch { /* ignore */ }
+  try { window.localStorage.removeItem(ESTIMATE_DRAFT_KEY); } catch { /* ignore */ }
   try { if ("caches" in window) void window.caches.delete(API_CACHE_NAME); } catch { /* ignore */ }
 }

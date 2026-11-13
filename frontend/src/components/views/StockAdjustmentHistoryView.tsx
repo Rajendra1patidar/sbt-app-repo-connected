@@ -50,10 +50,10 @@ export function StockAdjustmentHistoryView({ items, currency }: any) {
     <div className="space-y-4 px-5 pb-28">
       <Card className="space-y-1">
         <div className="flex items-center gap-2">
-          <ClipboardList size={17} className="text-ink/50" />
-          <h3 className="font-display text-base font-bold text-ink">Stock Adjustments</h3>
+          <ClipboardList size={17} className="text-mute" />
+          <h3 className="font-display text-base font-semibold text-ink">Stock Adjustments</h3>
         </div>
-        <p className="text-xs text-ink/40">
+        <p className="text-xs text-faint">
           Every correction made via a stock take or per-item quick adjustment, with the ledger value it posted.
         </p>
       </Card>
@@ -61,22 +61,22 @@ export function StockAdjustmentHistoryView({ items, currency }: any) {
       {!loading && !error && rows.length > 0 && (
         <div className="grid grid-cols-3 gap-2">
           <Card className="text-center py-3">
-            <p className="text-xs text-ink/40">Value found</p>
-            <p className="font-display text-base font-bold text-good-600">{fmtMoney(totals.gained, currency)}</p>
+            <p className="text-xs text-faint">Value found</p>
+            <p className="font-display text-base font-semibold text-good-600">{fmtMoney(totals.gained, currency)}</p>
           </Card>
           <Card className="text-center py-3">
-            <p className="text-xs text-ink/40">Value lost</p>
-            <p className="font-display text-base font-bold text-bad-600">{fmtMoney(totals.lost, currency)}</p>
+            <p className="text-xs text-faint">Value lost</p>
+            <p className="font-display text-base font-semibold text-bad-600">{fmtMoney(totals.lost, currency)}</p>
           </Card>
           <Card className="text-center py-3">
-            <p className="text-xs text-ink/40">Net</p>
-            <p className={`font-display text-base font-bold ${totals.net >= 0 ? "text-good-600" : "text-bad-600"}`}>{fmtMoney(totals.net, currency)}</p>
+            <p className="text-xs text-faint">Net</p>
+            <p className={`font-display text-base font-semibold ${totals.net >= 0 ? "text-good-600" : "text-bad-600"}`}>{fmtMoney(totals.net, currency)}</p>
           </Card>
         </div>
       )}
 
       <div className="relative">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -86,7 +86,7 @@ export function StockAdjustmentHistoryView({ items, currency }: any) {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-10 text-ink/40"><Loader2 size={20} className="animate-spin" /></div>
+        <div className="flex items-center justify-center py-10 text-faint"><Loader2 size={20} className="animate-spin" /></div>
       ) : error ? (
         <Card><p className="text-center text-sm text-bad-600">{error}</p></Card>
       ) : filtered.length === 0 ? (
@@ -100,16 +100,16 @@ export function StockAdjustmentHistoryView({ items, currency }: any) {
               <Card key={r.id} className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="font-semibold text-ink truncate">{item?.name || "Deleted item"}</p>
-                  <p className="text-xs text-ink/40">
+                  <p className="text-xs text-faint">
                     {fmtNum(r.previousStock)} → {fmtNum(r.newStock)} {item?.unit || ""} · {r.date}
                   </p>
-                  {r.reason && <p className="text-xs text-ink/40 italic truncate">{r.reason}</p>}
+                  {r.reason && <p className="text-xs text-faint italic truncate">{r.reason}</p>}
                 </div>
                 <div className="text-right shrink-0">
-                  <p className={`font-display text-sm font-bold ${up ? "text-good-600" : "text-bad-600"}`}>
+                  <p className={`font-display text-sm font-semibold ${up ? "text-good-600" : "text-bad-600"}`}>
                     {up ? "+" : ""}{fmtNum(r.delta)}
                   </p>
-                  <p className="text-xs text-ink/40">{fmtMoney(Math.abs(r.valueChange), currency)}</p>
+                  <p className="text-xs text-faint">{fmtMoney(Math.abs(r.valueChange), currency)}</p>
                 </div>
               </Card>
             );

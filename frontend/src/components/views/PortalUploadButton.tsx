@@ -41,7 +41,7 @@ export function PortalUploadButton({ label, accept, multiple, onUploaded }: {
         {busy ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
         {busy ? `Uploading ${pct}%` : label}
       </button>
-      <span className="px-1 text-[11px] text-slate-500">…or drag files here from your computer</span>
+      <span className="px-1 text-[12px] text-slate-500">…or drag files here from your computer</span>
       <input ref={ref} type="file" accept={accept} multiple={multiple} className="hidden" onChange={(e) => { const f = Array.from(e.target.files || []); e.target.value = ""; run(f); }} />
       {error && <span role="alert" className="max-w-xs px-1 text-xs text-red-700">{error}</span>}
     </div>

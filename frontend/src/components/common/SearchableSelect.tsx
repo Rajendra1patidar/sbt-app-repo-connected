@@ -109,15 +109,15 @@ export function SearchableSelect({ options, value, onChange, placeholder }: any)
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between rounded-xl border border-line bg-card px-3 py-2.5 text-left text-sm"
       >
-        <span className={selected ? "truncate text-ink" : "truncate text-ink/40"}>
+        <span className={selected ? "truncate text-ink" : "truncate text-faint"}>
           {selected ? selected.label : (placeholder || "Select...")}
         </span>
-        <ChevronDown size={15} className="ml-2 shrink-0 text-ink/40" />
+        <ChevronDown size={15} className="ml-2 shrink-0 text-faint" />
       </button>
       {open && (
-        <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-xl border border-line bg-card shadow-lg">
+        <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-xl border border-line bg-card shadow-sheet">
           <div className="sticky top-0 flex items-center gap-2 border-b border-line bg-card p-2">
-            <Search size={14} className="shrink-0 text-ink/40" />
+            <Search size={14} className="shrink-0 text-faint" />
             <input
               ref={inputRef}
               value={query}
@@ -129,10 +129,10 @@ export function SearchableSelect({ options, value, onChange, placeholder }: any)
           </div>
           <div ref={listRef} className="max-h-56 overflow-y-auto">
             {partial && visible.length > 0 && (
-              <p className="bg-warn-50 px-3 py-1.5 text-[11px] font-semibold text-warn-700">No item has all your words. Closest matches:</p>
+              <p className="bg-warn-50 px-3 py-1.5 text-[12px] font-semibold text-warn-700">No item has all your words. Closest matches:</p>
             )}
             {visible.length === 0 ? (
-              <p className="px-3 py-2 text-xs text-ink/40">No matches</p>
+              <p className="px-3 py-2 text-xs text-faint">No matches</p>
             ) : (
               visible.map((o: any, i: number) => (
                 <button
@@ -150,14 +150,14 @@ export function SearchableSelect({ options, value, onChange, placeholder }: any)
                       "saria" for an item just named "Kamdhenu 10mm") — show the category
                       so it's clear why this row matched */}
                   {o.keywords && q && matchRanges(cleanLabel(o.label), q).length === 0 && (
-                    <span className="ml-1.5 text-xs font-normal text-ink/40">— {o.keywords}</span>
+                    <span className="ml-1.5 text-xs font-normal text-faint">— {o.keywords}</span>
                   )}
                 </button>
               ))
             )}
           </div>
           {filtered.length > MAX_RESULTS && (
-            <p className="border-t border-line px-3 py-1.5 text-[11px] text-ink/40">
+            <p className="border-t border-line px-3 py-1.5 text-[12px] text-faint">
               {filtered.length - MAX_RESULTS} more match{filtered.length - MAX_RESULTS !== 1 ? "es" : ""} — keep typing to narrow it down
             </p>
           )}

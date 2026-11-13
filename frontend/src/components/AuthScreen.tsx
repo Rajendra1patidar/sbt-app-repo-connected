@@ -98,7 +98,7 @@ export function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
               : mode === "forgot" ? "Reset your PIN"
               : "Enter your reset code"}
           </h1>
-          <p className="text-sm text-ink/40">
+          <p className="text-sm text-faint">
             {mode === "forgot" ? "We'll email you a code to reset your PIN."
               : mode === "reset" ? "Check your email for the code we sent."
               : "Shree Balaji Traders"}
@@ -160,7 +160,7 @@ export function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
         <button
           type="submit"
           disabled={busy}
-          className="flex w-full items-center justify-center gap-2 rounded-pill bg-brand-500 py-3 text-sm font-semibold text-white shadow-sm hover:bg-brand-600 active:scale-[0.98] transition-all duration-150 disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-pill bg-brand-500 py-3 text-sm font-semibold text-white hover:bg-brand-600 active:scale-[0.98] transition-all duration-150 disabled:opacity-50"
         >
           {busy && <Loader2 size={16} className="animate-spin" />}
           {busy
@@ -174,7 +174,7 @@ export function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
         {mode === "login" && (
           <button
             type="button"
-            className="mt-3 w-full text-center text-xs font-medium text-ink/50 hover:text-brand-500 transition-colors"
+            className="mt-3 w-full text-center text-xs font-medium text-mute hover:text-brand-500 transition-colors"
             onClick={() => { setMode("forgot"); setError(""); setNotice(""); }}
           >
             Forgot your PIN?
@@ -183,7 +183,7 @@ export function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
 
         <button
           type="button"
-          className="mt-4 w-full text-center text-xs font-medium text-ink/50 hover:text-brand-500 transition-colors"
+          className="mt-4 w-full text-center text-xs font-medium text-mute hover:text-brand-500 transition-colors"
           onClick={() => {
             setError("");
             setNotice("");

@@ -68,12 +68,12 @@ export function PurchasesView({ purchases, vendors, items, currency, openModal, 
   return (
     <div className="space-y-3 px-5 pb-28">
       <div className="flex items-center justify-between pt-1">
-        <p className="text-sm text-ink/40">{purchases.length} purchase{purchases.length !== 1 ? "s" : ""}</p>
+        <p className="text-sm text-faint">{purchases.length} purchase{purchases.length !== 1 ? "s" : ""}</p>
         <PillButton onClick={() => openModal("purchase")}><Plus size={16} /> New Purchase</PillButton>
       </div>
       {purchases.length > 0 && (
         <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -86,13 +86,13 @@ export function PurchasesView({ purchases, vendors, items, currency, openModal, 
         <div className="flex gap-2">
           <button
             type="button" onClick={() => setGroupBy("item")}
-            className={`flex-1 rounded-full py-2 text-xs font-semibold ${groupBy === "item" ? "bg-ink text-white" : "border border-line/70 text-ink/60"}`}
+            className={`flex-1 rounded-full py-2 text-xs font-semibold ${groupBy === "item" ? "bg-ink text-white" : "border border-line/70 text-mute"}`}
           >
             By item
           </button>
           <button
             type="button" onClick={() => setGroupBy("vendor")}
-            className={`flex-1 rounded-full py-2 text-xs font-semibold ${groupBy === "vendor" ? "bg-ink text-white" : "border border-line/70 text-ink/60"}`}
+            className={`flex-1 rounded-full py-2 text-xs font-semibold ${groupBy === "vendor" ? "bg-ink text-white" : "border border-line/70 text-mute"}`}
           >
             By vendor
           </button>
@@ -107,7 +107,7 @@ export function PurchasesView({ purchases, vendors, items, currency, openModal, 
           />
         </Card>
       ) : filtered.length === 0 ? (
-        <p className="text-center text-sm text-ink/40 py-6">No purchases match your search.</p>
+        <p className="text-center text-sm text-faint py-6">No purchases match your search.</p>
       ) : (
         <>
           {pageGroups.map((group) => {
@@ -117,7 +117,7 @@ export function PurchasesView({ purchases, vendors, items, currency, openModal, 
               <div key={group.key} className="mb-3">
                 <div className="flex items-center justify-between px-1 pb-1 pt-2">
                   <span className="text-sm font-semibold text-ink">{group.label}</span>
-                  <span className={`text-xs ${groupDue > 0 ? "text-bad-600 font-semibold" : "text-ink/40"}`}>
+                  <span className={`text-xs ${groupDue > 0 ? "text-bad-600 font-semibold" : "text-faint"}`}>
                     {groupDue > 0 ? `${fmtMoney(groupDue, currency)} due` : `${fmtMoney(groupTotal, currency)} total`}
                   </span>
                 </div>
@@ -127,12 +127,12 @@ export function PurchasesView({ purchases, vendors, items, currency, openModal, 
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600"><PackagePlus size={18} /></div>
                       <div className="min-w-0">
                         <p className="font-semibold text-ink truncate">{groupBy === "vendor" ? itemName(p.itemId) : vendorName(p.vendorId)}</p>
-                        <p className="text-xs text-ink/40">{fmtNum(p.qty)} @ {fmtMoney(p.rate, currency)} · {fmtDate(p.date)}</p>
+                        <p className="text-xs text-faint">{fmtNum(p.qty)} @ {fmtMoney(p.rate, currency)} · {fmtDate(p.date)}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       <div className="text-right">
-                        <p className="font-bold text-ink">{fmtMoney(p.amount, currency)}</p>
+                        <p className="font-semibold text-ink">{fmtMoney(p.amount, currency)}</p>
                         <Badge status={statusBadge(p.paymentStatus)} />
                       </div>
                       {p.paymentStatus !== "paid" && (

@@ -91,7 +91,7 @@ export function InvoiceAttachment({ order, attachOrderInvoice, removeOrderInvoic
         onClick={() => cameraInputRef.current?.click()}
         disabled={uploading}
         title="Take a photo"
-        className="inline-flex items-center gap-1 rounded-full border border-line px-2.5 py-1.5 text-xs font-semibold text-ink/60 hover:border-brand-300 hover:text-brand-600 disabled:opacity-50"
+        className="inline-flex items-center gap-1 rounded-full border border-line px-2.5 py-1.5 text-xs font-semibold text-mute hover:border-brand-300 hover:text-brand-600 disabled:opacity-50"
       >
         {uploading ? <Loader2 size={12} className="animate-spin" /> : <Camera size={12} />}
         {uploading ? "Uploading…" : "Attach bill"}
@@ -100,7 +100,7 @@ export function InvoiceAttachment({ order, attachOrderInvoice, removeOrderInvoic
         onClick={() => galleryInputRef.current?.click()}
         disabled={uploading}
         title="Choose from gallery"
-        className="inline-flex items-center justify-center rounded-full border border-line p-1.5 text-ink/60 hover:border-brand-300 hover:text-brand-600 disabled:opacity-50"
+        className="inline-flex items-center justify-center rounded-full border border-line p-1.5 text-mute hover:border-brand-300 hover:text-brand-600 disabled:opacity-50"
       >
         <Images size={14} />
       </button>
@@ -168,12 +168,12 @@ export function OrdersView({ orders, items, vendors, categories, currency, openM
     <>
     <div className="space-y-3 px-5 pb-28">
       <div className="flex items-center justify-between pt-1">
-        <p className="text-sm text-ink/40">{orders.length} order{orders.length !== 1 ? "s" : ""}</p>
+        <p className="text-sm text-faint">{orders.length} order{orders.length !== 1 ? "s" : ""}</p>
         <PillButton onClick={() => openModal("order")}><Plus size={16} /> New Order</PillButton>
       </div>
       {orders.length > 0 && (
         <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -186,13 +186,13 @@ export function OrdersView({ orders, items, vendors, categories, currency, openM
         <div className="flex gap-2">
           <button
             type="button" onClick={() => setGroupBy("item")}
-            className={`flex-1 rounded-full py-2 text-xs font-semibold ${groupBy === "item" ? "bg-ink text-white" : "border border-line/70 text-ink/60"}`}
+            className={`flex-1 rounded-full py-2 text-xs font-semibold ${groupBy === "item" ? "bg-ink text-white" : "border border-line/70 text-mute"}`}
           >
             By item
           </button>
           <button
             type="button" onClick={() => setGroupBy("vendor")}
-            className={`flex-1 rounded-full py-2 text-xs font-semibold ${groupBy === "vendor" ? "bg-ink text-white" : "border border-line/70 text-ink/60"}`}
+            className={`flex-1 rounded-full py-2 text-xs font-semibold ${groupBy === "vendor" ? "bg-ink text-white" : "border border-line/70 text-mute"}`}
           >
             By vendor
           </button>
@@ -207,18 +207,18 @@ export function OrdersView({ orders, items, vendors, categories, currency, openM
       {orders.length === 0
         ? <Card><EmptyState text="Place orders to restock your inventory. Paying an order off in full automatically updates the item's stock." cta="New Order" onCta={() => openModal("order")} /></Card>
         : pending.length === 0 && received.length === 0
-        ? <p className="text-center text-sm text-ink/40 py-6">No orders match this category.</p>
+        ? <p className="text-center text-sm text-faint py-6">No orders match this category.</p>
         : (
           <>
             {pending.length > 0 && (
               <div>
-                <p className="mb-1 px-1 text-xs font-bold uppercase text-ink/40">Pending ({pending.length})</p>
+                <p className="mb-1 px-1 text-xs font-semibold text-faint">Pending ({pending.length})</p>
                 {groupsOf(pending).map((group) => (
                   <div key={group.key} className="mb-3">
                     {groupBy === "vendor" && (
                       <div className="flex items-center justify-between px-1 pb-1 pt-2">
                         <span className="text-sm font-semibold text-ink">{group.label}</span>
-                        <span className="text-xs text-ink/40">{fmtMoney(group.records.reduce((s, r) => s + (r.amount || 0), 0), currency)} total</span>
+                        <span className="text-xs text-faint">{fmtMoney(group.records.reduce((s, r) => s + (r.amount || 0), 0), currency)} total</span>
                       </div>
                     )}
                     {group.records.map((o: any) => (
@@ -226,15 +226,15 @@ export function OrdersView({ orders, items, vendors, categories, currency, openM
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <p className="font-semibold text-ink">{itemName(o.itemId)}</p>
-                            <p className="text-xs text-ink/40">{orderMeta(o)}</p>
+                            <p className="text-xs text-faint">{orderMeta(o)}</p>
                           </div>
                           <div className="text-right shrink-0">
-                            <p className="font-bold text-ink">{fmtMoney(o.amount || 0, currency)}</p>
+                            <p className="font-semibold text-ink">{fmtMoney(o.amount || 0, currency)}</p>
                             <Badge status={statusBadge(o.paymentStatus)} />
                           </div>
                         </div>
                         <div className="mt-3 flex items-center justify-between gap-2">
-                          <p className="text-xs text-ink/40">{round2((o.amount || 0) - (o.amountPaid || 0)) > 0 ? `${fmtMoney(round2((o.amount || 0) - (o.amountPaid || 0)), currency)} remaining` : "Fully paid"}</p>
+                          <p className="text-xs text-faint">{round2((o.amount || 0) - (o.amountPaid || 0)) > 0 ? `${fmtMoney(round2((o.amount || 0) - (o.amountPaid || 0)), currency)} remaining` : "Fully paid"}</p>
                           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                             <InvoiceAttachment
                               order={o}
@@ -260,23 +260,23 @@ export function OrdersView({ orders, items, vendors, categories, currency, openM
             {pending.length > 0 && received.length > 0 && <SectionDivider className="my-1" />}
             {received.length > 0 && (
               <div>
-                <p className="mb-1 px-1 text-xs font-bold uppercase text-ink/40">Received ({received.length})</p>
+                <p className="mb-1 px-1 text-xs font-semibold text-faint">Received ({received.length})</p>
                 {groupsOf(received).map((group) => (
                   <div key={group.key} className="mb-3">
                     {groupBy === "vendor" && (
                       <div className="flex items-center justify-between px-1 pb-1 pt-2">
                         <span className="text-sm font-semibold text-ink">{group.label}</span>
-                        <span className="text-xs text-ink/40">{fmtMoney(group.records.reduce((s, r) => s + (r.amount || 0), 0), currency)} total</span>
+                        <span className="text-xs text-faint">{fmtMoney(group.records.reduce((s, r) => s + (r.amount || 0), 0), currency)} total</span>
                       </div>
                     )}
                     {group.records.map((o: any) => (
                       <Row key={o.id} className="flex items-center justify-between gap-2" onClick={() => openModal("orderDetail", { order: o })}>
                         <div className="min-w-0">
                           <p className="font-semibold text-ink">{itemName(o.itemId)}</p>
-                          <p className="text-xs text-ink/40">{orderMeta(o)}</p>
+                          <p className="text-xs text-faint">{orderMeta(o)}</p>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="font-bold text-ink">{fmtMoney(o.amount || 0, currency)}</p>
+                          <p className="font-semibold text-ink">{fmtMoney(o.amount || 0, currency)}</p>
                           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                             <InvoiceAttachment
                               order={o}

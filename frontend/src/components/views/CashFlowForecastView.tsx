@@ -9,8 +9,8 @@ import { fmtMoney } from "../../lib/format";
 function ProjectionCard({ label, value, currency }: { label: string; value: number; currency: string }) {
   return (
     <Card className="text-center">
-      <p className="text-xs font-semibold text-ink/40">{label}</p>
-      <p className={`mt-1 font-display text-xl font-bold ${value < 0 ? "text-bad-600" : "text-ink"}`}>{fmtMoney(value, currency)}</p>
+      <p className="text-xs font-semibold text-faint">{label}</p>
+      <p className={`mt-1 font-display text-xl font-semibold ${value < 0 ? "text-bad-600" : "text-ink"}`}>{fmtMoney(value, currency)}</p>
     </Card>
   );
 }
@@ -28,7 +28,7 @@ export function CashFlowForecastView({ currency }: { currency: string }) {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="px-5 pb-28"><p className="py-10 text-center text-sm text-ink/40">Loading…</p></div>;
+  if (loading) return <div className="px-5 pb-28"><p className="py-10 text-center text-sm text-faint">Loading…</p></div>;
   if (error || !data) return <div className="px-5 pb-28"><p className="rounded-xl bg-bad-50 px-3 py-2 text-xs font-semibold text-bad-600">{error || "No data"}</p></div>;
 
   const buckets = [
@@ -42,8 +42,8 @@ export function CashFlowForecastView({ currency }: { currency: string }) {
   return (
     <div className="space-y-4 px-5 pb-28">
       <Card className="space-y-1">
-        <div className="flex items-center gap-2"><TrendingUp size={16} className="text-brand-500" /><h3 className="text-sm font-bold text-ink">How this works</h3></div>
-        <p className="text-xs text-ink/40">
+        <div className="flex items-center gap-2"><TrendingUp size={16} className="text-brand-500" /><h3 className="text-sm font-semibold text-ink">How this works</h3></div>
+        <p className="text-xs text-faint">
           Current cash is your real Funds balance. Inflows are unpaid estimates bucketed by their actual due date —
           overdue ones count as due now, not spread optimistically forward. The only projection here is a real
           trailing-90-day average of your expenses, carried forward at that same rate. Vendor payables have no due
@@ -59,30 +59,30 @@ export function CashFlowForecastView({ currency }: { currency: string }) {
 
       <Card className="grid grid-cols-2 gap-3">
         <div>
-          <p className="text-xs font-semibold text-ink/40">Current cash</p>
-          <p className="mt-1 text-lg font-bold text-ink">{fmtMoney(data.currentCash, currency)}</p>
+          <p className="text-xs font-semibold text-faint">Current cash</p>
+          <p className="mt-1 text-lg font-semibold text-ink">{fmtMoney(data.currentCash, currency)}</p>
         </div>
         <div>
-          <p className="text-xs font-semibold text-ink/40">Avg. monthly expense</p>
-          <p className="mt-1 text-lg font-bold text-ink">{fmtMoney(data.avgMonthlyExpense, currency)}</p>
+          <p className="text-xs font-semibold text-faint">Avg. monthly expense</p>
+          <p className="mt-1 text-lg font-semibold text-ink">{fmtMoney(data.avgMonthlyExpense, currency)}</p>
         </div>
         <div>
-          <p className="text-xs font-semibold text-ink/40">Outstanding receivable</p>
-          <p className="mt-1 text-lg font-bold text-good-600">{fmtMoney(data.outstandingReceivable, currency)}</p>
+          <p className="text-xs font-semibold text-faint">Outstanding receivable</p>
+          <p className="mt-1 text-lg font-semibold text-good-600">{fmtMoney(data.outstandingReceivable, currency)}</p>
         </div>
         <div>
-          <p className="text-xs font-semibold text-ink/40">Outstanding payable</p>
-          <p className="mt-1 text-lg font-bold text-bad-600">{fmtMoney(data.outstandingPayable, currency)}</p>
-          <p className="text-[11px] text-ink/30">Timing unknown</p>
+          <p className="text-xs font-semibold text-faint">Outstanding payable</p>
+          <p className="mt-1 text-lg font-semibold text-bad-600">{fmtMoney(data.outstandingPayable, currency)}</p>
+          <p className="text-[12px] text-ink/30">Timing unknown</p>
         </div>
       </Card>
 
       <Card>
-        <h3 className="mb-3 font-display text-base font-bold text-ink">Expected inflows by due date</h3>
+        <h3 className="mb-3 font-display text-base font-semibold text-ink">Expected inflows by due date</h3>
         <div className="space-y-2">
           {buckets.map((b) => (
             <div key={b.key} className="flex items-center justify-between text-sm">
-              <span className="text-ink/60">{b.label}</span>
+              <span className="text-mute">{b.label}</span>
               <span className="font-semibold text-ink">{fmtMoney(data.expectedInflows[b.key], currency)}</span>
             </div>
           ))}
@@ -98,7 +98,7 @@ export function CashFlowForecastView({ currency }: { currency: string }) {
       {data.notes?.length > 0 && (
         <Card className="space-y-1">
           {data.notes.map((n: string, i: number) => (
-            <p key={i} className="text-xs text-ink/40">• {n}</p>
+            <p key={i} className="text-xs text-faint">• {n}</p>
           ))}
         </Card>
       )}

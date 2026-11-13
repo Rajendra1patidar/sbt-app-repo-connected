@@ -84,7 +84,7 @@ export function FinancialYearView({ currency }: any) {
       </Card>
 
       <div className="flex items-center justify-between">
-        <p className="text-sm text-ink/40">{years.length} financial year{years.length !== 1 ? "s" : ""}</p>
+        <p className="text-sm text-faint">{years.length} financial year{years.length !== 1 ? "s" : ""}</p>
         <PillButton onClick={() => setCreating(true)}><Plus size={16} /> Open Financial Year</PillButton>
       </div>
 
@@ -92,14 +92,14 @@ export function FinancialYearView({ currency }: any) {
 
       {creating && (
         <Card className="border border-brand-100">
-          <h3 className="mb-3 font-display text-base font-bold text-ink">Open a new financial year</h3>
+          <h3 className="mb-3 font-display text-base font-semibold text-ink">Open a new financial year</h3>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-ink/50">Start date</label>
+              <label className="mb-1 block text-xs font-semibold text-mute">Start date</label>
               <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-ink/50">End date</label>
+              <label className="mb-1 block text-xs font-semibold text-mute">End date</label>
               <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
             </div>
           </div>
@@ -111,7 +111,7 @@ export function FinancialYearView({ currency }: any) {
       )}
 
       {loading ? (
-        <Card><p className="text-center text-sm text-ink/40">Loading...</p></Card>
+        <Card><p className="text-center text-sm text-faint">Loading...</p></Card>
       ) : error ? (
         <Card><p className="text-center text-sm text-bad-600">{error}</p></Card>
       ) : years.length === 0 ? (
@@ -136,11 +136,11 @@ export function FinancialYearView({ currency }: any) {
             </div>
             {y.closed && y.openingBalances && (
               <div className="mt-3 grid grid-cols-2 gap-2 border-t border-line pt-3 text-xs">
-                <div className="flex justify-between"><span className="text-ink/50">Funds</span><span className="font-semibold text-ink">{fmtMoney(y.openingBalances.funds, currency)}</span></div>
-                <div className="flex justify-between"><span className="text-ink/50">Receivable</span><span className="font-semibold text-ink">{fmtMoney(y.openingBalances.accountsReceivable, currency)}</span></div>
-                <div className="flex justify-between"><span className="text-ink/50">Vendor Payable</span><span className="font-semibold text-ink">{fmtMoney(y.openingBalances.vendorPayable, currency)}</span></div>
-                <div className="flex justify-between"><span className="text-ink/50">Stock Value</span><span className="font-semibold text-ink">{fmtMoney(y.openingBalances.stockValue, currency)}</span></div>
-                <div className="col-span-2 flex justify-between"><span className="text-ink/50">Capital (incl. retained profit)</span><span className="font-semibold text-ink">{fmtMoney(y.openingBalances.capital, currency)}</span></div>
+                <div className="flex justify-between"><span className="text-mute">Funds</span><span className="font-semibold text-ink">{fmtMoney(y.openingBalances.funds, currency)}</span></div>
+                <div className="flex justify-between"><span className="text-mute">Receivable</span><span className="font-semibold text-ink">{fmtMoney(y.openingBalances.accountsReceivable, currency)}</span></div>
+                <div className="flex justify-between"><span className="text-mute">Vendor Payable</span><span className="font-semibold text-ink">{fmtMoney(y.openingBalances.vendorPayable, currency)}</span></div>
+                <div className="flex justify-between"><span className="text-mute">Stock Value</span><span className="font-semibold text-ink">{fmtMoney(y.openingBalances.stockValue, currency)}</span></div>
+                <div className="col-span-2 flex justify-between"><span className="text-mute">Capital (incl. retained profit)</span><span className="font-semibold text-ink">{fmtMoney(y.openingBalances.capital, currency)}</span></div>
               </div>
             )}
           </Card>
@@ -148,13 +148,13 @@ export function FinancialYearView({ currency }: any) {
       )}
 
       {confirmYear && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
-          <div className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4">
+          <div className="w-full sm:max-w-sm rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
             <div className="mb-3 flex items-center gap-2 text-bad-600">
               <AlertTriangle size={18} />
-              <h3 className="font-display text-lg font-bold text-ink">Close this financial year?</h3>
+              <h3 className="font-display text-lg font-semibold text-ink">Close this financial year?</h3>
             </div>
-            <p className="text-sm text-ink/60">
+            <p className="text-sm text-mute">
               This snapshots your balances as of {fmtDate(confirmYear.endDate)} for carrying forward. It does not delete anything and can't easily be undone. Are you sure?
             </p>
             <div className="mt-6 flex gap-3">

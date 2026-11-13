@@ -12,7 +12,7 @@ function StatusPill({ status }: { status: string }) {
     approved: "bg-good-50 text-good-700",
     rejected: "bg-bad-50 text-bad-700",
   };
-  return <span className={`rounded-pill px-2.5 py-1 text-xs font-semibold capitalize ${styles[status] || "bg-ink/5 text-ink/60"}`}>{status}</span>;
+  return <span className={`rounded-pill px-2.5 py-1 text-xs font-semibold capitalize ${styles[status] || "bg-ink/5 text-mute"}`}>{status}</span>;
 }
 
 export function ApprovalsView({ currency }: { currency: string }) {
@@ -58,8 +58,8 @@ export function ApprovalsView({ currency }: { currency: string }) {
             key={t}
             onClick={() => setTab(t)}
             className={`rounded-pill px-4 py-2 text-xs font-semibold transition-colors ${
-              tab === t ? "bg-brand-500 text-white" : "bg-card border border-line text-ink/60"
-            }`}
+ tab === t ? "bg-brand-500 text-white" : "bg-card border border-line text-mute"
+ }`}
           >
             {t === "pending" ? "Pending" : "All"}
           </button>
@@ -69,7 +69,7 @@ export function ApprovalsView({ currency }: { currency: string }) {
       {error && <p className="rounded-xl bg-bad-50 px-3 py-2 text-xs font-semibold text-bad-600">{error}</p>}
 
       {loading ? (
-        <p className="py-10 text-center text-sm text-ink/40">Loading…</p>
+        <p className="py-10 text-center text-sm text-faint">Loading…</p>
       ) : approvals.length === 0 ? (
         <EmptyState text={tab === "pending" ? "Nothing waiting for approval right now." : "No approval requests yet."} />
       ) : (
@@ -78,15 +78,15 @@ export function ApprovalsView({ currency }: { currency: string }) {
             <Card key={a.id} className="space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-ink capitalize">
+                  <p className="text-sm font-semibold text-ink capitalize">
                     {a.type} — {fmtMoney(a.amount, currency)}
                   </p>
-                  <p className="text-xs text-ink/40">Requested {fmtDate(a.createdAt)}</p>
+                  <p className="text-xs text-faint">Requested {fmtDate(a.createdAt)}</p>
                 </div>
                 <StatusPill status={a.status} />
               </div>
 
-              {a.payload?.notes && <p className="text-xs text-ink/50 italic">"{a.payload.notes}"</p>}
+              {a.payload?.notes && <p className="text-xs text-mute italic">"{a.payload.notes}"</p>}
 
               {a.status === "pending" ? (
                 <div className="flex gap-2 pt-1">
@@ -107,7 +107,7 @@ export function ApprovalsView({ currency }: { currency: string }) {
                   </button>
                 </div>
               ) : (
-                <p className="text-xs text-ink/40">
+                <p className="text-xs text-faint">
                   {a.status === "approved" ? "Approved" : "Rejected"}
                   {a.resolvedAt ? ` on ${fmtDate(a.resolvedAt)}` : ""}
                 </p>

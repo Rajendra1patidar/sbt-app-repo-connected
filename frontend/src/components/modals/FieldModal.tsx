@@ -24,16 +24,16 @@ export function FieldModal({ title, fields, initial, onClose, onSave, danger }: 
   };
   
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
-      <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4">
+      <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display text-lg font-bold text-ink">{title}</h3>
+          <h3 className="font-display text-lg font-semibold text-ink">{title}</h3>
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
         <div className="space-y-4">
           {visibleFields.map((f: any) => (
             <div key={f.key}>
-              <label className="mb-1 block text-xs font-semibold text-ink/50">{f.label}{f.required && <span className="text-bad-500"> *</span>}</label>
+              <label className="mb-1 block text-xs font-semibold text-mute">{f.label}{f.required && <span className="text-bad-500"> *</span>}</label>
               {f.type === "select" ? (
                 <select value={values[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)}
                   className="w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400">
@@ -48,10 +48,10 @@ export function FieldModal({ title, fields, initial, onClose, onSave, danger }: 
                       type="button"
                       onClick={() => set(f.key, o.value)}
                       className={`flex-1 rounded-full px-3 py-2 text-xs font-semibold transition ${
-                        values[f.key] === o.value
-                          ? "bg-card text-brand-600 shadow-sm"
-                          : "bg-paper text-ink/70 hover:text-ink"
-                      }`}
+ values[f.key] === o.value
+ ? "bg-card text-brand-600 "
+ : "bg-paper text-ink/70 hover:text-ink"
+ }`}
                     >
                       {o.label}
                     </button>
@@ -84,9 +84,9 @@ export function FieldModal({ title, fields, initial, onClose, onSave, danger }: 
                 <input type={f.type || "text"} value={values[f.key] ?? ""}
                   onChange={(e) => set(f.key, e.target.value)} placeholder={f.placeholder}
                   readOnly={f.readOnly} disabled={f.readOnly}
-                  className={`w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 ${f.readOnly ? "bg-paper text-ink/50" : ""}`} />
+                  className={`w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 ${f.readOnly ? "bg-paper text-mute" : ""}`} />
               )}
-              {f.helpText && <p className="mt-1 text-xs text-ink/40">{f.helpText}</p>}
+              {f.helpText && <p className="mt-1 text-xs text-faint">{f.helpText}</p>}
             </div>
           ))}
         </div>

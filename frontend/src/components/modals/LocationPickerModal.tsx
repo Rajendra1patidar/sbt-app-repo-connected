@@ -126,10 +126,10 @@ export function LocationPickerModal({ initialAddress, initialLat, initialLng, on
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-ink/50 p-0 sm:p-4">
-      <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl">
+    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4">
+      <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display text-lg font-bold text-ink">Pick location on map</h3>
+          <h3 className="font-display text-lg font-semibold text-ink">Pick location on map</h3>
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
 
@@ -142,7 +142,7 @@ export function LocationPickerModal({ initialAddress, initialLat, initialLng, on
         ) : (
           <>
             <div className="relative mb-3">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
               <input
                 ref={searchInputRef}
                 value={query}
@@ -151,7 +151,7 @@ export function LocationPickerModal({ initialAddress, initialLat, initialLng, on
                 className="w-full rounded-xl border border-line bg-card py-2.5 pl-9 pr-3 text-sm"
               />
               {suggestions.length > 0 && (
-                <div className="absolute left-0 right-0 top-full mt-1 z-10 rounded-xl border border-line bg-card shadow-lg overflow-hidden">
+                <div className="absolute left-0 right-0 top-full mt-1 z-10 rounded-xl border border-line bg-card shadow-sheet overflow-hidden">
                   {suggestions.map((s, i) => (
                     <button
                       key={i}
@@ -170,12 +170,12 @@ export function LocationPickerModal({ initialAddress, initialLat, initialLng, on
                 style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%", borderRadius: 12, overflow: "hidden" }}
               />
               {status === "loading" && (
-                <div className="absolute inset-0 flex items-center justify-center text-sm text-ink/40 gap-2 pointer-events-none">
+                <div className="absolute inset-0 flex items-center justify-center text-sm text-faint gap-2 pointer-events-none">
                   <Loader2 size={16} className="animate-spin" /> Loading map…
                 </div>
               )}
             </div>
-            <p className="mt-2 text-xs text-ink/40">Tap the map or drag the pin to fine-tune the exact spot.</p>
+            <p className="mt-2 text-xs text-faint">Tap the map or drag the pin to fine-tune the exact spot.</p>
           </>
         )}
 

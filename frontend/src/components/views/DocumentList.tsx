@@ -231,25 +231,25 @@ export function DocumentList({ type, docs, customers, items, payments, currency,
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="font-semibold text-ink truncate">{d.number} · {d.route || "–"}</p>
-            <p className="text-xs text-ink/40 truncate">{fmtDate(d.fromDate)} → {fmtDate(d.toDate)}</p>
+            <p className="text-xs text-faint truncate">{fmtDate(d.fromDate)} → {fmtDate(d.toDate)}</p>
           </div>
           <Badge status={d.status} />
         </div>
         {(d.byWhom || d.transporter) && (
-          <div className="mt-2 flex gap-3 text-xs text-ink/50">
-            {d.byWhom && <span><span className="font-semibold text-ink/40">By:</span> {d.byWhom}</span>}
-            {d.transporter && <span><span className="font-semibold text-ink/40">Via:</span> {d.transporter}</span>}
+          <div className="mt-2 flex gap-3 text-xs text-mute">
+            {d.byWhom && <span><span className="font-semibold text-faint">By:</span> {d.byWhom}</span>}
+            {d.transporter && <span><span className="font-semibold text-faint">Via:</span> {d.transporter}</span>}
           </div>
         )}
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-          {totalExp > 0 && <div className="rounded-xl bg-bad-50 px-2 py-1.5"><p className="text-xs text-bad-400">Expenses</p><p className="text-sm font-bold text-bad-600">{fmtMoney(totalExp, currency)}</p></div>}
-          {totalInc > 0 && <div className="rounded-xl bg-good-50 px-2 py-1.5"><p className="text-xs text-good-500">Income</p><p className="text-sm font-bold text-good-700">{fmtMoney(totalInc, currency)}</p></div>}
+          {totalExp > 0 && <div className="rounded-xl bg-bad-50 px-2 py-1.5"><p className="text-xs text-bad-400">Expenses</p><p className="text-sm font-semibold text-bad-600">{fmtMoney(totalExp, currency)}</p></div>}
+          {totalInc > 0 && <div className="rounded-xl bg-good-50 px-2 py-1.5"><p className="text-xs text-good-500">Income</p><p className="text-sm font-semibold text-good-700">{fmtMoney(totalInc, currency)}</p></div>}
           {d.deliveryFee > 0 && (
             <div className={`rounded-xl px-2 py-1.5 ${d.feeVerified ? "bg-brand-50" : "bg-warn-50 border border-warn-300"}`}>
               <p className={`text-xs flex items-center justify-center gap-1 ${d.feeVerified ? "text-brand-400" : "text-warn-500"}`}>
                 {!d.feeVerified && <AlertTriangle size={10} />}Delivery fee
               </p>
-              <p className={`text-sm font-bold ${d.feeVerified ? "text-brand-700" : "text-warn-700"}`}>{fmtMoney(d.deliveryFee, currency)}</p>
+              <p className={`text-sm font-semibold ${d.feeVerified ? "text-brand-700" : "text-warn-700"}`}>{fmtMoney(d.deliveryFee, currency)}</p>
               {!d.feeVerified && <p className="text-xs text-warn-500 font-semibold">Unverified</p>}
             </div>
           )}
@@ -289,12 +289,12 @@ export function DocumentList({ type, docs, customers, items, payments, currency,
         className="flex cursor-pointer items-center gap-3 px-5 py-3"
         onClick={() => setExpandedId(isExpanded ? null : d.id)}
       >
-        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${palette.bg} ${palette.text}`}>
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${palette.bg} ${palette.text}`}>
           {initials(customerName(d.customerId))}
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-ink">{customerName(d.customerId)}</p>
-          <p className="truncate text-xs text-ink/40">
+          <p className="truncate text-xs text-faint">
             {d.number} · {fmtDate(d.date)}
             {d.isAdvanceBooking ? " · Advance" : ""}
             {d._offlinePending && d.number !== "Pending sync" ? " · ⏳ Pending sync" : ""}
@@ -302,9 +302,9 @@ export function DocumentList({ type, docs, customers, items, payments, currency,
           </p>
         </div>
         <div className="shrink-0 text-right">
-          <p className="font-display text-[15px] font-bold text-ink">{fmtMoney(d.total, currency)}</p>
+          <p className="font-display text-[15px] font-semibold text-ink">{fmtMoney(d.total, currency)}</p>
           {d.deleted
-            ? <span className="text-[11px] font-semibold text-bad-600">Deleted</span>
+            ? <span className="text-[12px] font-semibold text-bad-600">Deleted</span>
             : <Badge status={displayStatus} />}
         </div>
       </div>
@@ -330,7 +330,7 @@ export function DocumentList({ type, docs, customers, items, payments, currency,
     }
 
     const swipeActions: SwipeAction[] = [
-      { icon: <Eye size={16} />, label: "View", onClick: () => onView(d), className: "bg-paper text-ink/60" },
+      { icon: <Eye size={16} />, label: "View", onClick: () => onView(d), className: "bg-paper text-mute" },
     ];
     if (canCollect) {
       swipeActions.push({ icon: <Truck size={16} />, label: "Record collection", onClick: () => onDeliver(d), className: "bg-brand-50 text-brand-700" });
@@ -384,7 +384,7 @@ export function DocumentList({ type, docs, customers, items, payments, currency,
                   type="button"
                   title={a.label}
                   onClick={(e) => { e.stopPropagation(); a.onClick(); }}
-                  className={`flex h-8 w-8 items-center justify-center rounded-full transition hover:brightness-95 ${a.className || "bg-paper text-ink/60"}`}
+                  className={`flex h-8 w-8 items-center justify-center rounded-full transition hover:brightness-95 ${a.className || "bg-paper text-mute"}`}
                   style={a.style}
                 >
                   {a.icon}
@@ -415,7 +415,7 @@ export function DocumentList({ type, docs, customers, items, payments, currency,
     return (
       <div className="space-y-3 px-5 pb-28">
         <div className="flex items-center justify-between pt-1">
-          <p className="text-sm text-ink/40">{activeCount} {labelMap[type].toLowerCase()}{activeCount !== 1 ? "s" : ""}</p>
+          <p className="text-sm text-faint">{activeCount} {labelMap[type].toLowerCase()}{activeCount !== 1 ? "s" : ""}</p>
           <PillButton onClick={() => openModal(type)}><Plus size={16} /> New {labelMap[type]}</PillButton>
         </div>
         {docs.length === 0
@@ -429,26 +429,26 @@ export function DocumentList({ type, docs, customers, items, payments, currency,
   return (
     <div className="space-y-3 px-5 pb-28">
       <div className="flex items-center justify-between pt-1">
-        <p className="text-sm text-ink/40">{activeCount} estimate{activeCount !== 1 ? "s" : ""}</p>
+        <p className="text-sm text-faint">{activeCount} estimate{activeCount !== 1 ? "s" : ""}</p>
         <PillButton onClick={() => openModal(type)}><Plus size={16} /> New Estimate</PillButton>
       </div>
 
       <div className="flex items-center overflow-hidden rounded-card bg-card">
         <div className="flex-1 py-2.5 text-center">
-          <p className="text-[10.5px] text-ink/40">Due</p>
-          <p className="font-display text-sm font-bold text-ink">{fmtMoney(dueTotal, currency)}</p>
+          <p className="text-[11px] text-faint">Due</p>
+          <p className="font-display text-sm font-semibold text-ink">{fmtMoney(dueTotal, currency)}</p>
         </div>
         <div className="h-6 w-px bg-line" />
         <div className="flex-1 py-2.5 text-center">
-          <p className="text-[10.5px] text-bad-600">Overdue</p>
-          <p className="font-display text-sm font-bold text-bad-600">{fmtMoney(overdueTotal, currency)}</p>
+          <p className="text-[11px] text-bad-600">Overdue</p>
+          <p className="font-display text-sm font-semibold text-bad-600">{fmtMoney(overdueTotal, currency)}</p>
         </div>
         {collectedToday !== null && (
           <>
             <div className="h-6 w-px bg-line" />
             <div className="flex-1 py-2.5 text-center">
-              <p className="text-[10.5px] text-good-600">Collected</p>
-              <p className="font-display text-sm font-bold text-good-700">{fmtMoney(collectedToday, currency)}</p>
+              <p className="text-[11px] text-good-600">Collected</p>
+              <p className="font-display text-sm font-semibold text-good-700">{fmtMoney(collectedToday, currency)}</p>
             </div>
           </>
         )}
@@ -458,7 +458,7 @@ export function DocumentList({ type, docs, customers, items, payments, currency,
         <div>
           <div className="mb-1.5 flex items-center gap-1.5 px-1">
             <Zap size={13} className="text-bad-600" />
-            <p className="text-[11px] font-bold uppercase tracking-wide text-bad-600">Needs attention · {attentionItems.length}</p>
+            <p className="text-[12px] font-semibold text-bad-600">Needs attention · {attentionItems.length}</p>
           </div>
           <div className="space-y-1.5">
             {attentionItems.map((row: any, i: number) => (
@@ -470,7 +470,7 @@ export function DocumentList({ type, docs, customers, items, payments, currency,
 
       <div className="flex gap-2">
         <div className="relative flex-1">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -503,15 +503,15 @@ export function DocumentList({ type, docs, customers, items, payments, currency,
       {docs.length === 0 ? (
         <Card><EmptyState text={emptyMap.estimate} cta="New Estimate" onCta={() => openModal(type)} /></Card>
       ) : visibleDocs.length === 0 ? (
-        <Card><p className="text-center text-sm text-ink/40">No estimates match your search/filter.</p></Card>
+        <Card><p className="text-center text-sm text-faint">No estimates match your search/filter.</p></Card>
       ) : useWeekGroups ? (
         weekGroups.map((g, idx) => {
           const isCollapsed = collapsedWeeks[g.key] !== undefined ? collapsedWeeks[g.key] : idx !== 0;
           return (
             <div key={g.key}>
               <button onClick={() => toggleWeek(g.key, isCollapsed)} className="flex w-full items-center justify-between rounded-xl bg-card px-4 py-2.5">
-                <span className="text-sm font-bold text-ink/80">{weekLabel(g.key)}</span>
-                <span className="flex items-center gap-2 text-xs font-semibold text-ink/50">
+                <span className="text-sm font-semibold text-ink/80">{weekLabel(g.key)}</span>
+                <span className="flex items-center gap-2 text-xs font-semibold text-mute">
                   {g.docs.length} estimate{g.docs.length !== 1 ? "s" : ""}
                   <span className="text-ink/70">{fmtMoney(g.total, currency)}</span>
                   {weekGroups.length > 1 && idx === 0 && (
@@ -537,7 +537,7 @@ export function DocumentList({ type, docs, customers, items, payments, currency,
         })
       ) : (
         <div>
-          <p className="mb-2 px-1 text-xs font-semibold text-ink/40">Sorted by {SORT_LABELS[sortBy].toLowerCase()}</p>
+          <p className="mb-2 px-1 text-xs font-semibold text-faint">Sorted by {SORT_LABELS[sortBy].toLowerCase()}</p>
           <div className="overflow-hidden rounded-card bg-card">{orderedDocs.map(renderEstimateRow)}</div>
         </div>
       )}
@@ -547,9 +547,9 @@ export function DocumentList({ type, docs, customers, items, payments, currency,
 
 function RailButton({ icon, label, onClick, className = "" }: any) {
   return (
-    <button onClick={onClick} className={`flex flex-col items-center gap-0.5 text-ink/60 ${className}`}>
+    <button onClick={onClick} className={`flex flex-col items-center gap-0.5 text-mute ${className}`}>
       {icon}
-      <span className="text-[9.5px] font-semibold">{label}</span>
+      <span className="text-[11px] font-semibold">{label}</span>
     </button>
   );
 }
@@ -571,7 +571,7 @@ function AttentionBanner({ row, customerName, customerPhone, currency, onView }:
       <span className={`h-6 w-[3px] shrink-0 rounded-pill ${palette.bar}`} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs text-ink"><span className="font-semibold">{name}</span></p>
-        <p className="flex items-center gap-1 truncate text-[11px] text-ink/50">{icon} {detail}</p>
+        <p className="flex items-center gap-1 truncate text-[12px] text-mute">{icon} {detail}</p>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
         {phone && (
@@ -579,13 +579,13 @@ function AttentionBanner({ row, customerName, customerPhone, currency, onView }:
             href={waLink(phone, reminderMsg)}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 rounded-pill px-2.5 py-1.5 text-[11px] font-bold text-white"
+            className="inline-flex items-center gap-1 rounded-pill px-2.5 py-1.5 text-[12px] font-semibold text-white"
             style={{ backgroundColor: WHATSAPP_GREEN }}
           >
             <Phone size={12} /> Remind
           </a>
         )}
-        {row.doc && <button onClick={() => onView(row.doc)} className="rounded-pill bg-paper px-2.5 py-1.5 text-[11px] font-semibold text-ink/60">View</button>}
+        {row.doc && <button onClick={() => onView(row.doc)} className="rounded-pill bg-paper px-2.5 py-1.5 text-[12px] font-semibold text-mute">View</button>}
       </div>
     </div>
   );

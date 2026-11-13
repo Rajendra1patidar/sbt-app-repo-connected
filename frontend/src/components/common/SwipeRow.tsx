@@ -109,7 +109,7 @@ export function SwipeRow({ actions, isOpen, onOpenChange, children }: {
             type="button"
             aria-label={a.label}
             onClick={() => { a.onClick(); onOpenChange(false); }}
-            className={`flex h-full items-center justify-center text-base ${a.className || "bg-paper text-ink/60"}`}
+            className={`flex h-full items-center justify-center text-base ${a.className || "bg-paper text-mute"}`}
             style={{ width: ACTION_W, ...a.style }}
           >
             {a.icon}

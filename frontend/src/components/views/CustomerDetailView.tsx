@@ -24,7 +24,7 @@ export function CustomerDetailView({ customer, estimates, payments, items, curre
   if (!customer) {
     return (
       <div className="px-5 pb-28 pt-1">
-        <button onClick={onBack} className="flex items-center gap-1 text-sm font-semibold text-ink/50"><ChevronLeft size={16} /> Back</button>
+        <button onClick={onBack} className="flex items-center gap-1 text-sm font-semibold text-mute"><ChevronLeft size={16} /> Back</button>
         <Card className="mt-3"><EmptyState text="Customer not found." /></Card>
       </div>
     );
@@ -43,23 +43,23 @@ export function CustomerDetailView({ customer, estimates, payments, items, curre
   return (
     <div className="space-y-4 px-5 pb-28 pt-1">
       {showPortalShare && <CustomerPortalSharePopup customer={customer} onClose={() => setShowPortalShare(false)} />}
-      <button onClick={onBack} className="flex items-center gap-1 text-sm font-semibold text-ink/50"><ChevronLeft size={16} /> Back</button>
+      <button onClick={onBack} className="flex items-center gap-1 text-sm font-semibold text-mute"><ChevronLeft size={16} /> Back</button>
 
       <Card>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-display text-lg font-bold text-ink truncate">{customer.name}</p>
-            <p className="text-xs text-ink/40 truncate">{customer.email || "No email"}{customer.phone ? ` · ${customer.phone}` : ""}</p>
+            <p className="font-display text-lg font-semibold text-ink truncate">{customer.name}</p>
+            <p className="text-xs text-faint truncate">{customer.email || "No email"}{customer.phone ? ` · ${customer.phone}` : ""}</p>
             {customer.location && (
               <a
                 href={customer.lat && customer.lng ? `https://www.google.com/maps/search/?api=1&query=${customer.lat},${customer.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customer.location)}`}
                 target="_blank" rel="noreferrer"
-                className="mt-1 flex items-center gap-1 text-xs text-ink/40 hover:text-brand-500 hover:underline"
+                className="mt-1 flex items-center gap-1 text-xs text-faint hover:text-brand-500 hover:underline"
               >
                 <MapPin size={11} /> {customer.location}
               </a>
             )}
-            <p className="mt-1.5 text-xs text-ink/40">
+            <p className="mt-1.5 text-xs text-faint">
               Credit limit: {customer.creditLimit != null ? fmtMoney(customer.creditLimit, currency) : "None set"}
             </p>
           </div>
@@ -83,15 +83,15 @@ export function CustomerDetailView({ customer, estimates, payments, items, curre
       </Card>
 
       <Card>
-        <p className="text-sm font-semibold text-ink/40">Balance due</p>
-        <p className={`mt-1 text-2xl font-bold ${balance > 0 ? "text-bad-600" : "text-good-600"}`}>{fmtMoney(balance, currency)}</p>
+        <p className="text-sm font-semibold text-faint">Balance due</p>
+        <p className={`mt-1 text-2xl font-semibold ${balance > 0 ? "text-bad-600" : "text-good-600"}`}>{fmtMoney(balance, currency)}</p>
         {overdueEstimates.length > 0 && (
           <p className="mt-1 text-xs font-semibold text-warn-600">{overdueEstimates.length} overdue estimate{overdueEstimates.length !== 1 ? "s" : ""}</p>
         )}
       </Card>
 
       <div>
-        <h3 className="mb-2 text-sm font-bold text-ink/80">Estimates ({custEstimates.length})</h3>
+        <h3 className="mb-2 text-sm font-semibold text-ink/80">Estimates ({custEstimates.length})</h3>
         {custEstimates.length === 0 ? (
           <Card><EmptyState text="No estimates yet." /></Card>
         ) : (
@@ -102,10 +102,10 @@ export function CustomerDetailView({ customer, estimates, payments, items, curre
                 <Card key={e.id} onClick={() => openModal("viewEstimate", { doc: e })} className="flex items-center justify-between gap-2 cursor-pointer active:scale-[0.99] transition-transform">
                   <div className="min-w-0">
                     <p className="font-semibold text-ink truncate">{e.number}</p>
-                    <p className="text-xs text-ink/40 truncate">{fmtDate(e.date)}</p>
+                    <p className="text-xs text-faint truncate">{fmtDate(e.date)}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="font-bold text-ink">{fmtMoney(e.total, currency)}</p>
+                    <p className="font-semibold text-ink">{fmtMoney(e.total, currency)}</p>
                     <Badge status={overdue ? "Overdue" : e.status} />
                   </div>
                 </Card>
@@ -116,7 +116,7 @@ export function CustomerDetailView({ customer, estimates, payments, items, curre
       </div>
 
       <div>
-        <h3 className="mb-2 text-sm font-bold text-ink/80">Payments ({custPayments.length})</h3>
+        <h3 className="mb-2 text-sm font-semibold text-ink/80">Payments ({custPayments.length})</h3>
         {custPayments.length === 0 ? (
           <Card><EmptyState text="No payments yet." /></Card>
         ) : (
@@ -125,9 +125,9 @@ export function CustomerDetailView({ customer, estimates, payments, items, curre
               <Card key={p.id} className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="font-semibold text-ink truncate">{p.invoiceNumber || "—"}</p>
-                  <p className="text-xs text-ink/40 truncate">{fmtDate(p.date)}{p.method ? ` · ${p.method}` : ""}</p>
+                  <p className="text-xs text-faint truncate">{fmtDate(p.date)}{p.method ? ` · ${p.method}` : ""}</p>
                 </div>
-                <p className={`font-bold shrink-0 ${Number(p.amount) < 0 ? "text-bad-600" : "text-good-600"}`}>{fmtMoney(p.amount, currency)}</p>
+                <p className={`font-semibold shrink-0 ${Number(p.amount) < 0 ? "text-bad-600" : "text-good-600"}`}>{fmtMoney(p.amount, currency)}</p>
               </Card>
             ))}
           </div>
@@ -137,10 +137,10 @@ export function CustomerDetailView({ customer, estimates, payments, items, curre
       <div>
         <div className="mb-2 flex items-center gap-1.5">
           <Receipt size={14} className="text-brand-600" />
-          <h3 className="text-sm font-bold text-ink/80">Ledger Statement</h3>
+          <h3 className="text-sm font-semibold text-ink/80">Ledger Statement</h3>
         </div>
         {statementLoading ? (
-          <Card><p className="text-center text-sm text-ink/40">Loading statement...</p></Card>
+          <Card><p className="text-center text-sm text-faint">Loading statement...</p></Card>
         ) : !statement || statement.rows.length === 0 ? (
           <Card><EmptyState text="No ledger activity yet." /></Card>
         ) : (
@@ -150,20 +150,20 @@ export function CustomerDetailView({ customer, estimates, payments, items, curre
                 <div key={i} className="flex items-center justify-between border-b border-line/60 py-1.5 text-sm last:border-0">
                   <div className="min-w-0">
                     <p className="truncate text-ink/80">{r.narration}</p>
-                    <p className="text-xs text-ink/40">{fmtDate(r.date)} · {r.account}</p>
+                    <p className="text-xs text-faint">{fmtDate(r.date)} · {r.account}</p>
                   </div>
                   <div className="text-right shrink-0">
                     <p className={`font-mono text-xs font-semibold ${r.type === "debit" ? "text-ink" : "text-good-700"}`}>
                       {r.type === "debit" ? "Dr" : "Cr"} {fmtMoney(r.amount, currency)}
                     </p>
-                    <p className="text-xs text-ink/40">Bal: {fmtMoney(r.balance, currency)}</p>
+                    <p className="text-xs text-faint">Bal: {fmtMoney(r.balance, currency)}</p>
                   </div>
                 </div>
               ))}
             </div>
             <div className="mt-3 flex items-center justify-between border-t border-line pt-2">
-              <span className="text-sm font-bold text-ink">Closing Balance</span>
-              <span className={`text-lg font-bold ${statement.closingBalance > 0 ? "text-bad-600" : "text-good-600"}`}>
+              <span className="text-sm font-semibold text-ink">Closing Balance</span>
+              <span className={`text-lg font-semibold ${statement.closingBalance > 0 ? "text-bad-600" : "text-good-600"}`}>
                 {fmtMoney(statement.closingBalance, currency)}
               </span>
             </div>

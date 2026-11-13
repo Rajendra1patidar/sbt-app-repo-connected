@@ -35,10 +35,10 @@ export function StatusChoicePopup({ total, currency, onChoose, onCancel }: any) 
   const canConfirm = !!choice && (!isPartial || partialValid);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/50 p-4">
-      <div className="w-full max-w-xs rounded-3xl bg-card p-6 shadow-xl">
-        <h3 className="font-display text-lg font-bold text-ink">Is this estimate paid?</h3>
-        <p className="mt-1 text-sm text-ink/50">Total amount: <span className="font-semibold text-ink/80">{fmtMoney(total, currency)}</span></p>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--scrim)] p-4">
+      <div className="w-full max-w-xs rounded-sheet bg-card p-6 shadow-sheet">
+        <h3 className="font-display text-lg font-semibold text-ink">Is this estimate paid?</h3>
+        <p className="mt-1 text-sm text-mute">Total amount: <span className="font-semibold text-ink/80">{fmtMoney(total, currency)}</span></p>
 
         <div className="mt-5 space-y-2">
           {CHOICES.map((c) => {
@@ -56,13 +56,13 @@ export function StatusChoicePopup({ total, currency, onChoose, onCancel }: any) 
                   <Icon size={18} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-bold text-ink">{c.title}</span>
-                  <span className="block text-xs text-ink/50">{c.desc}</span>
+                  <span className="block text-sm font-semibold text-ink">{c.title}</span>
+                  <span className="block text-xs text-mute">{c.desc}</span>
                 </span>
                 <span
-                  className={`h-5 w-5 shrink-0 rounded-full border-[1.5px] flex items-center justify-center text-[10px] font-bold text-white transition-colors ${
-                    isSelected ? "border-brand-500 bg-brand-500" : "border-line bg-card"
-                  }`}
+                  className={`h-5 w-5 shrink-0 rounded-full border-[1.5px] flex items-center justify-center text-[11px] font-semibold text-white transition-colors ${
+ isSelected ? "border-brand-500 bg-brand-500" : "border-line bg-card"
+ }`}
                 >
                   {isSelected && "✓"}
                 </span>
@@ -73,7 +73,7 @@ export function StatusChoicePopup({ total, currency, onChoose, onCancel }: any) 
 
         {isPartial && (
           <div className="mt-3 rounded-2xl border border-line bg-paper/60 p-3">
-            <label className="mb-1 block text-xs font-semibold text-ink/50">Amount received now</label>
+            <label className="mb-1 block text-xs font-semibold text-mute">Amount received now</label>
             <input
               type="number" min="0" max={total} autoFocus
               value={partialAmount}
@@ -82,11 +82,11 @@ export function StatusChoicePopup({ total, currency, onChoose, onCancel }: any) 
               className="w-full rounded-xl border border-line px-3 py-2.5 text-sm"
             />
             <div className="mt-2 flex items-center justify-between text-xs">
-              <span className="text-ink/50">Balance due</span>
+              <span className="text-mute">Balance due</span>
               <span className="font-semibold text-ink/80">{fmtMoney(Math.max(total - partialNum, 0), currency)}</span>
             </div>
             {!partialValid && (
-              <p className="mt-1 text-[11px] text-bad-600">
+              <p className="mt-1 text-[12px] text-bad-600">
                 {partialAmount === ""
                   ? "Enter the amount received now to continue."
                   : `Enter an amount more than 0 and less than ${fmtMoney(total, currency)}.`}
@@ -96,13 +96,13 @@ export function StatusChoicePopup({ total, currency, onChoose, onCancel }: any) 
         )}
 
         <div className="mt-5 flex gap-2">
-          <button onClick={onCancel} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/50">
+          <button onClick={onCancel} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-mute">
             Back to editing
           </button>
           <button
             onClick={() => choice && canConfirm && onChoose(choice.status, choice.advance, isPartial ? partialNum : undefined)}
             disabled={!canConfirm}
-            className="flex-1 rounded-full bg-brand-500 py-3 text-sm font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98]"
+            className="flex-1 rounded-full bg-brand-500 py-3 text-sm font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98]"
           >
             Confirm
           </button>

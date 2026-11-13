@@ -87,10 +87,10 @@ export function StockTakeModal({ items, godowns, onClose, applyStockAdjustments 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
-      <div className="w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4">
+      <div className="w-full sm:max-w-lg rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between mb-4 shrink-0">
-          <h3 className="font-display text-lg font-bold text-ink">Stock take</h3>
+          <h3 className="font-display text-lg font-semibold text-ink">Stock take</h3>
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
 
@@ -98,7 +98,7 @@ export function StockTakeModal({ items, godowns, onClose, applyStockAdjustments 
           <div className="space-y-3 overflow-y-auto">
             {hasMultipleGodowns && (
               <div>
-                <label className="mb-1 block text-xs font-semibold text-ink/50">Counting stock at</label>
+                <label className="mb-1 block text-xs font-semibold text-mute">Counting stock at</label>
                 <select
                   value={godownId}
                   onChange={(e) => setGodownId(e.target.value)}
@@ -108,10 +108,10 @@ export function StockTakeModal({ items, godowns, onClose, applyStockAdjustments 
                     <option key={g.id} value={g.id}>{g.name}</option>
                   ))}
                 </select>
-                <p className="mt-1 text-[11px] text-ink/40">Every line below will be counted against this location only — stock at your other godowns is left untouched.</p>
+                <p className="mt-1 text-[12px] text-faint">Every line below will be counted against this location only — stock at your other godowns is left untouched.</p>
               </div>
             )}
-            <p className="text-xs text-ink/50">
+            <p className="text-xs text-mute">
               Paste your counted list below, one item per line — e.g. <span className="italic">"3. Duraguard ppc - 245"</span>.
               I'll match each line to an item and let you review before anything is saved.
             </p>
@@ -136,7 +136,7 @@ export function StockTakeModal({ items, godowns, onClose, applyStockAdjustments 
         {step === "review" && (
           <div className="flex flex-col overflow-hidden">
             <div className="mb-2 flex items-center justify-between shrink-0">
-              <p className="text-xs text-ink/50">
+              <p className="text-xs text-mute">
                 {rows.length} lines parsed · {readyCount} ready{unmatchedCount ? ` · ${unmatchedCount} need a match` : ""}
                 {hasMultipleGodowns && <> · at <span className="font-semibold text-ink/70">{godowns.find((g: any) => g.id === godownId)?.name}</span></>}
               </p>
@@ -154,7 +154,7 @@ export function StockTakeModal({ items, godowns, onClose, applyStockAdjustments 
                 return (
                   <div key={idx} className={`rounded-xl border px-3 py-2.5 ${r.itemId ? "border-line" : "border-warn-300 bg-warn-50"}`}>
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-xs text-ink/40 truncate flex-1">{r.match.rawName}</p>
+                      <p className="text-xs text-faint truncate flex-1">{r.match.rawName}</p>
                       <button onClick={() => removeRow(idx)} className="text-ink/30 hover:text-bad-500 shrink-0"><X size={13} /></button>
                     </div>
                     <div className="mt-1.5 flex items-center gap-2">
@@ -181,7 +181,7 @@ export function StockTakeModal({ items, godowns, onClose, applyStockAdjustments 
                     </div>
                     {isWeight && (
                       <div className="mt-1.5 flex items-center gap-2">
-                        <span className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-ink/35">Weight (kg) — re-weigh</span>
+                        <span className="flex-1 text-[11px] font-semibold text-faint">Weight (kg) — re-weigh</span>
                         <input
                           type="number"
                           value={r.newStockKg}
@@ -205,7 +205,7 @@ export function StockTakeModal({ items, godowns, onClose, applyStockAdjustments 
                   </div>
                 );
               })}
-              {rows.length === 0 && <p className="text-sm text-ink/40 py-4 text-center">No lines with a readable quantity were found.</p>}
+              {rows.length === 0 && <p className="text-sm text-faint py-4 text-center">No lines with a readable quantity were found.</p>}
             </div>
             <button
               type="button"

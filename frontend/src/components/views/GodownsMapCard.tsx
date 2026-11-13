@@ -61,9 +61,9 @@ export function GodownsMapCard({ godowns }: any) {
 
   return (
     <Card>
-      <h3 className="mb-1 font-display text-base font-bold text-ink">Godown locations</h3>
+      <h3 className="mb-1 font-display text-base font-semibold text-ink">Godown locations</h3>
       {pinned.length === 0 ? (
-        <p className="text-sm text-ink/40">Set a location using the map picker on a godown to see it plotted here.</p>
+        <p className="text-sm text-faint">Set a location using the map picker on a godown to see it plotted here.</p>
       ) : mapError ? (
         <p className="text-sm text-bad-500">{mapError}</p>
       ) : (

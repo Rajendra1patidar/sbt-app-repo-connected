@@ -1,5 +1,6 @@
 import { MessageSquare, Phone, Plus } from "lucide-react";
-import { STATUS_STYLES, WHATSAPP_GREEN } from "../../lib/constants";
+import { WHATSAPP_GREEN } from "../../lib/constants";
+import { Segmented, StatusChip, Switch as KitSwitch, type ChipTone } from "../ui/kit";
 import { smsLink, waLink } from "../../lib/contactLinks";
 
 /* ---- atoms ---- */
@@ -7,7 +8,7 @@ import { smsLink, waLink } from "../../lib/contactLinks";
 export function PillButton({ children, onClick, className = "", disabled }: any) {
   return (
     <button onClick={onClick} disabled={disabled}
-      className={`inline-flex items-center gap-2 rounded-pill bg-brand-500 px-5 py-3 text-sm font-semibold text-white shadow-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-brand-600 active:scale-[0.97] transition-all duration-150 ${className}`}>
+      className={`inline-flex items-center justify-center gap-2 rounded-[14px] bg-brand-500 px-5 py-3 text-[15px] font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-brand-600 active:scale-[0.98] transition-all duration-150 ${className}`}>
       {children}
     </button>
   );
@@ -16,7 +17,7 @@ export function PillButton({ children, onClick, className = "", disabled }: any)
 export function GhostButton({ children, onClick, className = "" }: any) {
   return (
     <button onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-pill border border-line bg-card px-3 py-1.5 text-xs font-semibold text-ink/70 hover:bg-paper hover:border-brand-200 active:scale-[0.97] transition-all duration-150 ${className}`}>
+      className={`inline-flex items-center gap-1.5 rounded-control border border-rule bg-card px-3 py-1.5 text-[13px] font-medium text-brand-500 active:scale-[0.97] transition-all duration-150 ${className}`}>
       {children}
     </button>
   );
@@ -68,14 +69,30 @@ export function SmsButton({ phone, message, label = "SMS", compact = false }: an
   );
 }
 
+const BADGE_TONE: Record<string, { tone: ChipTone; label?: string }> = {
+  Draft: { tone: "draft" },
+  Sent: { tone: "due" },
+  Accepted: { tone: "due" },
+  Due: { tone: "due" },
+  "Partially Paid": { tone: "partial", label: "Part paid" },
+  "Part paid": { tone: "partial" },
+  Paid: { tone: "paid" },
+  Overdue: { tone: "overdue" },
+  Pending: { tone: "partial" },
+  Delivered: { tone: "paid" },
+  Received: { tone: "paid" },
+};
+
+/** Status is always a dot and a word. */
 export function Badge({ status }: any) {
-  return <span className={`rounded-pill px-2.5 py-1 text-xs font-semibold tracking-tight ${STATUS_STYLES[status] || "bg-ink/5 text-ink/60"}`}>{status}</span>;
+  const m = BADGE_TONE[status] || { tone: "neutral" as ChipTone };
+  return <StatusChip tone={m.tone}>{m.label || status}</StatusChip>;
 }
 
 export function EmptyState({ text, cta, onCta }: any) {
   return (
     <div className="flex flex-col items-center gap-4 py-10 text-center">
-      <p className="text-ink/50 text-sm max-w-xs">{text}</p>
+      <p className="text-mute text-sm max-w-xs">{text}</p>
       {cta && <PillButton onClick={onCta}><Plus size={16} /> {cta}</PillButton>}
     </div>
   );
@@ -83,43 +100,20 @@ export function EmptyState({ text, cta, onCta }: any) {
 
 /** A compact single-select control — used in place of a native <select> wherever
  * there are just a handful of mutually-exclusive options (e.g. an estimate's
- * status), since it reads as a deliberate choice instead of unstyled browser chrome. */
+ * status). Same iOS-style segmented control as the rest of the app. */
 export function SegmentedControl({ options, value, onChange }: { options: string[]; value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="flex rounded-pill bg-paper p-1">
-      {options.map((opt) => (
-        <button
-          key={opt}
-          type="button"
-          onClick={() => onChange(opt)}
-          className={`flex-1 whitespace-nowrap rounded-pill px-2 py-1.5 text-[11px] font-semibold transition ${value === opt ? "bg-ink text-white" : "text-ink/60"}`}
-        >
-          {opt}
-        </button>
-      ))}
-    </div>
-  );
+  return <Segmented options={options} value={value} onChange={onChange} />;
 }
 
 /** iOS-style on/off toggle for boolean settings inside sheets/modals. */
 export function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={`relative h-6 w-10 shrink-0 rounded-pill transition-colors duration-150 ${checked ? "bg-ink" : "bg-line"}`}
-    >
-      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-150 ${checked ? "translate-x-4" : "translate-x-0.5"}`} />
-    </button>
-  );
+  return <KitSwitch checked={checked} onChange={onChange} label="Toggle" />;
 }
 
 export function Card({ children, className = "", onClick }: any) {
   return (
     <div onClick={onClick}
-      className={`rounded-card bg-card p-5 shadow-card border border-line/70 transition-all duration-150 ${onClick ? "cursor-pointer hover:border-brand-200 active:scale-[0.995]" : ""} ${className}`}>
+      className={`rounded-group bg-card p-5 border border-line transition-colors duration-150 ${onClick ? "cursor-pointer active:bg-paper" : ""} ${className}`}>
       {children}
     </div>
   );
@@ -144,37 +138,23 @@ export function SectionDivider({ className = "" }: any) {
   return <div className={`h-px bg-line/70 ${className}`} />;
 }
 
-/** Underline-style tabs for switching between two or three views on a
- * seamless page (e.g. "Stock take / History", "Orders / Purchases") —
- * quieter than a filled pill button, matching the home page's tone. */
+/** Switches between two or three views on a page — the same segmented control
+ * used everywhere else (was underline-style tabs before the design update). */
 export function UnderlineTabs({ options, value, onChange }: { options: { key: string; label: string }[]; value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="flex gap-5">
-      {options.map((opt) => (
-        <button
-          key={opt.key}
-          type="button"
-          onClick={() => onChange(opt.key)}
-          className={`pb-2 text-sm transition-colors ${value === opt.key ? "font-semibold text-ink border-b-2 border-ink" : "text-ink/50"}`}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  );
+  return <Segmented options={options.map((o) => ({ value: o.key, label: o.label }))} value={value} onChange={onChange} />;
 }
 
 /** A row of numbers separated by thin vertical rules instead of individual
  * stat cards — e.g. Stock value / Items tracked / Low stock / Dead stock.
  * Fixed at 2 columns to match this app's mobile-first list pages. */
 export function StatStrip({ stats }: { stats: { label: string; value: React.ReactNode; tone?: "warn" | "bad" | "default" }[] }) {
-  const toneClass = (tone?: string) => tone === "warn" ? "text-warn-600" : tone === "bad" ? "text-bad-600" : "text-ink";
+  const toneClass = (tone?: string) => tone === "warn" ? "text-warn-700" : tone === "bad" ? "text-bad-600" : "text-ink";
   return (
-    <div className="grid grid-cols-2 gap-y-4">
+    <div className="grid grid-cols-2 overflow-hidden rounded-group border border-line bg-card">
       {stats.map((s, i) => (
-        <div key={s.label} className={`${i % 2 === 1 ? "border-l border-line/70 pl-3" : ""} ${i >= 2 ? "border-t border-line/70 pt-3" : ""}`}>
-          <p className="text-xs text-ink/40">{s.label}</p>
-          <p className={`mt-1 font-mono text-base font-semibold ${toneClass(s.tone)}`}>{s.value}</p>
+        <div key={s.label} className={`px-4 py-3 ${i % 2 === 1 ? "border-l border-line" : ""} ${i >= 2 ? "border-t border-line" : ""}`}>
+          <p className="text-micro text-mute">{s.label}</p>
+          <p className={`mt-0.5 text-lead font-medium tabular-nums ${toneClass(s.tone)}`}>{s.value}</p>
         </div>
       ))}
     </div>

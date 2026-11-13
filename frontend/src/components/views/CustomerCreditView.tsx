@@ -31,8 +31,8 @@ export function CustomerCreditView({ currency }: { currency: string }) {
   return (
     <div className="space-y-4 px-5 pb-28">
       <Card className="space-y-1">
-        <h3 className="text-sm font-bold text-ink">How this works</h3>
-        <p className="text-xs text-ink/40">
+        <h3 className="text-sm font-semibold text-ink">How this works</h3>
+        <p className="text-xs text-faint">
           Built from real outstanding amounts and actual payment dates — not a guess. A suggested credit limit is
           just that: a suggestion. Nothing here changes a customer's actual limit; that's still yours to set on their
           profile.
@@ -42,7 +42,7 @@ export function CustomerCreditView({ currency }: { currency: string }) {
       {error && <p className="rounded-xl bg-bad-50 px-3 py-2 text-xs font-semibold text-bad-600">{error}</p>}
 
       {loading ? (
-        <p className="py-10 text-center text-sm text-ink/40">Loading…</p>
+        <p className="py-10 text-center text-sm text-faint">Loading…</p>
       ) : rows.length === 0 ? (
         <EmptyState text="Nothing to flag right now — no customer has an outstanding balance or enough payment history yet." />
       ) : (
@@ -51,8 +51,8 @@ export function CustomerCreditView({ currency }: { currency: string }) {
             <Card key={c.customerId} className="space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-ink">{c.name}</p>
-                  {c.phone && <p className="text-xs text-ink/40">{c.phone}</p>}
+                  <p className="truncate text-sm font-semibold text-ink">{c.name}</p>
+                  {c.phone && <p className="text-xs text-faint">{c.phone}</p>}
                 </div>
                 <span className={`shrink-0 rounded-pill border px-2.5 py-1 text-xs font-semibold ${RISK_STYLES[c.risk]}`}>
                   {RISK_LABEL[c.risk] || c.risk}
@@ -61,22 +61,22 @@ export function CustomerCreditView({ currency }: { currency: string }) {
 
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div>
-                  <p className="text-ink/40">Outstanding</p>
+                  <p className="text-faint">Outstanding</p>
                   <p className="font-semibold text-ink">{fmtMoney(c.outstanding, currency)}</p>
                 </div>
                 <div>
-                  <p className="text-ink/40">Overdue</p>
+                  <p className="text-faint">Overdue</p>
                   <p className={`font-semibold ${c.overdue > 0 ? "text-bad-600" : "text-ink"}`}>{fmtMoney(c.overdue, currency)}</p>
                 </div>
                 {c.oldestDaysPastDue > 0 && (
                   <div>
-                    <p className="text-ink/40">Oldest bill</p>
+                    <p className="text-faint">Oldest bill</p>
                     <p className="font-semibold text-ink">{c.oldestDaysPastDue} days past due</p>
                   </div>
                 )}
                 {c.onTimeRatio != null && (
                   <div>
-                    <p className="text-ink/40">On-time payments</p>
+                    <p className="text-faint">On-time payments</p>
                     <p className="font-semibold text-ink">{Math.round(c.onTimeRatio * 100)}%</p>
                   </div>
                 )}

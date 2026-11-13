@@ -8,10 +8,10 @@ export function OwnerOnlyNotice({ onHome }: { onHome: () => void }) {
     <div className="px-5 pb-28 pt-6">
       <Card className="mx-auto max-w-md space-y-3 text-center">
         <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-paper">
-          <Lock size={18} className="text-ink/60" />
+          <Lock size={18} className="text-mute" />
         </div>
-        <h3 className="text-sm font-bold text-ink">Only the business owner can open this</h3>
-        <p className="text-xs text-ink/60">
+        <h3 className="text-sm font-semibold text-ink">Only the business owner can open this</h3>
+        <p className="text-xs text-mute">
           Your login can create estimates, record payments and manage stock. Ask the owner if you need something from this screen.
         </p>
         <button onClick={onHome} className="rounded-pill bg-brand-500 px-4 py-2 text-sm font-semibold text-white">

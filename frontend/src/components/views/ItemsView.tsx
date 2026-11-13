@@ -39,11 +39,11 @@ export function ItemsView({ items, categories, brands, openModal, removeItem, cu
   return (
     <div className="space-y-3 px-5 pb-28">
       <div className="flex items-center justify-between pt-1">
-        <p className="text-sm text-ink/40">{items.length} item{items.length !== 1 ? "s" : ""}</p>
+        <p className="text-sm text-faint">{items.length} item{items.length !== 1 ? "s" : ""}</p>
         <PillButton onClick={() => openModal("item")}><Plus size={16} /> New Item</PillButton>
       </div>
       <div className="relative">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -58,7 +58,7 @@ export function ItemsView({ items, categories, brands, openModal, removeItem, cu
       </div>
       <div className="flex flex-wrap gap-2">
         {["All", ...brandList].map((b) => (
-          <button key={b} onClick={() => setBrand(b)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${brand === b ? "bg-ink text-white" : "bg-paper text-ink/60"}`}>{b}</button>
+          <button key={b} onClick={() => setBrand(b)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${brand === b ? "bg-ink text-white" : "bg-paper text-mute"}`}>{b}</button>
         ))}
       </div>
 
@@ -73,7 +73,7 @@ export function ItemsView({ items, categories, brands, openModal, removeItem, cu
       {items.length === 0
         ? <Card><EmptyState text="Add items you sell." cta="New Item" onCta={() => openModal("item")} /></Card>
         : filtered.length === 0
-        ? <p className="text-center text-sm text-ink/40 py-6">No items match your search/filter.</p>
+        ? <p className="text-center text-sm text-faint py-6">No items match your search/filter.</p>
         : <>
           {pageItems.map((it: any) => {
           const threshold = it.lowStock ?? LOW_STOCK_DEFAULT;
@@ -83,18 +83,18 @@ export function ItemsView({ items, categories, brands, openModal, removeItem, cu
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-semibold text-ink truncate">{it.name}</p>
-                  <span className="rounded-full bg-paper px-2 py-0.5 text-xs font-semibold text-ink/50">{it.category || "Others"}</span>
-                  {it.brand && <span className="rounded-full bg-ink/5 px-2 py-0.5 text-xs font-semibold text-ink/50">{it.brand}</span>}
+                  <span className="rounded-full bg-paper px-2 py-0.5 text-xs font-semibold text-mute">{it.category || "Others"}</span>
+                  {it.brand && <span className="rounded-full bg-ink/5 px-2 py-0.5 text-xs font-semibold text-mute">{it.brand}</span>}
                   {isLow && <span className="rounded-full bg-warn-100 px-2 py-0.5 text-xs font-semibold text-warn-700 flex items-center gap-1"><AlertTriangle size={10} /> Low stock</span>}
                 </div>
-                <p className="text-xs text-ink/40">{it.unit || "unit"} · Stock: <span className={`font-semibold ${isLow ? "text-warn-600" : "text-ink/80"}`}>{fmtNum(it.stock ?? 0)}</span> (alert at ≤{fmtNum(threshold)})</p>
+                <p className="text-xs text-faint">{it.unit || "unit"} · Stock: <span className={`font-semibold ${isLow ? "text-warn-600" : "text-ink/80"}`}>{fmtNum(it.stock ?? 0)}</span> (alert at ≤{fmtNum(threshold)})</p>
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <div className="text-right">
-                  <p className="text-xs text-ink/40">Sell: <span className="font-bold text-ink">{fmtMoney(it.sellingPrice ?? it.price, currency)}</span></p>
-                  {it.purchasePrice > 0 && <p className="text-xs text-ink/40">Buy: <span className="font-semibold text-ink/70">{fmtMoney(it.purchasePrice, currency)}</span></p>}
+                  <p className="text-xs text-faint">Sell: <span className="font-semibold text-ink">{fmtMoney(it.sellingPrice ?? it.price, currency)}</span></p>
+                  {it.purchasePrice > 0 && <p className="text-xs text-faint">Buy: <span className="font-semibold text-ink/70">{fmtMoney(it.purchasePrice, currency)}</span></p>}
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); openModal("item", { editingItem: it }); }} className="rounded-full p-2 text-ink/40 hover:bg-paper"><Pencil size={16} /></button>
+                <button onClick={(e) => { e.stopPropagation(); openModal("item", { editingItem: it }); }} className="rounded-full p-2 text-faint hover:bg-paper"><Pencil size={16} /></button>
                 <button onClick={(e) => { e.stopPropagation(); removeItem(it.id); }} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
               </div>
             </Row>

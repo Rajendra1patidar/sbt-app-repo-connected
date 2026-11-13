@@ -26,7 +26,7 @@ export function ViewImageModal({ title, url, onClose }: { title?: string; url: s
         src={url}
         alt={title || "Invoice"}
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[85vh] max-w-full rounded-xl object-contain shadow-2xl"
+        className="max-h-[85vh] max-w-full rounded-xl object-contain shadow-sheet"
       />
     </div>
   );

@@ -98,17 +98,17 @@ export function EstimatesMapCard({ invoices, currency }: any) {
   if (!apiKey) {
     return (
       <Card>
-        <h3 className="mb-1 font-display text-base font-bold text-ink">Estimates by place</h3>
-        <p className="text-xs text-ink/40">Add a Mapbox access token as <code className="rounded bg-paper px-1">VITE_MAPBOX_TOKEN</code> in your frontend's environment to enable this map.</p>
+        <h3 className="mb-1 font-display text-base font-semibold text-ink">Estimates by place</h3>
+        <p className="text-xs text-faint">Add a Mapbox access token as <code className="rounded bg-paper px-1">VITE_MAPBOX_TOKEN</code> in your frontend's environment to enable this map.</p>
       </Card>
     );
   }
 
   return (
     <Card>
-      <h3 className="mb-1 font-display text-base font-bold text-ink">Estimates by place</h3>
+      <h3 className="mb-1 font-display text-base font-semibold text-ink">Estimates by place</h3>
       {destinations.length === 0 ? (
-        <p className="text-sm text-ink/40">No estimates in this range have a destination set yet.</p>
+        <p className="text-sm text-faint">No estimates in this range have a destination set yet.</p>
       ) : mapError ? (
         <p className="text-sm text-bad-500">{mapError}</p>
       ) : (

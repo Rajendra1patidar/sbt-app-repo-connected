@@ -16,14 +16,14 @@ export function Pagination({
 
   return (
     <div className="flex items-center justify-between pt-1 pb-2">
-      <p className="text-xs text-ink/40">
+      <p className="text-xs text-faint">
         {rangeStart != null ? `${rangeStart}–${rangeEnd} of ${total}` : `Page ${page} of ${totalPages}`}
       </p>
       <div className="flex items-center gap-1">
         <button
           onClick={() => onPageChange(Math.max(1, page - 1))}
           disabled={page <= 1}
-          className="rounded-full p-1.5 text-ink/60 hover:bg-paper disabled:opacity-30"
+          className="rounded-full p-1.5 text-mute hover:bg-paper disabled:opacity-30"
           aria-label="Previous page"
         >
           <ChevronLeft size={16} />
@@ -32,7 +32,7 @@ export function Pagination({
         <button
           onClick={() => onPageChange(Math.min(totalPages, page + 1))}
           disabled={page >= totalPages}
-          className="rounded-full p-1.5 text-ink/60 hover:bg-paper disabled:opacity-30"
+          className="rounded-full p-1.5 text-mute hover:bg-paper disabled:opacity-30"
           aria-label="Next page"
         >
           <ChevronRight size={16} />

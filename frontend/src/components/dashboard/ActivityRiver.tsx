@@ -164,25 +164,25 @@ export function ActivityRiver({ estimates, payments, expenses, purchases, curren
           />
           {PERIODS.map((p) => (
             <button key={p.key} onClick={() => setPeriod(p.key)}
-              className={`relative z-10 rounded-pill px-3 py-1.5 text-[11px] font-semibold transition-colors ${period === p.key ? "text-ink" : "text-ink/40"}`}>
+              className={`relative z-10 rounded-pill px-3 py-1.5 text-[12px] font-semibold transition-colors ${period === p.key ? "text-ink" : "text-faint"}`}>
               {p.label}
             </button>
           ))}
         </div>
         <button
           onClick={() => setMetric((m) => (m === "balance" ? "volume" : "balance"))}
-          className="flex items-center gap-1.5 rounded-pill border border-line px-2.5 py-1.5 text-[10.5px] font-semibold text-ink/50 transition-colors hover:text-ink"
+          className="flex items-center gap-1.5 rounded-pill border border-line px-2.5 py-1.5 text-[11px] font-semibold text-mute transition-colors hover:text-ink"
         >
           {metric === "balance" ? <TrendingUp size={12} /> : <BarChart2 size={12} />}
           {metric === "balance" ? "Running total" : "Per-event"}
         </button>
       </div>
 
-      <p className="pt-2 text-[11px] text-ink/40">{period === "today" ? "Today" : period === "week" ? "This week" : "This month"}, as it happened</p>
+      <p className="pt-2 text-[12px] text-faint">{period === "today" ? "Today" : period === "week" ? "This week" : "This month"}, as it happened</p>
 
       {points.length === 0 ? (
         <div className="flex h-[110px] items-center justify-center">
-          <p className="text-sm text-ink/40">No activity yet {period === "today" ? "today" : `this ${period}`}.</p>
+          <p className="text-sm text-faint">No activity yet {period === "today" ? "today" : `this ${period}`}.</p>
         </div>
       ) : (
         <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="block h-[110px] w-full">
@@ -210,12 +210,12 @@ export function ActivityRiver({ estimates, payments, expenses, purchases, curren
 
       <div className="flex flex-wrap items-center justify-between gap-2 pb-1 pt-2">
         <div className="flex gap-3.5">
-          <span className="flex items-center gap-1.5 text-[10.5px] text-ink/40"><span className="h-1.5 w-1.5 rounded-full" style={{ background: "#2E7D5B" }} />Sale</span>
-          <span className="flex items-center gap-1.5 text-[10.5px] text-ink/40"><span className="h-1.5 w-1.5 rounded-full" style={{ background: "#2F5AA8" }} />Payment</span>
-          <span className="flex items-center gap-1.5 text-[10.5px] text-ink/40"><span className="h-1.5 w-1.5 rounded-full" style={{ background: "#B23A2E" }} />Outflow</span>
+          <span className="flex items-center gap-1.5 text-[11px] text-faint"><span className="h-1.5 w-1.5 rounded-full" style={{ background: "#2E7D5B" }} />Sale</span>
+          <span className="flex items-center gap-1.5 text-[11px] text-faint"><span className="h-1.5 w-1.5 rounded-full" style={{ background: "#2F5AA8" }} />Payment</span>
+          <span className="flex items-center gap-1.5 text-[11px] text-faint"><span className="h-1.5 w-1.5 rounded-full" style={{ background: "#B23A2E" }} />Outflow</span>
         </div>
         {events.length > 0 && (
-          <span className={`font-mono text-[11px] font-semibold ${netTotal >= 0 ? "text-good-500" : "text-bad-500"}`}>Net {fmtMoney(netTotal, currency)}</span>
+          <span className={`font-mono text-[12px] font-semibold ${netTotal >= 0 ? "text-good-500" : "text-bad-500"}`}>Net {fmtMoney(netTotal, currency)}</span>
         )}
       </div>
 

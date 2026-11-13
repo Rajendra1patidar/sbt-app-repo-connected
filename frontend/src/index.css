@@ -2,30 +2,162 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ------------------------------------------------------------------
+   Design language: Apple's calm hierarchy, IBM Quantum's precision.
+   Canvas / Ink / Action / Insight / Gain / Caution / Risk, plus the
+   neutrals below. Colours are space-separated RGB so Tailwind's
+   opacity modifiers (text-ink/60) keep working.
+   ------------------------------------------------------------------ */
 :root {
-  --color-paper: 245 243 238;   /* #F5F3EE */
-  --color-ink: 23 26 33;        /* #171A21 */
-  --color-line: 230 226 216;    /* #E6E2D8 */
-  --color-card: 255 255 255;    /* #FFFFFF */
+  --color-paper: 242 243 245;   /* Canvas  #F2F3F5 */
+  --color-ink: 22 22 22;        /* Ink     #161616 */
+  --color-line: 224 226 230;    /* hairline #E0E2E6 */
+  --color-card: 255 255 255;    /* surface  #FFFFFF */
+  --color-fill: 228 229 233;    /* segmented + search fill #E4E5E9 */
+  --color-rule: 198 202 210;    /* stronger border #C6CAD2 */
+  --color-edge: 208 212 219;    /* input + capture bar border #D0D4DB */
+  --color-mute: 82 88 102;      /* secondary text #525866 */
+  --color-faint: 122 128 140;   /* tertiary text #7A808C */
+  --color-chip: 232 234 238;    /* neutral chip (Draft) #E8EAEE */
+  --color-chip-text: 77 83 96;  /* #4D5360 */
 
-  /* The nav rail is always a dark accent, independent of the light/dark app toggle
-     (matches the reference design) — just a touch darker still in dark mode. */
-  --color-sidebar: 23 26 33;         /* #171A21 */
-  --color-sidebar-text: 201 205 214; /* #C9CDD6 */
-  --color-sidebar-line: 44 49 59;    /* #2C313B */
-  --color-sidebar-heading: 86 91 100;/* #565B64 */
+  /* Legacy desktop rail tokens, kept so older components still compile. */
+  --color-sidebar: 22 22 22;
+  --color-sidebar-text: 198 198 198;
+  --color-sidebar-line: 57 57 57;
+  --color-sidebar-heading: 141 141 141;
+
+  --scrim: rgba(22, 22, 22, 0.36);
+  --glass: rgba(255, 255, 255, 0.78);
+
+  --c-brand-50: 237 245 255;
+  --c-brand-100: 208 226 255;
+  --c-brand-200: 166 200 255;
+  --c-brand-300: 120 169 255;
+  --c-brand-400: 69 137 255;
+  --c-brand-500: 15 98 254;
+  --c-brand-600: 0 67 206;
+  --c-brand-700: 0 45 156;
+  --c-brand-800: 0 29 108;
+  --c-brand-900: 0 17 65;
+  --c-insight-50: 246 240 255;
+  --c-insight-100: 241 232 255;
+  --c-insight-200: 229 213 255;
+  --c-insight-300: 212 187 255;
+  --c-insight-400: 190 149 255;
+  --c-insight-500: 138 63 252;
+  --c-insight-600: 105 41 196;
+  --c-insight-700: 73 29 139;
+  --c-insight-800: 49 19 94;
+  --c-good-50: 222 251 230;
+  --c-good-100: 167 240 186;
+  --c-good-200: 111 220 140;
+  --c-good-300: 66 190 101;
+  --c-good-400: 36 161 72;
+  --c-good-500: 25 128 56;
+  --c-good-600: 14 96 39;
+  --c-good-700: 4 67 23;
+  --c-good-800: 2 45 13;
+  --c-bad-50: 255 241 241;
+  --c-bad-100: 255 215 217;
+  --c-bad-200: 255 179 184;
+  --c-bad-300: 255 131 137;
+  --c-bad-400: 250 77 86;
+  --c-bad-500: 218 30 40;
+  --c-bad-600: 162 25 31;
+  --c-bad-700: 117 14 19;
+  --c-bad-800: 82 4 8;
+  --c-warn-50: 252 244 214;
+  --c-warn-100: 251 233 168;
+  --c-warn-200: 253 220 105;
+  --c-warn-300: 241 194 27;
+  --c-warn-400: 210 161 6;
+  --c-warn-500: 178 134 0;
+  --c-warn-600: 142 106 0;
+  --c-warn-700: 104 78 0;
+  --c-warn-800: 72 55 0;
+  --c-advance-50: 237 245 255;
+  --c-advance-100: 208 226 255;
+  --c-advance-200: 166 200 255;
+  --c-advance-300: 120 169 255;
+  --c-advance-400: 69 137 255;
+  --c-advance-500: 15 98 254;
+  --c-advance-600: 0 67 206;
+  --c-advance-700: 0 45 156;
+  --c-advance-800: 0 29 108;
 }
 
 [data-theme="dark"] {
-  --color-paper: 14 16 19;      /* #0E1013 */
-  --color-ink: 242 241 236;     /* #F2F1EC */
-  --color-line: 38 42 49;       /* #262A31 */
-  --color-card: 24 27 32;       /* #181B20 */
+  --color-paper: 22 22 22;      /* Carbon Gray 100 */
+  --color-ink: 244 244 244;
+  --color-line: 57 57 57;
+  --color-card: 38 38 38;
+  --color-fill: 57 57 57;
+  --color-rule: 82 82 82;
+  --color-edge: 90 90 90;
+  --color-mute: 198 198 198;
+  --color-faint: 141 141 141;
+  --color-chip: 57 57 57;
+  --color-chip-text: 198 198 198;
 
-  --color-sidebar: 10 12 15;         /* #0A0C0F */
-  --color-sidebar-text: 158 163 175; /* #9EA3AF */
-  --color-sidebar-line: 32 36 43;    /* #20242B */
-  --color-sidebar-heading: 74 78 87; /* #4A4E57 */
+  --scrim: rgba(0, 0, 0, 0.55);
+  --glass: rgba(38, 38, 38, 0.8);
+
+  --c-brand-50: 21 33 54;
+  --c-brand-100: 20 39 73;
+  --c-brand-200: 20 48 101;
+  --c-brand-300: 120 169 255;
+  --c-brand-400: 69 137 255;
+  --c-brand-500: 15 98 254;
+  --c-brand-600: 120 169 255;
+  --c-brand-700: 166 200 255;
+  --c-brand-800: 208 226 255;
+  --c-brand-900: 208 226 255;
+  --c-insight-50: 38 28 54;
+  --c-insight-100: 48 31 73;
+  --c-insight-200: 61 36 100;
+  --c-insight-300: 212 187 255;
+  --c-insight-400: 190 149 255;
+  --c-insight-500: 138 63 252;
+  --c-insight-600: 212 187 255;
+  --c-insight-700: 229 213 255;
+  --c-insight-800: 241 232 255;
+  --c-good-50: 22 37 27;
+  --c-good-100: 23 45 29;
+  --c-good-200: 23 58 34;
+  --c-good-300: 66 190 101;
+  --c-good-400: 36 161 72;
+  --c-good-500: 25 128 56;
+  --c-good-600: 66 190 101;
+  --c-good-700: 111 220 140;
+  --c-good-800: 167 240 186;
+  --c-bad-50: 49 23 25;
+  --c-bad-100: 65 24 26;
+  --c-bad-200: 89 25 28;
+  --c-bad-300: 255 131 137;
+  --c-bad-400: 250 77 86;
+  --c-bad-500: 218 30 40;
+  --c-bad-600: 255 131 137;
+  --c-bad-700: 255 179 184;
+  --c-bad-800: 255 215 217;
+  --c-warn-50: 44 38 19;
+  --c-warn-100: 56 47 17;
+  --c-warn-200: 75 60 15;
+  --c-warn-300: 241 194 27;
+  --c-warn-400: 210 161 6;
+  --c-warn-500: 178 134 0;
+  --c-warn-600: 241 194 27;
+  --c-warn-700: 253 220 105;
+  --c-warn-800: 251 233 168;
+  --c-advance-50: 21 33 54;
+  --c-advance-100: 20 39 73;
+  --c-advance-200: 20 48 101;
+  --c-advance-300: 120 169 255;
+  --c-advance-400: 69 137 255;
+  --c-advance-500: 15 98 254;
+  --c-advance-600: 120 169 255;
+  --c-advance-700: 166 200 255;
+  --c-advance-800: 208 226 255;
 }
 
 * {
@@ -41,14 +173,57 @@ html[data-theme="dark"] {
 
 body {
   margin: 0;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: "IBM Plex Sans", "IBM Plex Sans Devanagari", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   background-color: rgb(var(--color-paper));
   color: rgb(var(--color-ink));
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* Numbers lead, and they line up: tabular figures wherever amounts appear. */
+.font-mono, .tabular, table {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+.font-doc {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
 ::-webkit-scrollbar { width: 0; height: 0; }
+
+/* Form controls inherit the type system instead of the browser's. */
+input, select, textarea, button {
+  font-family: inherit;
+}
+input::placeholder, textarea::placeholder {
+  color: rgb(var(--color-faint));
+}
+
+/* Visible keyboard focus in the Action colour, without a ring on tap. */
+:focus-visible {
+  outline: 2px solid rgb(var(--c-brand-500));
+  outline-offset: 2px;
+}
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: none;
+}
+
+/* Sheets: a grabber and concentric top corners. Add `sheet-grab` to a sheet's panel. */
+.sheet-grab { position: relative; }
+.sheet-grab::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 36px;
+  height: 5px;
+  margin-left: -18px;
+  border-radius: 3px;
+  background: rgb(var(--color-rule));
+  z-index: 1;
+}
 
 @keyframes sheetUp {
   from { transform: translateY(100%); }
@@ -74,13 +249,12 @@ body {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.animate-sheet-up { animation: sheetUp 0.28s cubic-bezier(0.16, 1, 0.3, 1); }
+.animate-sheet-up { animation: sheetUp 0.32s cubic-bezier(0.16, 1, 0.3, 1); }
 .animate-fade-in { animation: fadeIn 0.18s ease-out; }
 .animate-pop-in { animation: popIn 0.16s cubic-bezier(0.16, 1, 0.3, 1); }
 .animate-row-in { animation: rowIn 0.24s ease-out both; }
 .animate-chip-in { animation: chipIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) both; }
-/* Dashboard section entrance — IBM Carbon's real "entrance ease" curve
-   (cubic-bezier(0,0,0.25,1)), staggered per section via --rise-delay. */
+/* Section entrance — Carbon's entrance ease, staggered per section via --rise-delay. */
 .animate-rise-in { opacity: 0; animation: riseIn 480ms cubic-bezier(0, 0, 0.25, 1) forwards; animation-delay: var(--rise-delay, 0ms); }
 
 @media (prefers-reduced-motion: reduce) {

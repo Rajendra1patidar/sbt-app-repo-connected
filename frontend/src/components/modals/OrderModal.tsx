@@ -56,18 +56,18 @@ export function OrderModal({ items, vendors, currency, onClose, onSave, prefill 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4 animate-fade-in">
-      <div className="animate-sheet-up w-full sm:max-w-xl max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4 animate-fade-in">
+      <div className="animate-sheet-up sheet-grab w-full sm:max-w-xl max-h-[92vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display text-lg font-bold text-ink">New Order</h3>
+          <h3 className="font-display text-lg font-semibold text-ink">New Order</h3>
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
 
-        {items.length === 0 ? <p className="text-sm text-ink/50">Add items first.</p> : (
+        {items.length === 0 ? <p className="text-sm text-mute">Add items first.</p> : (
           <div className="space-y-5">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-xs font-semibold text-ink/50">Vendor (optional)</label>
+                <label className="mb-1 block text-xs font-semibold text-mute">Vendor (optional)</label>
                 <SearchableSelect
                   options={vendors.map((v: any) => ({ value: v.id, label: v.name }))}
                   value={vendorId}
@@ -76,14 +76,14 @@ export function OrderModal({ items, vendors, currency, onClose, onSave, prefill 
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-ink/50">Date</label>
+                <label className="mb-1 block text-xs font-semibold text-mute">Date</label>
                 <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
               </div>
             </div>
 
             <div className="border-t border-line pt-4">
-              <label className="mb-2 block text-xs font-semibold text-ink/50">Items *</label>
-              <div className="hidden sm:grid mb-1 grid-cols-[2.4fr_80px_110px_110px_28px] gap-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-ink/35">
+              <label className="mb-2 block text-xs font-semibold text-mute">Items *</label>
+              <div className="hidden sm:grid mb-1 grid-cols-[2.4fr_80px_110px_110px_28px] gap-2 px-1 text-[12px] font-semibold text-faint">
                 <span>Item</span><span>Qty</span><span>Rate</span><span className="text-right">Amount</span><span />
               </div>
               <div className="space-y-2">
@@ -100,23 +100,23 @@ export function OrderModal({ items, vendors, currency, onClose, onSave, prefill 
                           placeholder="Select item"
                         />
                         <div className="mt-2 sm:mt-0">
-                          <span className="mb-0.5 block text-[10px] font-semibold text-ink/35 sm:hidden">Qty</span>
+                          <span className="mb-0.5 block text-[11px] font-semibold text-faint sm:hidden">Qty</span>
                           <input type="number" min="1" value={ln.qty} onChange={(e) => updateLine(i, { qty: e.target.value })} className="w-full rounded-xl border border-line px-2 py-2 text-sm" />
                         </div>
                         <div className="mt-2 sm:mt-0">
-                          <span className="mb-0.5 block text-[10px] font-semibold text-ink/35 sm:hidden">Rate</span>
+                          <span className="mb-0.5 block text-[11px] font-semibold text-faint sm:hidden">Rate</span>
                           <input type="number" min="0" step="0.01" value={ln.rate} onChange={(e) => updateLine(i, { rate: e.target.value })} className="w-full rounded-xl border border-line px-2 py-2 text-sm" />
                         </div>
                         <div className="mt-2 flex items-center justify-between sm:mt-0 sm:block sm:text-right">
-                          <span className="text-[10px] font-semibold text-ink/35 sm:hidden">Amount</span>
-                          <span className="font-display text-sm font-bold text-ink tabular-nums">{fmtMoney(lineAmounts[i], "")}</span>
+                          <span className="text-[11px] font-semibold text-faint sm:hidden">Amount</span>
+                          <span className="font-display text-sm font-semibold text-ink tabular-nums">{fmtMoney(lineAmounts[i], "")}</span>
                         </div>
                         <div className="mt-1 flex items-center justify-end sm:mt-0">
                           {lines.length > 1 && <button onClick={() => removeLine(i)} className="rounded-full p-1.5 text-bad-500 hover:bg-bad-50"><Trash2 size={15} /></button>}
                         </div>
                       </div>
                       {showBoxReminder && (
-                        <p className="mt-2 text-[11px] font-semibold text-brand-700">This item comes in a box of {it.piecesPerBox} pieces</p>
+                        <p className="mt-2 text-[12px] font-semibold text-brand-700">This item comes in a box of {it.piecesPerBox} pieces</p>
                       )}
                     </div>
                   );
@@ -124,20 +124,20 @@ export function OrderModal({ items, vendors, currency, onClose, onSave, prefill 
               </div>
               <button
                 type="button" onClick={addLine}
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-brand-300 bg-brand-50 px-4 py-3.5 text-sm font-bold text-brand-600 transition hover:bg-brand-100 hover:border-brand-400 active:scale-[0.98]"
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-brand-300 bg-brand-50 px-4 py-3.5 text-sm font-semibold text-brand-600 transition hover:bg-brand-100 hover:border-brand-400 active:scale-[0.98]"
               >
                 <Plus size={19} /> Add line
               </button>
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-semibold text-ink/50">Notes</label>
+              <label className="mb-1 block text-xs font-semibold text-mute">Notes</label>
               <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
             </div>
 
             <div className="flex items-center justify-between rounded-xl bg-paper px-4 py-3">
-              <span className="text-sm font-semibold text-ink/50">Total</span>
-              <span className="font-display text-lg font-bold text-ink">{fmtMoney(total, currency)}</span>
+              <span className="text-sm font-semibold text-mute">Total</span>
+              <span className="font-display text-lg font-semibold text-ink">{fmtMoney(total, currency)}</span>
             </div>
           </div>
         )}

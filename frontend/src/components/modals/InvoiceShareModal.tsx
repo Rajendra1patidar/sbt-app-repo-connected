@@ -3,6 +3,7 @@ import { ArrowDownToLine, MessageSquare, Send, X } from "lucide-react";
 import { WHATSAPP_GREEN } from "../../lib/constants";
 import { smsLink, waLink } from "../../lib/contactLinks";
 import { fmtDate, fmtMoney, fmtNum } from "../../lib/format";
+import { drawQr, encodeQr, upiPayLink } from "../../lib/qr";
 
 /* ---- InvoiceShareModal ---- */
 
@@ -45,7 +46,18 @@ export function InvoiceShareModal({ invoice, customer, items, settings, payment,
     const NOTES_H = invoice.notes ? 34 : 0;
     const STAT_H = 40;
     const PREV_H = previousBalance > 0 ? 68 : 0;
-    const H = HEADER_H + (lines.length + discountRowCount + extras.length) * rowH + TOTAL_H + PREV_H + NOTES_H + STAT_H + PAD * 2;
+
+    // Optional UPI payment QR (the estimate form's "Add your UPI QR to the bill" switch).
+    const qrAmount = Number(invoice._upiQrAmount || 0);
+    const upiId = String(settings?.upiId || "").trim();
+    const qr = qrAmount > 0 && upiId
+      ? encodeQr(upiPayLink({ upiId, name: settings?.orgName, amount: qrAmount, note: invoice.number }), "M")
+      : null;
+    const QR_PX = 6;
+    const QR_TOTAL = qr ? (qr.size + 4) * QR_PX : 0;
+    const QR_H = qr ? QR_TOTAL + 94 : 0;
+
+    const H = HEADER_H + (lines.length + discountRowCount + extras.length) * rowH + TOTAL_H + PREV_H + NOTES_H + STAT_H + QR_H + PAD * 2;
 
     canvas.width = CARD_W; canvas.height = H;
 
@@ -119,6 +131,18 @@ export function InvoiceShareModal({ invoice, customer, items, settings, payment,
     y += 34; ctx.font = "bold 18px Arial"; ctx.fillStyle = statusColor; ctx.textAlign = "right";
     ctx.fillText(compactStatusLabel, CARD_W - PAD, y); ctx.textAlign = "left";
 
+    // UPI QR — centred under the status, with what to pay and where
+    if (qr) {
+      y += 18; ctx.strokeStyle = "#e2e8f0"; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
+      ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(CARD_W - PAD, y); ctx.stroke(); ctx.setLineDash([]);
+      y += 14;
+      drawQr(ctx, qr, Math.round((CARD_W - QR_TOTAL) / 2), y, QR_PX);
+      y += QR_TOTAL + 26; ctx.textAlign = "center"; ctx.font = "bold 22px Arial"; ctx.fillStyle = "#0f172a";
+      ctx.fillText(`Scan to pay ${fmtMoney(qrAmount, settings.currency)}`, CARD_W / 2, y);
+      y += 26; ctx.font = "18px Arial"; ctx.fillStyle = "#64748b";
+      ctx.fillText(`UPI: ${upiId}`, CARD_W / 2, y); ctx.textAlign = "left";
+    }
+
     setImgUrl(canvas.toDataURL("image/png"));
   }, [invoice, customer, items, settings, payment, isOverdue, statusColor, compactStatusLabel]);
 
@@ -135,17 +159,17 @@ export function InvoiceShareModal({ invoice, customer, items, settings, payment,
     : `Hi ${customer?.name || ""}, estimate ${invoice.number} for ${fmtMoney(invoice.total, settings.currency)} due ${fmtDate(invoice.dueDate)}. - ${settings.orgName}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
-      <div className="w-full sm:max-w-md max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card px-5 pt-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4">
+      <div className="w-full sm:max-w-md max-h-[92vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-5 pt-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-sheet">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-display text-lg font-bold text-ink">Share estimate</h3>
+          <h3 className="font-display text-lg font-semibold text-ink">Share estimate</h3>
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
         <div className="overflow-hidden rounded-2xl border border-line bg-paper">
           {imgUrl ? <img src={imgUrl} alt={`Estimate ${invoice.number}`} className="block h-auto w-full" />
-            : <div className="flex h-40 items-center justify-center text-sm text-ink/40">Generating preview…</div>}
+            : <div className="flex h-40 items-center justify-center text-sm text-faint">Generating preview…</div>}
         </div>
-        <p className="mt-3 text-xs leading-relaxed text-ink/40">Press and hold the image to save it, then share from your gallery — or use the buttons below.</p>
+        <p className="mt-3 text-xs leading-relaxed text-faint">Press and hold the image to save it, then share from your gallery — or use the buttons below.</p>
         <div className="mt-4 grid grid-cols-1 gap-2">
           <a href={imgUrl || undefined} download={`${invoice.number}.png`} onClick={(e) => { if (!imgUrl) e.preventDefault(); }}
             className={`flex items-center justify-center gap-2 rounded-full border border-line py-3 text-sm font-semibold text-ink/80 transition active:scale-[0.98] ${!imgUrl ? "opacity-40" : ""}`}>

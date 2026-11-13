@@ -110,70 +110,70 @@ export function ReportsView({ data, currency, settings }: any) {
       <Card>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5">
-            <label className="text-xs font-semibold text-ink/50">From</label>
+            <label className="text-xs font-semibold text-mute">From</label>
             <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="rounded-lg border border-line px-2 py-1.5 text-xs" />
           </div>
           <div className="flex items-center gap-1.5">
-            <label className="text-xs font-semibold text-ink/50">To</label>
+            <label className="text-xs font-semibold text-mute">To</label>
             <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="rounded-lg border border-line px-2 py-1.5 text-xs" />
           </div>
           <button onClick={printRangeReport} className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1.5 text-xs font-semibold text-ink/80"><Printer size={13} /> Print report</button>
         </div>
-        <p className="mt-2 text-xs text-ink/40">Prints estimates, payments received, and expenses between the two dates.</p>
+        <p className="mt-2 text-xs text-faint">Prints estimates, payments received, and expenses between the two dates.</p>
         {rangeLabourTotal > 0 && <p className="mt-1 text-xs font-semibold text-warn-600">Labour cost in this range: {fmtMoney(rangeLabourTotal, currency)} ({rangeLabour.length} session{rangeLabour.length !== 1 ? "s" : ""})</p>}
       </Card>
       <EstimatesMapCard invoices={invoices.filter((i: any) => i.date >= fromDate && i.date <= toDate)} currency={currency} />
       <div className="grid grid-cols-2 gap-3">
-        {stats.map((s) => (<Card key={s.label}><p className="text-xs font-semibold text-ink/40">{s.label}</p><p className={`mt-1 font-display text-xl font-bold ${s.color}`}>{fmtMoney(s.value, currency)}</p></Card>))}
+        {stats.map((s) => (<Card key={s.label}><p className="text-xs font-semibold text-faint">{s.label}</p><p className={`mt-1 font-display text-xl font-semibold ${s.color}`}>{fmtMoney(s.value, currency)}</p></Card>))}
       </div>
 
       <Card className="border border-good-100 bg-good-50/40">
         <p className="text-xs font-semibold text-good-700">Gross Profit (revenue − cost of goods sold)</p>
-        <p className="mt-1 text-2xl font-bold text-good-700">{fmtMoney(grossProfit, currency)}</p>
+        <p className="mt-1 text-2xl font-semibold text-good-700">{fmtMoney(grossProfit, currency)}</p>
         <p className="mt-1 text-xs text-good-600">{grossMarginPercent.toFixed(2)}% margin · Cost of goods sold: {fmtMoney(costOfGoodsSold, currency)}</p>
-        <p className="mt-2 text-xs text-ink/40">This is different from "Total Received − Total Expenses" — it accounts for what your items actually cost to buy, not just cash overhead.</p>
+        <p className="mt-2 text-xs text-faint">This is different from "Total Received − Total Expenses" — it accounts for what your items actually cost to buy, not just cash overhead.</p>
       </Card>
 
       {itemProfitability.length > 0 && (
         <Card>
-          <h3 className="mb-3 font-display text-base font-bold text-ink">Item profitability</h3>
+          <h3 className="mb-3 font-display text-base font-semibold text-ink">Item profitability</h3>
           <div className="space-y-2">
             {itemProfitability.slice(0, 10).map((it) => (
               <div key={it.itemId} className="flex items-center justify-between border-b border-line pb-2 last:border-0 last:pb-0">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-ink">{it.name}</p>
-                  <p className="text-xs text-ink/40">{Number(it.qtySold).toFixed(2)} sold · Revenue {fmtMoney(it.revenue, currency)}</p>
+                  <p className="text-xs text-faint">{Number(it.qtySold).toFixed(2)} sold · Revenue {fmtMoney(it.revenue, currency)}</p>
                 </div>
-                <p className={`text-sm font-bold ${it.margin >= 0 ? "text-good-600" : "text-bad-600"}`}>{fmtMoney(it.margin, currency)}</p>
+                <p className={`text-sm font-semibold ${it.margin >= 0 ? "text-good-600" : "text-bad-600"}`}>{fmtMoney(it.margin, currency)}</p>
               </div>
             ))}
           </div>
-          {itemProfitability.length > 10 && <p className="mt-2 text-xs text-ink/40">Showing top 10 of {itemProfitability.length} items.</p>}
+          {itemProfitability.length > 10 && <p className="mt-2 text-xs text-faint">Showing top 10 of {itemProfitability.length} items.</p>}
         </Card>
       )}
 
       <Card>
-        <h3 className="mb-3 font-display text-base font-bold text-ink">Estimates by status</h3>
-        {Object.keys(statusCounts).length === 0 ? <p className="text-sm text-ink/40">No estimates yet.</p>
+        <h3 className="mb-3 font-display text-base font-semibold text-ink">Estimates by status</h3>
+        {Object.keys(statusCounts).length === 0 ? <p className="text-sm text-faint">No estimates yet.</p>
           : <ul className="space-y-2">{Object.entries(statusCounts).map(([s, c]) => (<li key={s} className="flex items-center justify-between text-sm"><Badge status={s} /><span className="font-semibold text-ink/80">{c}</span></li>))}</ul>}
       </Card>
-      <Card><p className="text-xs font-semibold text-ink/40">Total Customers</p><p className="mt-1 font-display text-xl font-bold text-ink">{customers.length}</p></Card>
+      <Card><p className="text-xs font-semibold text-faint">Total Customers</p><p className="mt-1 font-display text-xl font-semibold text-ink">{customers.length}</p></Card>
 
       {/* Search by name */}
       <Card>
-        <div className="mb-3 flex items-center gap-2"><Search size={16} className="text-brand-500" /><h3 className="font-display text-base font-bold text-ink">Search estimates by customer name</h3></div>
+        <div className="mb-3 flex items-center gap-2"><Search size={16} className="text-brand-500" /><h3 className="font-display text-base font-semibold text-ink">Search estimates by customer name</h3></div>
         <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
           <input value={nameQuery} onChange={(e) => setNameQuery(e.target.value)} placeholder="Type customer name..." className="w-full rounded-xl border border-line py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400" />
         </div>
         {trimmedName && (
           <div className="mt-3">
             {nameMatchedInvoices.length === 0
-              ? <p className="text-sm text-ink/40">{nameMatchedCustomers.length === 0 ? `No customer matching "${nameQuery}".` : "Customer found but no estimates yet."}</p>
+              ? <p className="text-sm text-faint">{nameMatchedCustomers.length === 0 ? `No customer matching "${nameQuery}".` : "Customer found but no estimates yet."}</p>
               : <ul className="divide-y divide-line">
                 {nameMatchedInvoices.map((inv: any) => {
                   const c = customers.find((cu: any) => cu.id === inv.customerId);
-                  return (<li key={inv.id} className="py-3"><div className="flex items-start justify-between"><div className="min-w-0"><p className="font-semibold text-ink truncate">{inv.number}</p><p className="text-xs text-ink/50 truncate">{c?.name} · {fmtDate(inv.date)}</p>{c?.location && <p className="flex items-center gap-1 text-xs text-ink/40 truncate"><MapPin size={10} /> {c.location}</p>}</div><div className="text-right shrink-0"><p className="font-bold text-ink">{fmtMoney(inv.total, currency)}</p><Badge status={inv.status} /></div></div></li>);
+                  return (<li key={inv.id} className="py-3"><div className="flex items-start justify-between"><div className="min-w-0"><p className="font-semibold text-ink truncate">{inv.number}</p><p className="text-xs text-mute truncate">{c?.name} · {fmtDate(inv.date)}</p>{c?.location && <p className="flex items-center gap-1 text-xs text-faint truncate"><MapPin size={10} /> {c.location}</p>}</div><div className="text-right shrink-0"><p className="font-semibold text-ink">{fmtMoney(inv.total, currency)}</p><Badge status={inv.status} /></div></div></li>);
                 })}
               </ul>
             }
@@ -183,15 +183,15 @@ export function ReportsView({ data, currency, settings }: any) {
 
       {/* Search by location */}
       <Card>
-        <div className="mb-3 flex items-center gap-2"><MapPin size={16} className="text-advance-500" /><h3 className="font-display text-base font-bold text-ink">Search customers by location</h3></div>
+        <div className="mb-3 flex items-center gap-2"><MapPin size={16} className="text-advance-500" /><h3 className="font-display text-base font-semibold text-ink">Search customers by location</h3></div>
         <div className="relative">
-          <MapPin size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
+          <MapPin size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
           <input value={locationQuery} onChange={(e) => setLocationQuery(e.target.value)} placeholder="Type city, area or address..." className="w-full rounded-xl border border-line py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-advance-400" />
         </div>
         {trimmedLoc && (
           <div className="mt-3">
             {locationMatchedCustomers.length === 0
-              ? <p className="text-sm text-ink/40">No customers at "{locationQuery}".</p>
+              ? <p className="text-sm text-faint">No customers at "{locationQuery}".</p>
               : <ul className="divide-y divide-line">
                 {locationMatchedCustomers.map((c: any) => {
                   const custInvoices = invoices.filter((inv: any) => inv.customerId === c.id);
@@ -199,10 +199,10 @@ export function ReportsView({ data, currency, settings }: any) {
                   return (
                     <li key={c.id} className="py-3">
                       <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0"><p className="font-semibold text-ink truncate">{c.name}</p><p className="flex items-center gap-1 text-xs text-ink/40 mt-0.5 truncate"><MapPin size={10} /> {c.location}</p>{c.phone && <p className="text-xs text-ink/40 truncate">{c.phone}</p>}</div>
-                        <div className="text-right shrink-0"><p className="text-xs text-ink/40">{custInvoices.length} estimate{custInvoices.length !== 1 ? "s" : ""}</p><p className="font-bold text-ink">{fmtMoney(custTotal, currency)}</p></div>
+                        <div className="min-w-0"><p className="font-semibold text-ink truncate">{c.name}</p><p className="flex items-center gap-1 text-xs text-faint mt-0.5 truncate"><MapPin size={10} /> {c.location}</p>{c.phone && <p className="text-xs text-faint truncate">{c.phone}</p>}</div>
+                        <div className="text-right shrink-0"><p className="text-xs text-faint">{custInvoices.length} estimate{custInvoices.length !== 1 ? "s" : ""}</p><p className="font-semibold text-ink">{fmtMoney(custTotal, currency)}</p></div>
                       </div>
-                      {custInvoices.length > 0 && <ul className="mt-2 space-y-1 pl-2 border-l-2 border-line">{custInvoices.map((inv: any) => (<li key={inv.id} className="flex items-center justify-between text-xs text-ink/50"><span>{inv.number} · {fmtDate(inv.date)}</span><span className="flex items-center gap-2">{fmtMoney(inv.total, currency)}<Badge status={inv.status} /></span></li>))}</ul>}
+                      {custInvoices.length > 0 && <ul className="mt-2 space-y-1 pl-2 border-l-2 border-line">{custInvoices.map((inv: any) => (<li key={inv.id} className="flex items-center justify-between text-xs text-mute"><span>{inv.number} · {fmtDate(inv.date)}</span><span className="flex items-center gap-2">{fmtMoney(inv.total, currency)}<Badge status={inv.status} /></span></li>))}</ul>}
                     </li>
                   );
                 })}

@@ -26,7 +26,7 @@ export function UnderlineTabs<T extends string>({ tabs, active, onChange, size =
           key={t.key}
           ref={(el) => { refs.current[t.key] = el; }}
           onClick={() => onChange(t.key)}
-          className={`pb-2 text-[12.5px] font-semibold capitalize transition-colors duration-150 ${active === t.key ? "text-ink" : "text-ink/35 hover:text-ink/55"}`}
+          className={`pb-2 text-[13px] font-semibold capitalize transition-colors duration-150 ${active === t.key ? "text-ink" : "text-faint hover:text-mute"}`}
         >
           {t.label}
         </button>

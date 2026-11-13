@@ -34,21 +34,21 @@ export function DueThisWeek({ estimates, customers, currency, go }: any) {
     <div className="rounded-card bg-card border border-line shadow-card overflow-hidden">
       <div className="flex items-baseline justify-between px-4 pt-3.5 pb-2 border-b border-line">
         <h2 className="font-display text-[13.5px] font-medium text-ink">Due this week</h2>
-        <span className="font-mono text-[10px] text-ink/40">{rows.length} account{rows.length !== 1 ? "s" : ""}</span>
+        <span className="font-mono text-[11px] text-faint">{rows.length} account{rows.length !== 1 ? "s" : ""}</span>
       </div>
       {rows.length === 0 ? (
-        <p className="px-4 py-6 text-center text-[12.5px] text-ink/40">Nothing due in the next 7 days.</p>
+        <p className="px-4 py-6 text-center text-[13px] text-faint">Nothing due in the next 7 days.</p>
       ) : (
         rows.map((r) => {
           const name = customerName(r.customerId);
           return (
             <button key={r.customerId} onClick={() => go?.("customers")} className="flex w-full items-center gap-2.5 px-4 py-2.5 border-b border-line last:border-none text-left hover:bg-paper/60">
-              <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-paper font-display text-[10.5px] font-semibold text-ink">{initials(name)}</span>
+              <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-paper font-display text-[11px] font-semibold text-ink">{initials(name)}</span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[11.5px] font-semibold text-ink">{name}</p>
-                <p className="font-mono text-[9.5px] text-ink/40">due {shortDate(r.earliest)}</p>
+                <p className="truncate text-[12px] font-semibold text-ink">{name}</p>
+                <p className="font-mono text-[11px] text-faint">due {shortDate(r.earliest)}</p>
               </div>
-              <span className="shrink-0 font-mono text-[11.5px] font-semibold text-bad-600">{fmtMoney(r.amount, currency)}</span>
+              <span className="shrink-0 font-mono text-[12px] font-semibold text-bad-600">{fmtMoney(r.amount, currency)}</span>
             </button>
           );
         })

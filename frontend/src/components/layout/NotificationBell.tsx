@@ -97,16 +97,16 @@ export function NotificationBell() {
         onClick={() => setOpen((v) => !v)}
         className="relative rounded-full border border-line bg-card p-2 hover:border-brand-200 transition-colors"
       >
-        <Bell size={18} className="text-ink/50" />
+        <Bell size={18} className="text-mute" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+          <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-semibold text-white">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-12 z-30 w-80 max-w-[90vw] rounded-2xl border border-line bg-card shadow-xl overflow-hidden">
+        <div className="absolute right-0 top-12 z-30 w-80 max-w-[90vw] rounded-2xl border border-line bg-card shadow-sheet overflow-hidden">
           <div className="flex items-center justify-between border-b border-line px-4 py-3">
             <p className="text-sm font-semibold text-ink">Notifications</p>
             <div className="flex items-center gap-3">
@@ -116,7 +116,7 @@ export function NotificationBell() {
                 </button>
               )}
               {notifications.length > 0 && (
-                <button onClick={clearAllNotifications} className="text-xs font-medium text-ink/40 hover:text-bad-600 hover:underline">
+                <button onClick={clearAllNotifications} className="text-xs font-medium text-faint hover:text-bad-600 hover:underline">
                   Clear all
                 </button>
               )}
@@ -125,7 +125,7 @@ export function NotificationBell() {
 
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 && (
-              <p className="px-4 py-8 text-center text-sm text-ink/40">Nothing here yet.</p>
+              <p className="px-4 py-8 text-center text-sm text-faint">Nothing here yet.</p>
             )}
             {notifications.map((n) => {
               const Icon = ICONS[n.type] || Bell;
@@ -138,13 +138,13 @@ export function NotificationBell() {
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSelect(n); } }}
                   className={`group flex w-full cursor-pointer items-start gap-3 border-b border-line/60 px-4 py-3 text-left transition-colors hover:bg-paper ${n.read ? "" : "bg-brand-50/40"}`}
                 >
-                  <div className={`mt-0.5 rounded-full p-1.5 ${n.read ? "bg-ink/5 text-ink/40" : "bg-brand-100 text-brand-600"}`}>
+                  <div className={`mt-0.5 rounded-full p-1.5 ${n.read ? "bg-ink/5 text-faint" : "bg-brand-100 text-brand-600"}`}>
                     <Icon size={14} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className={`text-sm ${n.read ? "text-ink/70" : "font-semibold text-ink"}`}>{n.title}</p>
-                    {n.body && <p className="mt-0.5 text-xs text-ink/50 line-clamp-2">{n.body}</p>}
-                    <p className="mt-1 text-[11px] text-ink/30">{timeAgo(n.createdAt)}</p>
+                    {n.body && <p className="mt-0.5 text-xs text-mute line-clamp-2">{n.body}</p>}
+                    <p className="mt-1 text-[12px] text-ink/30">{timeAgo(n.createdAt)}</p>
                   </div>
                   {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-500" />}
                   <button

@@ -24,14 +24,14 @@ export function RowActionMenu({ actions }: { actions: RowAction[] }) {
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label="More actions"
-        className="flex h-9 w-9 items-center justify-center rounded-full text-ink/40 hover:bg-paper active:scale-95 transition"
+        className="flex h-9 w-9 items-center justify-center rounded-full text-faint hover:bg-paper active:scale-95 transition"
       >
         <MoreVertical size={17} />
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-[55]" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-10 z-[56] min-w-[168px] overflow-hidden rounded-2xl border border-line bg-card shadow-xl animate-pop-in">
+          <div className="absolute right-0 top-10 z-[56] min-w-[168px] overflow-hidden rounded-2xl border border-line bg-card shadow-sheet animate-pop-in">
             {actions.map((a) => {
               const Icon = a.icon;
               const cls = `flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm font-semibold ${

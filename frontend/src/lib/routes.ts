@@ -6,6 +6,10 @@
  */
 export const VIEW_PATHS: Record<string, string> = {
   dashboard: "/",
+  sell: "/sell",
+  stock: "/stock",
+  money: "/money",
+  team: "/team",
   customers: "/customers",
   items: "/items",
   godowns: "/godowns",

@@ -29,14 +29,14 @@ export function ChallanModal({ onClose, onSave }: any) {
   const canSave = route.trim().length > 0;
 
   const inputCls = "w-full rounded-xl border border-line px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300";
-  const labelCls = "mb-1 block text-xs font-semibold text-ink/50";
+  const labelCls = "mb-1 block text-xs font-semibold text-mute";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
-      <div className="w-full sm:max-w-xl max-h-[93vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl space-y-5">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4">
+      <div className="w-full sm:max-w-xl max-h-[93vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h3 className="font-display text-lg font-bold text-ink">New Delivery Challan</h3>
+          <h3 className="font-display text-lg font-semibold text-ink">New Delivery Challan</h3>
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
 
@@ -85,7 +85,7 @@ export function ChallanModal({ onClose, onSave }: any) {
               </div>
             ))}
           </div>
-          {totalExpenses > 0 && <p className="mt-1 text-right text-xs text-ink/40">Total: <span className="font-semibold text-bad-600">₹{totalExpenses.toFixed(2)}</span></p>}
+          {totalExpenses > 0 && <p className="mt-1 text-right text-xs text-faint">Total: <span className="font-semibold text-bad-600">₹{totalExpenses.toFixed(2)}</span></p>}
         </div>
 
         {/* Income Types */}
@@ -105,7 +105,7 @@ export function ChallanModal({ onClose, onSave }: any) {
               </div>
             ))}
           </div>
-          {totalIncomes > 0 && <p className="mt-1 text-right text-xs text-ink/40">Total: <span className="font-semibold text-good-600">₹{totalIncomes.toFixed(2)}</span></p>}
+          {totalIncomes > 0 && <p className="mt-1 text-right text-xs text-faint">Total: <span className="font-semibold text-good-600">₹{totalIncomes.toFixed(2)}</span></p>}
         </div>
 
         {/* Delivery Fee */}

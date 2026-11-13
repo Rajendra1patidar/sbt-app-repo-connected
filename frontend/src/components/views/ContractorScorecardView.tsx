@@ -127,7 +127,7 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
     <div className="space-y-3 px-5 pb-28">
       {/* Period filter */}
       <div className="mt-1 flex items-center justify-end">
-        <button onClick={() => setShowRulesModal(true)} className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold text-ink/50 hover:bg-paper hover:text-ink">
+        <button onClick={() => setShowRulesModal(true)} className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold text-mute hover:bg-paper hover:text-ink">
           <Settings size={13} /> Points settings
         </button>
       </div>
@@ -135,7 +135,7 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
         <div className="flex gap-1.5">
           {(["week", "month", "year", "custom"] as PeriodPreset[]).map((p) => (
             <button key={p} onClick={() => setPreset(p)}
-              className={`flex-1 rounded-full py-1.5 text-xs font-semibold capitalize ${preset === p ? "bg-brand-500 text-white" : "bg-paper text-ink/50"}`}>
+              className={`flex-1 rounded-full py-1.5 text-xs font-semibold capitalize ${preset === p ? "bg-brand-500 text-white" : "bg-paper text-mute"}`}>
               {p}
             </button>
           ))}
@@ -148,9 +148,9 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
           </div>
         ) : (
           <div className="mt-2.5 flex items-center justify-between">
-            <button onClick={() => shiftPeriod(-1)} className="rounded-full p-1.5 hover:bg-paper"><ChevronLeft size={16} className="text-ink/50" /></button>
+            <button onClick={() => shiftPeriod(-1)} className="rounded-full p-1.5 hover:bg-paper"><ChevronLeft size={16} className="text-mute" /></button>
             <span className="text-sm font-semibold text-ink">{range.label}</span>
-            <button onClick={() => shiftPeriod(1)} className="rounded-full p-1.5 hover:bg-paper"><ChevronRight size={16} className="text-ink/50" /></button>
+            <button onClick={() => shiftPeriod(1)} className="rounded-full p-1.5 hover:bg-paper"><ChevronRight size={16} className="text-mute" /></button>
           </div>
         )}
       </div>
@@ -163,8 +163,8 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
             <p className="mt-1 font-display text-3xl font-semibold">{fmtNum(overallPoints)}</p>
             <p className="mt-1 text-xs font-semibold text-white/70">Default: 1 cement bag = 1 point · 10kg saria = 1 point — adjust in Points settings</p>
             <div className="mt-4 grid grid-cols-2 gap-3">
-              <div><p className="text-[11px] text-white/60">Cement</p><p className="font-mono text-sm font-semibold">{fmtNum(overallCementQty)} bags</p></div>
-              <div><p className="text-[11px] text-white/60">Saria</p><p className="font-mono text-sm font-semibold">{fmtNum(overallSariaQty)} kg</p></div>
+              <div><p className="text-[12px] text-white/60">Cement</p><p className="font-mono text-sm font-semibold">{fmtNum(overallCementQty)} bags</p></div>
+              <div><p className="text-[12px] text-white/60">Saria</p><p className="font-mono text-sm font-semibold">{fmtNum(overallSariaQty)} kg</p></div>
             </div>
           </div>
         </div>
@@ -173,7 +173,7 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
       {Object.keys(byContractor).length > 0 && (
         <>
           <div className="relative pt-1">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -186,7 +186,7 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
       )}
 
       {contractorNames.length === 0 ? (
-        <Card><p className="text-sm text-ink/40">{q ? "No contractors match your search." : "No estimates with a contractor name fall in this period."}</p></Card>
+        <Card><p className="text-sm text-faint">{q ? "No contractors match your search." : "No estimates with a contractor name fall in this period."}</p></Card>
       ) : contractorNames.map((name) => {
         const c = byContractor[name];
         const itemRows = Object.values(c.itemMap).sort((a, b) => b.amount - a.amount);
@@ -196,23 +196,23 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
           <Card key={name}>
             <button className="flex w-full items-center justify-between gap-2 text-left" onClick={() => setOpenContractor(isOpen ? null : name)}>
               <div className="min-w-0">
-                <p className="text-sm font-bold text-ink truncate">{name}</p>
-                <p className="mt-0.5 text-xs text-ink/40 truncate">{c.count} estimate{c.count !== 1 ? "s" : ""} · {fmtMoney(c.total, currency)}</p>
+                <p className="text-sm font-semibold text-ink truncate">{name}</p>
+                <p className="mt-0.5 text-xs text-faint truncate">{c.count} estimate{c.count !== 1 ? "s" : ""} · {fmtMoney(c.total, currency)}</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {points > 0 && (
-                  <span className="flex items-center gap-1 rounded-pill bg-brand-50 px-3 py-1 text-sm font-bold text-brand-700">
+                  <span className="flex items-center gap-1 rounded-pill bg-brand-50 px-3 py-1 text-sm font-semibold text-brand-700">
                     <Star size={13} /> {fmtNum(points)}
                   </span>
                 )}
-                {isOpen ? <ChevronUp size={18} className="text-ink/40" /> : <ChevronDown size={18} className="text-ink/40" />}
+                {isOpen ? <ChevronUp size={18} className="text-faint" /> : <ChevronDown size={18} className="text-faint" />}
               </div>
             </button>
             {isOpen && (
               <div className="mt-3 border-t border-line pt-3">
                 <button onClick={() => setEditingPhoneFor(name)} className="mb-3 flex w-full items-center justify-between rounded-xl bg-paper px-3 py-2 text-left">
-                  <span className="flex items-center gap-1.5 text-xs text-ink/60">
-                    <Phone size={13} className="text-ink/40" />
+                  <span className="flex items-center gap-1.5 text-xs text-mute">
+                    <Phone size={13} className="text-faint" />
                     {phoneFor(name) || "No phone number saved"}
                   </span>
                   <span className="text-xs font-semibold text-brand-600">{phoneFor(name) ? "Edit" : "Add"}</span>
@@ -232,23 +232,23 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
                       </div>
                     )}
                     <div className="flex items-center justify-between border-t border-brand-200 pt-1.5 text-sm">
-                      <span className="font-bold text-brand-700">Total points</span>
-                      <span className="font-bold text-brand-700">{fmtNum(points)} pts</span>
+                      <span className="font-semibold text-brand-700">Total points</span>
+                      <span className="font-semibold text-brand-700">{fmtNum(points)} pts</span>
                     </div>
                   </div>
                 ) : (
-                  <p className="mb-3 text-sm text-ink/40">No cement or saria on this contractor's estimates in this period.</p>
+                  <p className="mb-3 text-sm text-faint">No cement or saria on this contractor's estimates in this period.</p>
                 )}
                 <div className="space-y-1.5">
-                  <p className="text-xs font-semibold text-ink/40">Estimates in this period</p>
+                  <p className="text-xs font-semibold text-faint">Estimates in this period</p>
                   {c.estimatesList.map((e) => (
                     <div key={e.id} className="flex items-center justify-between rounded-xl border border-line bg-paper/60 px-3 py-2 text-sm">
                       <div className="min-w-0">
                         <p className="font-semibold text-ink truncate">{e.number || "Estimate"}</p>
-                        <p className="text-xs text-ink/40">{fmtDate(e.date)} · {fmtMoney(e.total, currency)}</p>
+                        <p className="text-xs text-faint">{fmtDate(e.date)} · {fmtMoney(e.total, currency)}</p>
                       </div>
                       {e.points > 0 ? (
-                        <span className="shrink-0 text-xs font-bold text-brand-700">{fmtNum(e.points)} pts</span>
+                        <span className="shrink-0 text-xs font-semibold text-brand-700">{fmtNum(e.points)} pts</span>
                       ) : (
                         <span className="shrink-0 text-xs text-ink/30">0 pts</span>
                       )}

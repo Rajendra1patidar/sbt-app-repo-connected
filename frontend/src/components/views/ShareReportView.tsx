@@ -60,21 +60,21 @@ export function ShareReportView({ invoices, items, customers, currency, settings
         <div className="flex items-center gap-3 mb-3">
           <div className="w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center"><Send size={18} className="text-brand-600" /></div>
           <div>
-            <h3 className="font-bold text-ink">Daily Sales Report</h3>
-            <p className="text-xs text-ink/40">{fmtDate(todayStr)}</p>
+            <h3 className="font-semibold text-ink">Daily Sales Report</h3>
+            <p className="text-xs text-faint">{fmtDate(todayStr)}</p>
           </div>
         </div>
 
         {rows.length === 0 ? (
           <div className="rounded-xl bg-paper px-4 py-6 text-center">
-            <p className="text-sm text-ink/40">No estimates created today yet.</p>
+            <p className="text-sm text-faint">No estimates created today yet.</p>
             <p className="text-xs text-ink/30 mt-1">Create an estimate and it will appear here.</p>
           </div>
         ) : (
           <>
             {/* Item breakdown table */}
             <div className="rounded-xl overflow-hidden border border-line">
-              <div className="grid grid-cols-3 bg-paper px-4 py-2 text-xs font-semibold text-ink/50">
+              <div className="grid grid-cols-3 bg-paper px-4 py-2 text-xs font-semibold text-mute">
                 <span>Item</span><span className="text-center">Qty</span><span className="text-right">Amount</span>
               </div>
               {rows.map((r, i) => (
@@ -89,10 +89,10 @@ export function ShareReportView({ invoices, items, customers, currency, settings
             {/* Totals */}
             <div className="mt-3 flex justify-between items-center rounded-xl bg-brand-600 px-4 py-3">
               <div>
-                <p className="text-xs text-ink/40">{totalInvoices} invoice{totalInvoices !== 1 ? "s" : ""} today</p>
-                <p className="text-sm font-bold text-white">Total Sales</p>
+                <p className="text-xs text-faint">{totalInvoices} invoice{totalInvoices !== 1 ? "s" : ""} today</p>
+                <p className="text-sm font-semibold text-white">Total Sales</p>
               </div>
-              <p className="font-display text-xl font-bold text-good-400">{currency}{totalSales.toFixed(2)}</p>
+              <p className="font-display text-xl font-semibold text-good-400">{currency}{totalSales.toFixed(2)}</p>
             </div>
           </>
         )}
@@ -100,7 +100,7 @@ export function ShareReportView({ invoices, items, customers, currency, settings
 
       {/* Share buttons */}
       <Card>
-        <h3 className="text-sm font-bold text-ink/80 mb-3">Share this report</h3>
+        <h3 className="text-sm font-semibold text-ink/80 mb-3">Share this report</h3>
         <div className="flex flex-col gap-2">
           <button onClick={shareWhatsApp}
             className="flex items-center gap-3 w-full rounded-xl px-4 py-3 text-sm font-semibold text-white active:scale-[0.98] transition"
@@ -113,7 +113,7 @@ export function ShareReportView({ invoices, items, customers, currency, settings
           </button>
           <button onClick={copyToClipboard}
             className="flex items-center gap-3 w-full rounded-xl border border-line px-4 py-3 text-sm font-semibold text-ink/80 hover:bg-paper active:scale-[0.98] transition">
-            <CheckCircle2 size={18} className="text-ink/40" />Copy to Clipboard
+            <CheckCircle2 size={18} className="text-faint" />Copy to Clipboard
           </button>
         </div>
       </Card>

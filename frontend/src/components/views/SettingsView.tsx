@@ -3,7 +3,6 @@ import { Phone, Plus, X, Download, Loader2, ShieldCheck, Wallet } from "lucide-r
 import { Card, PillButton } from "../common/UIPrimitives";
 import { ChangePinCard } from "./ChangePinCard";
 import { StaffManagementCard } from "./StaffManagementCard";
-import { BackupCard } from "./BackupCard";
 import { WHATSAPP_GREEN, ITEM_CATEGORIES, ITEM_BRANDS } from "../../lib/constants";
 import { api } from "../../lib/api";
 import { useAppStore } from "../../store/useAppStore";
@@ -19,8 +18,8 @@ function StaffSettingsView() {
   return (
     <div className="space-y-4 px-5 pb-28">
       <Card className="space-y-1">
-        <h3 className="text-sm font-bold text-ink">Settings</h3>
-        <p className="text-xs text-ink/60">Only the business owner can change settings. You can change your own PIN below.</p>
+        <h3 className="text-sm font-semibold text-ink">Settings</h3>
+        <p className="text-xs text-mute">Only the business owner can change settings. You can change your own PIN below.</p>
       </Card>
       <ChangePinCard />
     </div>
@@ -71,16 +70,16 @@ function OwnerSettingsView({ settings, setSettings }: any) {
     <div className="space-y-4 px-5 pb-28">
       <Card className="space-y-4">
         {[["orgName","Organization name","Acme Ltd."],["ownerName","Your name",""],["email","Address / Email","Address or email"]].map(([k,l,p]) => (
-          <div key={k}><label className="mb-1 block text-xs font-semibold text-ink/50">{l}</label>
+          <div key={k}><label className="mb-1 block text-xs font-semibold text-mute">{l}</label>
           <input value={(local as any)[k]} onChange={(e) => set(k, e.target.value)} placeholder={p} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" /></div>
         ))}
-        <div><label className="mb-1 block text-xs font-semibold text-ink/50">Currency symbol</label>
+        <div><label className="mb-1 block text-xs font-semibold text-mute">Currency symbol</label>
         <select value={local.currency} onChange={(e) => set("currency", e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm">
           {["₹","$","€","£"].map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
       </Card>
       <Card className="space-y-3">
-        <h3 className="text-sm font-bold text-ink">Item categories</h3>
-        <p className="text-xs text-ink/40">Used across Items, Orders and Inventory. Removing a category here won't change items already tagged with it.</p>
+        <h3 className="text-sm font-semibold text-ink">Item categories</h3>
+        <p className="text-xs text-faint">Used across Items, Orders and Inventory. Removing a category here won't change items already tagged with it.</p>
         <div className="flex flex-wrap gap-2">
           {categories.map((c) => (
             <span key={c} className="inline-flex items-center gap-1.5 rounded-full bg-paper px-3 py-1.5 text-xs font-semibold text-ink/70">
@@ -104,8 +103,8 @@ function OwnerSettingsView({ settings, setSettings }: any) {
         </div>
       </Card>
       <Card className="space-y-3">
-        <h3 className="text-sm font-bold text-ink">Item brands</h3>
-        <p className="text-xs text-ink/40">Used to filter and tag items on the Items page. Removing a brand here won't change items already tagged with it.</p>
+        <h3 className="text-sm font-semibold text-ink">Item brands</h3>
+        <p className="text-xs text-faint">Used to filter and tag items on the Items page. Removing a brand here won't change items already tagged with it.</p>
         <div className="flex flex-wrap gap-2">
           {brands.map((b) => (
             <span key={b} className="inline-flex items-center gap-1.5 rounded-full bg-paper px-3 py-1.5 text-xs font-semibold text-ink/70">
@@ -129,31 +128,31 @@ function OwnerSettingsView({ settings, setSettings }: any) {
         </div>
       </Card>
       <Card className="space-y-3">
-        <div className="flex items-center gap-2"><Phone size={16} style={{ color: WHATSAPP_GREEN }} /><h3 className="text-sm font-bold text-ink">WhatsApp integration</h3></div>
-        <div><label className="mb-1 block text-xs font-semibold text-ink/50">Business WhatsApp number (with country code)</label>
+        <div className="flex items-center gap-2"><Phone size={16} style={{ color: WHATSAPP_GREEN }} /><h3 className="text-sm font-semibold text-ink">WhatsApp integration</h3></div>
+        <div><label className="mb-1 block text-xs font-semibold text-mute">Business WhatsApp number (with country code)</label>
         <input value={local.businessWhatsApp} onChange={(e) => set("businessWhatsApp", e.target.value)} placeholder="+91 98765 43210" className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" /></div>
       </Card>
       <Card className="space-y-3">
-        <div className="flex items-center gap-2"><Wallet size={16} className="text-brand-500" /><h3 className="text-sm font-bold text-ink">UPI payments (customer portal)</h3></div>
-        <p className="text-xs text-ink/40">
+        <div className="flex items-center gap-2"><Wallet size={16} className="text-brand-500" /><h3 className="text-sm font-semibold text-ink">UPI payments (customer portal)</h3></div>
+        <p className="text-xs text-faint">
           Customers who owe money see a "Pay now" button on your portal. It opens GPay or PhonePe with the amount filled in, and the
           payment goes straight to this UPI ID. Leave it empty to hide the button.
         </p>
-        <div><label className="mb-1 block text-xs font-semibold text-ink/50">Shop UPI ID</label>
+        <div><label className="mb-1 block text-xs font-semibold text-mute">Shop UPI ID</label>
         <input value={local.upiId || ""} onChange={(e) => set("upiId", e.target.value.trim())} placeholder="shopname@okicici" autoCapitalize="none" autoCorrect="off" spellCheck={false} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" /></div>
-        <p className="text-xs text-ink/40">
+        <p className="text-xs text-faint">
           A business (merchant) UPI ID works best. Test it once with ₹1 from your own phone. Payments are not added to the app by themselves:
           when money arrives, record it in Payments as you do today.
         </p>
       </Card>
       <Card className="space-y-3">
-        <div className="flex items-center gap-2"><ShieldCheck size={16} className="text-brand-500" /><h3 className="text-sm font-bold text-ink">Staff approval limit</h3></div>
-        <p className="text-xs text-ink/40">
+        <div className="flex items-center gap-2"><ShieldCheck size={16} className="text-brand-500" /><h3 className="text-sm font-semibold text-ink">Staff approval limit</h3></div>
+        <p className="text-xs text-faint">
           A manual purchase a staff member creates above this amount waits for your approval instead of going through
           right away. Set to 0 to turn this off — your own purchases are never gated, regardless of this setting.
         </p>
         <div>
-          <label className="mb-1 block text-xs font-semibold text-ink/50">Approval limit ({local.currency || "₹"})</label>
+          <label className="mb-1 block text-xs font-semibold text-mute">Approval limit ({local.currency || "₹"})</label>
           <input
             type="number"
             min={0}
@@ -165,12 +164,11 @@ function OwnerSettingsView({ settings, setSettings }: any) {
         </div>
       </Card>
       <StaffManagementCard />
-      <BackupCard />
       <Card className="space-y-3">
-        <h3 className="text-sm font-bold text-ink">Export your data</h3>
-        <p className="text-xs text-ink/40">
+        <h3 className="text-sm font-semibold text-ink">Export your data</h3>
+        <p className="text-xs text-faint">
           Download everything — customers, items, orders, expenses, payments, purchases, ledger entries and more —
-          as a readable file for Excel or your accountant. For a safe copy of the whole app, use Backups above.
+          as a single file. Useful as a manual backup, or to work with your data in Excel.
         </p>
         <div className="flex gap-2">
           <button

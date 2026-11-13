@@ -90,7 +90,7 @@ export function ItemQuantityMap({ items, onSelectItem }: any) {
           <button onClick={() => setOpenCat(null)} className="text-xs font-semibold text-brand-600">← Back</button>
         )}
       </div>
-      <p className="mb-3 text-xs text-ink/40">{active ? active.name : "By category, sized by quantity on hand"}</p>
+      <p className="mb-3 text-xs text-faint">{active ? active.name : "By category, sized by quantity on hand"}</p>
 
       <div className="flex flex-wrap items-center justify-center gap-3 py-2">
         {!active
@@ -106,7 +106,7 @@ export function ItemQuantityMap({ items, onSelectItem }: any) {
                   className={`flex shrink-0 flex-col items-center justify-center rounded-full p-1 text-center leading-tight ${palette.bg} ${palette.text} ${RING[c.health]}`}
                 >
                   <span className="max-w-full truncate px-1 text-[12px] font-semibold">{c.name}</span>
-                  <span className="text-[10px]">{fmtNum(c.qty)}</span>
+                  <span className="text-[11px]">{fmtNum(c.qty)}</span>
                 </button>
               );
             })
@@ -121,14 +121,14 @@ export function ItemQuantityMap({ items, onSelectItem }: any) {
                   style={{ width: px, height: px }}
                   className={`flex shrink-0 flex-col items-center justify-center rounded-full p-1 text-center leading-tight ${palette.bg} ${palette.text} ${RING[healthOf(it)]}`}
                 >
-                  <span className="max-w-full truncate px-1 text-[11px] font-semibold">{it.name}</span>
-                  <span className="text-[10px]">{fmtNum(qtyOf(it))} {it.unit || ""}</span>
+                  <span className="max-w-full truncate px-1 text-[12px] font-semibold">{it.name}</span>
+                  <span className="text-[11px]">{fmtNum(qtyOf(it))} {it.unit || ""}</span>
                 </button>
               );
             })}
       </div>
 
-      <div className="mt-2 flex justify-center gap-4 text-[11px] text-ink/40">
+      <div className="mt-2 flex justify-center gap-4 text-[12px] text-faint">
         <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-bad-400" /> Reorder</span>
         <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-warn-400" /> Low</span>
       </div>

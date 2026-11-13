@@ -2,10 +2,11 @@ import React, { useState } from "react";
 import { ArrowRight, X } from "lucide-react";
 import { SearchableSelect } from "../common/SearchableSelect";
 
-export function TransferModal({ items, godowns, onClose, onSave }: any) {
-  const [itemId, setItemId] = useState("");
-  const [fromGodownId, setFromGodownId] = useState(godowns.find((g: any) => g.isDefault)?.id || godowns[0]?.id || "");
-  const [toGodownId, setToGodownId] = useState("");
+// `prefill` (optional) lets the Stock screen open this with the item and both godowns already chosen.
+export function TransferModal({ items, godowns, onClose, onSave, prefill }: any) {
+  const [itemId, setItemId] = useState(prefill?.itemId || "");
+  const [fromGodownId, setFromGodownId] = useState(prefill?.fromGodownId || godowns.find((g: any) => g.isDefault)?.id || godowns[0]?.id || "");
+  const [toGodownId, setToGodownId] = useState(prefill?.toGodownId || "");
   const [qty, setQty] = useState("");
   const [qtyKg, setQtyKg] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -28,16 +29,16 @@ export function TransferModal({ items, godowns, onClose, onSave }: any) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4">
-      <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4">
+      <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display text-lg font-bold text-ink">Transfer stock</h3>
+          <h3 className="font-display text-lg font-semibold text-ink">Transfer stock</h3>
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
         </div>
 
         <div className="space-y-3">
           <div>
-            <span className="mb-1 block text-xs font-semibold text-ink/50">Item</span>
+            <span className="mb-1 block text-xs font-semibold text-mute">Item</span>
             <SearchableSelect
               options={items.map((it: any) => ({ value: it.id, label: it.name, keywords: it.category || "" }))}
               value={itemId}
@@ -48,14 +49,14 @@ export function TransferModal({ items, godowns, onClose, onSave }: any) {
 
           <div className="flex items-center gap-2">
             <div className="flex-1 min-w-0">
-              <span className="mb-1 block text-xs font-semibold text-ink/50">From</span>
+              <span className="mb-1 block text-xs font-semibold text-mute">From</span>
               <select value={fromGodownId} onChange={(e) => setFromGodownId(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm">
                 {godowns.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
             </div>
             <ArrowRight size={16} className="mt-5 shrink-0 text-ink/30" />
             <div className="flex-1 min-w-0">
-              <span className="mb-1 block text-xs font-semibold text-ink/50">To</span>
+              <span className="mb-1 block text-xs font-semibold text-mute">To</span>
               <select value={toGodownId} onChange={(e) => setToGodownId(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm">
                 <option value="">Select</option>
                 {godowns.filter((g: any) => g.id !== fromGodownId).map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
@@ -64,13 +65,13 @@ export function TransferModal({ items, godowns, onClose, onSave }: any) {
           </div>
 
           {item && (
-            <p className="text-xs text-ink/40">
+            <p className="text-xs text-faint">
               Available at source: {isWeight ? `${availableKg}kg / ${availablePieces}pc` : `${availablePieces} ${item.unit || "unit"}`}
             </p>
           )}
 
           <div>
-            <span className="mb-1 block text-xs font-semibold text-ink/50">{isWeight ? "Pieces to move" : "Qty to move"}</span>
+            <span className="mb-1 block text-xs font-semibold text-mute">{isWeight ? "Pieces to move" : "Qty to move"}</span>
             <input
               type="number" min="0" max={availablePieces} value={qty} onChange={(e) => setQty(e.target.value)}
               placeholder="0" className="w-full rounded-xl border border-line px-3 py-2.5 text-sm"
@@ -78,7 +79,7 @@ export function TransferModal({ items, godowns, onClose, onSave }: any) {
           </div>
           {isWeight && (
             <div>
-              <span className="mb-1 block text-xs font-semibold text-ink/50">Weight (kg) to move — re-weigh, don't estimate</span>
+              <span className="mb-1 block text-xs font-semibold text-mute">Weight (kg) to move — re-weigh, don't estimate</span>
               <input
                 type="number" min="0" max={availableKg} value={qtyKg} onChange={(e) => setQtyKg(e.target.value)}
                 placeholder="0" className="w-full rounded-xl border border-line px-3 py-2.5 text-sm"

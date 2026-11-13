@@ -58,30 +58,30 @@ function LoginScreen({ onLoggedIn }: { onLoggedIn: (name: string, orgName: strin
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-100">
             <Package size={26} className="text-brand-600" />
           </div>
-          <h1 className="font-display text-2xl font-bold text-ink">My Account</h1>
-          <p className="mt-1 text-sm text-ink/50">See your ledger, what you owe or have paid, and your bookings.</p>
+          <h1 className="font-display text-2xl font-semibold text-ink">My Account</h1>
+          <p className="mt-1 text-sm text-mute">See your ledger, what you owe or have paid, and your bookings.</p>
         </div>
         <form onSubmit={submit} className="rounded-card border border-line/70 bg-card p-6 shadow-card">
-          <label className="mb-1.5 block text-xs font-semibold text-ink/60">Phone number</label>
+          <label className="mb-1.5 block text-xs font-semibold text-mute">Phone number</label>
           <input
             type="tel" inputMode="numeric" value={phone} onChange={(e) => setPhone(e.target.value)}
             placeholder="9876543210" autoFocus
             className="mb-4 w-full rounded-xl border border-line bg-paper px-4 py-3 text-base text-ink outline-none focus:border-brand-400"
           />
-          <label className="mb-1.5 block text-xs font-semibold text-ink/60">PIN</label>
+          <label className="mb-1.5 block text-xs font-semibold text-mute">PIN</label>
           <input
             type="password" inputMode="numeric" maxLength={4} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
             placeholder="••••"
             className="mb-1 w-full rounded-xl border border-line bg-paper px-4 py-3 text-lg tracking-[0.5em] text-ink outline-none focus:border-brand-400"
           />
-          <p className="mb-4 text-xs text-ink/40">Given to you by the shop.</p>
+          <p className="mb-4 text-xs text-faint">Given to you by the shop.</p>
           {error && <p className="mb-4 text-sm font-semibold text-bad-500">{error}</p>}
           <button type="submit" disabled={loading}
-            className="w-full rounded-pill bg-brand-500 px-5 py-3 text-sm font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-50">
+            className="w-full rounded-pill bg-brand-500 px-5 py-3 text-sm font-semibold text-white transition active:scale-[0.98] disabled:opacity-50">
             {loading ? "Checking…" : "View my account"}
           </button>
         </form>
-        <p className="mt-6 flex items-center justify-center gap-1.5 text-center text-xs text-ink/35">
+        <p className="mt-6 flex items-center justify-center gap-1.5 text-center text-xs text-faint">
           <ShieldCheck size={13} /> Only you can see this — ask the shop if you've lost your PIN.
         </p>
       </div>
@@ -98,10 +98,10 @@ function CollectionHistory({ collections }: { collections: Collection[] }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between text-left text-xs font-semibold text-ink/60"
+        className="flex w-full items-center justify-between text-left text-xs font-semibold text-mute"
       >
         <span>Collection history ({collections.length} {collections.length === 1 ? "date" : "dates"})</span>
-        <span className="text-ink/40">{open ? "Hide" : "Show"}</span>
+        <span className="text-faint">{open ? "Hide" : "Show"}</span>
       </button>
       {open && (
         <ul className="mt-3 space-y-3">
@@ -109,7 +109,7 @@ function CollectionHistory({ collections }: { collections: Collection[] }) {
             <li key={c.date} className="flex gap-3 text-sm">
               <div className="mt-0.5 h-2 w-2 flex-none rounded-full bg-brand-400" />
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-ink/50">{c.date}</p>
+                <p className="text-xs font-semibold text-mute">{c.date}</p>
                 <p className="text-ink">
                   {c.items.map((it) => `${it.qty} ${it.unit} ${it.name}`.trim()).join(", ")}
                 </p>
@@ -128,9 +128,9 @@ function BookingCard({ booking }: { booking: Booking }) {
       <div className="mb-3 flex items-center justify-between">
         <div>
           <p className="font-semibold text-ink">{booking.number}</p>
-          <p className="text-xs text-ink/40">{booking.date}</p>
+          <p className="text-xs text-faint">{booking.date}</p>
         </div>
-        <span className={`rounded-pill px-2.5 py-1 text-[11px] font-bold ${booking.fullyCollected ? "bg-good-100 text-good-700" : "bg-brand-100 text-brand-700"}`}>
+        <span className={`rounded-pill px-2.5 py-1 text-[12px] font-semibold ${booking.fullyCollected ? "bg-good-100 text-good-700" : "bg-brand-100 text-brand-700"}`}>
           {booking.fullyCollected ? "Fully collected" : "Pickup pending"}
         </span>
       </div>
@@ -139,7 +139,7 @@ function BookingCard({ booking }: { booking: Booking }) {
           <div key={it.itemId}>
             <div className="mb-1 flex items-baseline justify-between text-sm">
               <span className="font-medium text-ink">{it.name}</span>
-              <span className="text-ink/50">
+              <span className="text-mute">
                 {it.booked - it.remaining} of {it.booked} {it.unit} taken
               </span>
             </div>
@@ -170,7 +170,7 @@ function LedgerTab() {
   }, []);
 
   if (error) return <div className="rounded-card border border-bad-200 bg-bad-50 p-4 text-sm font-semibold text-bad-600">{error}</div>;
-  if (!statement) return <p className="py-10 text-center text-sm text-ink/40">Loading your ledger…</p>;
+  if (!statement) return <p className="py-10 text-center text-sm text-faint">Loading your ledger…</p>;
 
   // Closing balance > 0 means the customer owes the shop; < 0 means they're in credit
   // (e.g. an advance payment that hasn't been billed against yet).
@@ -182,11 +182,11 @@ function LedgerTab() {
   return (
     <>
       <div className="rounded-card border border-line/70 bg-card p-5 shadow-card">
-        <p className="text-xs font-semibold uppercase tracking-wide text-ink/40">{label}</p>
-        <p className={`mt-1 text-3xl font-bold ${tone}`}>{fmtMoney(Math.abs(bal), CURRENCY)}</p>
+        <p className="text-xs font-semibold text-faint">{label}</p>
+        <p className={`mt-1 text-3xl font-semibold ${tone}`}>{fmtMoney(Math.abs(bal), CURRENCY)}</p>
         <div className="mt-4 flex gap-6 border-t border-line/60 pt-3 text-xs">
-          <div><p className="text-ink/40">Total billed</p><p className="font-semibold text-ink">{fmtMoney(statement.totalDebit, CURRENCY)}</p></div>
-          <div><p className="text-ink/40">Total paid</p><p className="font-semibold text-good-700">{fmtMoney(statement.totalCredit, CURRENCY)}</p></div>
+          <div><p className="text-faint">Total billed</p><p className="font-semibold text-ink">{fmtMoney(statement.totalDebit, CURRENCY)}</p></div>
+          <div><p className="text-faint">Total paid</p><p className="font-semibold text-good-700">{fmtMoney(statement.totalCredit, CURRENCY)}</p></div>
         </div>
       </div>
 
@@ -194,7 +194,7 @@ function LedgerTab() {
         <div className="rounded-card border border-line/70 bg-card p-8 text-center">
           <Receipt size={28} className="mx-auto mb-3 text-ink/25" />
           <p className="font-semibold text-ink">No transactions yet</p>
-          <p className="mt-1 text-sm text-ink/45">Your purchases and payments will show up here.</p>
+          <p className="mt-1 text-sm text-faint">Your purchases and payments will show up here.</p>
         </div>
       ) : (
         <div className="rounded-card border border-line/70 bg-card px-5 py-2 shadow-card">
@@ -202,13 +202,13 @@ function LedgerTab() {
             <div key={i} className="flex items-center justify-between gap-3 border-b border-line/60 py-3 last:border-0">
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-ink">{r.narration || (r.type === "debit" ? "Purchase" : "Payment")}</p>
-                <p className="text-xs text-ink/40">{fmtDate(r.date)}</p>
+                <p className="text-xs text-faint">{fmtDate(r.date)}</p>
               </div>
               <div className="shrink-0 text-right">
-                <p className={`text-sm font-bold ${r.type === "debit" ? "text-ink" : "text-good-700"}`}>
+                <p className={`text-sm font-semibold ${r.type === "debit" ? "text-ink" : "text-good-700"}`}>
                   {r.type === "debit" ? "+" : "−"} {fmtMoney(r.amount, CURRENCY)}
                 </p>
-                <p className="text-xs text-ink/40">Balance {fmtMoney(r.balance, CURRENCY)}</p>
+                <p className="text-xs text-faint">Balance {fmtMoney(r.balance, CURRENCY)}</p>
               </div>
             </div>
           ))}
@@ -236,13 +236,13 @@ function BookingsTab() {
         <div className="rounded-card border border-bad-200 bg-bad-50 p-4 text-sm font-semibold text-bad-600">{error}</div>
       )}
       {!error && bookings === null && (
-        <p className="py-10 text-center text-sm text-ink/40">Loading your bookings…</p>
+        <p className="py-10 text-center text-sm text-faint">Loading your bookings…</p>
       )}
       {!error && bookings && bookings.length === 0 && (
         <div className="rounded-card border border-line/70 bg-card p-8 text-center">
           <Package size={28} className="mx-auto mb-3 text-ink/25" />
           <p className="font-semibold text-ink">No active bookings right now</p>
-          <p className="mt-1 text-sm text-ink/45">Once you book items with an advance payment, they'll show up here.</p>
+          <p className="mt-1 text-sm text-faint">Once you book items with an advance payment, they'll show up here.</p>
         </div>
       )}
       {bookings?.map((b) => <BookingCard key={b.number} booking={b} />)}
@@ -258,10 +258,10 @@ function Dashboard({ name, orgName, onLogout }: { name: string; orgName: string;
       <div className="border-b border-line/70 bg-card px-5 py-4">
         <div className="mx-auto flex max-w-lg items-center justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink/40">{orgName || "My Account"}</p>
-            <p className="font-display text-lg font-bold text-ink">Hi, {name || "there"}</p>
+            <p className="text-xs font-semibold text-faint">{orgName || "My Account"}</p>
+            <p className="font-display text-lg font-semibold text-ink">Hi, {name || "there"}</p>
           </div>
-          <button onClick={onLogout} className="rounded-pill border border-line px-3 py-1.5 text-xs font-semibold text-ink/60 hover:bg-paper">
+          <button onClick={onLogout} className="rounded-pill border border-line px-3 py-1.5 text-xs font-semibold text-mute hover:bg-paper">
             Log out
           </button>
         </div>
@@ -272,7 +272,7 @@ function Dashboard({ name, orgName, onLogout }: { name: string; orgName: string;
           {([["ledger", "My Ledger"], ["bookings", "Bookings"]] as const).map(([key, label]) => (
             <button
               key={key} type="button" onClick={() => setTab(key)}
-              className={`flex-1 rounded-pill py-2 text-sm font-semibold transition ${tab === key ? "bg-card text-ink shadow-sm" : "text-ink/50"}`}
+              className={`flex-1 rounded-pill py-2 text-sm font-semibold transition ${tab === key ? "bg-card text-ink " : "text-mute"}`}
             >
               {label}
             </button>

@@ -35,14 +35,14 @@ export function EstimateFilterSheet({
   deletedCount,
 }: any) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[var(--scrim)]" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[80vh] w-full overflow-y-auto rounded-t-3xl bg-card px-5 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl"
+        className="max-h-[80vh] w-full overflow-y-auto rounded-t-sheet bg-card px-5 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet"
       >
         <div className="mx-auto mb-4 h-1 w-9 rounded-pill bg-line" />
 
-        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink/40">Status</p>
+        <p className="mb-2 text-xs font-semibold text-faint">Status</p>
         <div className="mb-5 flex flex-wrap gap-2">
           {STATUS_OPTIONS.map(([key, label]) => (
             <button
@@ -51,14 +51,14 @@ export function EstimateFilterSheet({
               className={`inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-xs font-semibold ${statusFilter === key ? "bg-ink text-white" : "bg-paper text-ink/70"}`}
             >
               {label}
-              <span className={`rounded-pill px-1.5 py-0.5 text-[10px] font-extrabold ${statusFilter === key ? "bg-card/25" : "bg-ink/10"}`}>
+              <span className={`rounded-pill px-1.5 py-0.5 text-[11px] font-semibold ${statusFilter === key ? "bg-card/25" : "bg-ink/10"}`}>
                 {filterCounts[key] ?? 0}
               </span>
             </button>
           ))}
         </div>
 
-        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink/40">Sort by</p>
+        <p className="mb-2 text-xs font-semibold text-faint">Sort by</p>
         <div className="mb-5 flex flex-wrap gap-2">
           {SORT_OPTIONS.map(([key, label]) => (
             <button
@@ -74,7 +74,7 @@ export function EstimateFilterSheet({
         {deletedCount > 0 && (
           <div className="flex items-center justify-between border-t border-line py-3">
             <p className="text-sm font-semibold text-ink">
-              Show deleted <span className="font-normal text-ink/40">({deletedCount})</span>
+              Show deleted <span className="font-normal text-faint">({deletedCount})</span>
             </p>
             <Switch checked={showDeleted} onChange={setShowDeleted} />
           </div>

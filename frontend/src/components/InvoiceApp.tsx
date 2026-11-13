@@ -3,15 +3,14 @@ import { Route, Routes, useLocation, useNavigate, useParams, useSearchParams } f
 import { AlertCircle, Loader2, Phone } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import { pathForView, viewForPath } from "../lib/routes";
-import { BottomNav } from "./layout/BottomNav";
+import { NavRail, TabBar } from "./layout/AppNav";
+import { ProfileSheet } from "./layout/ProfileSheet";
+import { ScreenTitle } from "./layout/ScreenTitle";
 import { GlobalSearchOverlay } from "./layout/GlobalSearchOverlay";
-import { OfflineBanner } from "./layout/OfflineBanner";
-import { Sidebar } from "./layout/Sidebar";
-import { Topbar } from "./layout/Topbar";
 import { ChallanModal } from "./modals/ChallanModal";
 import { ConfirmDeletePopup } from "./modals/ConfirmDeletePopup";
 import { DeliveryModal } from "./modals/DeliveryModal";
-import { DocumentModal } from "./modals/DocumentModal";
+import { EstimateSheet } from "./modals/EstimateSheet";
 import { FieldModal } from "./modals/FieldModal";
 import { InvoiceShareModal } from "./modals/InvoiceShareModal";
 import { OrderModal } from "./modals/OrderModal";
@@ -31,6 +30,9 @@ import { CustomerDetailView } from "./views/CustomerDetailView";
 import { CustomersView } from "./views/CustomersView";
 import { Dashboard } from "./views/Dashboard";
 import { DocumentList } from "./views/DocumentList";
+import { EstimatesView } from "./views/EstimatesView";
+import { HubView } from "./views/HubView";
+import { StockHealthView } from "./views/StockHealthView";
 import { ExpensesView } from "./views/ExpensesView";
 import { FinancialYearView } from "./views/FinancialYearView";
 import { ToDoTrackingView } from "./views/InventoryView";
@@ -46,7 +48,7 @@ import { PurchasesView } from "./views/PurchasesView";
 import { ReportsView } from "./views/ReportsView";
 import { SettingsView } from "./views/SettingsView";
 import { OwnerOnlyNotice } from "./common/OwnerOnlyNotice";
-import { OWNER_ONLY_NAV_IDS } from "../lib/constants";
+import { OWNER_ONLY_NAV_IDS, TABS, tabForView } from "../lib/constants";
 import { PortalAdminView } from "./views/PortalAdminView";
 import { ShareReportView } from "./views/ShareReportView";
 import { VendorsView } from "./views/VendorsView";
@@ -54,7 +56,6 @@ import { GodownsView } from "./views/GodownsView";
 import { VendorScorecardView } from "./views/VendorScorecardView";
 import { ITEM_BRANDS, ITEM_CATEGORIES, ITEM_UNITS, LOW_STOCK_DEFAULT, WHATSAPP_GREEN } from "../lib/constants";
 import { waLink } from "../lib/contactLinks";
-import { initOfflineSync } from "../lib/offlineSync";
 import { fmtDate, fmtMoney, today } from "../lib/format";
 
 /* ---- Main App shell: layout + router. All domain data/handlers live in useAppStore now. ---- */
@@ -66,7 +67,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   const view = viewForPath(location.pathname);
   const goToView = (id: string, query?: string) => navigate(pathForView(id) + (query ? `?${query}` : ""));
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
 
   const {
@@ -85,9 +86,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 
   useEffect(() => {
     setOnSignOut(onSignOut);
-    // Start syncing queued offline work (and refreshing when the connection returns) once the
-    // first load has settled, so the two never fetch everything at the same moment.
-    fetchAll().finally(initOfflineSync);
+    fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -221,7 +220,11 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   /* ---- route table (replaces the old `switch (view)` in renderView) ---- */
   const routes = (
     <Routes>
-      <Route path="/" element={<Dashboard data={data} settings={settings} openModal={openModal} go={goToView} reorderSuggestions={reorderSuggestions} saveDocument={saveDocument} savePayment={savePayment} savePurchase={savePurchase} saveCustomer={saveCustomer} saveExpense={saveExpense} saveReturn={saveReturn} showToast={showToast} />} />
+      <Route path="/" element={<Dashboard data={data} settings={settings} role={role} openModal={openModal} go={goToView} reorderSuggestions={reorderSuggestions} godowns={godowns} saveDocument={saveDocument} savePayment={savePayment} savePurchase={savePurchase} saveCustomer={saveCustomer} saveExpense={saveExpense} saveReturn={saveReturn} showToast={showToast} onProfile={() => setProfileOpen(true)} />} />
+      <Route path="/sell" element={<HubView tabId="sell" role={role} data={data} currency={settings.currency} openModal={openModal} go={goToView} onSearch={() => setGlobalSearchOpen(true)} />} />
+      <Route path="/money" element={<HubView tabId="money" role={role} data={data} currency={settings.currency} openModal={openModal} go={goToView} onSearch={() => setGlobalSearchOpen(true)} />} />
+      <Route path="/team" element={<HubView tabId="team" role={role} data={data} currency={settings.currency} scoreRules={scoreRules} openModal={openModal} go={goToView} onSearch={() => setGlobalSearchOpen(true)} />} />
+      <Route path="/stock" element={<StockHealthView items={items} estimates={activeEstimates} purchases={purchases} vendors={vendors} godowns={godowns} reorderSuggestions={reorderSuggestions} currency={settings.currency} openModal={openModal} go={goToView} onSearch={() => setGlobalSearchOpen(true)} />} />
       <Route path="/customers" element={
         <CustomersView customers={customers} estimates={activeEstimates} openModal={openModal} removeCustomer={removeCustomer}
           onSelectCustomer={(id: string) => navigate(`/customers/${id}`)} />
@@ -238,19 +241,17 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <Route path="/financial-years" element={<FinancialYearView currency={settings.currency} />} />
       <Route path="/challans" element={<DocumentList type="challan" docs={challans} customers={customers} currency={settings.currency} openModal={openModal} removeDoc={(id: string) => removeDoc("challan", id)} updateStatus={(id: string, s: string) => updateDocStatus("challan", id, s)} />} />
       <Route path="/estimates" element={
-        <div className="px-5 pt-1">
-          <OfflineSyncPanel />
-          {autoReminder && overdueCount > 0 && <div className="mb-3 rounded-2xl bg-warn-50 px-4 py-3 text-sm font-semibold text-warn-700 flex items-center gap-2"><AlertCircle size={16} /> {overdueCount} estimate{overdueCount !== 1 ? "s" : ""} overdue.</div>}
-          <div className="-mx-5">
-            <DocumentList type="estimate" docs={estimates} customers={customers} items={items} payments={payments} currency={settings.currency} openModal={openModal}
-              initialStatusFilter={searchParams.get("filter") || undefined}
-              removeDoc={(id: string) => removeDoc("estimate", id)}
-              restoreDoc={restoreDoc}
-              recordPayment={recordPaymentFor} onReturn={(doc: any) => openModal("return", { doc })} onDeliver={(doc: any) => openModal("delivery", { doc })} onShareInvoice={(inv: any) => setShareInvoice(inv)}
-              onSharePortalAccess={shareCustomerPortalAccess}
-              onPrint={printEstimate}
-              onView={(doc: any) => openModal("viewEstimate", { doc })} />
-          </div>
+        <div>
+          <div className="px-5 pt-1"><OfflineSyncPanel /></div>
+          {autoReminder && overdueCount > 0 && <div className="mx-5 mt-2 flex items-center gap-2 rounded-control bg-warn-50 px-4 py-3 text-sm font-semibold text-warn-700"><AlertCircle size={16} /> {overdueCount} estimate{overdueCount !== 1 ? "s" : ""} overdue.</div>}
+          <EstimatesView docs={estimates} customers={customers} items={items} payments={payments} currency={settings.currency} openModal={openModal}
+            initialStatusFilter={searchParams.get("filter") || undefined}
+            removeDoc={(id: string) => removeDoc("estimate", id)}
+            restoreDoc={restoreDoc}
+            recordPayment={recordPaymentFor} onReturn={(doc: any) => openModal("return", { doc })} onDeliver={(doc: any) => openModal("delivery", { doc })} onShareInvoice={(inv: any) => setShareInvoice(inv)}
+            onSharePortalAccess={shareCustomerPortalAccess}
+            onPrint={printEstimate}
+            onView={(doc: any) => openModal("viewEstimate", { doc })} />
         </div>
       } />
       <Route path="/payments" element={<PaymentsView payments={payments} customers={customers} currency={settings.currency} openModal={openModal} removePayment={removePayment} estimates={activeEstimates} />} />
@@ -357,7 +358,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     }
 
     if (type === "stockTransfer")
-      return <TransferModal items={items} godowns={godowns} onClose={closeModal} onSave={transferStock} />;
+      return <TransferModal items={items} godowns={godowns} onClose={closeModal} onSave={transferStock} prefill={payload} />;
 
     if (type === "purchase")
       return <PurchaseModal vendors={vendors} items={items} godowns={godowns} onClose={closeModal} onSave={savePurchaseBatch} onQuickAddItem={quickAddItem} />;
@@ -418,7 +419,22 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       return <ChallanModal onClose={closeModal} onSave={saveChallan} />;
 
     if (type === "estimate")
-      return <DocumentModal type={type} customers={customers} items={items} godowns={godowns} estimates={activeEstimates} editingDoc={payload?.editingDoc} prefillCustomerId={payload?.customerId} onClose={closeModal} onSave={(v: any) => saveDocument(type, v)} onQuickAddCustomer={quickAddCustomer} onQuickAddItem={quickAddItem} />;
+      return <EstimateSheet customers={customers} items={items} godowns={godowns} estimates={activeEstimates} payments={payments} settings={settings}
+        editingDoc={payload?.editingDoc} prefillCustomerId={payload?.customerId} prefill={payload?.prefill}
+        onClose={closeModal}
+        onSave={async (v: any, opts?: { send?: boolean; upiQrAmount?: number }) => {
+          const doc = await saveDocument("estimate", v);
+          if (doc && opts?.send) {
+            if (doc._offlinePending) showToast("Saved on this device. You can send it once it syncs.");
+            else {
+              // saveDocument may have recorded a part payment against it — share the freshest copy
+              const fresh = useAppStore.getState().estimates.find((e: any) => e.id === doc.id) || doc;
+              setShareInvoice(opts.upiQrAmount ? { ...fresh, _upiQrAmount: opts.upiQrAmount } : fresh);
+            }
+          }
+          return doc;
+        }}
+        onQuickAddCustomer={quickAddCustomer} onQuickAddItem={quickAddItem} />;
 
     if (type === "payment") {
       return <PaymentAllocationModal
@@ -449,7 +465,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 
   if (loading) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-paper text-ink/50">
+      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-paper text-mute">
         <Loader2 size={28} className="animate-spin text-brand-500" />
         <p className="text-sm font-medium">Loading your data…</p>
       </div>
@@ -464,35 +480,31 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         <button onClick={() => window.location.reload()} className="rounded-pill bg-brand-500 px-4 py-2 text-sm font-semibold text-white">
           Try again
         </button>
-        <button onClick={onSignOut} className="text-xs font-medium text-ink/50">Sign out</button>
+        <button onClick={onSignOut} className="text-xs font-medium text-mute">Sign out</button>
       </div>
     );
   }
 
+  const activeTab = tabForView(view);
+  // These screens draw their own large title (and its actions); every other destination gets the shared one.
+  const ownsTitle = ["dashboard", "sell", "stock", "money", "team", "estimates"].includes(view);
+  const blocked = role === "staff" && OWNER_ONLY_NAV_IDS.has(view);
+
   return (
     <div className="flex h-screen bg-paper font-sans text-ink">
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} active={view} onNav={goToView} settings={settings} onSignOut={onSignOut}
-        estimates={activeEstimates} items={items} overdueCount={overdueCount} role={role} />
-      <div className="flex-1 overflow-y-auto pb-24 md:pb-0">
-        <OfflineBanner />
-        <Topbar onMenu={() => setSidebarOpen(true)} settings={settings} view={view} onOpenSearch={() => setGlobalSearchOpen(true)} />
-        {role === "staff" && OWNER_ONLY_NAV_IDS.has(view) ? <OwnerOnlyNotice onHome={() => goToView("dashboard")} /> : routes}
+      <NavRail active={activeTab} onNav={goToView} orgName={settings.orgName} ownerName={settings.ownerName} roleLabel={role === "staff" ? "Staff" : "Owner"} onProfile={() => setProfileOpen(true)} />
+      <div className="relative min-w-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-[760px]">
+          {!blocked && !ownsTitle && <ScreenTitle view={view} onNav={goToView} onSearch={() => setGlobalSearchOpen(true)} />}
+          {blocked ? <OwnerOnlyNotice onHome={() => goToView("dashboard")} /> : routes}
+        </div>
       </div>
 
-      <BottomNav
-        active={view}
-        onNav={goToView}
-        onMore={() => setSidebarOpen(true)}
-        onQuickAction={(key: string) => openModal(key === "customer" ? "customer" : key === "expense" ? "expense" : "estimate")}
-      />
+      <TabBar active={activeTab} onNav={goToView} />
 
-      <a href={businessWa ? waLink(businessWa, "Hi, I have a question about my account.") : "#settings"}
-        onClick={(e) => { if (!businessWa) { e.preventDefault(); goToView("settings"); showToast("Add a WhatsApp number in Settings first"); } }}
-        target={businessWa ? "_blank" : undefined} rel="noreferrer"
-        className="fixed bottom-24 md:bottom-5 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-card active:scale-95 transition"
-        style={{ backgroundColor: businessWa ? WHATSAPP_GREEN : "#94a3b8" }}>
-        <Phone size={24} />
-      </a>
+      {profileOpen && (
+        <ProfileSheet settings={settings} role={role} businessWa={businessWa} onClose={() => setProfileOpen(false)} onNav={goToView} onSignOut={onSignOut} onWhatsApp={() => { if (!businessWa) { goToView("settings"); showToast("Add a WhatsApp number in Settings first"); } }} />
+      )}
 
       {renderModal()}
       {confirmDeleteFor && (
@@ -518,12 +530,12 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       )}
 
       {toast && (
-        <div className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 flex items-center gap-3 rounded-full bg-brand-600 pl-5 pr-2 py-2 text-sm font-semibold text-white shadow-lg max-w-sm">
+        <div className="fixed bottom-24 left-1/2 z-[80] -translate-x-1/2 flex items-center gap-3 rounded-full bg-ink pl-5 pr-2 py-2 text-sm font-medium text-paper shadow-sheet max-w-sm">
           <span className="text-center">{toast.message}</span>
           {toast.undo && (
             <button
               onClick={() => { toast.undo?.(); useAppStore.getState().clearToast(); }}
-              className="shrink-0 rounded-full bg-card/15 px-3 py-1.5 text-xs font-bold hover:bg-card/25"
+              className="shrink-0 rounded-full bg-paper/20 px-3 py-1.5 text-xs font-semibold hover:bg-paper/30"
             >
               {toast.actionLabel || "Undo"}
             </button>

@@ -3,6 +3,7 @@ import { Phone, Plus, X, Download, Loader2, ShieldCheck, Wallet } from "lucide-r
 import { Card, PillButton } from "../common/UIPrimitives";
 import { ChangePinCard } from "./ChangePinCard";
 import { StaffManagementCard } from "./StaffManagementCard";
+import { BackupCard } from "./BackupCard";
 import { WHATSAPP_GREEN, ITEM_CATEGORIES, ITEM_BRANDS } from "../../lib/constants";
 import { api } from "../../lib/api";
 import { useAppStore } from "../../store/useAppStore";
@@ -192,6 +193,7 @@ function OwnerSettingsView({ settings, setSettings }: any) {
         </div>
         {exportError && <p className="text-xs font-medium text-bad-500">{exportError}</p>}
       </Card>
+      <BackupCard />
       <ChangePinCard />
       <PillButton disabled={!dirty} onClick={() => setSettings(local)} className="w-full justify-center">Save changes</PillButton>
     </div>

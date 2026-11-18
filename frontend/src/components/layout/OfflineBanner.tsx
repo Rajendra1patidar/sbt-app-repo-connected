@@ -62,16 +62,24 @@ export function OfflineBanner() {
   }
 
   return (
-    <div className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold ${online ? "bg-warn-50 text-warn-700" : "bg-bad-50 text-bad-700"}`}>
-      {online && serverWaking ? <RefreshCw size={14} className="shrink-0 animate-spin" /> : <WifiOff size={14} className="shrink-0" />}
+    // Sticks to the top of the scrolling area so the message stays visible on every screen. The top padding
+    // keeps it clear of the phone's status bar when the app is installed (it is 0 in a normal browser tab).
+    <div
+      role="status"
+      aria-live="polite"
+      style={{ paddingTop: "max(8px, env(safe-area-inset-top, 0px))" }}
+      className={`sticky top-0 z-30 flex items-center gap-2 px-4 pb-2 text-xs font-semibold ${online ? "bg-warn-50 text-warn-700" : "bg-bad-50 text-bad-700"}`}
+    >
+      {online && serverWaking ? <RefreshCw size={14} aria-hidden="true" className="shrink-0 animate-spin" /> : <WifiOff size={14} aria-hidden="true" className="shrink-0" />}
       <span className="flex-1">{message}</span>
       {online && !serverWaking && (queue.length > 0 || offlineDataAsOf) && (
         <button
+          type="button"
           onClick={handleRetry}
           disabled={syncing}
-          className="inline-flex items-center gap-1 rounded-pill bg-card px-2.5 py-1 text-warn-700 disabled:opacity-50"
+          className="-my-1.5 inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-pill bg-card px-3 text-warn-700 disabled:opacity-50"
         >
-          <RefreshCw size={12} className={syncing ? "animate-spin" : ""} /> Sync now
+          <RefreshCw size={12} aria-hidden="true" className={syncing ? "animate-spin" : ""} /> Sync now
         </button>
       )}
     </div>

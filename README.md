@@ -8,5 +8,5 @@ more.
 ## Docs
 
 - `BACKUPS.md` - how the nightly encrypted backup, the keep-alive and the restore work.
-- `UPDATE-1-NOTES.md`, `UPDATE-2-ZIP-1-NOTES.md` - what each update changed, and how to check it.
+- `UPDATE-1-NOTES.md`, `UPDATE-2-NOTES.md`, `UPDATE-2-ZIP-1-NOTES.md`, `UPDATE-2-FIXES-NOTES.md` - what each update changed, and how to check it.
 - `CLOUDINARY-SETUP.md` - customer portal image uploads.

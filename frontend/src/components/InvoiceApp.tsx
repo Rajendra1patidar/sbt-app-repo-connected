@@ -19,6 +19,8 @@ import { PaymentAllocationModal } from "./modals/PaymentAllocationModal";
 import { PurchaseModal } from "./modals/PurchaseModal";
 import { ReturnModal } from "./modals/ReturnModal";
 import { OfflineSyncPanel } from "./views/OfflineSyncPanel";
+import { OfflineBanner } from "./layout/OfflineBanner";
+import { initOfflineSync } from "../lib/offlineSync";
 import { TransferModal } from "./modals/TransferModal";
 import { ViewEstimateModal } from "./modals/ViewEstimateModal";
 import { AdvancedBillingView } from "./views/AdvancedBillingView";
@@ -86,7 +88,10 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 
   useEffect(() => {
     setOnSignOut(onSignOut);
-    fetchAll();
+    // Once the first load has settled (it can end early if the free server is asleep), start the
+    // offline sync: it sends anything queued last session and again every time the signal returns.
+    // Without this, queued work only left the phone when someone tapped the sync chip.
+    Promise.resolve(fetchAll()).catch(() => {}).then(() => initOfflineSync());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -494,6 +499,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     <div className="flex h-screen bg-paper font-sans text-ink">
       <NavRail active={activeTab} onNav={goToView} orgName={settings.orgName} ownerName={settings.ownerName} roleLabel={role === "staff" ? "Staff" : "Owner"} onProfile={() => setProfileOpen(true)} />
       <div className="relative min-w-0 flex-1 overflow-y-auto">
+        <OfflineBanner />
         <div className="mx-auto w-full max-w-[760px]">
           {!blocked && !ownsTitle && <ScreenTitle view={view} onNav={goToView} onSearch={() => setGlobalSearchOpen(true)} />}
           {blocked ? <OwnerOnlyNotice onHome={() => goToView("dashboard")} /> : routes}

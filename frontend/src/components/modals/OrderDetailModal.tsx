@@ -85,7 +85,7 @@ export function OrderDetailModal({ order, items, vendors, currency, payOrder, re
           {remaining > 0 && (
             <button
               onClick={() => payOrder({ id: order.id, amount: order.amount, amountPaid: order.amountPaid, itemName: item?.name })}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white active:scale-[0.98]"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-500 py-3 text-sm font-semibold text-white active:scale-[0.98]"
             >
               <IndianRupee size={15} /> Pay {fmtMoney(remaining, currency)}
             </button>

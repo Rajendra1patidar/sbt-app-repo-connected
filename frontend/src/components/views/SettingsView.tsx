@@ -85,7 +85,7 @@ function OwnerSettingsView({ settings, setSettings }: any) {
           {categories.map((c) => (
             <span key={c} className="inline-flex items-center gap-1.5 rounded-full bg-paper px-3 py-1.5 text-xs font-semibold text-ink/70">
               {c}
-              <button type="button" onClick={() => removeCategory(c)} className="text-ink/30 hover:text-bad-600"><X size={12} /></button>
+              <button type="button" onClick={() => removeCategory(c)} className="text-faint hover:text-bad-600"><X size={12} /></button>
             </span>
           ))}
         </div>
@@ -110,7 +110,7 @@ function OwnerSettingsView({ settings, setSettings }: any) {
           {brands.map((b) => (
             <span key={b} className="inline-flex items-center gap-1.5 rounded-full bg-paper px-3 py-1.5 text-xs font-semibold text-ink/70">
               {b}
-              <button type="button" onClick={() => removeBrand(b)} className="text-ink/30 hover:text-bad-600"><X size={12} /></button>
+              <button type="button" onClick={() => removeBrand(b)} className="text-faint hover:text-bad-600"><X size={12} /></button>
             </span>
           ))}
         </div>

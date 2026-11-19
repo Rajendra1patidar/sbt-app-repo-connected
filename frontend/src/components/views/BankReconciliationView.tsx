@@ -126,7 +126,7 @@ export function BankReconciliationView({ currency }: { currency: string }) {
 
         {!preview && (
           <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-line py-8 text-center hover:border-brand-300">
-            <Upload size={20} className="text-ink/30" />
+            <Upload size={20} className="text-faint" />
             <span className="text-xs font-semibold text-mute">Tap to choose a CSV file</span>
             <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={onFileSelected} className="hidden" />
           </label>
@@ -150,7 +150,7 @@ export function BankReconciliationView({ currency }: { currency: string }) {
                     </span>
                   </div>
                 ))}
-                {preview.length > 50 && <p className="pt-1 text-center text-[12px] text-ink/30">+ {preview.length - 50} more</p>}
+                {preview.length > 50 && <p className="pt-1 text-center text-[12px] text-faint">+ {preview.length - 50} more</p>}
               </div>
             )}
             {importError && <p className="rounded-xl bg-bad-50 px-3 py-2 text-xs font-semibold text-bad-600">{importError}</p>}
@@ -164,7 +164,7 @@ export function BankReconciliationView({ currency }: { currency: string }) {
               <button
                 onClick={confirmImport}
                 disabled={importing || preview.length === 0}
-                className="flex-1 rounded-xl bg-brand-600 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+                className="flex-1 rounded-xl bg-brand-500 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
               >
                 {importing ? <Loader2 size={14} className="mx-auto animate-spin" /> : `Import ${preview.length} row${preview.length !== 1 ? "s" : ""}`}
               </button>

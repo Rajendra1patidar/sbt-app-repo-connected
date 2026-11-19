@@ -54,7 +54,7 @@ export function ReportsView({ data, currency, settings }: any) {
   const stats = [
     { label: "Total Invoiced", value: totalInvoiced, color: "text-brand-600" },
     { label: "Total Received", value: totalReceived, color: "text-good-600" },
-    { label: "Outstanding", value: outstanding, color: "text-warn-600" },
+    { label: "Outstanding", value: outstanding, color: "text-warn-700" },
     { label: "Total Expenses", value: totalExpenses, color: "text-bad-600" },
   ];
   const trimmedName = nameQuery.trim().toLowerCase();
@@ -120,7 +120,7 @@ export function ReportsView({ data, currency, settings }: any) {
           <button onClick={printRangeReport} className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1.5 text-xs font-semibold text-ink/80"><Printer size={13} /> Print report</button>
         </div>
         <p className="mt-2 text-xs text-faint">Prints estimates, payments received, and expenses between the two dates.</p>
-        {rangeLabourTotal > 0 && <p className="mt-1 text-xs font-semibold text-warn-600">Labour cost in this range: {fmtMoney(rangeLabourTotal, currency)} ({rangeLabour.length} session{rangeLabour.length !== 1 ? "s" : ""})</p>}
+        {rangeLabourTotal > 0 && <p className="mt-1 text-xs font-semibold text-warn-700">Labour cost in this range: {fmtMoney(rangeLabourTotal, currency)} ({rangeLabour.length} session{rangeLabour.length !== 1 ? "s" : ""})</p>}
       </Card>
       <EstimatesMapCard invoices={invoices.filter((i: any) => i.date >= fromDate && i.date <= toDate)} currency={currency} />
       <div className="grid grid-cols-2 gap-3">
@@ -157,7 +157,7 @@ export function ReportsView({ data, currency, settings }: any) {
         {Object.keys(statusCounts).length === 0 ? <p className="text-sm text-faint">No estimates yet.</p>
           : <ul className="space-y-2">{Object.entries(statusCounts).map(([s, c]) => (<li key={s} className="flex items-center justify-between text-sm"><Badge status={s} /><span className="font-semibold text-ink/80">{c}</span></li>))}</ul>}
       </Card>
-      <Card><p className="text-xs font-semibold text-faint">Total Customers</p><p className="mt-1 font-display text-xl font-semibold text-ink">{customers.filter((c: any) => !c.archived).length}</p></Card>
+      <Card><p className="text-xs font-semibold text-faint">Total Customers</p><p className="mt-1 font-display text-xl font-semibold text-ink">{customers.length}</p></Card>
 
       {/* Search by name */}
       <Card>
@@ -183,7 +183,7 @@ export function ReportsView({ data, currency, settings }: any) {
 
       {/* Search by location */}
       <Card>
-        <div className="mb-3 flex items-center gap-2"><MapPin size={16} className="text-advance-500" /><h3 className="font-display text-base font-semibold text-ink">Search customers by location</h3></div>
+        <div className="mb-3 flex items-center gap-2"><MapPin size={16} className="text-advance-600" /><h3 className="font-display text-base font-semibold text-ink">Search customers by location</h3></div>
         <div className="relative">
           <MapPin size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
           <input value={locationQuery} onChange={(e) => setLocationQuery(e.target.value)} placeholder="Type city, area or address..." className="w-full rounded-xl border border-line py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-advance-400" />

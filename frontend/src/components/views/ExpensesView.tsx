@@ -42,7 +42,7 @@ export function ExpensesView({ expenses, currency, openModal, removeExpense }: a
               <div className="min-w-0"><p className="font-semibold text-ink truncate">{e.category}</p><p className="text-xs text-faint truncate">{e.vendor || "No vendor"} · {fmtDate(e.date)}</p></div>
               <div className="flex items-center gap-3 shrink-0">
                 <span className="font-semibold text-bad-600">-{fmtMoney(e.amount, currency)}</span>
-                <button onClick={() => removeExpense(e.id)} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
+                <button onClick={() => removeExpense(e.id)} className="rounded-full p-2 text-bad-600 hover:bg-bad-50"><Trash2 size={16} /></button>
               </div>
             </Card>
           ))}

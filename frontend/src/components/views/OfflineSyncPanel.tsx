@@ -116,7 +116,7 @@ export function OfflineSyncPanel() {
           {open && queue.map((a) => (
             <div key={a.id} className="flex items-center gap-2 text-xs">
               <span className="flex-1">{describe(a)}</span>
-              <button onClick={() => cancel(a)} aria-label="Remove this unsynced change" className="rounded-full p-1 text-warn-700/70"><X size={14} /></button>
+              <button onClick={() => cancel(a)} aria-label="Remove this unsynced change" className="rounded-full p-1 text-warn-700"><X size={14} /></button>
             </div>
           ))}
         </div>

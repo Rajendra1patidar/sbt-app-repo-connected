@@ -8,7 +8,7 @@ import { smsLink, waLink } from "../../lib/contactLinks";
 export function PillButton({ children, onClick, className = "", disabled }: any) {
   return (
     <button onClick={onClick} disabled={disabled}
-      className={`inline-flex items-center justify-center gap-2 rounded-[14px] bg-brand-500 px-5 py-3 text-[15px] font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-brand-600 active:scale-[0.98] transition-all duration-150 ${className}`}>
+      className={`inline-flex items-center justify-center gap-2 rounded-[14px] bg-brand-500 px-5 py-3 text-[15px] font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-95 active:scale-[0.98] transition-all duration-150 ${className}`}>
       {children}
     </button>
   );

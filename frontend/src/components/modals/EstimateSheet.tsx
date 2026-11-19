@@ -401,7 +401,7 @@ export function EstimateSheet({
   const form = (
     <>
       <div className="flex h-12 shrink-0 items-center justify-between px-5 pt-3">
-        <button type="button" onClick={requestClose} className="h-11 w-16 text-left text-[17px] text-brand-500 active:opacity-60">Cancel</button>
+        <button type="button" onClick={requestClose} className="h-11 w-16 text-left text-[17px] text-brand-600 active:opacity-60">Cancel</button>
         <div className="text-center">
           <p className="text-[17px] font-semibold leading-5 text-ink">{isEditing ? "Edit estimate" : "New estimate"}</p>
           <p className="font-doc text-[12px] leading-4 text-mute">{nextNumber || "Number assigned on save"}</p>
@@ -431,7 +431,7 @@ export function EstimateSheet({
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center gap-3 text-brand-500">
+                <div className="flex items-center gap-3 text-brand-600">
                   <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100"><PersonIcon size={20} /></span>
                   <span className="text-[17px] font-medium">Choose customer</span>
                 </div>
@@ -490,7 +490,7 @@ export function EstimateSheet({
                       {it?.deleted ? `${it.name} (deleted)` : it?.name || "Item"}
                     </button>
                     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <button type="button" onClick={() => setRateEditIndex(i)} className={cx("text-[13px] font-medium tabular-nums", overridden ? "text-warn-700 underline decoration-dotted underline-offset-2" : "text-brand-500")}>
+                      <button type="button" onClick={() => setRateEditIndex(i)} className={cx("text-[13px] font-medium tabular-nums", overridden ? "text-warn-700 underline decoration-dotted underline-offset-2" : "text-brand-600")}>
                         {inrRate(num(ln.rate), currency)} a {unitOfLine(ln, it)}
                       </button>
                       {isWeight && !missingPieces && <button type="button" onClick={() => setItemSheet({ index: i })} className="text-caption text-mute">{qtyText(ln.piecesQty)} pcs</button>}
@@ -508,7 +508,7 @@ export function EstimateSheet({
             );
           })}
           <GroupRow onClick={() => setItemSheet({ index: null })} className="h-[52px]">
-            <div className="flex items-center gap-2 text-[16px] font-medium text-brand-500"><PlusIcon size={20} /> Add item</div>
+            <div className="flex items-center gap-2 text-[16px] font-medium text-brand-600"><PlusIcon size={20} /> Add item</div>
           </GroupRow>
         </Group>
 
@@ -546,7 +546,7 @@ export function EstimateSheet({
       {/* Total + Review */}
       <GlassBar className="absolute inset-x-0 bottom-0 px-5 pt-3" >
         <div style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 16px)" }}>
-          {error && <p role="alert" className="mb-2 text-[14px] font-medium leading-[19px] text-bad-500">{error}</p>}
+          {error && <p role="alert" className="mb-2 text-[14px] font-medium leading-[19px] text-bad-600">{error}</p>}
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-micro text-mute">Total</p>
@@ -566,7 +566,7 @@ export function EstimateSheet({
   const review = (
     <>
       <div className="flex h-12 shrink-0 items-center justify-between px-5 pt-3">
-        <button type="button" onClick={() => setStep("form")} className="flex h-11 w-16 items-center text-[17px] text-brand-500 active:opacity-60"><ChevronLeftIcon size={20} />Edit</button>
+        <button type="button" onClick={() => setStep("form")} className="flex h-11 w-16 items-center text-[17px] text-brand-600 active:opacity-60"><ChevronLeftIcon size={20} />Edit</button>
         <span className="text-[17px] font-semibold text-ink">Review</span>
         <span className="w-16" />
       </div>
@@ -629,11 +629,11 @@ export function EstimateSheet({
               </Group>
             )}
             {paymentChoice === "partial" && partialAmount !== "" && !partialValid && (
-              <p className="mt-1.5 px-1 text-micro text-bad-500">Enter an amount more than 0 and less than {inr(total, currency)}.</p>
+              <p className="mt-1.5 px-1 text-micro text-bad-600">Enter an amount more than 0 and less than {inr(total, currency)}.</p>
             )}
             {qrAmount > 0 && upiId && (
               <div className="mt-3 flex items-center gap-2.5 rounded-group border border-insight-200 bg-insight-50 px-3.5 py-2.5 text-[14px] leading-[19px] text-insight-700">
-                <SparkIcon size={16} className="text-insight-500" />
+                <SparkIcon size={16} className="text-insight-600" />
                 <span className="flex-1">Add your UPI QR for {inr(qrAmount, currency)} to the bill</span>
                 <Switch tone="insight" checked={qrOn} onChange={setQrOn} label="Add UPI QR to the bill" />
               </div>
@@ -645,7 +645,7 @@ export function EstimateSheet({
         ) : (
           <p className="mt-4 px-1 text-[14px] leading-5 text-mute">Editing keeps this estimate's payment status. Record any payment from the estimate itself.</p>
         )}
-        {error && <p role="alert" className="mt-3 text-[14px] font-medium text-bad-500">{error}</p>}
+        {error && <p role="alert" className="mt-3 text-[14px] font-medium text-bad-600">{error}</p>}
       </div>
 
       <GlassBar className="absolute inset-x-0 bottom-0 px-5 pt-3">
@@ -705,7 +705,7 @@ export function EstimateSheet({
             <div className="space-y-2">
               {!isEditing && <PrimaryButton onClick={() => { setConfirmCancel(false); onClose(); }}>Keep draft</PrimaryButton>}
               {isEditing && <PrimaryButton onClick={() => setConfirmCancel(false)}>Keep editing</PrimaryButton>}
-              <button type="button" onClick={() => { if (!isEditing) clearDraft(); setConfirmCancel(false); onClose(); }} className="h-12 w-full rounded-[14px] border border-rule text-[16px] font-semibold text-bad-500 active:scale-[0.985]">
+              <button type="button" onClick={() => { if (!isEditing) clearDraft(); setConfirmCancel(false); onClose(); }} className="h-12 w-full rounded-[14px] border border-rule text-[16px] font-semibold text-bad-600 active:scale-[0.985]">
                 {isEditing ? "Discard changes" : "Discard draft"}
               </button>
               {!isEditing && <div className="flex justify-center"><TextButton tone="quiet" onClick={() => setConfirmCancel(false)}>Keep editing</TextButton></div>}
@@ -742,7 +742,7 @@ function dueText(d: string): string {
 
 function SumRow({ label, value, tone, className }: { label: string; value: string; tone?: "gain"; className?: string }) {
   return (
-    <div className={cx("flex h-9 items-center justify-between border-t border-line px-4 text-[15px]", tone === "gain" ? "text-good-500" : "text-mute", className)}>
+    <div className={cx("flex h-9 items-center justify-between border-t border-line px-4 text-[15px]", tone === "gain" ? "text-good-600" : "text-mute", className)}>
       <span>{label}</span><span className="tabular-nums">{value}</span>
     </div>
   );
@@ -755,7 +755,7 @@ function DateCell({ label, value, onChange }: { label: string; value: string; on
   return (
     <div className="relative flex h-full flex-1 items-center justify-between px-4">
       <span className="text-[16px] text-ink">{label}</span>
-      <span className="text-[16px] font-medium text-brand-500">{text}</span>
+      <span className="text-[16px] font-medium text-brand-600">{text}</span>
       <input type="date" value={value} aria-label={`${label} date`} onChange={(e) => e.target.value && onChange(e.target.value)}
         onClick={(e) => { try { (e.currentTarget as any).showPicker?.(); } catch { /* ignore */ } }}
         className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />

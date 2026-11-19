@@ -105,7 +105,7 @@ export function FinancialYearView({ currency }: any) {
           </div>
           <div className="mt-4 flex gap-3">
             <button onClick={() => setCreating(false)} className="flex-1 rounded-full border border-line py-2.5 text-sm font-semibold text-ink/70">Cancel</button>
-            <button onClick={createYear} className="flex-1 rounded-full bg-brand-600 py-2.5 text-sm font-semibold text-white">Open</button>
+            <button onClick={createYear} className="flex-1 rounded-full bg-brand-500 py-2.5 text-sm font-semibold text-white">Open</button>
           </div>
         </Card>
       )}
@@ -125,7 +125,7 @@ export function FinancialYearView({ currency }: any) {
                 {y.closed ? (
                   <p className="mt-0.5 inline-flex items-center gap-1 text-xs font-semibold text-good-700"><CheckCircle2 size={13} /> Closed {y.closedAt ? `on ${fmtDate(y.closedAt.slice(0, 10))}` : ""}</p>
                 ) : (
-                  <p className="mt-0.5 text-xs font-semibold text-warn-600">Open</p>
+                  <p className="mt-0.5 text-xs font-semibold text-warn-700">Open</p>
                 )}
               </div>
               {!y.closed && (
@@ -159,7 +159,7 @@ export function FinancialYearView({ currency }: any) {
             </p>
             <div className="mt-6 flex gap-3">
               <button onClick={() => setConfirmCloseId(null)} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
-              <button disabled={closing} onClick={() => closeYear(confirmYear.id)} className="flex-1 rounded-full bg-bad-600 py-3 text-sm font-semibold text-white disabled:opacity-40">
+              <button disabled={closing} onClick={() => closeYear(confirmYear.id)} className="flex-1 rounded-full bg-bad-500 py-3 text-sm font-semibold text-white disabled:opacity-40">
                 {closing ? "Closing..." : "Close Year"}
               </button>
             </div>

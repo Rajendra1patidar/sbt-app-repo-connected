@@ -61,7 +61,7 @@ export function ItemDetailDrawer({ item, items, godowns, open, onClose, currency
   const isBad = gateStock <= threshold;
   const isWarn = !isBad && gateStock <= threshold * 1.5;
   const statusLabel = isBad ? "Below reorder line — order recommended" : isWarn ? "Watch — approaching reorder line" : "Healthy";
-  const statusColor = isBad ? "text-bad-600" : isWarn ? "text-warn-600" : "text-good-600";
+  const statusColor = isBad ? "text-bad-600" : isWarn ? "text-warn-700" : "text-good-600";
   const iconBg = isBad ? "#B23A2E" : isWarn ? "#B27B1E" : "#2E7D5B";
 
   const maxAbs = Math.max(1, ...movement.map((m) => Math.abs(m.net)));
@@ -170,7 +170,7 @@ export function ItemDetailDrawer({ item, items, godowns, open, onClose, currency
             <div className="mt-3 rounded-xl border border-line bg-paper p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold text-mute">Correct stock to</p>
-                <button onClick={() => setAdjustOpen(false)} className="text-ink/30 hover:text-bad-600"><X size={13} /></button>
+                <button onClick={() => setAdjustOpen(false)} className="text-faint hover:text-bad-600"><X size={13} /></button>
               </div>
               {hasMultipleGodowns && (
                 <div>

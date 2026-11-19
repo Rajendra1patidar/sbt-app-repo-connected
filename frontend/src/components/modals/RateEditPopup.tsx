@@ -28,7 +28,7 @@ export function RateEditPopup({ itemName, listPrice, rate, onCancel, onReset, on
 
         <div className="flex gap-2">
           <button onClick={onCancel} className="flex-1 rounded-xl bg-paper py-2.5 text-sm font-semibold text-ink/70">Cancel</button>
-          <button disabled={!canSave} onClick={() => canSave && onSave(numeric)} className="flex-1 rounded-xl bg-brand-600 py-2.5 text-sm font-semibold text-white disabled:opacity-40">Save rate</button>
+          <button disabled={!canSave} onClick={() => canSave && onSave(numeric)} className="flex-1 rounded-xl bg-brand-500 py-2.5 text-sm font-semibold text-white disabled:opacity-40">Save rate</button>
         </div>
         {isOverridden && (
           <button onClick={onReset} className="mt-3 text-left text-xs font-semibold text-brand-600 underline">

@@ -55,7 +55,7 @@ export function GlobalSearchOverlay({ customers, items, estimates, currency, onS
                       <p className="text-sm font-semibold text-ink">{c.name}</p>
                       {c.location && <p className="text-xs text-faint">{c.location}</p>}
                     </div>
-                    <ArrowRight size={14} className="text-ink/30" />
+                    <ArrowRight size={14} className="text-faint" />
                   </button>
                 ))}
               </div>
@@ -72,7 +72,7 @@ export function GlobalSearchOverlay({ customers, items, estimates, currency, onS
                       <p className="text-sm font-semibold text-ink">{it.name}</p>
                       <p className="text-xs text-faint">{it.category ? `${it.category} · ` : ""}Stock: {fmtNum(it.stock ?? 0)}</p>
                     </div>
-                    <ArrowRight size={14} className="text-ink/30" />
+                    <ArrowRight size={14} className="text-faint" />
                   </button>
                 ))}
               </div>

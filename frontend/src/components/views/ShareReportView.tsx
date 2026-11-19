@@ -68,7 +68,7 @@ export function ShareReportView({ invoices, items, customers, currency, settings
         {rows.length === 0 ? (
           <div className="rounded-xl bg-paper px-4 py-6 text-center">
             <p className="text-sm text-faint">No estimates created today yet.</p>
-            <p className="text-xs text-ink/30 mt-1">Create an estimate and it will appear here.</p>
+            <p className="text-xs text-faint mt-1">Create an estimate and it will appear here.</p>
           </div>
         ) : (
           <>

@@ -155,7 +155,7 @@ export function StockTakeModal({ items, godowns, onClose, applyStockAdjustments 
                   <div key={idx} className={`rounded-xl border px-3 py-2.5 ${r.itemId ? "border-line" : "border-warn-300 bg-warn-50"}`}>
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-xs text-faint truncate flex-1">{r.match.rawName}</p>
-                      <button onClick={() => removeRow(idx)} className="text-ink/30 hover:text-bad-600 shrink-0"><X size={13} /></button>
+                      <button onClick={() => removeRow(idx)} className="text-faint hover:text-bad-600 shrink-0"><X size={13} /></button>
                     </div>
                     <div className="mt-1.5 flex items-center gap-2">
                       <select
@@ -192,13 +192,13 @@ export function StockTakeModal({ items, godowns, onClose, applyStockAdjustments 
                       </div>
                     )}
                     {currentItem && (
-                      <p className={`mt-1 text-xs ${delta === 0 ? "text-ink/30" : delta! > 0 ? "text-good-600" : "text-bad-600"}`}>
+                      <p className={`mt-1 text-xs ${delta === 0 ? "text-faint" : delta! > 0 ? "text-good-600" : "text-bad-600"}`}>
                         {fmtNum(oldStock ?? 0)} → {r.newStock || "?"} {isWeight ? "pc" : r.match.item?.unit || currentItem.unit || ""}
                         {delta !== null && delta !== 0 ? ` (${delta > 0 ? "+" : ""}${fmtNum(delta)})` : ""}
                       </p>
                     )}
                     {isWeight && deltaKg !== null && (
-                      <p className={`text-xs ${deltaKg === 0 ? "text-ink/30" : deltaKg > 0 ? "text-good-600" : "text-bad-600"}`}>
+                      <p className={`text-xs ${deltaKg === 0 ? "text-faint" : deltaKg > 0 ? "text-good-600" : "text-bad-600"}`}>
                         {fmtNum(oldStockKg ?? 0)}kg → {r.newStockKg}kg{deltaKg !== 0 ? ` (${deltaKg > 0 ? "+" : ""}${fmtNum(deltaKg)}kg)` : ""}
                       </p>
                     )}

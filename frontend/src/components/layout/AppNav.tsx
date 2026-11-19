@@ -20,7 +20,7 @@ export function TabBar({ active, onNav, role }: { active: TabId | null; onNav: (
             const isActive = active === t.id;
             return (
               <button key={t.id} type="button" onClick={() => onNav(t.view)} aria-current={isActive ? "page" : undefined}
-                className={cx("flex h-12 w-16 flex-col items-center justify-center gap-[3px] text-[10.5px] font-medium transition-colors active:opacity-60", isActive ? "text-brand-500" : "text-mute")}>
+                className={cx("flex h-12 w-16 flex-col items-center justify-center gap-[3px] text-micro font-medium transition-colors active:opacity-60", isActive ? "text-brand-600" : "text-mute")}>
                 <Icon size={22} />
                 {t.label}
               </button>

@@ -87,7 +87,7 @@ export function ItemsView({ items, categories, brands, openModal, removeItem, cu
                   {it.brand && <span className="rounded-full bg-ink/5 px-2 py-0.5 text-xs font-semibold text-mute">{it.brand}</span>}
                   {isLow && <span className="rounded-full bg-warn-100 px-2 py-0.5 text-xs font-semibold text-warn-700 flex items-center gap-1"><AlertTriangle size={10} /> Low stock</span>}
                 </div>
-                <p className="text-xs text-faint">{it.unit || "unit"} · Stock: <span className={`font-semibold ${isLow ? "text-warn-600" : "text-ink/80"}`}>{fmtNum(it.stock ?? 0)}</span> (alert at ≤{fmtNum(threshold)})</p>
+                <p className="text-xs text-faint">{it.unit || "unit"} · Stock: <span className={`font-semibold ${isLow ? "text-warn-700" : "text-ink/80"}`}>{fmtNum(it.stock ?? 0)}</span> (alert at ≤{fmtNum(threshold)})</p>
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <div className="text-right">
@@ -95,7 +95,7 @@ export function ItemsView({ items, categories, brands, openModal, removeItem, cu
                   {it.purchasePrice > 0 && <p className="text-xs text-faint">Buy: <span className="font-semibold text-ink/70">{fmtMoney(it.purchasePrice, currency)}</span></p>}
                 </div>
                 <button onClick={(e) => { e.stopPropagation(); openModal("item", { editingItem: it }); }} className="rounded-full p-2 text-faint hover:bg-paper"><Pencil size={16} /></button>
-                <button onClick={(e) => { e.stopPropagation(); removeItem(it.id); }} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
+                <button onClick={(e) => { e.stopPropagation(); removeItem(it.id); }} className="rounded-full p-2 text-bad-600 hover:bg-bad-50"><Trash2 size={16} /></button>
               </div>
             </Row>
           );

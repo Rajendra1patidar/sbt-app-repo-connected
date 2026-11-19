@@ -471,7 +471,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   if (loading) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 bg-paper text-mute">
-        <Loader2 size={28} className="animate-spin text-brand-500" />
+        <Loader2 size={28} className="animate-spin text-brand-600" />
         <p className="text-sm font-medium">Loading your data…</p>
       </div>
     );
@@ -480,7 +480,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   if (loadError) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 bg-paper px-6 text-center">
-        <AlertCircle size={28} className="text-bad-500" />
+        <AlertCircle size={28} className="text-bad-600" />
         <p className="text-sm font-medium text-ink/70">{loadError}</p>
         <button onClick={() => window.location.reload()} className="rounded-pill bg-brand-500 px-4 py-2 text-sm font-semibold text-white">
           Try again

@@ -71,12 +71,12 @@ export function InvoiceAttachment({ order, attachOrderInvoice, removeOrderInvoic
           {thumbUrl
             ? <img src={thumbUrl} alt="Invoice" className="h-full w-full object-cover" />
             : thumbFailed
-            ? <ImageOff size={14} className="text-ink/30" />
-            : <Loader2 size={14} className="animate-spin text-ink/30" />}
+            ? <ImageOff size={14} className="text-faint" />
+            : <Loader2 size={14} className="animate-spin text-faint" />}
         </button>
         <button
           onClick={() => removeOrderInvoice(order.id)}
-          className="rounded-full p-1.5 text-ink/30 hover:bg-bad-50 hover:text-bad-600"
+          className="rounded-full p-1.5 text-faint hover:bg-bad-50 hover:text-bad-600"
           title="Remove invoice photo"
         >
           <X size={13} />
@@ -248,7 +248,7 @@ export function OrdersView({ orders, items, vendors, categories, currency, openM
                             >
                               <IndianRupee size={12} /> Pay
                             </button>
-                            <button onClick={() => removeOrder(o.id)} className="rounded-full p-1.5 text-bad-400 hover:bg-bad-50"><Trash2 size={14} /></button>
+                            <button onClick={() => removeOrder(o.id)} className="rounded-full p-1.5 text-bad-600 hover:bg-bad-50"><Trash2 size={14} /></button>
                           </div>
                         </div>
                       </Row>
@@ -285,7 +285,7 @@ export function OrdersView({ orders, items, vendors, categories, currency, openM
                               onView={setViewingImage}
                             />
                             <Badge status="Received" />
-                            <button onClick={() => removeOrder(o.id)} className="rounded-full p-1.5 text-bad-400 hover:bg-bad-50"><Trash2 size={14} /></button>
+                            <button onClick={() => removeOrder(o.id)} className="rounded-full p-1.5 text-bad-600 hover:bg-bad-50"><Trash2 size={14} /></button>
                           </div>
                         </div>
                       </Row>

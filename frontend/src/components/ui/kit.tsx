@@ -158,7 +158,7 @@ export function RoundButton({ children, label, onClick, variant = "outline", cla
     <button type="button" aria-label={label} onClick={onClick} style={{ width: size, height: size }}
       className={cx(
         "relative flex shrink-0 items-center justify-center rounded-full transition active:scale-95",
-        variant === "solid" ? "bg-brand-500 text-white hover:bg-brand-600" : "border border-line bg-card text-mute",
+        variant === "solid" ? "bg-brand-500 text-white hover:brightness-95" : "border border-line bg-card text-mute",
         className,
       )}>
       {children}
@@ -173,7 +173,7 @@ export function PrimaryButton({ children, className, size = "lg", full = true, .
   return (
     <button type="button" {...rest}
       className={cx(
-        "rounded-[14px] bg-brand-500 font-semibold text-white transition active:scale-[0.985] hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-40",
+        "rounded-[14px] bg-brand-500 font-semibold text-white transition active:scale-[0.985] hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40",
         size === "lg" ? "h-[52px] text-[16px]" : "h-12 text-[15px]",
         full && "w-full", className,
       )}>
@@ -278,7 +278,7 @@ export function InsightNote({ children, className, onClick }: { children: ReactN
 export function Avatar({ name, size = 40, className }: { name?: string; size?: number; className?: string }) {
   const text = (name || "?").trim().split(/\s+/).map((s) => s[0]).slice(0, 2).join("").toUpperCase();
   return (
-    <span style={{ width: size, height: size, fontSize: Math.max(12, Math.round(size * 0.375)) }}
+    <span style={{ width: size, height: size, fontSize: Math.round(size * 0.375) }}
       className={cx("flex shrink-0 items-center justify-center rounded-full bg-brand-100 font-semibold text-brand-600", className)}>
       {text}
     </span>

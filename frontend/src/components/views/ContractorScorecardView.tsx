@@ -143,7 +143,7 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
         {preset === "custom" ? (
           <div className="mt-2.5 flex items-center gap-2">
             <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="min-w-0 flex-1 rounded-xl border border-line px-2.5 py-2 text-xs" />
-            <span className="text-ink/30">–</span>
+            <span className="text-faint">–</span>
             <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="min-w-0 flex-1 rounded-xl border border-line px-2.5 py-2 text-xs" />
           </div>
         ) : (
@@ -156,15 +156,15 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
       </div>
 
       {overallPoints > 0 && (
-        <div className="relative overflow-hidden rounded-card bg-brand-700 p-5 text-white">
+        <div className="relative overflow-hidden rounded-card bg-brand-500 p-5 text-white">
           <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-brand-500/40" />
           <div className="relative">
-            <p className="text-xs font-semibold text-white/70">Total contractor points · {range.label}</p>
+            <p className="text-xs font-semibold text-white">Total contractor points · {range.label}</p>
             <p className="mt-1 font-display text-3xl font-semibold">{fmtNum(overallPoints)}</p>
-            <p className="mt-1 text-xs font-semibold text-white/70">Default: 1 cement bag = 1 point · 10kg saria = 1 point — adjust in Points settings</p>
+            <p className="mt-1 text-xs font-semibold text-white">Default: 1 cement bag = 1 point · 10kg saria = 1 point — adjust in Points settings</p>
             <div className="mt-4 grid grid-cols-2 gap-3">
-              <div><p className="text-[12px] text-white/60">Cement</p><p className="font-mono text-sm font-semibold">{fmtNum(overallCementQty)} bags</p></div>
-              <div><p className="text-[12px] text-white/60">Saria</p><p className="font-mono text-sm font-semibold">{fmtNum(overallSariaQty)} kg</p></div>
+              <div><p className="text-[12px] text-white">Cement</p><p className="font-mono text-sm font-semibold">{fmtNum(overallCementQty)} bags</p></div>
+              <div><p className="text-[12px] text-white">Saria</p><p className="font-mono text-sm font-semibold">{fmtNum(overallSariaQty)} kg</p></div>
             </div>
           </div>
         </div>
@@ -250,7 +250,7 @@ export function ContractorScorecardView({ estimates, items, currency, contractor
                       {e.points > 0 ? (
                         <span className="shrink-0 text-xs font-semibold text-brand-700">{fmtNum(e.points)} pts</span>
                       ) : (
-                        <span className="shrink-0 text-xs text-ink/30">0 pts</span>
+                        <span className="shrink-0 text-xs text-faint">0 pts</span>
                       )}
                     </div>
                   ))}

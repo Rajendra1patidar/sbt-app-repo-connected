@@ -93,7 +93,7 @@ export function FieldModal({ title, fields, initial, onClose, onSave, danger }: 
         <div className="mt-6 flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
           <button disabled={!canSave || saving} onClick={handleSaveClick}
-            className={`flex-1 rounded-full py-3 text-sm font-semibold text-white disabled:opacity-40 ${danger ? "bg-bad-600" : "bg-brand-600"}`}>{saving ? "Saving…" : "Save"}</button>
+            className={`flex-1 rounded-full py-3 text-sm font-semibold text-white disabled:opacity-40 ${danger ? "bg-bad-500" : "bg-brand-500"}`}>{saving ? "Saving…" : "Save"}</button>
         </div>
       </div>
 

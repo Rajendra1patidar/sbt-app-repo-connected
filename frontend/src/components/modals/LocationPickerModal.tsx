@@ -188,7 +188,7 @@ export function LocationPickerModal({ initialAddress, initialLat, initialLng, on
           <button
             disabled={!coords}
             onClick={() => coords && onPick({ address, lat: coords.lat, lng: coords.lng })}
-            className="flex-1 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
+            className="flex-1 rounded-full bg-brand-500 py-3 text-sm font-semibold text-white disabled:opacity-40"
           >
             Use this location
           </button>

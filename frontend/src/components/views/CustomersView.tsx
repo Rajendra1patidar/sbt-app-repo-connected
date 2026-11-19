@@ -85,7 +85,7 @@ export function CustomersView({ customers, openModal, removeCustomer, restoreCus
           return (
             <Card key={c.id} style={{ animationDelay: `${Math.min(idx, 8) * 25}ms` }} className="animate-row-in flex items-center gap-3 justify-between cursor-pointer" onClick={() => onSelectCustomer(c.id)}>
               <div className="flex items-center gap-3 min-w-0">
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-display text-xs font-semibold ${archived ? "bg-chip text-mute" : balance > 0 ? "bg-bad-50 text-bad-500" : "bg-good-50 text-good-500"}`}>{initials}</div>
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-display text-xs font-semibold ${archived ? "bg-chip text-mute" : balance > 0 ? "bg-bad-50 text-bad-600" : "bg-good-50 text-good-600"}`}>{initials}</div>
                 <div className="min-w-0">
                   <div className="flex min-w-0 items-center gap-2">
                     <p className="truncate font-semibold text-ink">{c.name}</p>
@@ -97,7 +97,7 @@ export function CustomersView({ customers, openModal, removeCustomer, restoreCus
                       href={c.lat && c.lng ? `https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.location)}`}
                       target="_blank" rel="noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      className="mt-0.5 flex items-center gap-1 text-xs text-faint hover:text-brand-500 hover:underline"
+                      className="mt-0.5 flex items-center gap-1 text-xs text-faint hover:text-brand-600 hover:underline"
                     >
                       <MapPin size={11} /> {c.location}
                     </a>

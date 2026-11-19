@@ -65,7 +65,7 @@ export function CustomerDetailView({ customer, estimates, payments, items, curre
               <a
                 href={customer.lat && customer.lng ? `https://www.google.com/maps/search/?api=1&query=${customer.lat},${customer.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customer.location)}`}
                 target="_blank" rel="noreferrer"
-                className="mt-1 flex items-center gap-1 text-xs text-faint hover:text-brand-500 hover:underline"
+                className="mt-1 flex items-center gap-1 text-xs text-faint hover:text-brand-600 hover:underline"
               >
                 <MapPin size={11} /> {customer.location}
               </a>
@@ -97,7 +97,7 @@ export function CustomerDetailView({ customer, estimates, payments, items, curre
         <p className="text-sm font-semibold text-faint">Balance due</p>
         <p className={`mt-1 text-2xl font-semibold ${balance > 0 ? "text-bad-600" : "text-good-600"}`}>{fmtMoney(balance, currency)}</p>
         {overdueEstimates.length > 0 && (
-          <p className="mt-1 text-xs font-semibold text-warn-600">{overdueEstimates.length} overdue estimate{overdueEstimates.length !== 1 ? "s" : ""}</p>
+          <p className="mt-1 text-xs font-semibold text-warn-700">{overdueEstimates.length} overdue estimate{overdueEstimates.length !== 1 ? "s" : ""}</p>
         )}
       </Card>
 

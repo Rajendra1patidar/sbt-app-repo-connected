@@ -73,7 +73,7 @@ export function CashFlowForecastView({ currency }: { currency: string }) {
         <div>
           <p className="text-xs font-semibold text-faint">Outstanding payable</p>
           <p className="mt-1 text-lg font-semibold text-bad-600">{fmtMoney(data.outstandingPayable, currency)}</p>
-          <p className="text-[12px] text-ink/30">Timing unknown</p>
+          <p className="text-[12px] text-faint">Timing unknown</p>
         </div>
       </Card>
 

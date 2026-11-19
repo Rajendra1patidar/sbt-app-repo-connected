@@ -62,7 +62,7 @@ export function ChangePinCard() {
           <input id="pin-current" type="password" inputMode="numeric" maxLength={CURRENT_MAX} value={cur} onChange={(e) => setCur(numOnly(e.target.value, CURRENT_MAX))} placeholder="••••" className={inputCls} autoFocus />
           <div className="flex gap-2">
             <button onClick={() => { reset(); setMode("idle"); }} className="flex-1 rounded-xl border border-line py-2 text-sm text-mute">Cancel</button>
-            <button disabled={cur.length < MIN} onClick={() => { setMsg(null); setMode("new"); }} className="flex-1 rounded-xl bg-brand-600 py-2 text-sm font-semibold text-white disabled:opacity-40">Next</button>
+            <button disabled={cur.length < MIN} onClick={() => { setMsg(null); setMode("new"); }} className="flex-1 rounded-xl bg-brand-500 py-2 text-sm font-semibold text-white disabled:opacity-40">Next</button>
           </div>
         </div>
       )}
@@ -72,7 +72,7 @@ export function ChangePinCard() {
           <input id="pin-new" type="password" inputMode="numeric" maxLength={MAX} value={next} onChange={(e) => setNext(numOnly(e.target.value, MAX))} placeholder="••••" className={inputCls} autoFocus />
           <div className="flex gap-2">
             <button onClick={() => { reset(); setMode("idle"); }} className="flex-1 rounded-xl border border-line py-2 text-sm text-mute">Cancel</button>
-            <button disabled={next.length < MIN} onClick={() => { setMsg(null); setMode("confirm"); }} className="flex-1 rounded-xl bg-brand-600 py-2 text-sm font-semibold text-white disabled:opacity-40">Next</button>
+            <button disabled={next.length < MIN} onClick={() => { setMsg(null); setMode("confirm"); }} className="flex-1 rounded-xl bg-brand-500 py-2 text-sm font-semibold text-white disabled:opacity-40">Next</button>
           </div>
         </div>
       )}
@@ -82,7 +82,7 @@ export function ChangePinCard() {
           <input id="pin-confirm" type="password" inputMode="numeric" maxLength={MAX} value={again} onChange={(e) => setAgain(numOnly(e.target.value, MAX))} placeholder="••••" className={inputCls} autoFocus />
           <div className="flex gap-2">
             <button onClick={() => { reset(); setMode("idle"); }} className="flex-1 rounded-xl border border-line py-2 text-sm text-mute">Cancel</button>
-            <button disabled={again.length < MIN || saving} onClick={handleConfirm} className="flex-1 rounded-xl bg-brand-600 py-2 text-sm font-semibold text-white disabled:opacity-40">{saving ? "Saving…" : "Save PIN"}</button>
+            <button disabled={again.length < MIN || saving} onClick={handleConfirm} className="flex-1 rounded-xl bg-brand-500 py-2 text-sm font-semibold text-white disabled:opacity-40">{saving ? "Saving…" : "Save PIN"}</button>
           </div>
         </div>
       )}

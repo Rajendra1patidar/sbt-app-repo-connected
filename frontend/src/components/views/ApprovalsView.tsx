@@ -100,7 +100,7 @@ export function ApprovalsView({ currency }: { currency: string }) {
                   <button
                     onClick={() => act(a.id, "approve")}
                     disabled={busyId === a.id}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand-600 py-2 text-xs font-semibold text-white disabled:opacity-40"
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand-500 py-2 text-xs font-semibold text-white disabled:opacity-40"
                   >
                     {busyId === a.id ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
                     Approve

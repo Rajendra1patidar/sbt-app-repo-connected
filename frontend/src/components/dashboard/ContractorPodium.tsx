@@ -25,7 +25,7 @@ export function ContractorPodium({ estimates, items, scoreRules, go }: any) {
   return (
     <div>
       <div className="mb-3.5 flex items-baseline justify-between">
-        <p className="text-micro font-semibold text-ink/30">Contractor rank — this month</p>
+        <p className="text-micro font-semibold text-faint">Contractor rank — this month</p>
         <button onClick={() => go?.("contractors")} className="text-[12px] font-semibold text-brand-700 hover:underline">See scorecard →</button>
       </div>
       {ranking.length === 0 ? (
@@ -38,7 +38,7 @@ export function ContractorPodium({ estimates, items, scoreRules, go }: any) {
               onClick={() => go?.("contractors")}
               className="group flex items-center gap-2.5 rounded-md px-1 py-0.5 -mx-1 transition-colors duration-150 hover:bg-ink/[0.04]"
             >
-              <span className="w-3 shrink-0 font-mono text-micro text-ink/30">{i + 1}</span>
+              <span className="w-3 shrink-0 font-mono text-micro text-faint">{i + 1}</span>
               <span className="flex-1 truncate text-left text-[13px] font-medium text-ink">{r.name}</span>
               <div className="h-[4px] w-20 shrink-0 overflow-hidden rounded-pill bg-line">
                 <div className="h-full rounded-pill bg-ink transition-all duration-700 ease-out" style={{ width: `${Math.max(4, (r.points / maxPts) * 100)}%` }} />

@@ -128,7 +128,7 @@ export function Dashboard({ data, settings, role, openModal, go, reorderSuggesti
       <div className="mt-3">
         <p className="text-[14px] text-mute">Net today</p>
         <HeroMoney value={today.net} currency={currency} />
-        <p className={cx("text-[14px] font-medium", deltaPositive ? "text-good-500" : "text-bad-500")}>
+        <p className={cx("text-[14px] font-medium", deltaPositive ? "text-good-600" : "text-bad-600")}>
           {deltaPositive ? "+" : "−"}{inr(Math.abs(delta), currency)} compared with this time yesterday
         </p>
       </div>
@@ -194,7 +194,7 @@ export function Dashboard({ data, settings, role, openModal, go, reorderSuggesti
               <div className="mt-4 flex items-end justify-between gap-1.5 overflow-x-auto" style={{ height: 150 }}>
                 {salesByMonth.map((m, i) => (
                   <div key={m.key} className="flex h-full min-w-[28px] flex-1 flex-col items-center justify-end gap-1.5">
-                    <span className="text-[11px] font-medium tabular-nums text-mute">{m.total > 0 ? inrCompact(m.total, currency) : ""}</span>
+                    <span className="text-micro font-medium tabular-nums text-mute">{m.total > 0 ? inrCompact(m.total, currency) : ""}</span>
                     <div className={cx("w-full rounded-t-[6px] transition-all duration-500 ease-out", i === salesByMonth.length - 1 ? "bg-brand-500" : "bg-brand-200")} style={{ height: `${Math.max(3, (m.total / maxSale) * 100)}px` }} />
                     <span className="text-[12px] text-mute">{m.label}</span>
                   </div>
@@ -235,7 +235,7 @@ export function Dashboard({ data, settings, role, openModal, go, reorderSuggesti
             })}
           </Group>
         )}
-        <button type="button" onClick={() => go(tab === "expenses" ? "expenses" : tab === "returns" ? "payments" : "estimates")} className="mt-1 h-11 w-full text-[15px] font-medium text-brand-500">
+        <button type="button" onClick={() => go(tab === "expenses" ? "expenses" : tab === "returns" ? "payments" : "estimates")} className="mt-1 h-11 w-full text-[15px] font-medium text-brand-600">
           See all {tab}
         </button>
       </div>

@@ -111,7 +111,7 @@ export function PaymentsView({ payments, customers, currency, openModal, removeP
               </div>
               <div className="flex items-center gap-3">
                 <span className={`font-semibold ${Number(p.amount) < 0 ? "text-bad-600" : "text-good-600"}`}>{Number(p.amount) < 0 ? "−" : "+"}{fmtMoney(Math.abs(p.amount), currency)}</span>
-                <button onClick={() => removePayment(p.id)} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
+                <button onClick={() => removePayment(p.id)} className="rounded-full p-2 text-bad-600 hover:bg-bad-50"><Trash2 size={16} /></button>
               </div>
             </Card>
           ))}

@@ -160,7 +160,7 @@ export function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
         <button
           type="submit"
           disabled={busy}
-          className="flex w-full items-center justify-center gap-2 rounded-pill bg-brand-500 py-3 text-sm font-semibold text-white hover:bg-brand-600 active:scale-[0.98] transition-all duration-150 disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-pill bg-brand-500 py-3 text-sm font-semibold text-white hover:brightness-95 active:scale-[0.98] transition-all duration-150 disabled:opacity-50"
         >
           {busy && <Loader2 size={16} className="animate-spin" />}
           {busy

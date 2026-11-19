@@ -126,13 +126,13 @@ export function PaymentAllocationModal({ customers, estimates, currency, initial
             </div>
           ) : (
             <div>
-              <label className="mb-1 block text-xs font-semibold text-mute">Customer <span className="text-bad-500">*</span></label>
+              <label className="mb-1 block text-xs font-semibold text-mute">Customer <span className="text-bad-600">*</span></label>
               <SearchableSelect options={customerOptions} value={customerId} onChange={setCustomerId} placeholder="Select a customer" />
             </div>
           )}
 
           <div>
-            <label className="mb-1 block text-xs font-semibold text-mute">Amount received <span className="text-bad-500">*</span></label>
+            <label className="mb-1 block text-xs font-semibold text-mute">Amount received <span className="text-bad-600">*</span></label>
             <input
               type="number" min="0" placeholder="0.00" autoFocus
               value={totalAmount}
@@ -224,7 +224,7 @@ export function PaymentAllocationModal({ customers, estimates, currency, initial
         <div className="mt-6 flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
           <button disabled={!canSave} onClick={save}
-            className="flex-1 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40">
+            className="flex-1 rounded-full bg-brand-500 py-3 text-sm font-semibold text-white disabled:opacity-40">
             Save
           </button>
         </div>

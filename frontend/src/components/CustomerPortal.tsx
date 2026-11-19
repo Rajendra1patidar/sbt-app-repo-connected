@@ -192,7 +192,7 @@ function LedgerTab() {
 
       {newestFirst.length === 0 ? (
         <div className="rounded-card border border-line/70 bg-card p-8 text-center">
-          <Receipt size={28} className="mx-auto mb-3 text-ink/25" />
+          <Receipt size={28} className="mx-auto mb-3 text-faint" />
           <p className="font-semibold text-ink">No transactions yet</p>
           <p className="mt-1 text-sm text-faint">Your purchases and payments will show up here.</p>
         </div>
@@ -240,7 +240,7 @@ function BookingsTab() {
       )}
       {!error && bookings && bookings.length === 0 && (
         <div className="rounded-card border border-line/70 bg-card p-8 text-center">
-          <Package size={28} className="mx-auto mb-3 text-ink/25" />
+          <Package size={28} className="mx-auto mb-3 text-faint" />
           <p className="font-semibold text-ink">No active bookings right now</p>
           <p className="mt-1 text-sm text-faint">Once you book items with an advance payment, they'll show up here.</p>
         </div>

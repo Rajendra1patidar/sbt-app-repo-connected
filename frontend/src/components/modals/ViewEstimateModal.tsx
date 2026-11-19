@@ -22,7 +22,7 @@ export function ViewEstimateModal({ doc, customers, items, currency, scoreRules,
     : isOverdue ? "Overdue" : "Due";
   const statusColorClass = doc.status === "Paid" ? "text-good-600"
     : doc.status === "Partially Paid" || doc.isAdvanceBooking || doc.status === "Accepted" ? "text-brand-600"
-    : isOverdue ? "text-bad-600" : "text-warn-600";
+    : isOverdue ? "text-bad-600" : "text-warn-700";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4 animate-fade-in">
@@ -223,7 +223,7 @@ export function ViewEstimateModal({ doc, customers, items, currency, scoreRules,
           {onPrint && (
             <button
               onClick={() => onPrint(doc)}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-brand-600 py-3 text-xs font-semibold text-white active:scale-[0.97]"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-brand-500 py-3 text-xs font-semibold text-white active:scale-[0.97]"
             >
               <Printer size={14} /> Print
             </button>

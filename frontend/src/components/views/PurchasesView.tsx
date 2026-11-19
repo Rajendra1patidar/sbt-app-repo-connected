@@ -143,7 +143,7 @@ export function PurchasesView({ purchases, vendors, items, currency, openModal, 
                           <IndianRupee size={12} /> Pay
                         </button>
                       )}
-                      <button onClick={(e) => { e.stopPropagation(); removePurchase(p.id); }} className="rounded-full p-2 text-bad-400 hover:bg-bad-50"><Trash2 size={16} /></button>
+                      <button onClick={(e) => { e.stopPropagation(); removePurchase(p.id); }} className="rounded-full p-2 text-bad-600 hover:bg-bad-50"><Trash2 size={16} /></button>
                     </div>
                   </Row>
                 ))}

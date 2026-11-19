@@ -8,7 +8,8 @@ const rateLimit = require("express-rate-limit");
 const mongoose = require("mongoose");
 const connectDB = require("./config/db");
 const { protect } = require("./middleware/auth");
-const { requireOwner, ownerOnlyDeletes, ownerOnlyWrites, ledgerPolicy, reportsPolicy } = require("./middleware/roles");
+const { requireOwner, ownerOnlyDeletes, ownerOnlyWrites, staffReadOnly, ledgerPolicy, reportsPolicy } = require("./middleware/roles");
+const { buildCorsPolicy } = require("./utils/corsPolicy");
 const { sendErrorAlert } = require("./utils/alertWebhook");
 const { notFound, errorHandler } = require("./middleware/error");
 const authRoutes = require("./routes/authRoutes");
@@ -55,22 +56,20 @@ app.use(helmet());
 app.use(compression());
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 app.use(express.json({ limit: "2mb" }));
-const allowedOrigins = (process.env.CORS_ORIGIN || "")
-  .split(",")
-  .map((o) => o.trim())
-  .filter(Boolean);
-// With no CORS_ORIGIN set every website may call this API from a browser. Tokens
-// travel in a header (not a cookie) so that is low risk, but it should be a
-// choice, not an accident - say so loudly in the logs of a live server.
-if (allowedOrigins.length === 0 && process.env.NODE_ENV === "production") {
-  console.warn("WARNING: CORS_ORIGIN is not set, so any website can call this API from a browser. Set it to your app's address (comma-separate more than one, e.g. the customer portal).");
-}
+// Which websites may call this API from a browser (see utils/corsPolicy.js). In production it is
+// closed unless CORS_ORIGIN (or at least FRONTEND_URL) says otherwise. Tokens travel in a header,
+// not a cookie, so this is a second lock rather than the only one.
+const corsPolicy = buildCorsPolicy();
+if (corsPolicy.warning) console.warn(`WARNING: ${corsPolicy.warning}`);
+const blockedOriginsLogged = new Set();
 app.use(
   cors({
     origin: function (origin, callback) {
-      // allow tools like curl/Postman (no origin) and any explicitly whitelisted origin
-      if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
-        return callback(null, true);
+      // curl/Postman and the scheduled pings send no Origin; the policy lets them through.
+      if (corsPolicy.isAllowed(origin)) return callback(null, true);
+      if (blockedOriginsLogged.size < 50 && !blockedOriginsLogged.has(origin)) {
+        blockedOriginsLogged.add(origin);
+        console.warn(`CORS: blocked a browser request from ${origin}. If that is your app or portal, add it to CORS_ORIGIN (comma-separated) on Render.`);
       }
       const blocked = new Error("Not allowed by CORS");
       blocked.status = 403; // a plain 403, not a 500 that pages the alert channel
@@ -125,7 +124,7 @@ app.use("/api/customer-portal", customerPortalRoutes);
 app.use("/api/customers", protect, ownerOnlyDeletes, customerRoutes);
 app.use("/api/items", protect, ownerOnlyDeletes, itemRoutes);
 app.use("/api/orders", protect, ownerOnlyDeletes, orderRoutes);
-app.use("/api/expenses", protect, ownerOnlyDeletes, expenseRoutes);
+app.use("/api/expenses", protect, staffReadOnly("record or change expenses"), expenseRoutes);
 app.use("/api/payments", protect, ownerOnlyDeletes, paymentRoutes);
 app.use("/api/settings", protect, ownerOnlyWrites, settingsRoutes);
 app.use("/api/portal-admin", protect, requireOwner, portalAdminRoutes);

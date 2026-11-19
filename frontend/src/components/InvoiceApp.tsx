@@ -274,7 +274,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <Route path="/settings" element={<SettingsView settings={settings} setSettings={saveSettings} />} />
       <Route path="/customer-portal" element={<PortalAdminView settings={settings} showToast={showToast} />} />
       <Route path="/audit-log" element={<AuditLogView />} />
-      <Route path="*" element={<Dashboard data={data} settings={settings} openModal={openModal} go={goToView} reorderSuggestions={reorderSuggestions} saveDocument={saveDocument} savePayment={savePayment} savePurchase={savePurchase} saveCustomer={saveCustomer} saveExpense={saveExpense} saveReturn={saveReturn} showToast={showToast} />} />
+      <Route path="*" element={<Dashboard data={data} settings={settings} role={role} openModal={openModal} go={goToView} reorderSuggestions={reorderSuggestions} saveDocument={saveDocument} savePayment={savePayment} savePurchase={savePurchase} saveCustomer={saveCustomer} saveExpense={saveExpense} saveReturn={saveReturn} showToast={showToast} />} />
     </Routes>
   );
 
@@ -497,7 +497,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 
   return (
     <div className="flex h-screen bg-paper font-sans text-ink">
-      <NavRail active={activeTab} onNav={goToView} orgName={settings.orgName} ownerName={settings.ownerName} roleLabel={role === "staff" ? "Staff" : "Owner"} onProfile={() => setProfileOpen(true)} />
+      <NavRail active={activeTab} onNav={goToView} orgName={settings.orgName} ownerName={settings.ownerName} roleLabel={role === "staff" ? "Staff" : "Owner"} onProfile={() => setProfileOpen(true)} role={role} />
       <div className="relative min-w-0 flex-1 overflow-y-auto">
         <OfflineBanner />
         <div className="mx-auto w-full max-w-[760px]">
@@ -506,7 +506,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         </div>
       </div>
 
-      <TabBar active={activeTab} onNav={goToView} />
+      <TabBar active={activeTab} onNav={goToView} role={role} />
 
       {profileOpen && (
         <ProfileSheet settings={settings} role={role} businessWa={businessWa} onClose={() => setProfileOpen(false)} onNav={goToView} onSignOut={onSignOut} onWhatsApp={() => { if (!businessWa) { goToView("settings"); showToast("Add a WhatsApp number in Settings first"); } }} />

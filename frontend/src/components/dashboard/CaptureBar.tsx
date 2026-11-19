@@ -168,6 +168,10 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, rol
     let action: CaptureAction | null = null;
     try { action = parseCapture(text, { items, customers, vendors, estimates }); } catch { action = null; }
     const destination = action && action.kind !== "unknown" ? null : findDestination(text, role);
+    // Staff can't record expenses, so don't promise a confirm sheet that would only be refused.
+    if (role === "staff" && action?.kind === "expense") {
+      return { action, destination, understood: { chips: [{ text: "Expense", muted: true }], kind: "expense", caption: "Only the owner can record expenses." } as Understood };
+    }
     return { action, destination, understood: understand(action, destination, currency) };
   }, [value, items, customers, vendors, estimates, currency, role]);
 
@@ -242,6 +246,11 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, rol
       setBusy(false);
     }
 
+    if (action.kind === "expense" && role === "staff") {
+      showToast("Only the owner can record expenses");
+      resetAll();
+      return;
+    }
     if (action.kind === "add_customer" && action.existing) {
       showToast(`“${action.existing.name}” already exists — opening their edit form`);
       openModal("customer", { editingCustomer: action.existing });
@@ -336,7 +345,7 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, rol
           <>
             <div className="mb-2.5 mt-1.5 h-px bg-line" />
             <div className="flex flex-wrap gap-1.5">
-              {EXAMPLES.map((c) => (
+              {EXAMPLES.filter((c) => role !== "staff" || c.label !== "Logged expense").map((c) => (
                 <button key={c.label} type="button" onClick={() => fill(c.fill)}
                   className="h-7 rounded-[14px] border border-edge px-2.5 text-[12px] font-medium text-mute transition active:scale-95">
                   {c.label}

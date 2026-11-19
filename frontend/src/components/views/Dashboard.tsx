@@ -29,6 +29,7 @@ const ALL_CATEGORIES = ["Saria", "Cement", "Kasta", "CPVC", "UPVC", "Others"];
 export function Dashboard({ data, settings, role, openModal, go, reorderSuggestions, godowns, saveDocument, savePayment, savePurchase, saveCustomer, saveExpense, saveReturn, showToast, onProfile }: any) {
   const { customers, estimates, expenses, items, payments, purchases, vendors } = data;
   const currency = settings.currency || "₹";
+  const isStaff = role === "staff"; // staff can't record or open expenses, so Home doesn't offer that list
 
   const { today, delta } = useMemo(() => daySummary({ estimates, payments, expenses, purchases }), [estimates, payments, expenses, purchases]);
   const cover = useMemo(() => computeCover({ items, estimates, purchases, vendors, godowns: godowns || [], reorderSuggestions }), [items, estimates, purchases, vendors, godowns, reorderSuggestions]);
@@ -206,7 +207,7 @@ export function Dashboard({ data, settings, role, openModal, go, reorderSuggesti
 
       {/* Recent */}
       <GroupLabel className="mt-6">Recent</GroupLabel>
-      <Segmented options={[{ value: "estimates", label: "Estimates" }, { value: "expenses", label: "Expenses" }, { value: "returns", label: "Returns" }]} value={tab} onChange={(v) => setTab(v as any)} />
+      <Segmented options={[{ value: "estimates", label: "Estimates" }, ...(isStaff ? [] : [{ value: "expenses", label: "Expenses" }]), { value: "returns", label: "Returns" }]} value={tab} onChange={(v) => setTab(v as any)} />
       <div className="mt-3">
         {recent.length === 0 ? (
           <Group><EmptyState text={`No ${tab} yet.`} cta={tab === "expenses" ? "New expense" : "New estimate"} onCta={() => openModal(tab === "expenses" ? "expense" : "estimate")} /></Group>

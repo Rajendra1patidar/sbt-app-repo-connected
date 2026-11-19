@@ -1,4 +1,4 @@
-const { requireOwner, ownerOnlyDeletes, ownerOnlyWrites, ledgerPolicy, reportsPolicy } = require("../../middleware/roles");
+const { requireOwner, ownerOnlyDeletes, ownerOnlyWrites, staffReadOnly, ledgerPolicy, reportsPolicy } = require("../../middleware/roles");
 
 function run(mw, { role, method = "GET", path = "/" } = {}) {
   const res = { status: jest.fn().mockReturnThis(), json: jest.fn().mockReturnThis() };
@@ -48,6 +48,37 @@ describe("ownerOnlyWrites (Settings)", () => {
 
   test("owners can change settings", () => {
     expect(run(ownerOnlyWrites, { role: "owner", method: "PUT" }).next).toHaveBeenCalled();
+  });
+});
+
+describe("staffReadOnly (Expenses)", () => {
+  const guard = staffReadOnly("record or change expenses");
+
+  test("staff can read but cannot add, edit or delete", () => {
+    expect(run(guard, { role: "staff", method: "GET" }).next).toHaveBeenCalled();
+    for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
+      const r = run(guard, { role: "staff", method });
+      expect(r.next).not.toHaveBeenCalled();
+      expect(r.res.status).toHaveBeenCalledWith(403);
+      expect(r.res.json).toHaveBeenCalledWith({ message: "Only the business owner can record or change expenses" });
+    }
+  });
+
+  test("owners can do everything", () => {
+    for (const method of ["GET", "POST", "PUT", "PATCH", "DELETE"]) {
+      expect(run(guard, { role: "owner", method }).next).toHaveBeenCalled();
+    }
+  });
+
+  test("a request with no role is treated like staff for writes", () => {
+    const r = run(guard, { role: undefined, method: "POST" });
+    expect(r.next).not.toHaveBeenCalled();
+    expect(r.res.status).toHaveBeenCalledWith(403);
+  });
+
+  test("server.js really mounts /api/expenses behind it", () => {
+    const src = require("fs").readFileSync(require("path").join(__dirname, "../../server.js"), "utf8");
+    expect(src).toMatch(/app\.use\("\/api\/expenses", protect, staffReadOnly\(/);
   });
 });
 

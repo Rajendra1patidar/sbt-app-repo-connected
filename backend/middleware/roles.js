@@ -22,6 +22,18 @@ function ownerOnlyWrites(req, res, next) {
   next();
 }
 
+/**
+ * Staff may read but never add, change or delete (used for Expenses: the Home screen still needs
+ * the totals, but only the owner records spending). `what` finishes the sentence in the 403, e.g.
+ * staffReadOnly("record or change expenses"). Mount after protect().
+ */
+function staffReadOnly(what) {
+  return function staffReadOnlyGuard(req, res, next) {
+    if (req.role === "owner" || SAFE_METHODS.has(req.method)) return next();
+    return res.status(403).json({ message: `Only the business owner can ${what}` });
+  };
+}
+
 // A customer's own statement is how staff chase a payment, so it stays open to
 // them. Everything else in the ledger (P&L, balance sheet, trial balance, day
 // book, stock valuation, integrity check) is owner-only.
@@ -45,4 +57,4 @@ function reportsPolicy(req, res, next) {
   return res.status(403).json({ message: "Only the business owner can do this" });
 }
 
-module.exports = { requireOwner, ownerOnlyDeletes, ownerOnlyWrites, ledgerPolicy, reportsPolicy };
+module.exports = { requireOwner, ownerOnlyDeletes, ownerOnlyWrites, staffReadOnly, ledgerPolicy, reportsPolicy };

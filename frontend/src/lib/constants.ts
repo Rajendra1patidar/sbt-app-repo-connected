@@ -78,6 +78,9 @@ export const BOTTOM_NAV_IDS = ["dashboard", "estimates", "customers"];
 export const OWNER_ONLY_NAV_IDS = new Set([
   "approvals", "ledger", "bankReconciliation", "financialYears", "cashFlowForecast",
   "reports", "vendorScorecard", "sharereport", "billing", "auditLog", "portalAdmin",
+  // Money belongs to the owner: staff can't record or change expenses, so the Money tab and the
+  // Expenses screen are closed to them as well (old links show the "owner only" page).
+  "expenses", "money",
 ]);
 
 /* ---- ChallanModal ---- */
@@ -112,6 +115,11 @@ export const TABS: TabDef[] = [
   { id: "money", label: "Money", view: "money", blurb: "Spending, accounts, reports and the books", members: ["expenses", "ledger", "bankReconciliation", "cashFlowForecast", "reports", "sharereport", "financialYears", "billing"] },
   { id: "team",  label: "Team",  view: "team",  blurb: "Labour, contractors and approvals", members: ["labour", "contractors", "approvals"] },
 ];
+
+/** The tabs a login sees: staff don't get Money. */
+export function tabsForRole(role?: string): TabDef[] {
+  return role === "staff" ? TABS.filter((t) => !OWNER_ONLY_NAV_IDS.has(t.view)) : TABS;
+}
 
 /** Reached from the profile menu rather than a tab. */
 export const PROFILE_MEMBERS = ["settings", "auditLog", "portalAdmin"];

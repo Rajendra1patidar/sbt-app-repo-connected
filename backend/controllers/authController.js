@@ -24,7 +24,7 @@ function signToken(id, tokenVersion = 0) {
 // contains the raw code, so a wrong link is never a dead end.
 function frontendBaseUrl() {
   const explicit = (process.env.FRONTEND_URL || "").trim();
-  const firstOrigin = (process.env.CORS_ORIGIN || "").split(",").map((s) => s.trim()).filter(Boolean)[0] || "";
+  const firstOrigin = (process.env.CORS_ORIGIN || "").split(",").map((s) => s.trim()).filter((s) => s && s !== "*")[0] || "";
   return (explicit || firstOrigin || process.env.APP_URL || "").replace(/\/$/, "");
 }
 

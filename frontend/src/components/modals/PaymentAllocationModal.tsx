@@ -32,7 +32,14 @@ export function PaymentAllocationModal({ customers, estimates, currency, initial
   // vs. opened generically (e.g. from the Payments tab) with nothing picked yet.
   const isContextual = !!initialCustomerId;
 
-  const customerOptions = (customers || []).map((c: any) => ({ value: c.id, label: c.name }));
+  // Archived customers are left out, unless this is the one the payment was opened from or they still
+  // owe money (people do pay old dues after you stop dealing with them).
+  const owedBy = (id: string) => (estimates || [])
+    .filter((e: any) => e.customerId === id && e.status !== "Paid")
+    .reduce((sum: number, e: any) => sum + Math.max(0, Number(e.total || 0) - Number(e.amountPaid || 0)), 0);
+  const customerOptions = (customers || [])
+    .filter((c: any) => !c.archived || c.id === initialCustomerId || owedBy(c.id) > 0.005)
+    .map((c: any) => ({ value: c.id, label: c.name }));
   const customerName = customers.find((c: any) => c.id === customerId)?.name || "";
 
   const dueEstimates = useMemo(
@@ -119,13 +126,13 @@ export function PaymentAllocationModal({ customers, estimates, currency, initial
             </div>
           ) : (
             <div>
-              <label className="mb-1 block text-xs font-semibold text-mute">Customer <span className="text-bad-600">*</span></label>
+              <label className="mb-1 block text-xs font-semibold text-mute">Customer <span className="text-bad-500">*</span></label>
               <SearchableSelect options={customerOptions} value={customerId} onChange={setCustomerId} placeholder="Select a customer" />
             </div>
           )}
 
           <div>
-            <label className="mb-1 block text-xs font-semibold text-mute">Amount received <span className="text-bad-600">*</span></label>
+            <label className="mb-1 block text-xs font-semibold text-mute">Amount received <span className="text-bad-500">*</span></label>
             <input
               type="number" min="0" placeholder="0.00" autoFocus
               value={totalAmount}

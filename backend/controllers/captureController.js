@@ -94,7 +94,6 @@ exports.parse = async (req, res, next) => {
 
     const [items, customers, vendors] = await Promise.all([
       Item.find({ owner: req.userId }).select("name brand sellingPrice purchasePrice").lean(),
-      // archived customers are hidden everywhere, so the AI must not match a sentence to one
       Customer.find({ owner: req.userId, archived: { $ne: true } }).select("name").lean(),
       Vendor.find({ owner: req.userId }).select("name").lean(),
     ]);

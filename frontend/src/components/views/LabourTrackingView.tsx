@@ -255,7 +255,7 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
           <input type="number" min="0" value={sariaQty} onChange={(e) => setSariaQty(e.target.value)} className="w-20 rounded-xl border border-line px-2 py-2 text-center text-sm" />
           <span className="ml-auto text-sm font-semibold text-brand-600">{fmtMoney(sariaAmt, currency)}</span>
         </div>
-        <p className="-mt-1.5 mb-3 pl-[4.75rem] text-micro text-faint">Bundles, not kg — 1 bundle ≈ {SARIA_KG_PER_BUNDLE}kg</p>
+        <p className="-mt-1.5 mb-3 pl-[4.75rem] text-[11px] text-faint">Bundles, not kg — 1 bundle ≈ {SARIA_KG_PER_BUNDLE}kg</p>
         <div className="mb-3 flex items-center gap-2">
           <span className="w-16 text-sm font-semibold text-ink/80">Balu</span>
           <span className="w-16 text-xs text-faint">₹{LABOUR_RATES.balu}/unit</span>
@@ -308,10 +308,10 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
                     {s.customerId && <p className="text-xs font-semibold text-brand-600">{customerById(s.customerId)?.name || "Unknown customer"}</p>}
                     {s.note && <p className="text-xs italic text-mute">{s.note}</p>}
                     <div className="mt-1 flex flex-wrap gap-1">
-                      {s.cementQty > 0 && <span className="rounded-full bg-paper px-2 py-0.5 text-micro text-mute">Cement {fmtMoney(s.cementQty * LABOUR_RATES.cement, currency)}</span>}
-                      {s.sariaQty > 0 && <span className="rounded-full bg-paper px-2 py-0.5 text-micro text-mute">Saria {fmtMoney(s.sariaQty * LABOUR_RATES.saria, currency)}</span>}
-                      {s.baluQty > 0 && <span className="rounded-full bg-paper px-2 py-0.5 text-micro text-mute">Balu {fmtMoney(s.baluQty * LABOUR_RATES.balu, currency)}</span>}
-                      {s.otherIncluded && <span className="rounded-full bg-paper px-2 py-0.5 text-micro text-mute">Other {fmtMoney(s.otherAmount, currency)}</span>}
+                      {s.cementQty > 0 && <span className="rounded-full bg-paper px-2 py-0.5 text-[11px] text-mute">Cement {fmtMoney(s.cementQty * LABOUR_RATES.cement, currency)}</span>}
+                      {s.sariaQty > 0 && <span className="rounded-full bg-paper px-2 py-0.5 text-[11px] text-mute">Saria {fmtMoney(s.sariaQty * LABOUR_RATES.saria, currency)}</span>}
+                      {s.baluQty > 0 && <span className="rounded-full bg-paper px-2 py-0.5 text-[11px] text-mute">Balu {fmtMoney(s.baluQty * LABOUR_RATES.balu, currency)}</span>}
+                      {s.otherIncluded && <span className="rounded-full bg-paper px-2 py-0.5 text-[11px] text-mute">Other {fmtMoney(s.otherAmount, currency)}</span>}
                     </div>
                   </div>
                 </div>
@@ -360,7 +360,7 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
                 </button>
                 {expandedDay === d && (
                   <div className="mt-2 rounded-xl bg-paper px-3 py-2">
-                    <p className="mb-1 text-micro font-semibold text-faint">Earnings by worker</p>
+                    <p className="mb-1 text-[11px] font-semibold text-faint">Earnings by worker</p>
                     {Object.entries(dayEarningsByWorker).length === 0 ? (
                       <p className="text-xs text-faint">No workers recorded for this day.</p>
                     ) : (

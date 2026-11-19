@@ -9,8 +9,8 @@ export function GlobalSearchOverlay({ customers, items, estimates, currency, onS
   const [q, setQ] = useState("");
   const query = q.trim().toLowerCase();
 
-  const matchedCustomers = query ? customers.filter((c: any) =>
-    c.name.toLowerCase().includes(query) || (c.location || "").toLowerCase().includes(query) || (c.phone || "").includes(query)
+  const matchedCustomers = query ? customers.filter((c: any) => !c.archived && (
+    c.name.toLowerCase().includes(query) || (c.location || "").toLowerCase().includes(query) || (c.phone || "").includes(query))
   ).slice(0, 6) : [];
 
   const matchedItems = query ? items.filter((it: any) =>

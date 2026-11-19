@@ -37,7 +37,12 @@ let wakingTimer: ReturnType<typeof setTimeout> | undefined;
 let retryingLoad = false;
 
 type Toast = { message: string; undo?: () => void; actionLabel?: string } | null;
-type ConfirmDelete = { label: string; description?: string; onConfirm: () => void } | null;
+type ConfirmDelete = { label: string; description?: string; title?: string; confirmLabel?: string; onConfirm: () => void } | null;
+
+// "Already exists" for a customer; when the match is in the archive, say how to get them back.
+const duplicateMessage = (c: any) => c?.archived
+  ? `${c.name} is already in your archive with this phone number. Restore them from Customers (Archived) instead of adding them again.`
+  : "A customer with this name and phone number already exists";
 
 interface AppState {
   // ---- data loaded from the backend ----
@@ -87,7 +92,8 @@ interface AppState {
   clearToast: () => void;
   openModal: (type: string, payload?: any) => void;
   closeModal: () => void;
-  confirmThenDelete: (label: string, description: string | undefined, doDelete: () => void) => void;
+  // title / confirmLabel let the same popup confirm something that is not a delete (e.g. archiving a customer).
+  confirmThenDelete: (label: string, description: string | undefined, doDelete: () => void, opts?: { title?: string; confirmLabel?: string }) => void;
   cancelConfirmDelete: () => void;
   setAutoReminder: (v: boolean) => void;
   setShareInvoice: (inv: any) => void;
@@ -101,6 +107,7 @@ interface AppState {
   saveCustomer: (v: any) => Promise<any>;
   quickAddCustomer: (v: any) => Promise<any>;
   quickAddItem: (v: any) => Promise<any>;
+  // Customers are archived, never deleted: removeCustomer archives, restoreCustomer brings them back.
   removeCustomer: (id: string) => void;
   restoreCustomer: (id: string) => Promise<void>;
   shareCustomerPortalAccess: (customerId: string) => Promise<void>;
@@ -320,11 +327,13 @@ export const useAppStore = create<AppState>()((set, get) => ({
   openModal: (type, payload) => set({ modal: { type, payload } }),
   closeModal: () => set({ modal: null }),
 
-  confirmThenDelete: (label, description, doDelete) => {
+  confirmThenDelete: (label, description, doDelete, opts) => {
     set({
       confirmDeleteFor: {
         label,
         description,
+        title: opts?.title,
+        confirmLabel: opts?.confirmLabel,
         onConfirm: () => { doDelete(); set({ confirmDeleteFor: null }); },
       },
     });
@@ -373,8 +382,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const { customers, showToast, closeModal } = get();
     const normName = (s: string) => (s || "").trim().toLowerCase();
     const normPhone = (s: string) => (s || "").replace(/\D/g, "");
-    const dup = customers.find((c) => c.id !== v.id && normName(c.name) === normName(v.name) && normPhone(c.phone) === normPhone(v.phone));
-    if (dup) { showToast(dup.archived ? "That customer is archived. Open Customers, tap Show archived, and restore them." : "A customer with this name and phone number already exists"); return; }
+    const duplicateOf = customers.find((c) => c.id !== v.id && normName(c.name) === normName(v.name) && normPhone(c.phone) === normPhone(v.phone));
+    if (duplicateOf) { showToast(duplicateMessage(duplicateOf), { duration: duplicateOf.archived ? 7000 : undefined }); return; }
     try {
       const { locationLat, locationLng, ...rest } = v;
       const payload = {
@@ -423,8 +432,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const { customers, showToast } = get();
     const normName = (s: string) => (s || "").trim().toLowerCase();
     const normPhone = (s: string) => (s || "").replace(/\D/g, "");
-    const dup = customers.find((c) => normName(c.name) === normName(v.name) && normPhone(c.phone) === normPhone(v.phone));
-    if (dup) { showToast(dup.archived ? "That customer is archived. Open Customers, tap Show archived, and restore them." : "A customer with this name and phone number already exists"); return null; }
+    const duplicateOf = customers.find((c) => normName(c.name) === normName(v.name) && normPhone(c.phone) === normPhone(v.phone));
+    if (duplicateOf) { showToast(duplicateMessage(duplicateOf), { duration: duplicateOf.archived ? 7000 : undefined }); return null; }
     try {
       const doc = await api.customers.create(v);
       set((state) => ({ customers: [doc, ...state.customers] }));
@@ -466,46 +475,37 @@ export const useAppStore = create<AppState>()((set, get) => ({
     } catch (err) { onApiError(get, err, "Failed to add item"); return null; }
   },
 
-  // Deleting a customer with history archives them instead: they disappear from lists, pickers and
-  // the capture bar, but every bill, payment and balance still points at them, and Restore brings
-  // them back. A customer with no history at all is still deleted for good (with the usual 5 second
-  // undo). The server decides which applies: it also counts labour jobs and ledger entries, which
-  // this screen doesn't hold, so a delete that turns out to be an archive is handled below too.
+  // Archives (never deletes) a customer: they disappear from the customer list, pickers and the
+  // capture bar, while every bill, payment and ledger entry keeps pointing at them. Anything they
+  // still owe stays in Customer credit until they pay. The server does the archiving (owner only).
   removeCustomer: (id) => {
-    const { customers, estimates, challans, payments, showToast } = get();
+    const { customers, estimates } = get();
     const c = customers.find((x) => x.id === id);
-    if (c?.archived) return;
-    // Staff can't delete, and archiving is the owner's call too (the server refuses both).
-    if (get().role === "staff") { showToast("Only the business owner can archive or delete a customer."); return; }
-    const hasHistory = [...estimates, ...challans].some((d: any) => d.customerId === id) || payments.some((p: any) => p.customerId === id);
-    if (hasHistory) {
-      void (async () => {
-        try {
-          const res = await api.customers.remove(id);
-          const doc = res?.customer || { ...c, archived: true };
-          set((state) => ({ customers: state.customers.map((x) => (x.id === id ? doc : x)) }));
-          showToast(`${c?.name || "Customer"} archived`, { duration: 7000, actionLabel: "Undo", undo: () => { void get().restoreCustomer(id); } });
-        } catch (err: any) { onApiError(get, err, "Couldn't archive the customer"); }
-      })();
-      return;
-    }
-    get().confirmThenDelete(c?.name || "this customer", "This removes the customer.", () => {
-      scheduleDelete(set, get, "Customer", "customers", id, async () => {
-        const res = await api.customers.remove(id);
-        // They had labour jobs or ledger entries the screen couldn't see: the server archived them.
-        if (res?.archived && res.customer) set((state) => ({ customers: [res.customer, ...state.customers.filter((x) => x.id !== id)] }));
-      });
-    });
+    const name = c?.name || "this customer";
+    const owed = (estimates || [])
+      .filter((e: any) => !e.deleted && String(e.customerId) === String(id))
+      .reduce((sum: number, e: any) => sum + Math.max(0, Number(e.total || 0) - Number(e.amountPaid || 0)), 0);
+    const description =
+      `${name} will be hidden from your customer list and when you pick a customer. Their bills, payments and history stay in your records, and you can bring them back from Customers, Archived.` +
+      (owed > 0.005 ? ` They still owe ${fmtMoney(owed, "₹")}, which stays in Customer credit until they pay.` : "");
+    get().confirmThenDelete(name, description, async () => {
+      try {
+        const res: any = await api.customers.remove(id);
+        const archived = res?.customer || { ...c, archived: true };
+        set((state) => ({ customers: state.customers.map((x) => (x.id === id ? { ...x, ...archived, id } : x)) }));
+        get().showToast(`${name} archived`, { undo: () => { get().restoreCustomer(id); }, duration: 7000 });
+      } catch (err) { onApiError(get, err, "Failed to archive customer"); }
+    }, { title: `Archive ${name}?`, confirmLabel: "Archive" });
   },
 
   restoreCustomer: async (id) => {
-    const { customers, showToast } = get();
-    const c = customers.find((x) => x.id === id);
     try {
-      const doc = await api.customers.restore(id);
-      set((state) => ({ customers: state.customers.map((x) => (x.id === id ? doc : x)) }));
-      showToast(`${c?.name || "Customer"} restored`);
-    } catch (err: any) { onApiError(get, err, "Couldn't restore the customer"); }
+      const res: any = await api.customers.restore(id);
+      const restored = res?.customer || { archived: false };
+      set((state) => ({ customers: state.customers.map((x) => (x.id === id ? { ...x, ...restored, id, archived: false } : x)) }));
+      const name = get().customers.find((x) => x.id === id)?.name || "Customer";
+      get().showToast(`${name} restored`);
+    } catch (err) { onApiError(get, err, "Failed to restore customer"); }
   },
 
   // Owner-triggered (re)issue of a customer's Booking Portal PIN — used both the

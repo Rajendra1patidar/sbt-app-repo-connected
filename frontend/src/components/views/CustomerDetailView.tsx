@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, KeyRound, MapPin, Pencil, Receipt } from "lucide-react";
+import { ChevronLeft, KeyRound, MapPin, Pencil, Receipt, RotateCcw } from "lucide-react";
 import { Badge, Card, EmptyState, SmsButton, WhatsAppButton } from "../common/UIPrimitives";
 import { fmtDate, fmtMoney } from "../../lib/format";
 import { api } from "../../lib/api";
@@ -7,7 +7,7 @@ import { CustomerPortalSharePopup } from "../modals/CustomerPortalSharePopup";
 
 /* ---- Customer Ledger / Detail ---- */
 
-export function CustomerDetailView({ customer, estimates, payments, items, currency, openModal, onBack, onRestore }: any){
+export function CustomerDetailView({ customer, estimates, payments, items, currency, openModal, onBack, role, onRestore }: any){
   const [showPortalShare, setShowPortalShare] = useState(false);
   const [statement, setStatement] = useState<any>(null);
   const [statementLoading, setStatementLoading] = useState(false);
@@ -45,22 +45,27 @@ export function CustomerDetailView({ customer, estimates, payments, items, curre
       {showPortalShare && <CustomerPortalSharePopup customer={customer} onClose={() => setShowPortalShare(false)} />}
       <button onClick={onBack} className="flex items-center gap-1 text-sm font-semibold text-mute"><ChevronLeft size={16} /> Back</button>
 
+      {customer.archived && (
+        <div className="flex items-center justify-between gap-3 rounded-xl bg-chip px-3 py-2.5">
+          <p className="text-xs text-chipText">Archived. Hidden from your customer list and pickers; everything below is kept.</p>
+          {role !== "staff" && onRestore && (
+            <button type="button" onClick={() => onRestore(customer.id)} className="flex min-h-[44px] shrink-0 items-center gap-1 text-xs font-semibold text-brand-600">
+              <RotateCcw size={14} aria-hidden="true" /> Restore
+            </button>
+          )}
+        </div>
+      )}
+
       <Card>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="font-display text-lg font-semibold text-ink truncate">{customer.name}</p>
-            {customer.archived && (
-              <div className="mt-1 flex items-center gap-2">
-                <span className="rounded-full bg-chip px-2.5 py-0.5 text-xs font-semibold text-chipText">Archived</span>
-                {onRestore && <button type="button" onClick={onRestore} className="text-xs font-semibold text-brand-600 underline">Restore</button>}
-              </div>
-            )}
             <p className="text-xs text-faint truncate">{customer.email || "No email"}{customer.phone ? ` · ${customer.phone}` : ""}</p>
             {customer.location && (
               <a
                 href={customer.lat && customer.lng ? `https://www.google.com/maps/search/?api=1&query=${customer.lat},${customer.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customer.location)}`}
                 target="_blank" rel="noreferrer"
-                className="mt-1 flex items-center gap-1 text-xs text-faint hover:text-brand-600 hover:underline"
+                className="mt-1 flex items-center gap-1 text-xs text-faint hover:text-brand-500 hover:underline"
               >
                 <MapPin size={11} /> {customer.location}
               </a>

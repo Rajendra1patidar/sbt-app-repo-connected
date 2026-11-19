@@ -151,7 +151,9 @@ function understand(action: CaptureAction | null, destination: { label: string; 
   }
 }
 
-export function CaptureBar({ items, customers, vendors, estimates, currency, role, savePurchase, savePayment, saveCustomer, saveExpense, saveReturn, openModal, showToast, go }: any) {
+export function CaptureBar({ items, customers: allCustomers, vendors, estimates, currency, role, savePurchase, savePayment, saveCustomer, saveExpense, saveReturn, openModal, showToast, go }: any) {
+  // Archived customers are hidden here too: a sale typed for one should not match them.
+  const customers = useMemo(() => (allCustomers || []).filter((c: any) => !c.archived), [allCustomers]);
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<PendingAction | null>(null);

@@ -30,7 +30,7 @@ export function TransactionDetailModal({ title, subtitle, rows, accent = "brand"
         <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-line sm:hidden" />
         <div className="flex items-start justify-between mb-4 gap-3">
           <div className="min-w-0">
-            <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${accentClass[accent]}`}>{title}</span>
+            <span className={`inline-block rounded-full px-2 py-0.5 text-micro font-semibold ${accentClass[accent]}`}>{title}</span>
             {subtitle && <p className="mt-1.5 text-base font-semibold text-ink truncate">{subtitle}</p>}
           </div>
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper shrink-0"><X size={18} /></button>

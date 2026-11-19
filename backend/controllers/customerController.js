@@ -10,12 +10,18 @@ const { stripProtected } = require("../utils/sanitize");
 
 // The booking-portal PIN hash and its lockout counters are only ever written by
 // the server (customerPortalService) - never accepted from a request body.
-const PROTECTED_CUSTOMER_FIELDS = ["portalPinHash", "portalFailedAttempts", "portalLockUntil"];
+// Archiving goes through remove/restoreCustomer below (owner-only, audited), never
+// through an ordinary save, so a staff login can't hide a customer by editing one.
+const PROTECTED_CUSTOMER_FIELDS = ["portalPinHash", "portalFailedAttempts", "portalLockUntil", "archived", "archivedAt"];
 
 const base = crudController(Customer, { protectedFields: PROTECTED_CUSTOMER_FIELDS });
 
 const normName = (s) => (s || "").trim().toLowerCase();
 const normPhone = (s) => (s || "").replace(/\D/g, "");
+
+const DUPLICATE_MESSAGE = "A customer with this name and phone number already exists";
+const ARCHIVED_DUPLICATE_MESSAGE =
+  "A customer with this name and phone number already exists, but they are archived. Open Customers, tap Show archived, and restore them.";
 
 // GET /api/customers/meta/find-duplicate?name=...&phone=...
 base.findDuplicate = async (req, res, next) => {
@@ -51,11 +57,11 @@ base.create = async (req, res, next) => {
   try {
     const v = stripProtected(req.body, PROTECTED_CUSTOMER_FIELDS);
     const existing = await Customer.find({ owner: req.userId });
-    const isDuplicate = existing.some(
+    const match = existing.find(
       (c) => normName(c.name) === normName(v.name) && normPhone(c.phone) === normPhone(v.phone)
     );
-    if (isDuplicate) {
-      return res.status(409).json({ message: "A customer with this name and phone number already exists" });
+    if (match) {
+      return res.status(409).json({ message: match.archived ? ARCHIVED_DUPLICATE_MESSAGE : DUPLICATE_MESSAGE });
     }
     const doc = await Customer.create({ ...v, owner: req.userId });
     logAudit({ owner: req.userId, actorId: req.actorId, action: "create", model: "Customer", docId: doc._id, label: doc.name });
@@ -66,7 +72,7 @@ base.create = async (req, res, next) => {
     // {owner, nameKey, phoneKey} rejects the second insert with E11000 — catch
     // that here so it still surfaces as the same friendly message, not a 500.
     if (err.code === 11000) {
-      return res.status(409).json({ message: "A customer with this name and phone number already exists" });
+      return res.status(409).json({ message: DUPLICATE_MESSAGE });
     }
     next(err);
   }
@@ -77,11 +83,11 @@ base.update = async (req, res, next) => {
     const v = stripProtected(req.body, PROTECTED_CUSTOMER_FIELDS);
     if (v.name !== undefined && v.phone !== undefined) {
       const others = await Customer.find({ owner: req.userId, _id: { $ne: req.params.id } });
-      const collision = others.some(
+      const collision = others.find(
         (c) => normName(c.name) === normName(v.name) && normPhone(c.phone) === normPhone(v.phone)
       );
       if (collision) {
-        return res.status(409).json({ message: "A customer with this name and phone number already exists" });
+        return res.status(409).json({ message: collision.archived ? ARCHIVED_DUPLICATE_MESSAGE : DUPLICATE_MESSAGE });
       }
     }
     const before = await Customer.findOne({ _id: req.params.id, owner: req.userId }).lean();
@@ -95,17 +101,18 @@ base.update = async (req, res, next) => {
     res.json(doc);
   } catch (err) {
     if (err.code === 11000) {
-      return res.status(409).json({ message: "A customer with this name and phone number already exists" });
+      return res.status(409).json({ message: DUPLICATE_MESSAGE });
     }
     next(err);
   }
 };
 
 // Deleting a customer who has bills, payments, labour jobs or ledger entries
-// leaves all of those pointing at nobody (the lists then show "Unknown
-// customer", and the books lose the party). So a customer with any history
-// can't be deleted - edit their details instead. A customer with no history at
-// all (a mistaken duplicate, say) can still be removed.
+// would leave all of those pointing at nobody (the lists would show "Unknown
+// customer", and the books would lose the party). So a customer with any history
+// is archived instead: hidden from lists, pickers and the capture bar, with every
+// old record and balance intact, and restorable at any time. A customer with no
+// history at all (a mistaken duplicate, say) is still removed for good.
 base.remove = async (req, res, next) => {
   try {
     const customer = await Customer.findOne({ _id: req.params.id, owner: req.userId });
@@ -118,20 +125,42 @@ base.remove = async (req, res, next) => {
       LabourSession.countDocuments(where),
       LedgerEntry.countDocuments(where),
     ]);
+
     if (bills || payments || jobs || entries) {
-      const parts = [];
-      if (bills) parts.push(`${bills} bill${bills === 1 ? "" : "s"}`);
-      if (payments) parts.push(`${payments} payment${payments === 1 ? "" : "s"}`);
-      if (jobs) parts.push(`${jobs} labour job${jobs === 1 ? "" : "s"}`);
-      if (!parts.length) parts.push("entries in your accounts");
-      return res.status(409).json({
-        message: `${customer.name} has ${parts.join(" and ")}, so they can't be deleted without breaking your records. You can edit their details instead.`,
-      });
+      // Already archived: archiving again is a no-op, not an error.
+      const doc = customer.archived
+        ? customer
+        : await Customer.findOneAndUpdate(
+            { _id: req.params.id, owner: req.userId },
+            { $set: { archived: true, archivedAt: new Date() } },
+            { new: true }
+          );
+      if (!customer.archived) {
+        logAudit({ owner: req.userId, actorId: req.actorId, action: "update", model: "Customer", docId: customer._id, label: `${customer.name} (archived)`, changedFields: ["archived"] });
+      }
+      return res.json({ message: "Archived", archived: true, id: req.params.id, customer: doc });
     }
 
     await Customer.findOneAndDelete({ _id: req.params.id, owner: req.userId });
     logAudit({ owner: req.userId, actorId: req.actorId, action: "delete", model: "Customer", docId: customer._id, label: customer.name });
     res.json({ message: "Deleted", id: req.params.id });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/customers/:id/restore (owner only, see routes/customerRoutes.js)
+// Brings an archived customer back into lists, pickers and the capture bar.
+base.restoreCustomer = async (req, res, next) => {
+  try {
+    const doc = await Customer.findOneAndUpdate(
+      { _id: req.params.id, owner: req.userId },
+      { $set: { archived: false, archivedAt: null } },
+      { new: true }
+    );
+    if (!doc) return res.status(404).json({ message: "Not found" });
+    logAudit({ owner: req.userId, actorId: req.actorId, action: "update", model: "Customer", docId: doc._id, label: `${doc.name} (restored)`, changedFields: ["archived"] });
+    res.json(doc);
   } catch (err) {
     next(err);
   }

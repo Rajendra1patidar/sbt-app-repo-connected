@@ -48,19 +48,19 @@ export function ViewEstimateModal({ doc, customers, items, currency, scoreRules,
 
           <div className="grid grid-cols-2 gap-2.5">
             <div className="rounded-xl border border-line bg-card px-3.5 py-2.5">
-              <p className="text-[11px] font-semibold text-faint">TOTAL</p>
+              <p className="text-micro font-semibold text-faint">TOTAL</p>
               <p className="mt-0.5 font-mono text-base font-semibold text-ink">{fmtMoney(doc.total, currency)}</p>
             </div>
             <div className="rounded-xl border border-line bg-card px-3.5 py-2.5">
-              <p className="text-[11px] font-semibold text-faint">PAID</p>
+              <p className="text-micro font-semibold text-faint">PAID</p>
               <p className="mt-0.5 font-mono text-base font-semibold text-good-600">{fmtMoney(doc.amountPaid, currency)}</p>
             </div>
             <div className="rounded-xl border border-line bg-card px-3.5 py-2.5">
-              <p className="text-[11px] font-semibold text-faint">BALANCE</p>
+              <p className="text-micro font-semibold text-faint">BALANCE</p>
               <p className={`mt-0.5 font-mono text-base font-semibold ${balance > 0 ? "text-bad-600" : "text-good-600"}`}>{fmtMoney(balance, currency)}</p>
             </div>
             <div className="rounded-xl border border-line bg-card px-3.5 py-2.5">
-              <p className="text-[11px] font-semibold text-faint">DUE DATE</p>
+              <p className="text-micro font-semibold text-faint">DUE DATE</p>
               <p className="mt-0.5 text-sm font-semibold text-ink">{doc.dueDate ? fmtDate(doc.dueDate) : "—"}</p>
             </div>
           </div>
@@ -183,7 +183,7 @@ export function ViewEstimateModal({ doc, customers, items, currency, scoreRules,
                 {doc.deliveries.map((d: any, i: number) => (
                   <div key={i} className="flex items-center justify-between rounded-xl bg-brand-50 px-3 py-2 text-xs text-brand-700">
                     <span>{d.name} × {fmtNum(d.qty)}</span>
-                    <span className="text-brand-500">{fmtDate(d.date)}</span>
+                    <span className="text-brand-600">{fmtDate(d.date)}</span>
                   </div>
                 ))}
               </div>

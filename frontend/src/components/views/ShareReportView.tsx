@@ -92,7 +92,7 @@ export function ShareReportView({ invoices, items, customers, currency, settings
                 <p className="text-xs text-faint">{totalInvoices} invoice{totalInvoices !== 1 ? "s" : ""} today</p>
                 <p className="text-sm font-semibold text-white">Total Sales</p>
               </div>
-              <p className="font-display text-xl font-semibold text-good-400">{currency}{totalSales.toFixed(2)}</p>
+              <p className="font-display text-xl font-semibold text-good-600">{currency}{totalSales.toFixed(2)}</p>
             </div>
           </>
         )}

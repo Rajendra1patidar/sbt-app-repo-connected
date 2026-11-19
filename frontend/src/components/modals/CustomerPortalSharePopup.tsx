@@ -65,7 +65,7 @@ export function CustomerPortalSharePopup({ customer, onClose }: { customer: any;
               This creates a 4-digit PIN so {customer.name} can open the link and see their own ledger and bookings.
               If they already have a PIN, it stops working.
             </p>
-            {error && <p className="mt-3 text-sm font-semibold text-bad-500">{error}</p>}
+            {error && <p className="mt-3 text-sm font-semibold text-bad-600">{error}</p>}
             <div className="mt-5 flex gap-2">
               <button onClick={onClose} className="flex-1 rounded-full border border-line py-2.5 text-sm font-semibold text-mute">Cancel</button>
               <button onClick={generate} disabled={loading || !customer.phone}
@@ -82,7 +82,7 @@ export function CustomerPortalSharePopup({ customer, onClose }: { customer: any;
             </div>
             <p className="mt-3 break-all rounded-xl border border-line/70 p-3 text-xs text-mute">{PORTAL_URL}</p>
             <p className="mt-2 text-xs text-faint">Note this PIN down or send it now — it can't be shown again (you can always generate a new one).</p>
-            {error && <p className="mt-2 text-sm font-semibold text-bad-500">{error}</p>}
+            {error && <p className="mt-2 text-sm font-semibold text-bad-600">{error}</p>}
             <div className="mt-4 flex gap-2">
               <a href={customer.phone ? waLink(customer.phone, message) : undefined} target="_blank" rel="noreferrer"
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-good-500 py-2.5 text-sm font-semibold text-white active:scale-[0.98]">

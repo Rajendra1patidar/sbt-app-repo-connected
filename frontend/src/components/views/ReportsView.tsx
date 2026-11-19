@@ -157,11 +157,11 @@ export function ReportsView({ data, currency, settings }: any) {
         {Object.keys(statusCounts).length === 0 ? <p className="text-sm text-faint">No estimates yet.</p>
           : <ul className="space-y-2">{Object.entries(statusCounts).map(([s, c]) => (<li key={s} className="flex items-center justify-between text-sm"><Badge status={s} /><span className="font-semibold text-ink/80">{c}</span></li>))}</ul>}
       </Card>
-      <Card><p className="text-xs font-semibold text-faint">Total Customers</p><p className="mt-1 font-display text-xl font-semibold text-ink">{customers.length}</p></Card>
+      <Card><p className="text-xs font-semibold text-faint">Total Customers</p><p className="mt-1 font-display text-xl font-semibold text-ink">{customers.filter((c: any) => !c.archived).length}</p></Card>
 
       {/* Search by name */}
       <Card>
-        <div className="mb-3 flex items-center gap-2"><Search size={16} className="text-brand-500" /><h3 className="font-display text-base font-semibold text-ink">Search estimates by customer name</h3></div>
+        <div className="mb-3 flex items-center gap-2"><Search size={16} className="text-brand-600" /><h3 className="font-display text-base font-semibold text-ink">Search estimates by customer name</h3></div>
         <div className="relative">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
           <input value={nameQuery} onChange={(e) => setNameQuery(e.target.value)} placeholder="Type customer name..." className="w-full rounded-xl border border-line py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400" />

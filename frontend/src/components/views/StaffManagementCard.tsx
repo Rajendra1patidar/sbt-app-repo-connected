@@ -93,7 +93,7 @@ export function StaffManagementCard() {
                 <button
                   onClick={() => removeStaffAccount(m.id)}
                   disabled={removingId === m.id}
-                  className="rounded-full p-1.5 text-ink/30 hover:text-bad-500 disabled:opacity-40"
+                  className="rounded-full p-1.5 text-ink/30 hover:text-bad-600 disabled:opacity-40"
                 >
                   {removingId === m.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                 </button>

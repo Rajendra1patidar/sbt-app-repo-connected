@@ -33,7 +33,7 @@ export function FieldModal({ title, fields, initial, onClose, onSave, danger }: 
         <div className="space-y-4">
           {visibleFields.map((f: any) => (
             <div key={f.key}>
-              <label className="mb-1 block text-xs font-semibold text-mute">{f.label}{f.required && <span className="text-bad-500"> *</span>}</label>
+              <label className="mb-1 block text-xs font-semibold text-mute">{f.label}{f.required && <span className="text-bad-600"> *</span>}</label>
               {f.type === "select" ? (
                 <select value={values[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)}
                   className="w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400">

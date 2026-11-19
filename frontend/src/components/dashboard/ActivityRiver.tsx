@@ -171,7 +171,7 @@ export function ActivityRiver({ estimates, payments, expenses, purchases, curren
         </div>
         <button
           onClick={() => setMetric((m) => (m === "balance" ? "volume" : "balance"))}
-          className="flex items-center gap-1.5 rounded-pill border border-line px-2.5 py-1.5 text-[11px] font-semibold text-mute transition-colors hover:text-ink"
+          className="flex items-center gap-1.5 rounded-pill border border-line px-2.5 py-1.5 text-micro font-semibold text-mute transition-colors hover:text-ink"
         >
           {metric === "balance" ? <TrendingUp size={12} /> : <BarChart2 size={12} />}
           {metric === "balance" ? "Running total" : "Per-event"}
@@ -210,12 +210,12 @@ export function ActivityRiver({ estimates, payments, expenses, purchases, curren
 
       <div className="flex flex-wrap items-center justify-between gap-2 pb-1 pt-2">
         <div className="flex gap-3.5">
-          <span className="flex items-center gap-1.5 text-[11px] text-faint"><span className="h-1.5 w-1.5 rounded-full" style={{ background: "#2E7D5B" }} />Sale</span>
-          <span className="flex items-center gap-1.5 text-[11px] text-faint"><span className="h-1.5 w-1.5 rounded-full" style={{ background: "#2F5AA8" }} />Payment</span>
-          <span className="flex items-center gap-1.5 text-[11px] text-faint"><span className="h-1.5 w-1.5 rounded-full" style={{ background: "#B23A2E" }} />Outflow</span>
+          <span className="flex items-center gap-1.5 text-micro text-faint"><span className="h-1.5 w-1.5 rounded-full" style={{ background: "#2E7D5B" }} />Sale</span>
+          <span className="flex items-center gap-1.5 text-micro text-faint"><span className="h-1.5 w-1.5 rounded-full" style={{ background: "#2F5AA8" }} />Payment</span>
+          <span className="flex items-center gap-1.5 text-micro text-faint"><span className="h-1.5 w-1.5 rounded-full" style={{ background: "#B23A2E" }} />Outflow</span>
         </div>
         {events.length > 0 && (
-          <span className={`font-mono text-[12px] font-semibold ${netTotal >= 0 ? "text-good-500" : "text-bad-500"}`}>Net {fmtMoney(netTotal, currency)}</span>
+          <span className={`font-mono text-[12px] font-semibold ${netTotal >= 0 ? "text-good-600" : "text-bad-600"}`}>Net {fmtMoney(netTotal, currency)}</span>
         )}
       </div>
 

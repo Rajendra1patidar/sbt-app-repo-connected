@@ -25,7 +25,7 @@ function Bubble({ row, size, selected, onSelect }: { row: CoverRow; size: number
   const aria = `${row.name}, ${row.days != null ? `${row.days} day${row.days === 1 ? "" : "s"} of cover` : row.low ? "low on stock" : "no recent sales"}${selected ? ", selected" : ""}`;
   return (
     <button type="button" onClick={onSelect} aria-label={aria} aria-pressed={selected}
-      style={{ width: size, height: size, background: s.bg, color: s.fg, fontSize: size >= 40 ? 12 : 11, boxShadow: selected ? "0 0 0 3px rgb(var(--color-card)), 0 0 0 5px rgb(var(--c-brand-500))" : undefined }}
+      style={{ width: size, height: size, background: s.bg, color: s.fg, fontSize: 12, boxShadow: selected ? "0 0 0 3px rgb(var(--color-card)), 0 0 0 5px rgb(var(--c-brand-500))" : undefined }}
       className="flex shrink-0 items-center justify-center rounded-full font-semibold transition-transform active:scale-90">
       {flagged ? row.label : ""}
     </button>

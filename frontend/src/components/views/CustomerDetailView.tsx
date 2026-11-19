@@ -7,7 +7,7 @@ import { CustomerPortalSharePopup } from "../modals/CustomerPortalSharePopup";
 
 /* ---- Customer Ledger / Detail ---- */
 
-export function CustomerDetailView({ customer, estimates, payments, items, currency, openModal, onBack }: any){
+export function CustomerDetailView({ customer, estimates, payments, items, currency, openModal, onBack, onRestore }: any){
   const [showPortalShare, setShowPortalShare] = useState(false);
   const [statement, setStatement] = useState<any>(null);
   const [statementLoading, setStatementLoading] = useState(false);
@@ -49,12 +49,18 @@ export function CustomerDetailView({ customer, estimates, payments, items, curre
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="font-display text-lg font-semibold text-ink truncate">{customer.name}</p>
+            {customer.archived && (
+              <div className="mt-1 flex items-center gap-2">
+                <span className="rounded-full bg-chip px-2.5 py-0.5 text-xs font-semibold text-chipText">Archived</span>
+                {onRestore && <button type="button" onClick={onRestore} className="text-xs font-semibold text-brand-600 underline">Restore</button>}
+              </div>
+            )}
             <p className="text-xs text-faint truncate">{customer.email || "No email"}{customer.phone ? ` · ${customer.phone}` : ""}</p>
             {customer.location && (
               <a
                 href={customer.lat && customer.lng ? `https://www.google.com/maps/search/?api=1&query=${customer.lat},${customer.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customer.location)}`}
                 target="_blank" rel="noreferrer"
-                className="mt-1 flex items-center gap-1 text-xs text-faint hover:text-brand-500 hover:underline"
+                className="mt-1 flex items-center gap-1 text-xs text-faint hover:text-brand-600 hover:underline"
               >
                 <MapPin size={11} /> {customer.location}
               </a>

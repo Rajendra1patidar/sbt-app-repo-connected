@@ -65,7 +65,7 @@ export function GodownsMapCard({ godowns }: any) {
       {pinned.length === 0 ? (
         <p className="text-sm text-faint">Set a location using the map picker on a godown to see it plotted here.</p>
       ) : mapError ? (
-        <p className="text-sm text-bad-500">{mapError}</p>
+        <p className="text-sm text-bad-600">{mapError}</p>
       ) : (
         <div ref={mapRef} style={{ width: "100%", height: 220, borderRadius: 12 }} className="mt-2 bg-paper" />
       )}

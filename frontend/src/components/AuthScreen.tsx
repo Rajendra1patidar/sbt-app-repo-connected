@@ -154,8 +154,8 @@ export function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
           </>
         )}
 
-        {notice && <p className="mb-3 text-sm font-medium text-good-500">{notice}</p>}
-        {error && <p className="mb-3 text-sm font-medium text-bad-500">{error}</p>}
+        {notice && <p className="mb-3 text-sm font-medium text-good-600">{notice}</p>}
+        {error && <p className="mb-3 text-sm font-medium text-bad-600">{error}</p>}
 
         <button
           type="submit"
@@ -174,7 +174,7 @@ export function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
         {mode === "login" && (
           <button
             type="button"
-            className="mt-3 w-full text-center text-xs font-medium text-mute hover:text-brand-500 transition-colors"
+            className="mt-3 w-full text-center text-xs font-medium text-mute hover:text-brand-600 transition-colors"
             onClick={() => { setMode("forgot"); setError(""); setNotice(""); }}
           >
             Forgot your PIN?
@@ -183,7 +183,7 @@ export function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
 
         <button
           type="button"
-          className="mt-4 w-full text-center text-xs font-medium text-mute hover:text-brand-500 transition-colors"
+          className="mt-4 w-full text-center text-xs font-medium text-mute hover:text-brand-600 transition-colors"
           onClick={() => {
             setError("");
             setNotice("");

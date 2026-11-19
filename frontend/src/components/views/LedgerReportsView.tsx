@@ -286,7 +286,7 @@ export function LedgerReportsView({ currency }: any) {
               <p className="mt-3 text-sm text-faint">No ledger activity matches this range/filter.</p>
             ) : (
               <div className="mt-3 max-h-96 overflow-y-auto">
-                <div className="grid grid-cols-12 gap-2 border-b border-line pb-1.5 text-[11px] font-semibold text-faint sticky top-0 bg-card">
+                <div className="grid grid-cols-12 gap-2 border-b border-line pb-1.5 text-micro font-semibold text-faint sticky top-0 bg-card">
                   <button onClick={() => handleSort("date")} className="col-span-3 flex items-center gap-1 text-left">Date {sortIcon("date")}</button>
                   <span className="col-span-4">Narration</span>
                   <button onClick={() => handleSort("account")} className="col-span-2 flex items-center gap-1 text-left">Account {sortIcon("account")}</button>

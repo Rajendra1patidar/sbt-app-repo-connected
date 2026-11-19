@@ -110,7 +110,7 @@ export function ScoreRulesModal({ scoreRules, items, onSave, onRemove, onClose }
                   </div>
                   <div className="flex shrink-0 gap-1">
                     <button onClick={() => openEdit(r)} className="rounded-full p-1.5 hover:bg-paper"><Pencil size={14} className="text-mute" /></button>
-                    <button onClick={() => onRemove(r.id)} className="rounded-full p-1.5 hover:bg-bad-50"><Trash2 size={14} className="text-bad-500" /></button>
+                    <button onClick={() => onRemove(r.id)} className="rounded-full p-1.5 hover:bg-bad-50"><Trash2 size={14} className="text-bad-600" /></button>
                   </div>
                 </div>
               );

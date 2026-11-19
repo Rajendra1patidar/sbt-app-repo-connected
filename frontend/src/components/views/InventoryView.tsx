@@ -336,9 +336,9 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
                           <div className="text-right">
                             <div className="h-4">
                               {isLow ? (
-                                <span className="inline-block rounded-full bg-warn-100 px-2 py-0.5 text-[11px] font-semibold text-warn-700">Low</span>
+                                <span className="inline-block rounded-full bg-warn-100 px-2 py-0.5 text-micro font-semibold text-warn-700">Low</span>
                               ) : dead ? (
-                                <span className="inline-block rounded-full bg-paper px-2 py-0.5 text-[11px] font-semibold text-faint">No sale 90d+</span>
+                                <span className="inline-block rounded-full bg-paper px-2 py-0.5 text-micro font-semibold text-faint">No sale 90d+</span>
                               ) : null}
                             </div>
                             <p className={`font-display text-base font-semibold ${stockColor(it)}`}>{stockBreakdown(it)}</p>
@@ -365,7 +365,7 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
 
                             {godowns && godowns.length > 1 && present.length > 0 && (
                               <div className="py-1">
-                                <p className="mb-1 text-[11px] font-semibold text-faint">By godown</p>
+                                <p className="mb-1 text-micro font-semibold text-faint">By godown</p>
                                 <div className="space-y-1">
                                   {present.map((g: any) => {
                                     const gd = godowns.find((x: any) => String(x.id) === String(g.godownId));

@@ -17,6 +17,14 @@ const customerSchema = new mongoose.Schema(
     // submitted (outstanding + new total vs this) and shown as a warning, never
     // a hard block. Left unset (no limit) for most customers.
     creditLimit: { type: Number, min: [0, "Credit limit can't be negative"] },
+    // A customer with history can't be deleted without orphaning their bills and
+    // payments, so "delete" archives them instead: hidden from lists, pickers and
+    // the capture bar, but every old bill, payment and balance still points at
+    // them. Customers saved before this field existed simply have no value, which
+    // reads as "not archived" - so nothing needs migrating. Only ever written by
+    // the server (customerController), never accepted from a request body.
+    archived: { type: Boolean, default: false },
+    archivedAt: { type: Date, default: null },
     // Normalized copies of name/phone, kept in sync via the pre-validate hook below.
     // These back the unique index — the controller's own find-then-create check is
     // just a fast-path for a friendly message; this index is what actually prevents

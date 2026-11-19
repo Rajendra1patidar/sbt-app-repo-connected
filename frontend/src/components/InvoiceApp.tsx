@@ -83,7 +83,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     saveVendorPayment, savePurchasePayment, saveDocument, removeDoc, restoreDoc, updateDocStatus,
     savePayment, savePaymentSplit, saveReturn, saveDelivery, removePayment, saveOrder, removeOrder,
     payOrder, saveOrderPayment, attachOrderInvoice, removeOrderInvoice, saveLabourSession, removeLabourSession, saveContractorPhone, saveScoreRule, removeScoreRule,
-    saveSettings, saveChallan, recordPaymentFor, applyStockAdjustments,
+    saveSettings, saveChallan, recordPaymentFor, applyStockAdjustments, restoreCustomer,
   } = useAppStore();
 
   useEffect(() => {
@@ -219,6 +219,11 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   const activeEstimates = estimates.filter((i: any) => !i.deleted);
   const overdueCount = activeEstimates.filter((i: any) => i.status === "Due" && i.dueDate && new Date(i.dueDate) < new Date()).length;
   const data = { customers, items, orders, estimates: activeEstimates, invoices: activeEstimates, challans, expenses, payments, labourSessions, purchases, vendors, scoreRules };
+  // Archived customers stay in the store (old bills and payments still need their names) but are hidden
+  // from lists, pickers and the capture bar. A customer a form is already about is kept, so editing an
+  // old estimate or recording a payment for an archived customer still works.
+  const liveCustomers = customers.filter((c: any) => !c.archived);
+  const withCustomer = (id?: string) => (id ? customers.filter((c: any) => !c.archived || c.id === id) : liveCustomers);
   const itemCategories = settings.itemCategories?.length ? settings.itemCategories : ITEM_CATEGORIES;
   const itemBrands = settings.itemBrands?.length ? settings.itemBrands : ITEM_BRANDS;
 
@@ -231,7 +236,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <Route path="/team" element={<HubView tabId="team" role={role} data={data} currency={settings.currency} scoreRules={scoreRules} openModal={openModal} go={goToView} onSearch={() => setGlobalSearchOpen(true)} />} />
       <Route path="/stock" element={<StockHealthView items={items} estimates={activeEstimates} purchases={purchases} vendors={vendors} godowns={godowns} reorderSuggestions={reorderSuggestions} currency={settings.currency} openModal={openModal} go={goToView} onSearch={() => setGlobalSearchOpen(true)} />} />
       <Route path="/customers" element={
-        <CustomersView customers={customers} estimates={activeEstimates} openModal={openModal} removeCustomer={removeCustomer}
+        <CustomersView customers={customers} estimates={activeEstimates} openModal={openModal} removeCustomer={removeCustomer} restoreCustomer={restoreCustomer}
           onSelectCustomer={(id: string) => navigate(`/customers/${id}`)} />
       } />
       <Route path="/customers/:customerId" element={<CustomerDetailRoute />} />
@@ -274,7 +279,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <Route path="/settings" element={<SettingsView settings={settings} setSettings={saveSettings} />} />
       <Route path="/customer-portal" element={<PortalAdminView settings={settings} showToast={showToast} />} />
       <Route path="/audit-log" element={<AuditLogView />} />
-      <Route path="*" element={<Dashboard data={data} settings={settings} role={role} openModal={openModal} go={goToView} reorderSuggestions={reorderSuggestions} saveDocument={saveDocument} savePayment={savePayment} savePurchase={savePurchase} saveCustomer={saveCustomer} saveExpense={saveExpense} saveReturn={saveReturn} showToast={showToast} />} />
+      <Route path="*" element={<Dashboard data={data} settings={settings} openModal={openModal} go={goToView} reorderSuggestions={reorderSuggestions} saveDocument={saveDocument} savePayment={savePayment} savePurchase={savePurchase} saveCustomer={saveCustomer} saveExpense={saveExpense} saveReturn={saveReturn} showToast={showToast} />} />
     </Routes>
   );
 
@@ -424,7 +429,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       return <ChallanModal onClose={closeModal} onSave={saveChallan} />;
 
     if (type === "estimate")
-      return <EstimateSheet customers={customers} items={items} godowns={godowns} estimates={activeEstimates} payments={payments} settings={settings}
+      return <EstimateSheet customers={withCustomer(payload?.customerId || payload?.editingDoc?.customerId)} items={items} godowns={godowns} estimates={activeEstimates} payments={payments} settings={settings}
         editingDoc={payload?.editingDoc} prefillCustomerId={payload?.customerId} prefill={payload?.prefill}
         onClose={closeModal}
         onSave={async (v: any, opts?: { send?: boolean; upiQrAmount?: number }) => {
@@ -443,7 +448,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 
     if (type === "payment") {
       return <PaymentAllocationModal
-        customers={customers}
+        customers={withCustomer(payload?.customerId)}
         estimates={activeEstimates}
         currency={settings.currency}
         initialCustomerId={payload?.customerId || ""}
@@ -471,7 +476,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   if (loading) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 bg-paper text-mute">
-        <Loader2 size={28} className="animate-spin text-brand-500" />
+        <Loader2 size={28} className="animate-spin text-brand-600" />
         <p className="text-sm font-medium">Loading your data…</p>
       </div>
     );
@@ -480,7 +485,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   if (loadError) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 bg-paper px-6 text-center">
-        <AlertCircle size={28} className="text-bad-500" />
+        <AlertCircle size={28} className="text-bad-600" />
         <p className="text-sm font-medium text-ink/70">{loadError}</p>
         <button onClick={() => window.location.reload()} className="rounded-pill bg-brand-500 px-4 py-2 text-sm font-semibold text-white">
           Try again
@@ -497,7 +502,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 
   return (
     <div className="flex h-screen bg-paper font-sans text-ink">
-      <NavRail active={activeTab} onNav={goToView} orgName={settings.orgName} ownerName={settings.ownerName} roleLabel={role === "staff" ? "Staff" : "Owner"} onProfile={() => setProfileOpen(true)} role={role} />
+      <NavRail active={activeTab} onNav={goToView} orgName={settings.orgName} ownerName={settings.ownerName} roleLabel={role === "staff" ? "Staff" : "Owner"} onProfile={() => setProfileOpen(true)} />
       <div className="relative min-w-0 flex-1 overflow-y-auto">
         <OfflineBanner />
         <div className="mx-auto w-full max-w-[760px]">
@@ -506,7 +511,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
         </div>
       </div>
 
-      <TabBar active={activeTab} onNav={goToView} role={role} />
+      <TabBar active={activeTab} onNav={goToView} />
 
       {profileOpen && (
         <ProfileSheet settings={settings} role={role} businessWa={businessWa} onClose={() => setProfileOpen(false)} onNav={goToView} onSignOut={onSignOut} onWhatsApp={() => { if (!businessWa) { goToView("settings"); showToast("Add a WhatsApp number in Settings first"); } }} />
@@ -523,7 +528,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       )}
       {globalSearchOpen && (
         <GlobalSearchOverlay
-          customers={customers} items={items} estimates={activeEstimates} currency={settings.currency}
+          customers={liveCustomers} items={items} estimates={activeEstimates} currency={settings.currency}
           onClose={() => setGlobalSearchOpen(false)}
           onSelectCustomer={(id: string) => { navigate(`/customers/${id}`); setGlobalSearchOpen(false); }}
           onSelectItem={() => { goToView("items"); setGlobalSearchOpen(false); }}
@@ -556,7 +561,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
 function CustomerDetailRoute() {
   const { customerId } = useParams();
   const navigate = useNavigate();
-  const { customers, estimates, payments, items, openModal, settings } = useAppStore();
+  const { customers, estimates, payments, items, openModal, settings, restoreCustomer } = useAppStore();
   const customer = customers.find((c: any) => c.id === customerId);
   const activeEstimates = estimates.filter((i: any) => !i.deleted);
   return (
@@ -564,6 +569,7 @@ function CustomerDetailRoute() {
       customer={customer}
       estimates={activeEstimates} payments={payments} items={items} openModal={openModal} currency={settings.currency}
       onBack={() => navigate("/customers")}
+      onRestore={() => restoreCustomer(customerId as string)}
     />
   );
 }

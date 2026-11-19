@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { tabsForRole, type TabId } from "../../lib/constants";
+import { TABS, type TabId } from "../../lib/constants";
 import { HomeIcon, MoneyIcon, SellIcon, StockIcon, TeamIcon, ChevronRightIcon } from "../ui/icons";
 import { Avatar, GlassBar, cx } from "../ui/kit";
 
@@ -10,17 +10,17 @@ const TAB_ICONS: Record<TabId, (p: { size?: number; className?: string }) => Rea
 };
 
 /** Phone: a translucent bar pinned to the bottom, 5 tabs, label under each icon. */
-export function TabBar({ active, onNav, role }: { active: TabId | null; onNav: (view: string) => void; role?: string }) {
+export function TabBar({ active, onNav }: { active: TabId | null; onNav: (view: string) => void }) {
   return (
     <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 md:hidden">
       <GlassBar className="px-2 pt-2" >
         <div className="flex justify-around" style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 14px)" }}>
-          {tabsForRole(role).map((t) => {
+          {TABS.map((t) => {
             const Icon = TAB_ICONS[t.id];
             const isActive = active === t.id;
             return (
               <button key={t.id} type="button" onClick={() => onNav(t.view)} aria-current={isActive ? "page" : undefined}
-                className={cx("flex h-12 w-16 flex-col items-center justify-center gap-[3px] text-[10.5px] font-medium transition-colors active:opacity-60", isActive ? "text-brand-500" : "text-mute")}>
+                className={cx("flex h-12 w-16 flex-col items-center justify-center gap-[3px] text-micro font-medium transition-colors active:opacity-60", isActive ? "text-brand-600" : "text-mute")}>
                 <Icon size={22} />
                 {t.label}
               </button>
@@ -33,8 +33,8 @@ export function TabBar({ active, onNav, role }: { active: TabId | null; onNav: (
 }
 
 /** Desktop and tablet: the same five destinations as a calm left rail. */
-export function NavRail({ active, onNav, orgName, ownerName, roleLabel, onProfile, role }: {
-  active: TabId | null; onNav: (view: string) => void; orgName: string; ownerName: string; roleLabel: string; onProfile: () => void; role?: string;
+export function NavRail({ active, onNav, orgName, ownerName, roleLabel, onProfile }: {
+  active: TabId | null; onNav: (view: string) => void; orgName: string; ownerName: string; roleLabel: string; onProfile: () => void;
 }) {
   return (
     <aside className="hidden w-[248px] shrink-0 flex-col border-r border-line bg-card px-3 py-5 md:flex">
@@ -43,7 +43,7 @@ export function NavRail({ active, onNav, orgName, ownerName, roleLabel, onProfil
         <p className="text-caption text-mute">Business, one place</p>
       </div>
       <nav aria-label="Main" className="flex flex-col gap-1">
-        {tabsForRole(role).map((t) => {
+        {TABS.map((t) => {
           const Icon = TAB_ICONS[t.id];
           const isActive = active === t.id;
           return (

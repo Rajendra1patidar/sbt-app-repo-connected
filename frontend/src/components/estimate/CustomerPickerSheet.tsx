@@ -27,7 +27,7 @@ export function CustomerPickerSheet({ customers, owes, selectedId, currency, onP
         <Group className="mt-3.5">
           {onQuickAddCustomer && (
             <GroupRow onClick={() => setAdding(true)} className="h-14">
-              <div className="flex items-center gap-3 text-brand-500">
+              <div className="flex items-center gap-3 text-brand-600">
                 <span className="flex h-9 w-9 items-center justify-center rounded-full border border-brand-500"><PlusIcon size={18} /></span>
                 <span className="text-[16px] font-medium">{query.trim() ? `New customer “${query.trim()}”` : "New customer"}</span>
               </div>
@@ -44,7 +44,7 @@ export function CustomerPickerSheet({ customers, owes, selectedId, currency, onP
                     <p className="truncate text-caption text-mute">{[c.location, c.phone].filter(Boolean).join(", ") || "No details"}</p>
                   </div>
                   {owed > 0 && <span className="shrink-0 text-caption tabular-nums text-mute">Owes {inrCompact(owed, currency)}</span>}
-                  {selectedId === c.id && <CheckIcon size={20} className="shrink-0 text-brand-500" />}
+                  {selectedId === c.id && <CheckIcon size={20} className="shrink-0 text-brand-600" />}
                 </div>
               </GroupRow>
             );

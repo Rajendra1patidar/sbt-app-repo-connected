@@ -172,8 +172,8 @@ export function EstimateDetailSheet({ doc, customers, items, payments, estimates
 function ActionRow({ icon, label, onClick, danger }: { icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean }) {
   return (
     <GroupRow onClick={onClick} className="h-[52px]">
-      <div className={cx("flex items-center gap-3 text-[16px]", danger ? "text-bad-500" : "text-ink")}>
-        <span className={danger ? "text-bad-500" : "text-mute"}>{icon}</span>
+      <div className={cx("flex items-center gap-3 text-[16px]", danger ? "text-bad-600" : "text-ink")}>
+        <span className={danger ? "text-bad-600" : "text-mute"}>{icon}</span>
         {label}
       </div>
     </GroupRow>

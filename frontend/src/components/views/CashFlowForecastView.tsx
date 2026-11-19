@@ -42,7 +42,7 @@ export function CashFlowForecastView({ currency }: { currency: string }) {
   return (
     <div className="space-y-4 px-5 pb-28">
       <Card className="space-y-1">
-        <div className="flex items-center gap-2"><TrendingUp size={16} className="text-brand-500" /><h3 className="text-sm font-semibold text-ink">How this works</h3></div>
+        <div className="flex items-center gap-2"><TrendingUp size={16} className="text-brand-600" /><h3 className="text-sm font-semibold text-ink">How this works</h3></div>
         <p className="text-xs text-faint">
           Current cash is your real Funds balance. Inflows are unpaid estimates bucketed by their actual due date —
           overdue ones count as due now, not spread optimistically forward. The only projection here is a real

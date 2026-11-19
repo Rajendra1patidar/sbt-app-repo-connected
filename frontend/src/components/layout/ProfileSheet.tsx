@@ -57,7 +57,7 @@ export function ProfileSheet({ onClose, onNav, onSignOut, settings, role, busine
           </GroupRow>
         )}
         <GroupRow onClick={() => { onClose(); onSignOut(); }} className="h-14">
-          <div className="flex items-center gap-3 text-bad-500">
+          <div className="flex items-center gap-3 text-bad-600">
             <SignOutIcon size={20} />
             <span className="text-[16px] font-medium">Sign out</span>
           </div>

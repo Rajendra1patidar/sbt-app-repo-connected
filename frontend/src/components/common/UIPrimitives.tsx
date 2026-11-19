@@ -17,7 +17,7 @@ export function PillButton({ children, onClick, className = "", disabled }: any)
 export function GhostButton({ children, onClick, className = "" }: any) {
   return (
     <button onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-control border border-rule bg-card px-3 py-1.5 text-[13px] font-medium text-brand-500 active:scale-[0.97] transition-all duration-150 ${className}`}>
+      className={`inline-flex items-center gap-1.5 rounded-control border border-rule bg-card px-3 py-1.5 text-[13px] font-medium text-brand-600 active:scale-[0.97] transition-all duration-150 ${className}`}>
       {children}
     </button>
   );

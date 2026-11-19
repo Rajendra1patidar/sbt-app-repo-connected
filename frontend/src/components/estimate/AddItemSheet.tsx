@@ -143,7 +143,7 @@ export function AddItemSheet({
         trailing={<TextButton onClick={onClose} className="-mr-1 px-1 font-medium">Done</TextButton>}
         footer={
           <div>
-            {error && <p className="mb-2 text-center text-[14px] font-medium text-bad-500">{error}</p>}
+            {error && <p className="mb-2 text-center text-[14px] font-medium text-bad-600">{error}</p>}
             <PrimaryButton disabled={!selected} onClick={submit}>{ctaLabel}</PrimaryButton>
             {editing && onRemove && (
               <div className="mt-1 flex justify-center"><TextButton tone="risk" onClick={() => { onRemove(editIndex as number); onClose(); }}>Remove from estimate</TextButton></div>
@@ -239,7 +239,7 @@ export function AddItemSheet({
                     <span className="block truncate text-[16px] font-medium text-ink">{it.name}</span>
                     <span className="block truncate text-caption text-mute"><span className="tabular-nums">{sub.rate}</span>, {sub.stock}</span>
                   </span>
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-brand-500 text-brand-500"><PlusIcon size={18} /></span>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-brand-500 text-brand-600"><PlusIcon size={18} /></span>
                 </button>
               );
             })}

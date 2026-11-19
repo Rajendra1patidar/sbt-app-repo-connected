@@ -188,7 +188,7 @@ export function InvoiceShareModal({ invoice, customer, items, settings, payment,
             <MessageSquare size={15} /> Send via SMS
           </a>
         </div>
-        {!customer?.phone && <p className="mt-2 text-center text-xs text-bad-500">Add a phone number to enable sharing.</p>}
+        {!customer?.phone && <p className="mt-2 text-center text-xs text-bad-600">Add a phone number to enable sharing.</p>}
       </div>
     </div>
   );

@@ -117,7 +117,7 @@ export function GodownsView({ godowns, items, openModal, removeGodown, saveGodow
                     <div className="flex items-center gap-1.5">
                       <p className="font-semibold text-ink truncate">{g.name}</p>
                       {g.isDefault && (
-                        <span className="inline-flex items-center gap-0.5 rounded-full bg-brand-50 px-1.5 py-0.5 text-[11px] font-semibold text-brand-600">
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-brand-50 px-1.5 py-0.5 text-micro font-semibold text-brand-600">
                           <Star size={9} fill="currentColor" /> Default
                         </span>
                       )}
@@ -185,8 +185,8 @@ export function GodownsView({ godowns, items, openModal, removeGodown, saveGodow
                         <li key={it.id} className="flex items-center justify-between text-sm">
                           <span className="flex min-w-0 items-center gap-1.5">
                             <span className="min-w-0 truncate text-ink/80">{it.name}</span>
-                            {it.isLow && <span className="shrink-0 rounded-full bg-warn-100 px-1.5 py-0.5 text-[11px] font-semibold text-warn-700">Low</span>}
-                            {!it.isLow && it.isDead && <span className="shrink-0 rounded-full bg-paper px-1.5 py-0.5 text-[11px] font-semibold text-faint">Dead</span>}
+                            {it.isLow && <span className="shrink-0 rounded-full bg-warn-100 px-1.5 py-0.5 text-micro font-semibold text-warn-700">Low</span>}
+                            {!it.isLow && it.isDead && <span className="shrink-0 rounded-full bg-paper px-1.5 py-0.5 text-micro font-semibold text-faint">Dead</span>}
                           </span>
                           <span className="shrink-0 pl-2 font-mono text-xs text-mute">{fmtMoney(it.value, settings?.currency)}</span>
                         </li>
@@ -203,7 +203,7 @@ export function GodownsView({ godowns, items, openModal, removeGodown, saveGodow
 
               <div className="flex items-center justify-end gap-1 pt-2">
                 {!g.isDefault && (
-                  <button onClick={() => setDefaultGodown(g.id)} title="Make default" className="rounded-full p-1.5 text-ink/30 hover:bg-paper hover:text-brand-500">
+                  <button onClick={() => setDefaultGodown(g.id)} title="Make default" className="rounded-full p-1.5 text-ink/30 hover:bg-paper hover:text-brand-600">
                     <Star size={15} />
                   </button>
                 )}

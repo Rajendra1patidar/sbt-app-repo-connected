@@ -100,19 +100,19 @@ export function OrderModal({ items, vendors, currency, onClose, onSave, prefill 
                           placeholder="Select item"
                         />
                         <div className="mt-2 sm:mt-0">
-                          <span className="mb-0.5 block text-[11px] font-semibold text-faint sm:hidden">Qty</span>
+                          <span className="mb-0.5 block text-micro font-semibold text-faint sm:hidden">Qty</span>
                           <input type="number" min="1" value={ln.qty} onChange={(e) => updateLine(i, { qty: e.target.value })} className="w-full rounded-xl border border-line px-2 py-2 text-sm" />
                         </div>
                         <div className="mt-2 sm:mt-0">
-                          <span className="mb-0.5 block text-[11px] font-semibold text-faint sm:hidden">Rate</span>
+                          <span className="mb-0.5 block text-micro font-semibold text-faint sm:hidden">Rate</span>
                           <input type="number" min="0" step="0.01" value={ln.rate} onChange={(e) => updateLine(i, { rate: e.target.value })} className="w-full rounded-xl border border-line px-2 py-2 text-sm" />
                         </div>
                         <div className="mt-2 flex items-center justify-between sm:mt-0 sm:block sm:text-right">
-                          <span className="text-[11px] font-semibold text-faint sm:hidden">Amount</span>
+                          <span className="text-micro font-semibold text-faint sm:hidden">Amount</span>
                           <span className="font-display text-sm font-semibold text-ink tabular-nums">{fmtMoney(lineAmounts[i], "")}</span>
                         </div>
                         <div className="mt-1 flex items-center justify-end sm:mt-0">
-                          {lines.length > 1 && <button onClick={() => removeLine(i)} className="rounded-full p-1.5 text-bad-500 hover:bg-bad-50"><Trash2 size={15} /></button>}
+                          {lines.length > 1 && <button onClick={() => removeLine(i)} className="rounded-full p-1.5 text-bad-600 hover:bg-bad-50"><Trash2 size={15} /></button>}
                         </div>
                       </div>
                       {showBoxReminder && (

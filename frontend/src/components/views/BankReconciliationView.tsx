@@ -54,7 +54,7 @@ function MatchButton({ line, currency, onMatched }: { line: any; currency: strin
               >
                 <span className="text-ink/70">{fmtDate(c.date)}</span>
                 <span className="font-semibold text-ink">{fmtMoney(c.amount, currency)}</span>
-                {linkingId === c.id ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} className="text-good-500" />}
+                {linkingId === c.id ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} className="text-good-600" />}
               </button>
             ))
           )}

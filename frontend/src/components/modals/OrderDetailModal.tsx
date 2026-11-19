@@ -47,15 +47,15 @@ export function OrderDetailModal({ order, items, vendors, currency, payOrder, re
 
           <div className="grid grid-cols-2 gap-2.5">
             <div className="rounded-xl border border-line bg-card px-3.5 py-2.5">
-              <p className="text-[11px] font-semibold text-faint">AMOUNT</p>
+              <p className="text-micro font-semibold text-faint">AMOUNT</p>
               <p className="mt-0.5 font-mono text-base font-semibold text-ink">{fmtMoney(order.amount || 0, currency)}</p>
             </div>
             <div className="rounded-xl border border-line bg-card px-3.5 py-2.5">
-              <p className="text-[11px] font-semibold text-faint">PAID</p>
+              <p className="text-micro font-semibold text-faint">PAID</p>
               <p className="mt-0.5 font-mono text-base font-semibold text-good-600">{fmtMoney(order.amountPaid || 0, currency)}</p>
             </div>
             <div className="col-span-2 rounded-xl border border-line bg-card px-3.5 py-2.5">
-              <p className="text-[11px] font-semibold text-faint">REMAINING</p>
+              <p className="text-micro font-semibold text-faint">REMAINING</p>
               <p className={`mt-0.5 font-mono text-base font-semibold ${remaining > 0 ? "text-bad-600" : "text-good-600"}`}>
                 {remaining > 0 ? fmtMoney(remaining, currency) : "Fully paid"}
               </p>
@@ -64,7 +64,7 @@ export function OrderDetailModal({ order, items, vendors, currency, payOrder, re
 
           {order.notes && (
             <div className="rounded-xl border border-line bg-paper/60 px-4 py-3">
-              <p className="text-[11px] font-semibold text-faint">NOTES</p>
+              <p className="text-micro font-semibold text-faint">NOTES</p>
               <p className="mt-0.5 text-sm text-ink">{order.notes}</p>
             </div>
           )}
@@ -81,7 +81,7 @@ export function OrderDetailModal({ order, items, vendors, currency, payOrder, re
         </div>
 
         <div className="mt-6 flex gap-3">
-          <button onClick={handleRemove} className="rounded-full border border-line p-3 text-bad-500 hover:bg-bad-50"><Trash2 size={16} /></button>
+          <button onClick={handleRemove} className="rounded-full border border-line p-3 text-bad-600 hover:bg-bad-50"><Trash2 size={16} /></button>
           {remaining > 0 && (
             <button
               onClick={() => payOrder({ id: order.id, amount: order.amount, amountPaid: order.amountPaid, itemName: item?.name })}

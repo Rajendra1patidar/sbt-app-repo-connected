@@ -85,7 +85,7 @@ function OwnerSettingsView({ settings, setSettings }: any) {
           {categories.map((c) => (
             <span key={c} className="inline-flex items-center gap-1.5 rounded-full bg-paper px-3 py-1.5 text-xs font-semibold text-ink/70">
               {c}
-              <button type="button" onClick={() => removeCategory(c)} className="text-ink/30 hover:text-bad-500"><X size={12} /></button>
+              <button type="button" onClick={() => removeCategory(c)} className="text-ink/30 hover:text-bad-600"><X size={12} /></button>
             </span>
           ))}
         </div>
@@ -110,7 +110,7 @@ function OwnerSettingsView({ settings, setSettings }: any) {
           {brands.map((b) => (
             <span key={b} className="inline-flex items-center gap-1.5 rounded-full bg-paper px-3 py-1.5 text-xs font-semibold text-ink/70">
               {b}
-              <button type="button" onClick={() => removeBrand(b)} className="text-ink/30 hover:text-bad-500"><X size={12} /></button>
+              <button type="button" onClick={() => removeBrand(b)} className="text-ink/30 hover:text-bad-600"><X size={12} /></button>
             </span>
           ))}
         </div>
@@ -134,7 +134,7 @@ function OwnerSettingsView({ settings, setSettings }: any) {
         <input value={local.businessWhatsApp} onChange={(e) => set("businessWhatsApp", e.target.value)} placeholder="+91 98765 43210" className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" /></div>
       </Card>
       <Card className="space-y-3">
-        <div className="flex items-center gap-2"><Wallet size={16} className="text-brand-500" /><h3 className="text-sm font-semibold text-ink">UPI payments (customer portal)</h3></div>
+        <div className="flex items-center gap-2"><Wallet size={16} className="text-brand-600" /><h3 className="text-sm font-semibold text-ink">UPI payments (customer portal)</h3></div>
         <p className="text-xs text-faint">
           Customers who owe money see a "Pay now" button on your portal. It opens GPay or PhonePe with the amount filled in, and the
           payment goes straight to this UPI ID. Leave it empty to hide the button.
@@ -147,7 +147,7 @@ function OwnerSettingsView({ settings, setSettings }: any) {
         </p>
       </Card>
       <Card className="space-y-3">
-        <div className="flex items-center gap-2"><ShieldCheck size={16} className="text-brand-500" /><h3 className="text-sm font-semibold text-ink">Staff approval limit</h3></div>
+        <div className="flex items-center gap-2"><ShieldCheck size={16} className="text-brand-600" /><h3 className="text-sm font-semibold text-ink">Staff approval limit</h3></div>
         <p className="text-xs text-faint">
           A manual purchase a staff member creates above this amount waits for your approval instead of going through
           right away. Set to 0 to turn this off — your own purchases are never gated, regardless of this setting.
@@ -191,7 +191,7 @@ function OwnerSettingsView({ settings, setSettings }: any) {
             Export to JSON
           </button>
         </div>
-        {exportError && <p className="text-xs font-medium text-bad-500">{exportError}</p>}
+        {exportError && <p className="text-xs font-medium text-bad-600">{exportError}</p>}
       </Card>
       <BackupCard />
       <ChangePinCard />

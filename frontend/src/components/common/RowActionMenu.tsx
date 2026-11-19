@@ -35,7 +35,7 @@ export function RowActionMenu({ actions }: { actions: RowAction[] }) {
             {actions.map((a) => {
               const Icon = a.icon;
               const cls = `flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm font-semibold ${
-                a.danger ? "text-bad-500 hover:bg-bad-50" : "text-ink/80 hover:bg-paper"
+                a.danger ? "text-bad-600 hover:bg-bad-50" : "text-ink/80 hover:bg-paper"
               } border-b border-line last:border-b-0`;
               if (a.href) {
                 return (

@@ -119,13 +119,13 @@ export function PaymentAllocationModal({ customers, estimates, currency, initial
             </div>
           ) : (
             <div>
-              <label className="mb-1 block text-xs font-semibold text-mute">Customer <span className="text-bad-500">*</span></label>
+              <label className="mb-1 block text-xs font-semibold text-mute">Customer <span className="text-bad-600">*</span></label>
               <SearchableSelect options={customerOptions} value={customerId} onChange={setCustomerId} placeholder="Select a customer" />
             </div>
           )}
 
           <div>
-            <label className="mb-1 block text-xs font-semibold text-mute">Amount received <span className="text-bad-500">*</span></label>
+            <label className="mb-1 block text-xs font-semibold text-mute">Amount received <span className="text-bad-600">*</span></label>
             <input
               type="number" min="0" placeholder="0.00" autoFocus
               value={totalAmount}

@@ -171,7 +171,7 @@ export function EstimatesView({
           <GroupLabel right={<span>{visible.length} estimate{visible.length === 1 ? "" : "s"}</span>}>{search ? "Results" : SORTS.find(([k]) => k === sortBy)?.[1]}</GroupLabel>
           <Group>{(capped ? visible.slice(0, SEARCH_CAP) : visible).map(row)}</Group>
           {capped && visible.length > SEARCH_CAP && (
-            <button type="button" onClick={() => setCapped(false)} className="mt-1 h-11 w-full text-[15px] font-medium text-brand-500">Show all {visible.length}</button>
+            <button type="button" onClick={() => setCapped(false)} className="mt-1 h-11 w-full text-[15px] font-medium text-brand-600">Show all {visible.length}</button>
           )}
         </>
       )}

@@ -51,7 +51,7 @@ export function EstimateFilterSheet({
               className={`inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-xs font-semibold ${statusFilter === key ? "bg-ink text-white" : "bg-paper text-ink/70"}`}
             >
               {label}
-              <span className={`rounded-pill px-1.5 py-0.5 text-[11px] font-semibold ${statusFilter === key ? "bg-card/25" : "bg-ink/10"}`}>
+              <span className={`rounded-pill px-1.5 py-0.5 text-micro font-semibold ${statusFilter === key ? "bg-card/25" : "bg-ink/10"}`}>
                 {filterCounts[key] ?? 0}
               </span>
             </button>

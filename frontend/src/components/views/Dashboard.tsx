@@ -29,7 +29,6 @@ const ALL_CATEGORIES = ["Saria", "Cement", "Kasta", "CPVC", "UPVC", "Others"];
 export function Dashboard({ data, settings, role, openModal, go, reorderSuggestions, godowns, saveDocument, savePayment, savePurchase, saveCustomer, saveExpense, saveReturn, showToast, onProfile }: any) {
   const { customers, estimates, expenses, items, payments, purchases, vendors } = data;
   const currency = settings.currency || "₹";
-  const isStaff = role === "staff"; // staff can't record or open expenses, so Home doesn't offer that list
 
   const { today, delta } = useMemo(() => daySummary({ estimates, payments, expenses, purchases }), [estimates, payments, expenses, purchases]);
   const cover = useMemo(() => computeCover({ items, estimates, purchases, vendors, godowns: godowns || [], reorderSuggestions }), [items, estimates, purchases, vendors, godowns, reorderSuggestions]);
@@ -128,7 +127,7 @@ export function Dashboard({ data, settings, role, openModal, go, reorderSuggesti
       <div className="mt-3">
         <p className="text-[14px] text-mute">Net today</p>
         <HeroMoney value={today.net} currency={currency} />
-        <p className={cx("text-[14px] font-medium", deltaPositive ? "text-good-500" : "text-bad-500")}>
+        <p className={cx("text-[14px] font-medium", deltaPositive ? "text-good-600" : "text-bad-600")}>
           {deltaPositive ? "+" : "−"}{inr(Math.abs(delta), currency)} compared with this time yesterday
         </p>
       </div>
@@ -146,7 +145,7 @@ export function Dashboard({ data, settings, role, openModal, go, reorderSuggesti
       {/* Capture bar */}
       <div className="mt-3.5">
         <CaptureBar
-          items={items} customers={customers} vendors={vendors} estimates={estimates} currency={currency} role={role}
+          items={items} customers={(customers || []).filter((c: any) => !c.archived)} vendors={vendors} estimates={estimates} currency={currency} role={role}
           savePurchase={savePurchase} savePayment={savePayment} saveCustomer={saveCustomer} saveExpense={saveExpense} saveReturn={saveReturn}
           openModal={openModal} showToast={showToast} go={go}
         />
@@ -194,7 +193,7 @@ export function Dashboard({ data, settings, role, openModal, go, reorderSuggesti
               <div className="mt-4 flex items-end justify-between gap-1.5 overflow-x-auto" style={{ height: 150 }}>
                 {salesByMonth.map((m, i) => (
                   <div key={m.key} className="flex h-full min-w-[28px] flex-1 flex-col items-center justify-end gap-1.5">
-                    <span className="text-[11px] font-medium tabular-nums text-mute">{m.total > 0 ? inrCompact(m.total, currency) : ""}</span>
+                    <span className="text-micro font-medium tabular-nums text-mute">{m.total > 0 ? inrCompact(m.total, currency) : ""}</span>
                     <div className={cx("w-full rounded-t-[6px] transition-all duration-500 ease-out", i === salesByMonth.length - 1 ? "bg-brand-500" : "bg-brand-200")} style={{ height: `${Math.max(3, (m.total / maxSale) * 100)}px` }} />
                     <span className="text-[12px] text-mute">{m.label}</span>
                   </div>
@@ -207,7 +206,7 @@ export function Dashboard({ data, settings, role, openModal, go, reorderSuggesti
 
       {/* Recent */}
       <GroupLabel className="mt-6">Recent</GroupLabel>
-      <Segmented options={[{ value: "estimates", label: "Estimates" }, ...(isStaff ? [] : [{ value: "expenses", label: "Expenses" }]), { value: "returns", label: "Returns" }]} value={tab} onChange={(v) => setTab(v as any)} />
+      <Segmented options={[{ value: "estimates", label: "Estimates" }, { value: "expenses", label: "Expenses" }, { value: "returns", label: "Returns" }]} value={tab} onChange={(v) => setTab(v as any)} />
       <div className="mt-3">
         {recent.length === 0 ? (
           <Group><EmptyState text={`No ${tab} yet.`} cta={tab === "expenses" ? "New expense" : "New estimate"} onCta={() => openModal(tab === "expenses" ? "expense" : "estimate")} /></Group>
@@ -235,7 +234,7 @@ export function Dashboard({ data, settings, role, openModal, go, reorderSuggesti
             })}
           </Group>
         )}
-        <button type="button" onClick={() => go(tab === "expenses" ? "expenses" : tab === "returns" ? "payments" : "estimates")} className="mt-1 h-11 w-full text-[15px] font-medium text-brand-500">
+        <button type="button" onClick={() => go(tab === "expenses" ? "expenses" : tab === "returns" ? "payments" : "estimates")} className="mt-1 h-11 w-full text-[15px] font-medium text-brand-600">
           See all {tab}
         </button>
       </div>

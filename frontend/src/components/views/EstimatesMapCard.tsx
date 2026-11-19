@@ -110,7 +110,7 @@ export function EstimatesMapCard({ invoices, currency }: any) {
       {destinations.length === 0 ? (
         <p className="text-sm text-faint">No estimates in this range have a destination set yet.</p>
       ) : mapError ? (
-        <p className="text-sm text-bad-500">{mapError}</p>
+        <p className="text-sm text-bad-600">{mapError}</p>
       ) : (
         <div ref={mapRef} style={{ width: "100%", height: 260, borderRadius: 12 }} className="mt-2 bg-paper" />
       )}

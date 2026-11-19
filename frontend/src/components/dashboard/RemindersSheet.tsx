@@ -54,7 +54,7 @@ export function RemindersSheet({ estimates, customers, currency, onClose, onNoPh
                       <WhatsAppIcon size={16} /> Remind
                     </a>
                   ) : (
-                    <button type="button" onClick={() => onNoPhone(r.customer)} className="h-9 shrink-0 rounded-full border border-rule px-3.5 text-[14px] font-semibold text-brand-500 active:scale-95">
+                    <button type="button" onClick={() => onNoPhone(r.customer)} className="h-9 shrink-0 rounded-full border border-rule px-3.5 text-[14px] font-semibold text-brand-600 active:scale-95">
                       Add phone
                     </button>
                   )}

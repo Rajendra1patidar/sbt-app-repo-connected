@@ -98,7 +98,7 @@ export function StatusChip({ tone, children, dot = true, small, className }: { t
   return (
     <span className={cx(
       "inline-flex items-center whitespace-nowrap font-medium",
-      small ? "h-5 gap-1.5 rounded-[10px] px-2 text-[11px]" : "h-6 gap-1.5 rounded-[12px] px-2.5 text-[12px]",
+      small ? "h-5 gap-1.5 rounded-[10px] px-2 text-micro" : "h-6 gap-1.5 rounded-[12px] px-2.5 text-[12px]",
       CHIP_TONES[tone], className,
     )}>
       {dot && <span className="h-1.5 w-1.5 rounded-full bg-current" />}
@@ -186,7 +186,7 @@ export function SecondaryButton({ children, className, size = "md", full = true,
   return (
     <button type="button" {...rest}
       className={cx(
-        "rounded-[14px] border border-rule bg-card font-semibold text-brand-500 transition active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-40",
+        "rounded-[14px] border border-rule bg-card font-semibold text-brand-600 transition active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-40",
         size === "lg" ? "h-[52px] text-[16px]" : "h-12 text-[15px]",
         full && "w-full", className,
       )}>
@@ -197,7 +197,7 @@ export function SecondaryButton({ children, className, size = "md", full = true,
 
 /** A plain text action — "Record payment", "Cancel". */
 export function TextButton({ children, className, tone = "action", ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { tone?: "action" | "insight" | "risk" | "quiet" }) {
-  const color = tone === "insight" ? "text-insight-600" : tone === "risk" ? "text-bad-500" : tone === "quiet" ? "text-mute" : "text-brand-500";
+  const color = tone === "insight" ? "text-insight-600" : tone === "risk" ? "text-bad-600" : tone === "quiet" ? "text-mute" : "text-brand-600";
   return (
     <button type="button" {...rest} className={cx("h-11 text-[16px] font-medium transition-opacity active:opacity-60 disabled:opacity-40", color, className)}>
       {children}
@@ -257,7 +257,7 @@ export function Pill({ children, onClick, className, active }: { children: React
         active ? "border-brand-500 bg-brand-50 text-brand-600" : "border-edge bg-card text-ink",
         className,
       )}>
-      {active ? <CheckIcon size={16} className="text-brand-500" /> : <PlusIcon size={16} className="text-brand-500" />}
+      {active ? <CheckIcon size={16} className="text-brand-600" /> : <PlusIcon size={16} className="text-brand-600" />}
       {children}
     </button>
   );
@@ -278,7 +278,7 @@ export function InsightNote({ children, className, onClick }: { children: ReactN
 export function Avatar({ name, size = 40, className }: { name?: string; size?: number; className?: string }) {
   const text = (name || "?").trim().split(/\s+/).map((s) => s[0]).slice(0, 2).join("").toUpperCase();
   return (
-    <span style={{ width: size, height: size, fontSize: Math.round(size * 0.375) }}
+    <span style={{ width: size, height: size, fontSize: Math.max(12, Math.round(size * 0.375)) }}
       className={cx("flex shrink-0 items-center justify-center rounded-full bg-brand-100 font-semibold text-brand-600", className)}>
       {text}
     </span>

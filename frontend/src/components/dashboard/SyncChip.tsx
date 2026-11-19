@@ -22,7 +22,7 @@ export function SyncChip() {
 
   const synced = online && queue.length === 0 && !offlineDataAsOf;
   const label = syncing ? "Syncing…" : !online ? "Offline" : queue.length > 0 ? `${queue.length} to sync` : offlineDataAsOf ? "Refreshing" : "Synced";
-  const color = synced ? "text-good-500" : !online ? "text-bad-500" : "text-warn-700";
+  const color = synced ? "text-good-600" : !online ? "text-bad-600" : "text-warn-700";
 
   const retry = async () => {
     if (synced || syncing || !online) return;

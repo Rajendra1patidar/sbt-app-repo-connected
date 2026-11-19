@@ -75,7 +75,7 @@ function LoginScreen({ onLoggedIn }: { onLoggedIn: (name: string, orgName: strin
             className="mb-1 w-full rounded-xl border border-line bg-paper px-4 py-3 text-lg tracking-[0.5em] text-ink outline-none focus:border-brand-400"
           />
           <p className="mb-4 text-xs text-faint">Given to you by the shop.</p>
-          {error && <p className="mb-4 text-sm font-semibold text-bad-500">{error}</p>}
+          {error && <p className="mb-4 text-sm font-semibold text-bad-600">{error}</p>}
           <button type="submit" disabled={loading}
             className="w-full rounded-pill bg-brand-500 px-5 py-3 text-sm font-semibold text-white transition active:scale-[0.98] disabled:opacity-50">
             {loading ? "Checking…" : "View my account"}

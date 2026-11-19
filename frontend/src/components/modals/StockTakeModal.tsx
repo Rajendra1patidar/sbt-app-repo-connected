@@ -140,7 +140,7 @@ export function StockTakeModal({ items, godowns, onClose, applyStockAdjustments 
                 {rows.length} lines parsed · {readyCount} ready{unmatchedCount ? ` · ${unmatchedCount} need a match` : ""}
                 {hasMultipleGodowns && <> · at <span className="font-semibold text-ink/70">{godowns.find((g: any) => g.id === godownId)?.name}</span></>}
               </p>
-              <button onClick={() => setStep("paste")} className="text-xs font-semibold text-brand-500">Edit list</button>
+              <button onClick={() => setStep("paste")} className="text-xs font-semibold text-brand-600">Edit list</button>
             </div>
             <div className="overflow-y-auto space-y-2 pr-1">
               {rows.map((r, idx) => {
@@ -155,7 +155,7 @@ export function StockTakeModal({ items, godowns, onClose, applyStockAdjustments 
                   <div key={idx} className={`rounded-xl border px-3 py-2.5 ${r.itemId ? "border-line" : "border-warn-300 bg-warn-50"}`}>
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-xs text-faint truncate flex-1">{r.match.rawName}</p>
-                      <button onClick={() => removeRow(idx)} className="text-ink/30 hover:text-bad-500 shrink-0"><X size={13} /></button>
+                      <button onClick={() => removeRow(idx)} className="text-ink/30 hover:text-bad-600 shrink-0"><X size={13} /></button>
                     </div>
                     <div className="mt-1.5 flex items-center gap-2">
                       <select
@@ -181,7 +181,7 @@ export function StockTakeModal({ items, godowns, onClose, applyStockAdjustments 
                     </div>
                     {isWeight && (
                       <div className="mt-1.5 flex items-center gap-2">
-                        <span className="flex-1 text-[11px] font-semibold text-faint">Weight (kg) — re-weigh</span>
+                        <span className="flex-1 text-micro font-semibold text-faint">Weight (kg) — re-weigh</span>
                         <input
                           type="number"
                           value={r.newStockKg}
@@ -222,7 +222,7 @@ export function StockTakeModal({ items, godowns, onClose, applyStockAdjustments 
         {step === "done" && (
           <div className="space-y-4">
             <div className="flex items-center gap-3 rounded-xl bg-good-50 px-4 py-3">
-              <CheckCircle2 size={18} className="text-good-500" />
+              <CheckCircle2 size={18} className="text-good-600" />
               <p className="text-sm font-semibold text-good-700">
                 {result?.succeeded ?? 0}/{result?.total ?? 0} lines applied{result?.failed ? `, ${result.failed} failed` : ""}
               </p>

@@ -76,7 +76,7 @@ export function InvoiceAttachment({ order, attachOrderInvoice, removeOrderInvoic
         </button>
         <button
           onClick={() => removeOrderInvoice(order.id)}
-          className="rounded-full p-1.5 text-ink/30 hover:bg-bad-50 hover:text-bad-500"
+          className="rounded-full p-1.5 text-ink/30 hover:bg-bad-50 hover:text-bad-600"
           title="Remove invoice photo"
         >
           <X size={13} />

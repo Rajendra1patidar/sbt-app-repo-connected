@@ -11,7 +11,7 @@ export function ConfirmDeletePopup({ label, description, onConfirm, onCancel }: 
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[var(--scrim)] p-4">
       <div className="w-full max-w-xs rounded-sheet bg-card p-6 shadow-sheet">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-bad-50 text-bad-500">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-bad-50 text-bad-600">
             <AlertTriangle size={18} />
           </span>
           <h3 className="font-display text-lg font-semibold text-ink">Delete {label}?</h3>

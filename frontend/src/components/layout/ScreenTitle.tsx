@@ -15,7 +15,7 @@ export function ScreenTitle({ view, onNav, onSearch }: { view: string; onNav: (v
   return (
     <div className="px-5">
       {back && (
-        <button type="button" onClick={() => onNav(back.view)} className="-ml-1.5 mt-6 inline-flex h-9 items-center gap-0.5 pr-2 text-[15px] font-medium text-brand-500 active:opacity-60">
+        <button type="button" onClick={() => onNav(back.view)} className="-ml-1.5 mt-6 inline-flex h-9 items-center gap-0.5 pr-2 text-[15px] font-medium text-brand-600 active:opacity-60">
           <ChevronLeftIcon size={18} />{back.label}
         </button>
       )}

@@ -106,7 +106,7 @@ export function ItemQuantityMap({ items, onSelectItem }: any) {
                   className={`flex shrink-0 flex-col items-center justify-center rounded-full p-1 text-center leading-tight ${palette.bg} ${palette.text} ${RING[c.health]}`}
                 >
                   <span className="max-w-full truncate px-1 text-[12px] font-semibold">{c.name}</span>
-                  <span className="text-[11px]">{fmtNum(c.qty)}</span>
+                  <span className="text-micro">{fmtNum(c.qty)}</span>
                 </button>
               );
             })
@@ -122,7 +122,7 @@ export function ItemQuantityMap({ items, onSelectItem }: any) {
                   className={`flex shrink-0 flex-col items-center justify-center rounded-full p-1 text-center leading-tight ${palette.bg} ${palette.text} ${RING[healthOf(it)]}`}
                 >
                   <span className="max-w-full truncate px-1 text-[12px] font-semibold">{it.name}</span>
-                  <span className="text-[11px]">{fmtNum(qtyOf(it))} {it.unit || ""}</span>
+                  <span className="text-micro">{fmtNum(qtyOf(it))} {it.unit || ""}</span>
                 </button>
               );
             })}

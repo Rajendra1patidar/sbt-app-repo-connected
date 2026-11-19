@@ -89,7 +89,7 @@ export function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
                       </p>
                     </div>
                     <div className="mt-2 sm:mt-0">
-                      <span className="mb-0.5 block text-[11px] font-semibold text-faint sm:hidden">{l.isWeight ? "Kg to return" : "Qty to return"}</span>
+                      <span className="mb-0.5 block text-micro font-semibold text-faint sm:hidden">{l.isWeight ? "Kg to return" : "Qty to return"}</span>
                       <input
                         type="number" min="0" max={l.qty - l.returned} placeholder="0"
                         value={qtyMap[l.itemId] || ""} onChange={(e) => setQty(l.itemId, e.target.value)}
@@ -97,12 +97,12 @@ export function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
                       />
                     </div>
                     <div className="mt-2 flex items-center justify-between sm:mt-0 sm:block sm:text-right">
-                      <span className="text-[11px] font-semibold text-faint sm:hidden">Refund</span>
+                      <span className="text-micro font-semibold text-faint sm:hidden">Refund</span>
                       <span className="font-display text-sm font-semibold text-ink tabular-nums">{lineRefund > 0 ? fmtMoney(lineRefund, currency) : "—"}</span>
                     </div>
                     {l.isWeight && (
                       <div className="col-span-full mt-2 sm:mt-1.5">
-                        <span className="mb-0.5 block text-[11px] font-semibold text-faint">Pieces returned</span>
+                        <span className="mb-0.5 block text-micro font-semibold text-faint">Pieces returned</span>
                         <input
                           type="number" min="0" max={Number(l.piecesQty || 0) - l.returnedPieces} placeholder="0"
                           value={piecesMap[l.itemId] || ""} onChange={(e) => setPieces(l.itemId, e.target.value)}

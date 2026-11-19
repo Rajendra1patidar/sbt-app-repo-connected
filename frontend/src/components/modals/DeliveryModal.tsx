@@ -42,7 +42,7 @@ export function DeliveryModal({ doc, items, onClose, onSave }: any) {
                     </p>
                   </div>
                   <div className="mt-2 sm:mt-0">
-                    <span className="mb-0.5 block text-[11px] font-semibold text-faint sm:hidden">Collecting now</span>
+                    <span className="mb-0.5 block text-micro font-semibold text-faint sm:hidden">Collecting now</span>
                     <input
                       type="number" min="0" max={r.remaining} placeholder="0"
                       value={qtyMap[r.itemId] || ""} onChange={(e) => setQty(r.itemId, e.target.value)}
@@ -50,7 +50,7 @@ export function DeliveryModal({ doc, items, onClose, onSave }: any) {
                     />
                   </div>
                   <div className="mt-2 flex items-center justify-between sm:mt-0 sm:block sm:text-right">
-                    <span className="text-[11px] font-semibold text-faint sm:hidden">Remaining</span>
+                    <span className="text-micro font-semibold text-faint sm:hidden">Remaining</span>
                     <span className="font-display text-sm font-semibold text-ink tabular-nums">{r.remaining}</span>
                   </div>
                 </div>

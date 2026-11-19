@@ -279,6 +279,9 @@ export const api = {
     // Issues (or re-issues) this customer's Booking Portal PIN, e.g. to hand it
     // to them again if they've forgotten it. Returns { phone, pin }.
     regeneratePortalPin: (id: string) => request(`/api/customers/${id}/portal-pin`, { method: "POST" }),
+    // Deleting a customer who has history archives them instead (remove() then answers
+    // { archived: true, customer }); this brings an archived customer back.
+    restore: (id: string) => request(`/api/customers/${id}/restore`, { method: "POST" }),
   },
   items: {
     ...crud("/api/items"),

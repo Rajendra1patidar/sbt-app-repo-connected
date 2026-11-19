@@ -242,15 +242,15 @@ export function DocumentList({ type, docs, customers, items, payments, currency,
           </div>
         )}
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-          {totalExp > 0 && <div className="rounded-xl bg-bad-50 px-2 py-1.5"><p className="text-xs text-bad-400">Expenses</p><p className="text-sm font-semibold text-bad-600">{fmtMoney(totalExp, currency)}</p></div>}
-          {totalInc > 0 && <div className="rounded-xl bg-good-50 px-2 py-1.5"><p className="text-xs text-good-500">Income</p><p className="text-sm font-semibold text-good-700">{fmtMoney(totalInc, currency)}</p></div>}
+          {totalExp > 0 && <div className="rounded-xl bg-bad-50 px-2 py-1.5"><p className="text-xs text-bad-600">Expenses</p><p className="text-sm font-semibold text-bad-600">{fmtMoney(totalExp, currency)}</p></div>}
+          {totalInc > 0 && <div className="rounded-xl bg-good-50 px-2 py-1.5"><p className="text-xs text-good-600">Income</p><p className="text-sm font-semibold text-good-700">{fmtMoney(totalInc, currency)}</p></div>}
           {d.deliveryFee > 0 && (
             <div className={`rounded-xl px-2 py-1.5 ${d.feeVerified ? "bg-brand-50" : "bg-warn-50 border border-warn-300"}`}>
-              <p className={`text-xs flex items-center justify-center gap-1 ${d.feeVerified ? "text-brand-400" : "text-warn-500"}`}>
+              <p className={`text-xs flex items-center justify-center gap-1 ${d.feeVerified ? "text-brand-600" : "text-warn-700"}`}>
                 {!d.feeVerified && <AlertTriangle size={10} />}Delivery fee
               </p>
               <p className={`text-sm font-semibold ${d.feeVerified ? "text-brand-700" : "text-warn-700"}`}>{fmtMoney(d.deliveryFee, currency)}</p>
-              {!d.feeVerified && <p className="text-xs text-warn-500 font-semibold">Unverified</p>}
+              {!d.feeVerified && <p className="text-xs text-warn-700 font-semibold">Unverified</p>}
             </div>
           )}
         </div>
@@ -435,19 +435,19 @@ export function DocumentList({ type, docs, customers, items, payments, currency,
 
       <div className="flex items-center overflow-hidden rounded-card bg-card">
         <div className="flex-1 py-2.5 text-center">
-          <p className="text-[11px] text-faint">Due</p>
+          <p className="text-micro text-faint">Due</p>
           <p className="font-display text-sm font-semibold text-ink">{fmtMoney(dueTotal, currency)}</p>
         </div>
         <div className="h-6 w-px bg-line" />
         <div className="flex-1 py-2.5 text-center">
-          <p className="text-[11px] text-bad-600">Overdue</p>
+          <p className="text-micro text-bad-600">Overdue</p>
           <p className="font-display text-sm font-semibold text-bad-600">{fmtMoney(overdueTotal, currency)}</p>
         </div>
         {collectedToday !== null && (
           <>
             <div className="h-6 w-px bg-line" />
             <div className="flex-1 py-2.5 text-center">
-              <p className="text-[11px] text-good-600">Collected</p>
+              <p className="text-micro text-good-600">Collected</p>
               <p className="font-display text-sm font-semibold text-good-700">{fmtMoney(collectedToday, currency)}</p>
             </div>
           </>
@@ -549,7 +549,7 @@ function RailButton({ icon, label, onClick, className = "" }: any) {
   return (
     <button onClick={onClick} className={`flex flex-col items-center gap-0.5 text-mute ${className}`}>
       {icon}
-      <span className="text-[11px] font-semibold">{label}</span>
+      <span className="text-micro font-semibold">{label}</span>
     </button>
   );
 }

@@ -54,7 +54,8 @@ const CLOSE_VELOCITY = 0.6; // px per ms
 const DRAG_START = 8; // px of downward travel before it counts as a drag
 
 export function useSheetBehavior(
-  panelRef: RefObject<HTMLElement>,
+  // `HTMLElement | null`: React 19's useRef(null) gives a ref whose value can be null until it mounts.
+  panelRef: RefObject<HTMLElement | null>,
   onClose: () => void,
   { swipe = false, escape = true }: { swipe?: boolean; escape?: boolean } = {},
 ) {

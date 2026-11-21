@@ -62,7 +62,7 @@ export function ItemDetailDrawer({ item, items, godowns, open, onClose, currency
   const isBad = gateStock <= threshold;
   const isWarn = !isBad && gateStock <= threshold * 1.5;
   const statusLabel = isBad ? "Below reorder line — order recommended" : isWarn ? "Watch — approaching reorder line" : "Healthy";
-  const statusColor = isBad ? "text-bad-600" : isWarn ? "text-warn-600" : "text-good-600";
+  const statusColor = isBad ? "text-bad-600" : isWarn ? "text-warn-700" : "text-good-600";
   const iconBg = isBad ? "#B23A2E" : isWarn ? "#B27B1E" : "#2E7D5B";
 
   const maxAbs = Math.max(1, ...movement.map((m) => Math.abs(m.net)));

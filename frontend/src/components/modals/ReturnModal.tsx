@@ -130,7 +130,7 @@ export function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
           <button
             disabled={!canSave}
             onClick={() => canSave && onSave(lines.map((l: any) => ({ itemId: l.itemId, qty: l.returnQty, piecesQty: l.isWeight ? l.returnPieces : undefined })))}
-            className="flex-1 rounded-full bg-bad-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
+            className="flex-1 rounded-full bg-bad-500 py-3 text-sm font-semibold text-white disabled:opacity-40"
           >
             Refund {refundTotal > 0 ? fmtMoney(refundTotal, currency) : ""}
           </button>

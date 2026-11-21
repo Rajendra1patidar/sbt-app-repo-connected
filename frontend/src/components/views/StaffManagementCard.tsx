@@ -136,7 +136,7 @@ export function StaffManagementCard() {
             <button
               onClick={addStaff}
               disabled={saving}
-              className="flex-1 rounded-xl bg-brand-600 py-2 text-sm font-semibold text-white disabled:opacity-40"
+              className="flex-1 rounded-xl bg-brand-500 py-2 text-sm font-semibold text-white disabled:opacity-40"
             >
               {saving ? <Loader2 size={14} className="mx-auto animate-spin" /> : "Add"}
             </button>

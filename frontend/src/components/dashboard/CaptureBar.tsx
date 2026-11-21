@@ -307,7 +307,7 @@ export function CaptureBar({ items, customers, vendors, estimates, currency, rol
     <>
       <div className={cx("rounded-[20px] border bg-card px-3 pb-3 pt-2.5 shadow-capture transition-colors", focused ? "border-brand-400" : "border-edge")}>
         <div className="flex h-11 items-center gap-2.5">
-          <span className="flex text-insight-500"><SparkIcon size={22} className={busy ? "animate-pulse" : ""} /></span>
+          <span className="flex text-insight-600"><SparkIcon size={22} className={busy ? "animate-pulse" : ""} /></span>
           <input
             ref={inputRef} value={value} disabled={busy}
             onChange={(e) => setValue(e.target.value)}

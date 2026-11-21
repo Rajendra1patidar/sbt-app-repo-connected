@@ -20,7 +20,7 @@ export function TransactionDetailModal({ title, subtitle, rows, accent = "brand"
     brand: "text-brand-600 bg-brand-50",
     good: "text-good-600 bg-good-50",
     bad: "text-bad-600 bg-bad-50",
-    warn: "text-warn-600 bg-warn-50",
+    warn: "text-warn-700 bg-warn-50",
   };
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4" onClick={onClose}>

@@ -88,9 +88,9 @@ export function VendorsView({ vendors, purchases, currency, openModal, removeVen
                 <div className="flex items-center gap-2 shrink-0">
                   <div className="text-right">
                     <p className="text-xs text-faint">You owe</p>
-                    <p className={`font-semibold ${owed > 0 ? "text-warn-600" : "text-good-600"}`}>{fmtMoney(owed, currency)}</p>
+                    <p className={`font-semibold ${owed > 0 ? "text-warn-700" : "text-good-600"}`}>{fmtMoney(owed, currency)}</p>
                   </div>
-                  <ChevronDown size={16} className={`text-ink/30 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                  <ChevronDown size={16} className={`text-faint transition-transform ${isOpen ? "rotate-180" : ""}`} />
                 </div>
               </div>
               {isOpen && (
@@ -146,7 +146,7 @@ export function VendorsView({ vendors, purchases, currency, openModal, removeVen
                             <p className="text-xs text-faint">{fmtDate(row.date)}</p>
                           </div>
                           <div className="text-right shrink-0">
-                            <p className={`text-sm font-semibold ${row.type === "credit" ? "text-warn-600" : "text-good-600"}`}>
+                            <p className={`text-sm font-semibold ${row.type === "credit" ? "text-warn-700" : "text-good-600"}`}>
                               {row.type === "credit" ? "+" : "-"}{fmtMoney(row.amount, currency)}
                             </p>
                             <p className="text-xs text-faint">Bal: {fmtMoney(row.balance, currency)}</p>

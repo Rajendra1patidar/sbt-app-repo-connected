@@ -55,7 +55,7 @@ export function TransferModal({ items, godowns, onClose, onSave, prefill }: any)
                 {godowns.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
             </div>
-            <ArrowRight size={16} className="mt-5 shrink-0 text-ink/30" />
+            <ArrowRight size={16} className="mt-5 shrink-0 text-faint" />
             <div className="flex-1 min-w-0">
               <span className="mb-1 block text-xs font-semibold text-mute">To</span>
               <select value={toGodownId} onChange={(e) => setToGodownId(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm">

@@ -55,7 +55,7 @@ export function CustomerPortalSharePopup({ customer, onClose }: { customer: any;
         <p className="mt-1 text-sm text-mute">{customer.name}{customer.phone ? ` · ${customer.phone}` : ""}</p>
 
         {!customer.phone && (
-          <p className="mt-3 rounded-xl bg-warn-50 p-3 text-xs font-semibold text-warn-600">
+          <p className="mt-3 rounded-xl bg-warn-50 p-3 text-xs font-semibold text-warn-700">
             This customer has no phone number saved. They log in with their phone number, so add one first (Edit customer).
           </p>
         )}

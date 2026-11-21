@@ -146,7 +146,7 @@ export function NotificationBell() {
                   <div className="min-w-0 flex-1">
                     <p className={`text-sm ${n.read ? "text-ink/70" : "font-semibold text-ink"}`}>{n.title}</p>
                     {n.body && <p className="mt-0.5 text-xs text-mute line-clamp-2">{n.body}</p>}
-                    <p className="mt-1 text-[12px] text-ink/30">{timeAgo(n.createdAt)}</p>
+                    <p className="mt-1 text-[12px] text-faint">{timeAgo(n.createdAt)}</p>
                   </div>
                   {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-500" />}
                   <IconButton label="Clear notification" tone="faint" layout="inline" className="mt-0.5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100" onClick={(e) => handleClear(e, n.id)}>

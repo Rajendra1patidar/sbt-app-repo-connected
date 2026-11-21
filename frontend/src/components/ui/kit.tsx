@@ -159,7 +159,7 @@ export function RoundButton({ children, label, onClick, variant = "outline", cla
     <button type="button" aria-label={label} onClick={onClick} style={{ width: size, height: size }}
       className={cx(
         "relative flex shrink-0 items-center justify-center rounded-full transition active:scale-95",
-        variant === "solid" ? "bg-brand-500 text-white hover:bg-brand-600" : "border border-line bg-card text-mute",
+        variant === "solid" ? "bg-brand-500 text-white hover:opacity-90" : "border border-line bg-card text-mute",
         className,
       )}>
       {children}
@@ -219,7 +219,7 @@ export function PrimaryButton({ children, className, size = "lg", full = true, t
     <button type="button" {...rest}
       className={cx(
         "rounded-[14px] font-semibold text-white transition active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-40",
-        tone === "danger" ? "bg-bad-500 hover:opacity-90" : "bg-brand-500 hover:bg-brand-600",
+        tone === "danger" ? "bg-bad-500 hover:opacity-90" : "bg-brand-500 hover:opacity-90",
         size === "lg" ? "h-[52px] text-[16px]" : "h-12 text-[15px]",
         full && "w-full", className,
       )}>

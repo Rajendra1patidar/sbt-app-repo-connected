@@ -217,7 +217,7 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
                   key={n}
                   type="button"
                   onClick={() => toggleWorkerChip(n)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${active ? "border-brand-600 bg-brand-600 text-white" : "border-line bg-paper text-ink/70"}`}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${active ? "border-brand-500 bg-brand-500 text-white" : "border-line bg-paper text-ink/70"}`}
                 >
                   {n}
                 </button>
@@ -286,7 +286,7 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
           <span className="text-sm font-semibold text-brand-700">This session</span>
           <span className="font-display text-lg font-semibold text-brand-700">{fmtMoney(sessionTotal, currency)}</span>
         </div>
-        <button disabled={!canSave || saving} onClick={save} className="mt-3 w-full rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40">
+        <button disabled={!canSave || saving} onClick={save} className="mt-3 w-full rounded-full bg-brand-500 py-3 text-sm font-semibold text-white disabled:opacity-40">
           {saving ? "Saving…" : "+ Save session"}
         </button>
       </Card>

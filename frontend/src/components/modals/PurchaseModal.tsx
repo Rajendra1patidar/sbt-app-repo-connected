@@ -221,7 +221,7 @@ export function PurchaseModal({ vendors, items, godowns, onClose, onSave, onQuic
                 {PAYMENT_CHOICES.map((c) => (
                   <button
                     key={c.key} type="button" onClick={() => setPaymentChoice(c.key)}
-                    className={`rounded-xl px-1 py-2 text-xs font-semibold transition ${paymentChoice === c.key ? "bg-brand-600 text-white" : "bg-paper text-mute"}`}
+                    className={`rounded-xl px-1 py-2 text-xs font-semibold transition ${paymentChoice === c.key ? "bg-brand-500 text-white" : "bg-paper text-mute"}`}
                   >
                     {c.label}
                   </button>
@@ -257,7 +257,7 @@ export function PurchaseModal({ vendors, items, godowns, onClose, onSave, onQuic
         <div className="mt-6 flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
           <button disabled={!canSave} onClick={handleSaveClick}
-            className="flex-1 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40">{saving ? "Saving…" : "Save purchase"}</button>
+            className="flex-1 rounded-full bg-brand-500 py-3 text-sm font-semibold text-white disabled:opacity-40">{saving ? "Saving…" : "Save purchase"}</button>
         </div>
       </div>
 

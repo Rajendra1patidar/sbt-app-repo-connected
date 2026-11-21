@@ -146,7 +146,7 @@ export function OrderModal({ items, vendors, currency, onClose, onSave, prefill 
         <div className="mt-6 flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
           <button disabled={!canSave} onClick={handleSaveClick}
-            className="flex-1 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40">{saving ? "Placing…" : "Place Order"}</button>
+            className="flex-1 rounded-full bg-brand-500 py-3 text-sm font-semibold text-white disabled:opacity-40">{saving ? "Placing…" : "Place Order"}</button>
         </div>
       </div>
     </div>

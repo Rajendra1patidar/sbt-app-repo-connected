@@ -551,7 +551,7 @@ function AttentionBanner({ row, customerName, customerPhone, currency, onView }:
   const name = row.kind === "credit" ? row.customer.name : customerName(row.doc.customerId);
   const phone = row.kind === "credit" ? row.customer.phone : customerPhone(row.doc.customerId);
   const palette = row.kind === "overdue" ? { bar: "bg-bad-500" } : row.kind === "credit" ? { bar: "bg-warn-500" } : { bar: "bg-brand-500" };
-  const icon = row.kind === "overdue" ? <AlertTriangle size={13} className="text-bad-600" /> : row.kind === "credit" ? <CreditCard size={13} className="text-warn-600" /> : <Clock size={13} className="text-brand-600" />;
+  const icon = row.kind === "overdue" ? <AlertTriangle size={13} className="text-bad-600" /> : row.kind === "credit" ? <CreditCard size={13} className="text-warn-700" /> : <Clock size={13} className="text-brand-600" />;
   const detail = row.kind === "overdue"
     ? `${row.daysOverdue} day${row.daysOverdue !== 1 ? "s" : ""} overdue · ${fmtMoney(row.balance, currency)}`
     : row.kind === "credit"

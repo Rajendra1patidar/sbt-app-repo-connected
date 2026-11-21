@@ -72,8 +72,8 @@ export function InvoiceAttachment({ order, attachOrderInvoice, removeOrderInvoic
           {thumbUrl
             ? <img src={thumbUrl} alt="Invoice" className="h-full w-full object-cover" />
             : thumbFailed
-            ? <ImageOff size={14} className="text-ink/30" />
-            : <Loader2 size={14} className="animate-spin text-ink/30" />}
+            ? <ImageOff size={14} className="text-faint" />
+            : <Loader2 size={14} className="animate-spin text-faint" />}
         </button>
         <IconButton label="Remove invoice photo" tone="faint" layout="compact" onClick={() => removeOrderInvoice(order.id)}>
           <X size={13} />

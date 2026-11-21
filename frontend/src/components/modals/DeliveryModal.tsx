@@ -65,7 +65,7 @@ export function DeliveryModal({ doc, items, onClose, onSave }: any) {
           <button
             disabled={!canSave}
             onClick={() => canSave && onSave(lines.map((l: any) => ({ itemId: l.itemId, qty: l.collectQty })))}
-            className="flex-1 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
+            className="flex-1 rounded-full bg-brand-500 py-3 text-sm font-semibold text-white disabled:opacity-40"
           >
             Record collection
           </button>

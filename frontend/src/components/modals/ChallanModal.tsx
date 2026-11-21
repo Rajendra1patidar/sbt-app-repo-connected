@@ -124,7 +124,7 @@ export function ChallanModal({ onClose, onSave }: any) {
               {feeVerified && <Check size={11} className="text-white" />}
             </span>
             <span className={`text-sm font-medium ${feeVerified ? "text-good-700" : "text-ink/70"}`}>Verify delivery fee</span>
-            {!feeVerified && deliveryFee && <span className="ml-auto text-xs font-semibold text-warn-600 flex items-center gap-1"><AlertTriangle size={12} /> Not verified</span>}
+            {!feeVerified && deliveryFee && <span className="ml-auto text-xs font-semibold text-warn-700 flex items-center gap-1"><AlertTriangle size={12} /> Not verified</span>}
           </button>
         </div>
 
@@ -132,7 +132,7 @@ export function ChallanModal({ onClose, onSave }: any) {
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
           <button disabled={!canSave} onClick={() => canSave && onSave({ route, fromDate, toDate, byWhom, transporter, expenses, incomes, deliveryFee: Number(deliveryFee) || 0, feeVerified, total: totalIncomes - totalExpenses + (Number(deliveryFee) || 0) })}
-            className="flex-1 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40">Save Challan</button>
+            className="flex-1 rounded-full bg-brand-500 py-3 text-sm font-semibold text-white disabled:opacity-40">Save Challan</button>
         </div>
       </div>
     </div>

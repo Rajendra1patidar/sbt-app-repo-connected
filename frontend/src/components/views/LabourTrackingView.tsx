@@ -5,6 +5,7 @@ import { SearchableSelect } from "../common/SearchableSelect";
 import { LABOUR_RATES, SARIA_KG_PER_BUNDLE } from "../../lib/constants";
 import { fmtDate, fmtMoney, today } from "../../lib/format";
 
+import { IconButton } from "../ui/kit";
 export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, currency, estimates, items, customers }: any) {
   const todayStr = today();
   const [workerCount, setWorkerCount] = useState(1);
@@ -216,7 +217,7 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
                   key={n}
                   type="button"
                   onClick={() => toggleWorkerChip(n)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${active ? "border-brand-500 bg-brand-500 text-white" : "border-line bg-paper text-ink/70"}`}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${active ? "border-brand-600 bg-brand-600 text-white" : "border-line bg-paper text-ink/70"}`}
                 >
                   {n}
                 </button>
@@ -265,7 +266,7 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
 
         <div className="mb-2 flex items-center justify-between">
           <span className="text-xs font-semibold text-mute">Include "Other" work?</span>
-          <button type="button" onClick={() => setOtherIncluded((v) => !v)} className={`h-6 w-11 shrink-0 rounded-full p-0.5 transition ${otherIncluded ? "bg-warn-500" : "bg-paper"}`}>
+          <button type="button" role="switch" aria-checked={otherIncluded} aria-label='Include "Other" work' onClick={() => setOtherIncluded((v) => !v)} className={`relative h-6 w-11 shrink-0 rounded-full p-0.5 transition before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] ${otherIncluded ? "bg-warn-500" : "bg-paper"}`}>
             <span className={`block h-5 w-5 rounded-full bg-card transition ${otherIncluded ? "translate-x-5" : "translate-x-0"}`} />
           </button>
         </div>
@@ -285,7 +286,7 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
           <span className="text-sm font-semibold text-brand-700">This session</span>
           <span className="font-display text-lg font-semibold text-brand-700">{fmtMoney(sessionTotal, currency)}</span>
         </div>
-        <button disabled={!canSave || saving} onClick={save} className="mt-3 w-full rounded-full bg-brand-500 py-3 text-sm font-semibold text-white disabled:opacity-40">
+        <button disabled={!canSave || saving} onClick={save} className="mt-3 w-full rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40">
           {saving ? "Saving…" : "+ Save session"}
         </button>
       </Card>
@@ -317,7 +318,7 @@ export function LabourTrackingView({ sessions, knownWorkers, onSave, onRemove, c
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-ink">{fmtMoney(s.total, currency)}</span>
-                  <button onClick={() => onRemove(s.id)} className="rounded-full p-1 text-bad-600 hover:bg-bad-50"><Trash2 size={13} /></button>
+                  <IconButton label="Delete labour entry" tone="danger" layout="compact" onClick={() => onRemove(s.id)}><Trash2 size={13} /></IconButton>
                 </div>
               </div>
             ))}

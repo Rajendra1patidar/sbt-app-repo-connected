@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ArrowRight, X } from "lucide-react";
 import { SearchableSelect } from "../common/SearchableSelect";
 
+import { IconButton } from "../ui/kit";
 // `prefill` (optional) lets the Stock screen open this with the item and both godowns already chosen.
 export function TransferModal({ items, godowns, onClose, onSave, prefill }: any) {
   const [itemId, setItemId] = useState(prefill?.itemId || "");
@@ -33,7 +34,7 @@ export function TransferModal({ items, godowns, onClose, onSave, prefill }: any)
       <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display text-lg font-semibold text-ink">Transfer stock</h3>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
+          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
         </div>
 
         <div className="space-y-3">
@@ -54,7 +55,7 @@ export function TransferModal({ items, godowns, onClose, onSave, prefill }: any)
                 {godowns.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
             </div>
-            <ArrowRight size={16} className="mt-5 shrink-0 text-faint" />
+            <ArrowRight size={16} className="mt-5 shrink-0 text-ink/30" />
             <div className="flex-1 min-w-0">
               <span className="mb-1 block text-xs font-semibold text-mute">To</span>
               <select value={toGodownId} onChange={(e) => setToGodownId(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm">

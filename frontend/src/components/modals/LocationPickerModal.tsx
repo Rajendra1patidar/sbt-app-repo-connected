@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Loader2, Search, X } from "lucide-react";
 import { MAPBOX_TOKEN, loadMapbox, reverseGeocode, suggestPlaces, SERVICE_REGION_CENTER, SERVICE_REGION_BBOX, SERVICE_REGION_DEFAULT_ZOOM } from "../../lib/mapbox";
 
+import { IconButton } from "../ui/kit";
 export function LocationPickerModal({ initialAddress, initialLat, initialLng, onClose, onPick }: any) {
   const mapDivRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -130,7 +131,7 @@ export function LocationPickerModal({ initialAddress, initialLat, initialLng, on
       <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display text-lg font-semibold text-ink">Pick location on map</h3>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
+          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
         </div>
 
         {status === "error" ? (
@@ -188,7 +189,7 @@ export function LocationPickerModal({ initialAddress, initialLat, initialLng, on
           <button
             disabled={!coords}
             onClick={() => coords && onPick({ address, lat: coords.lat, lng: coords.lng })}
-            className="flex-1 rounded-full bg-brand-500 py-3 text-sm font-semibold text-white disabled:opacity-40"
+            className="flex-1 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
           >
             Use this location
           </button>

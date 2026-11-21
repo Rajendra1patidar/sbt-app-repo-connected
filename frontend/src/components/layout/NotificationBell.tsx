@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Bell, CreditCard, FileText, Package, ShieldAlert, TrendingDown, Users, X } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 
+import { IconButton } from "../ui/kit";
 /* ---- Notification bell: badge + dropdown inbox, backed by useAppStore ---- */
 
 const ICONS: Record<string, any> = {
@@ -93,17 +94,18 @@ export function NotificationBell() {
 
   return (
     <div className="relative" ref={panelRef}>
-      <button
+      <IconButton
+        label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
+        variant="outline" layout="compact" aria-expanded={open} aria-haspopup="true"
         onClick={() => setOpen((v) => !v)}
-        className="relative rounded-full border border-line bg-card p-2 hover:border-brand-200 transition-colors"
       >
         <Bell size={18} className="text-mute" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-micro font-semibold text-white">
+          <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-micro font-semibold leading-none text-white">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
-      </button>
+      </IconButton>
 
       {open && (
         <div className="absolute right-0 top-12 z-30 w-80 max-w-[90vw] rounded-2xl border border-line bg-card shadow-sheet overflow-hidden">
@@ -144,17 +146,12 @@ export function NotificationBell() {
                   <div className="min-w-0 flex-1">
                     <p className={`text-sm ${n.read ? "text-ink/70" : "font-semibold text-ink"}`}>{n.title}</p>
                     {n.body && <p className="mt-0.5 text-xs text-mute line-clamp-2">{n.body}</p>}
-                    <p className="mt-1 text-[12px] text-faint">{timeAgo(n.createdAt)}</p>
+                    <p className="mt-1 text-[12px] text-ink/30">{timeAgo(n.createdAt)}</p>
                   </div>
                   {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-500" />}
-                  <button
-                    type="button"
-                    aria-label="Clear notification"
-                    onClick={(e) => handleClear(e, n.id)}
-                    className="mt-0.5 shrink-0 rounded-full p-1 text-faint opacity-0 transition-opacity hover:bg-bad-50 hover:text-bad-600 group-hover:opacity-100"
-                  >
+                  <IconButton label="Clear notification" tone="faint" layout="inline" className="mt-0.5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100" onClick={(e) => handleClear(e, n.id)}>
                     <X size={13} />
-                  </button>
+                  </IconButton>
                 </div>
               );
             })}

@@ -1,6 +1,7 @@
 import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+import { IconButton } from "../ui/kit";
 export function Pagination({
   page, totalPages, onPageChange, total, pageSize,
 }: {
@@ -20,23 +21,13 @@ export function Pagination({
         {rangeStart != null ? `${rangeStart}–${rangeEnd} of ${total}` : `Page ${page} of ${totalPages}`}
       </p>
       <div className="flex items-center gap-1">
-        <button
-          onClick={() => onPageChange(Math.max(1, page - 1))}
-          disabled={page <= 1}
-          className="rounded-full p-1.5 text-mute hover:bg-paper disabled:opacity-30"
-          aria-label="Previous page"
-        >
+        <IconButton label="Previous page" onClick={() => onPageChange(Math.max(1, page - 1))} disabled={page <= 1}>
           <ChevronLeft size={16} />
-        </button>
+        </IconButton>
         <span className="min-w-[3.5rem] text-center text-xs font-semibold text-ink/70">{page} / {totalPages}</span>
-        <button
-          onClick={() => onPageChange(Math.min(totalPages, page + 1))}
-          disabled={page >= totalPages}
-          className="rounded-full p-1.5 text-mute hover:bg-paper disabled:opacity-30"
-          aria-label="Next page"
-        >
+        <IconButton label="Next page" onClick={() => onPageChange(Math.min(totalPages, page + 1))} disabled={page >= totalPages}>
           <ChevronRight size={16} />
-        </button>
+        </IconButton>
       </div>
     </div>
   );

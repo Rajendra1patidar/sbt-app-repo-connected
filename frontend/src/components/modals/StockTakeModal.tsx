@@ -3,6 +3,7 @@ import { CheckCircle2, ClipboardPaste, Loader2, X } from "lucide-react";
 import { fmtNum } from "../../lib/format";
 import { matchStockTakeLines, parseStockTakeText, StockTakeMatch } from "../../lib/stockTakeParser";
 
+import { IconButton } from "../ui/kit";
 type Step = "paste" | "review" | "done";
 
 interface RowState {
@@ -91,7 +92,7 @@ export function StockTakeModal({ items, godowns, onClose, applyStockAdjustments 
       <div className="w-full sm:max-w-lg rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between mb-4 shrink-0">
           <h3 className="font-display text-lg font-semibold text-ink">Stock take</h3>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
+          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
         </div>
 
         {step === "paste" && (
@@ -155,7 +156,7 @@ export function StockTakeModal({ items, godowns, onClose, applyStockAdjustments 
                   <div key={idx} className={`rounded-xl border px-3 py-2.5 ${r.itemId ? "border-line" : "border-warn-300 bg-warn-50"}`}>
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-xs text-faint truncate flex-1">{r.match.rawName}</p>
-                      <button onClick={() => removeRow(idx)} className="text-faint hover:text-bad-600 shrink-0"><X size={13} /></button>
+                      <IconButton label="Remove row" tone="faint" layout="inline" className="-my-1" onClick={() => removeRow(idx)}><X size={13} /></IconButton>
                     </div>
                     <div className="mt-1.5 flex items-center gap-2">
                       <select
@@ -192,13 +193,13 @@ export function StockTakeModal({ items, godowns, onClose, applyStockAdjustments 
                       </div>
                     )}
                     {currentItem && (
-                      <p className={`mt-1 text-xs ${delta === 0 ? "text-faint" : delta! > 0 ? "text-good-600" : "text-bad-600"}`}>
+                      <p className={`mt-1 text-xs ${delta === 0 ? "text-ink/30" : delta! > 0 ? "text-good-600" : "text-bad-600"}`}>
                         {fmtNum(oldStock ?? 0)} → {r.newStock || "?"} {isWeight ? "pc" : r.match.item?.unit || currentItem.unit || ""}
                         {delta !== null && delta !== 0 ? ` (${delta > 0 ? "+" : ""}${fmtNum(delta)})` : ""}
                       </p>
                     )}
                     {isWeight && deltaKg !== null && (
-                      <p className={`text-xs ${deltaKg === 0 ? "text-faint" : deltaKg > 0 ? "text-good-600" : "text-bad-600"}`}>
+                      <p className={`text-xs ${deltaKg === 0 ? "text-ink/30" : deltaKg > 0 ? "text-good-600" : "text-bad-600"}`}>
                         {fmtNum(oldStockKg ?? 0)}kg → {r.newStockKg}kg{deltaKg !== 0 ? ` (${deltaKg > 0 ? "+" : ""}${fmtNum(deltaKg)}kg)` : ""}
                       </p>
                     )}

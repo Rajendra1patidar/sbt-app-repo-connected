@@ -4,6 +4,7 @@ import { fmtDate, fmtMoney, fmtNum } from "../../lib/format";
 import { estimatePoints } from "../../lib/points";
 import { WHATSAPP_GREEN } from "../../lib/constants";
 
+import { IconButton } from "../ui/kit";
 export function ViewEstimateModal({ doc, customers, items, currency, scoreRules, onClose, onPrint, onShareInvoice }: any) {
   if (!doc) return null;
   const customer = customers.find((c: any) => c.id === doc.customerId);
@@ -22,7 +23,7 @@ export function ViewEstimateModal({ doc, customers, items, currency, scoreRules,
     : isOverdue ? "Overdue" : "Due";
   const statusColorClass = doc.status === "Paid" ? "text-good-600"
     : doc.status === "Partially Paid" || doc.isAdvanceBooking || doc.status === "Accepted" ? "text-brand-600"
-    : isOverdue ? "text-bad-600" : "text-warn-700";
+    : isOverdue ? "text-bad-600" : "text-warn-600";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4 animate-fade-in">
@@ -34,7 +35,7 @@ export function ViewEstimateModal({ doc, customers, items, currency, scoreRules,
             <h3 className="font-display text-lg font-semibold text-ink">{doc.number}</h3>
             <p className="text-xs text-faint">{fmtDate(doc.date)}{doc.dueDate ? ` · Due ${fmtDate(doc.dueDate)}` : ""}</p>
           </div>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
+          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
         </div>
 
         <div className="space-y-4">
@@ -223,7 +224,7 @@ export function ViewEstimateModal({ doc, customers, items, currency, scoreRules,
           {onPrint && (
             <button
               onClick={() => onPrint(doc)}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-brand-500 py-3 text-xs font-semibold text-white active:scale-[0.97]"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-brand-600 py-3 text-xs font-semibold text-white active:scale-[0.97]"
             >
               <Printer size={14} /> Print
             </button>

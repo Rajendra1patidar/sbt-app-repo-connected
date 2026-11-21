@@ -3,6 +3,7 @@ import { Plus, Trash2, X } from "lucide-react";
 import { SearchableSelect } from "../common/SearchableSelect";
 import { fmtMoney, today, round2 } from "../../lib/format";
 
+import { IconButton } from "../ui/kit";
 /* ---- OrderModal ----
  * Multi-item order entry — same shape as PurchaseModal: one vendor, one
  * date, one notes field shared across every line, but each line picks its
@@ -60,7 +61,7 @@ export function OrderModal({ items, vendors, currency, onClose, onSave, prefill 
       <div className="animate-sheet-up sheet-grab w-full sm:max-w-xl max-h-[92vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display text-lg font-semibold text-ink">New Order</h3>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
+          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
         </div>
 
         {items.length === 0 ? <p className="text-sm text-mute">Add items first.</p> : (
@@ -112,7 +113,7 @@ export function OrderModal({ items, vendors, currency, onClose, onSave, prefill 
                           <span className="font-display text-sm font-semibold text-ink tabular-nums">{fmtMoney(lineAmounts[i], "")}</span>
                         </div>
                         <div className="mt-1 flex items-center justify-end sm:mt-0">
-                          {lines.length > 1 && <button onClick={() => removeLine(i)} className="rounded-full p-1.5 text-bad-600 hover:bg-bad-50"><Trash2 size={15} /></button>}
+                          {lines.length > 1 && <IconButton label="Remove line" tone="danger" onClick={() => removeLine(i)}><Trash2 size={15} /></IconButton>}
                         </div>
                       </div>
                       {showBoxReminder && (
@@ -145,7 +146,7 @@ export function OrderModal({ items, vendors, currency, onClose, onSave, prefill 
         <div className="mt-6 flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
           <button disabled={!canSave} onClick={handleSaveClick}
-            className="flex-1 rounded-full bg-brand-500 py-3 text-sm font-semibold text-white disabled:opacity-40">{saving ? "Placing…" : "Place Order"}</button>
+            className="flex-1 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40">{saving ? "Placing…" : "Place Order"}</button>
         </div>
       </div>
     </div>

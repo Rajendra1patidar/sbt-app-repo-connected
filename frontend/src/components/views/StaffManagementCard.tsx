@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Loader2, Plus, Trash2, Users } from "lucide-react";
 import { api } from "../../lib/api";
 import { Card } from "../common/UIPrimitives";
+import { IconButton } from "../ui/kit";
 
 /* ---- Staff accounts: create/list/remove logins that share the owner's business data ---- */
 
@@ -90,13 +91,13 @@ export function StaffManagementCard() {
                   <p className="truncate text-sm font-semibold text-ink">{m.name || m.email}</p>
                   <p className="truncate text-xs text-faint">{m.email}</p>
                 </div>
-                <button
+                <IconButton
+                  label={`Remove ${m.name || m.email}'s account`} tone="faint" layout="compact"
                   onClick={() => removeStaffAccount(m.id)}
                   disabled={removingId === m.id}
-                  className="rounded-full p-1.5 text-faint hover:text-bad-600 disabled:opacity-40"
                 >
                   {removingId === m.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                </button>
+                </IconButton>
               </div>
             ))}
           </div>
@@ -135,7 +136,7 @@ export function StaffManagementCard() {
             <button
               onClick={addStaff}
               disabled={saving}
-              className="flex-1 rounded-xl bg-brand-500 py-2 text-sm font-semibold text-white disabled:opacity-40"
+              className="flex-1 rounded-xl bg-brand-600 py-2 text-sm font-semibold text-white disabled:opacity-40"
             >
               {saving ? <Loader2 size={14} className="mx-auto animate-spin" /> : "Add"}
             </button>

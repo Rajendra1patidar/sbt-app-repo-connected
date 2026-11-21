@@ -5,6 +5,7 @@ import { LOW_STOCK_DEFAULT } from "../../lib/constants";
 import { fmtMoney, fmtNum } from "../../lib/format";
 import { GodownsMapCard } from "./GodownsMapCard";
 
+import { IconButton } from "../ui/kit";
 /* ---- Godowns ---- */
 
 export function GodownsView({ godowns, items, openModal, removeGodown, saveGodown, setDefaultGodown, settings, deadStock }: any) {
@@ -140,7 +141,7 @@ export function GodownsView({ godowns, items, openModal, removeGodown, saveGodow
                     <p className="text-base font-semibold text-ink">{fmtMoney(value, settings?.currency)}</p>
                     <p className="text-xs text-faint">{itemCount} item{itemCount !== 1 ? "s" : ""} · {share.toFixed(0)}% of total</p>
                   </div>
-                  {itemCount > 0 && (isExpanded ? <ChevronUp size={16} className="text-faint" /> : <ChevronDown size={16} className="text-faint" />)}
+                  {itemCount > 0 && (isExpanded ? <ChevronUp size={16} className="text-ink/30" /> : <ChevronDown size={16} className="text-ink/30" />)}
                 </div>
               </button>
 
@@ -163,7 +164,7 @@ export function GodownsView({ godowns, items, openModal, removeGodown, saveGodow
                   {fullBreakdown.length > 8 && (
                     <div className="mb-3 flex gap-2">
                       <div className="relative flex-1">
-                        <Search size={12} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faint" />
+                        <Search size={12} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink/30" />
                         <input
                           type="text" value={breakdownSearch} onChange={(e) => setBreakdownSearch(e.target.value)} placeholder="Search this godown"
                           className="w-full rounded-lg border border-line py-1.5 pl-7 pr-2 text-xs"
@@ -203,16 +204,16 @@ export function GodownsView({ godowns, items, openModal, removeGodown, saveGodow
 
               <div className="flex items-center justify-end gap-1 pt-2">
                 {!g.isDefault && (
-                  <button onClick={() => setDefaultGodown(g.id)} title="Make default" className="rounded-full p-1.5 text-faint hover:bg-paper hover:text-brand-600">
+                  <IconButton label="Make default godown" tone="faint" onClick={() => setDefaultGodown(g.id)}>
                     <Star size={15} />
-                  </button>
+                  </IconButton>
                 )}
-                <button onClick={() => openModal("godown", { editingGodown: g })} title="Edit" className="rounded-full p-1.5 text-faint hover:bg-paper hover:text-mute">
+                <IconButton label="Edit godown" tone="faint" onClick={() => openModal("godown", { editingGodown: g })}>
                   <Pencil size={15} />
-                </button>
-                <button onClick={() => removeGodown(g.id)} title="Archive" className="rounded-full p-1.5 text-bad-600 hover:bg-bad-50">
+                </IconButton>
+                <IconButton label="Archive godown" tone="danger" onClick={() => removeGodown(g.id)}>
                   <Trash2 size={16} />
-                </button>
+                </IconButton>
               </div>
             </div>
           );

@@ -5,6 +5,7 @@ import { AuthScreen } from "./components/AuthScreen";
 import { InvoiceApp } from "./components/InvoiceApp";
 import { CustomerPortal } from "./components/CustomerPortal";
 import { clearPrivateCaches } from "./lib/account";
+import { ConfirmHost } from "./components/ui/ConfirmSheet";
 
 export default function App() {
   const [authed, setAuthed] = useState<boolean>(!!api.getToken());
@@ -27,6 +28,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <InvoiceApp onSignOut={() => { api.setToken(null); clearPrivateCaches(); setAuthed(false); }} />
+      {/* Where confirm() / notice() (lib/confirm.ts) show their sheet. */}
+      <ConfirmHost />
     </BrowserRouter>
   );
 }

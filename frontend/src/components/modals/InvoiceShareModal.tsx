@@ -5,6 +5,7 @@ import { smsLink, waLink } from "../../lib/contactLinks";
 import { fmtDate, fmtMoney, fmtNum } from "../../lib/format";
 import { drawQr, encodeQr, upiPayLink } from "../../lib/qr";
 
+import { IconButton } from "../ui/kit";
 /* ---- InvoiceShareModal ---- */
 
 export function InvoiceShareModal({ invoice, customer, items, settings, payment, onClose }: any) {
@@ -163,7 +164,7 @@ export function InvoiceShareModal({ invoice, customer, items, settings, payment,
       <div className="w-full sm:max-w-md max-h-[92vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-5 pt-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-sheet">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-display text-lg font-semibold text-ink">Share estimate</h3>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
+          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
         </div>
         <div className="overflow-hidden rounded-2xl border border-line bg-paper">
           {imgUrl ? <img src={imgUrl} alt={`Estimate ${invoice.number}`} className="block h-auto w-full" />

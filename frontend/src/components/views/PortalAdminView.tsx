@@ -2,9 +2,11 @@ import React, { useEffect, useState } from "react";
 import { Plus, Trash2, Loader2, ArrowUp, ArrowDown } from "lucide-react";
 import { api } from "../../lib/api";
 import { waLink } from "../../lib/contactLinks";
+import { confirm } from "../../lib/confirm";
 import { portalAccessMessage } from "../../lib/portalAccess";
 import { PortalUploadButton, AddByLink } from "./PortalUploadButton";
 
+import { IconButton } from "../ui/kit";
 type Tab = "categories" | "items" | "schemes" | "media" | "requests" | "whatsapp";
 const TABS: { id: Tab; label: string }[] = [
   { id: "categories", label: "Categories" }, { id: "items", label: "Items" }, { id: "schemes", label: "Schemes" },
@@ -104,7 +106,7 @@ export function PortalAdminView({ settings, showToast }: any) {
   };
 
   const removeItem = async (id: string) => {
-    if (!window.confirm("Remove this item from the customer portal?")) return;
+    if (!(await confirm({ title: "Remove this item from the customer portal?", message: "Customers will no longer see it.", confirmLabel: "Remove", tone: "danger" }))) return;
     await api.portalAdmin.removeItem(id);
     setItems((l) => l.filter((i) => i._id !== id));
   };
@@ -143,14 +145,14 @@ export function PortalAdminView({ settings, showToast }: any) {
         <div className="space-y-3 rounded-2xl bg-white p-4">
           {content.categories.map((c: any, i: number) => (
             <div key={c._id || i} className="flex flex-wrap items-center gap-2">
-              <button aria-label="Move up" onClick={() => moveCat(i, -1)}><ArrowUp size={16} /></button>
-              <button aria-label="Move down" onClick={() => moveCat(i, 1)}><ArrowDown size={16} /></button>
+              <IconButton label="Move up" layout="compact" onClick={() => moveCat(i, -1)}><ArrowUp size={16} /></IconButton>
+              <IconButton label="Move down" layout="compact" onClick={() => moveCat(i, 1)}><ArrowDown size={16} /></IconButton>
               <input aria-label="Category name" className={`${inputCls} flex-1 min-w-[140px]`} value={c.name} onChange={(e) => setCat(i, { name: e.target.value })} />
               <input aria-label="Category name in Hindi (optional)" lang="hi" className={`${inputCls} flex-1 min-w-[120px]`} placeholder="Hindi name (optional)" value={c.nameHi || ""} onChange={(e) => setCat(i, { nameHi: e.target.value })} />
               {c.imageUrl && <img src={c.imageUrl} alt="" className="h-10 w-10 rounded-lg object-cover" />}
               <PortalUploadButton label={c.imageUrl ? "Change cover" : "Upload cover"} accept="image/jpeg,image/png,image/webp" onUploaded={(u) => { setCat(i, { imageUrl: u[0] }); uploadedHint(); }} />
               <label className="flex items-center gap-1 text-sm"><input type="checkbox" checked={c.visible !== false} onChange={(e) => setCat(i, { visible: e.target.checked })} /> Visible</label>
-              <button aria-label="Delete category" onClick={() => setContent((x: any) => ({ ...x, categories: x.categories.filter((_: any, k: number) => k !== i) }))}><Trash2 size={16} /></button>
+              <IconButton label="Delete category" tone="danger" layout="compact" onClick={() => setContent((x: any) => ({ ...x, categories: x.categories.filter((_: any, k: number) => k !== i) }))}><Trash2 size={16} /></IconButton>
             </div>
           ))}
           <div className="flex gap-2">
@@ -212,7 +214,7 @@ export function PortalAdminView({ settings, showToast }: any) {
                 <div className="flex-1"><div>{i.name}</div><div className="text-xs text-slate-600">{catName(i.categoryId)} · {i.photos?.length || 0} photos</div></div>
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${i.show ? "bg-green-100 text-green-800" : "bg-slate-200 text-slate-700"}`}>{i.show ? "Shown" : "Hidden"}</span>
                 <button className="text-blue-700" onClick={() => setDraft({ ...emptyItem, ...i, item: i.item || "" })}>Edit</button>
-                <button aria-label="Remove" onClick={() => removeItem(i._id)}><Trash2 size={16} /></button>
+                <IconButton label="Remove portal item" tone="danger" layout="compact" onClick={() => removeItem(i._id)}><Trash2 size={16} /></IconButton>
               </div>
             ))}
           </div>
@@ -229,7 +231,7 @@ export function PortalAdminView({ settings, showToast }: any) {
               <input aria-label="Starts" type="date" className={inputCls} value={toDateInput(s.startsAt)} onChange={(e) => setScheme(i, { startsAt: e.target.value })} />
               <input aria-label="Ends" type="date" className={inputCls} value={toDateInput(s.endsAt)} onChange={(e) => setScheme(i, { endsAt: e.target.value })} />
               <label className="flex items-center gap-1 text-sm"><input type="checkbox" checked={s.active !== false} onChange={(e) => setScheme(i, { active: e.target.checked })} /> Active</label>
-              <button aria-label="Delete scheme" onClick={() => setContent((c: any) => ({ ...c, schemes: c.schemes.filter((_: any, k: number) => k !== i) }))}><Trash2 size={16} /></button>
+              <IconButton label="Delete scheme" tone="danger" layout="compact" onClick={() => setContent((c: any) => ({ ...c, schemes: c.schemes.filter((_: any, k: number) => k !== i) }))}><Trash2 size={16} /></IconButton>
             </div>
             <div className="grid gap-2 md:grid-cols-2">
               <input aria-label="Scheme title in Hindi (optional)" lang="hi" className={inputCls} placeholder="Title in Hindi (optional)" value={s.titleHi || ""} onChange={(e) => setScheme(i, { titleHi: e.target.value })} />

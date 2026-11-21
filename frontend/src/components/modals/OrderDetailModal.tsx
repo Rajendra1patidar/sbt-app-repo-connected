@@ -5,6 +5,7 @@ import { InvoiceAttachment } from "../views/OrdersView";
 import { ViewImageModal } from "./ViewImageModal";
 import { fmtDate, fmtMoney, fmtNum, round2 } from "../../lib/format";
 
+import { IconButton } from "../ui/kit";
 /** Full detail view for a single order — opened by tapping its card in
  *  OrdersView. Shows everything the compact card leaves out (full date,
  *  vendor, notes, per-line breakdown) and carries over the same pay /
@@ -33,7 +34,7 @@ export function OrderDetailModal({ order, items, vendors, currency, payOrder, re
             <h3 className="font-display text-lg font-semibold text-ink truncate">{item?.name || "Unknown item"}</h3>
             <p className="text-xs text-faint">{fmtDate(order.date)}</p>
           </div>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
+          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
         </div>
 
         <div className="space-y-4">
@@ -81,11 +82,11 @@ export function OrderDetailModal({ order, items, vendors, currency, payOrder, re
         </div>
 
         <div className="mt-6 flex gap-3">
-          <button onClick={handleRemove} className="rounded-full border border-line p-3 text-bad-600 hover:bg-bad-50"><Trash2 size={16} /></button>
+          <IconButton label="Delete order" tone="danger" variant="outline" onClick={handleRemove}><Trash2 size={16} /></IconButton>
           {remaining > 0 && (
             <button
               onClick={() => payOrder({ id: order.id, amount: order.amount, amountPaid: order.amountPaid, itemName: item?.name })}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-500 py-3 text-sm font-semibold text-white active:scale-[0.98]"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white active:scale-[0.98]"
             >
               <IndianRupee size={15} /> Pay {fmtMoney(remaining, currency)}
             </button>

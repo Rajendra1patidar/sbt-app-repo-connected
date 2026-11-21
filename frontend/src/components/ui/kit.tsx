@@ -1,6 +1,7 @@
-import { useEffect, useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
+import { useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
 import { CheckIcon, ChevronRightIcon, MinusIcon, PlusIcon, SearchIcon, SparkIcon, CloseIcon } from "./icons";
 import { inrParts } from "../../lib/money";
+import { useSheetBehavior } from "./useSheetBehavior";
 
 /**
  * Building blocks for the design language ("One language for every screen").
@@ -142,9 +143,9 @@ export function SearchField({ value, onChange, placeholder, ariaLabel, className
       <input ref={inputRef} type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label={ariaLabel || placeholder}
         className="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-ink outline-none placeholder:text-mute [&::-webkit-search-cancel-button]:hidden" />
       {value && (
-        <button type="button" onClick={() => onChange("")} aria-label="Clear search" className="-mr-1 flex h-6 w-6 items-center justify-center rounded-full text-faint active:bg-rule/40">
+        <IconButton label="Clear search" layout="inline" tone="faint" className="-mr-1" onClick={() => onChange("")}>
           <CloseIcon size={14} />
-        </button>
+        </IconButton>
       )}
     </label>
   );
@@ -158,7 +159,51 @@ export function RoundButton({ children, label, onClick, variant = "outline", cla
     <button type="button" aria-label={label} onClick={onClick} style={{ width: size, height: size }}
       className={cx(
         "relative flex shrink-0 items-center justify-center rounded-full transition active:scale-95",
-        variant === "solid" ? "bg-brand-500 text-white hover:brightness-95" : "border border-line bg-card text-mute",
+        variant === "solid" ? "bg-brand-500 text-white hover:bg-brand-600" : "border border-line bg-card text-mute",
+        className,
+      )}>
+      {children}
+    </button>
+  );
+}
+
+export type IconButtonTone = "quiet" | "faint" | "ink" | "action" | "danger" | "inverse";
+
+const ICON_TONES: Record<IconButtonTone, string> = {
+  quiet: "text-mute hover:bg-paper active:bg-paper",
+  faint: "text-faint hover:bg-paper active:bg-paper",
+  ink: "text-ink hover:bg-paper active:bg-paper",
+  action: "text-brand-600 hover:bg-brand-50 active:bg-brand-50",
+  danger: "text-bad-600 hover:bg-bad-50 active:bg-bad-50",
+  inverse: "bg-white/10 text-white hover:bg-white/20 active:bg-white/20",
+};
+
+/**
+ * The one icon-only button. It always has a 44 x 44 px touch target, and it REQUIRES a
+ * `label`: that is what a screen reader says, and the tooltip a mouse user gets. A button
+ * with only an icon and no label doesn't compile, so there is nothing left to forget.
+ *
+ *   layout="full"     the button is 44 px (the default: headers, standalone, side by side).
+ *   layout="compact"  36 px on screen, with the 44 px target reaching 4 px past each edge:
+ *                     for rows where a full button would make the row taller.
+ *   layout="inline"   24 px on screen (a chip's x, a clear button), 44 px target.
+ *   variant           "plain" (default), "outline" (hairline ring) or "filled" (grey disc).
+ */
+export function IconButton({ label, children, tone = "quiet", variant = "plain", layout = "full", className, type = "button", ...rest }:
+  Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label" | "title" | "children"> & {
+    label: string; children: ReactNode; tone?: IconButtonTone; variant?: "plain" | "outline" | "filled"; layout?: "full" | "compact" | "inline";
+  }) {
+  return (
+    <button type={type} aria-label={label} title={label} {...rest}
+      className={cx(
+        "relative inline-flex shrink-0 items-center justify-center rounded-full transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-40",
+        layout === "full" && "h-11 w-11",
+        // The 44 px target is a ::before reaching past the edge; an outline's 1 px border sits inside that edge, so it reaches 1 px further.
+        layout === "compact" && `h-9 w-9 before:absolute before:content-[''] ${variant === "outline" ? "before:-inset-[5px]" : "before:-inset-1"}`,
+        layout === "inline" && `h-6 w-6 before:absolute before:content-[''] ${variant === "outline" ? "before:-inset-[11px]" : "before:-inset-2.5"}`,
+        variant === "outline" && "border border-line bg-card",
+        variant === "filled" && "bg-paper",
+        ICON_TONES[tone],
         className,
       )}>
       {children}
@@ -168,12 +213,13 @@ export function RoundButton({ children, label, onClick, variant = "outline", cla
 
 type BtnProps = ButtonHTMLAttributes<HTMLButtonElement> & { full?: boolean };
 
-/** The one filled action. 52 px in sheets, 48 px when two sit side by side. */
-export function PrimaryButton({ children, className, size = "lg", full = true, ...rest }: BtnProps & { size?: "lg" | "md" }) {
+/** The one filled action. 52 px in sheets, 48 px when two sit side by side. `tone="danger"` is the red one for deletes. */
+export function PrimaryButton({ children, className, size = "lg", full = true, tone = "action", ...rest }: BtnProps & { size?: "lg" | "md"; tone?: "action" | "danger" }) {
   return (
     <button type="button" {...rest}
       className={cx(
-        "rounded-[14px] bg-brand-500 font-semibold text-white transition active:scale-[0.985] hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40",
+        "rounded-[14px] font-semibold text-white transition active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-40",
+        tone === "danger" ? "bg-bad-500 hover:opacity-90" : "bg-brand-500 hover:bg-brand-600",
         size === "lg" ? "h-[52px] text-[16px]" : "h-12 text-[15px]",
         full && "w-full", className,
       )}>
@@ -208,7 +254,7 @@ export function TextButton({ children, className, tone = "action", ...rest }: Bu
 export function Switch({ checked, onChange, label, tone = "action" }: { checked: boolean; onChange: (v: boolean) => void; label: string; tone?: "action" | "insight" }) {
   return (
     <button type="button" role="switch" aria-checked={checked} aria-label={label} onClick={() => onChange(!checked)}
-      className={cx("relative h-[31px] w-[51px] shrink-0 rounded-[16px] transition-colors duration-150", checked ? (tone === "insight" ? "bg-insight-500" : "bg-brand-500") : "bg-rule")}>
+      className={cx("relative h-[31px] w-[51px] shrink-0 rounded-[16px] transition-colors duration-150 before:absolute before:-inset-x-1 before:-inset-y-[7px] before:content-['']", checked ? (tone === "insight" ? "bg-insight-500" : "bg-brand-500") : "bg-rule")}>
       <span className={cx("absolute top-0.5 h-[27px] w-[27px] rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,.3)] transition-all duration-150", checked ? "right-0.5" : "left-0.5")} />
     </button>
   );
@@ -228,9 +274,9 @@ export function Stepper({ value, onChange, label, step = 1, min = 0, max, decima
   const text = String(value ?? "");
   return (
     <div className="inline-flex h-9 items-center rounded-full bg-paper">
-      <button type="button" aria-label={`Decrease ${label}`} onClick={() => bump(-step)} className="flex h-9 w-9 items-center justify-center rounded-full text-ink active:bg-rule/40">
+      <IconButton label={`Decrease ${label}`} layout="compact" tone="ink" onClick={() => bump(-step)}>
         <MinusIcon size={16} />
-      </button>
+      </IconButton>
       <input
         value={text} inputMode={decimals ? "decimal" : "numeric"} aria-label={`${label} quantity`}
         onChange={(e) => {
@@ -241,9 +287,9 @@ export function Stepper({ value, onChange, label, step = 1, min = 0, max, decima
         style={{ width: `${Math.max(2, text.length) + 0.4}ch` }}
         className="min-w-[28px] bg-transparent text-center text-[16px] font-semibold tabular-nums text-ink outline-none"
       />
-      <button type="button" aria-label={`Increase ${label}`} onClick={() => bump(step)} className="flex h-9 w-9 items-center justify-center rounded-full text-ink active:bg-rule/40">
+      <IconButton label={`Increase ${label}`} layout="compact" tone="ink" onClick={() => bump(step)}>
         <PlusIcon size={16} />
-      </button>
+      </IconButton>
     </div>
   );
 }
@@ -278,7 +324,7 @@ export function InsightNote({ children, className, onClick }: { children: ReactN
 export function Avatar({ name, size = 40, className }: { name?: string; size?: number; className?: string }) {
   const text = (name || "?").trim().split(/\s+/).map((s) => s[0]).slice(0, 2).join("").toUpperCase();
   return (
-    <span style={{ width: size, height: size, fontSize: Math.round(size * 0.375) }}
+    <span style={{ width: size, height: size, fontSize: Math.max(12, Math.round(size * 0.375)) }}
       className={cx("flex shrink-0 items-center justify-center rounded-full bg-brand-100 font-semibold text-brand-600", className)}>
       {text}
     </span>
@@ -332,27 +378,23 @@ export function Sheet({ onClose, children, footer, label, title, trailing, tall,
 }) {
   const id = useId();
   const panelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
-  }, [onClose]);
+  // Focus stays inside, Escape closes only the top sheet, and a phone can swipe it down from the grabber or title.
+  useSheetBehavior(panelRef, onClose, { swipe: true });
 
   return (
     <div className="fixed inset-0 flex items-end justify-center animate-fade-in md:items-center md:p-6" style={{ zIndex: z, background: "var(--scrim)" }} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div
-        ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={title ? id : undefined} aria-label={title ? undefined : label}
+        ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={title ? id : undefined} aria-label={title ? undefined : label} tabIndex={-1}
         className={cx(
-          "sheet-grab animate-sheet-up flex w-full max-w-[520px] flex-col rounded-t-sheet shadow-sheet md:rounded-sheet",
+          "sheet-grab animate-sheet-up flex w-full max-w-[520px] flex-col rounded-t-sheet shadow-sheet outline-none md:rounded-sheet",
           canvas ? "bg-paper" : "bg-card",
           tall ? "h-[92vh]" : "max-h-[92vh]", className,
         )}
       >
+        {/* The grabber's touch area: the swipe-down handle on phones. */}
+        <div data-sheet-drag aria-hidden="true" className="absolute inset-x-0 top-0 z-[2] h-[29px] touch-none md:hidden" />
         {title != null && (
-          <div className="flex items-center justify-between gap-3 px-5 pb-3 pt-[29px]">
+          <div data-sheet-drag className="flex touch-none items-center justify-between gap-3 px-5 pb-3 pt-[29px] md:touch-auto">
             <h2 id={id} className="min-w-0 truncate text-[28px] font-semibold leading-[34px] tracking-[-0.02em] text-ink">{title}</h2>
             {trailing}
           </div>
@@ -365,16 +407,18 @@ export function Sheet({ onClose, children, footer, label, title, trailing, tall,
   );
 }
 
-/** A full-screen task (the estimate form) that is still a sheet: slides up on phones, centred on desktop. */
+/**
+ * A full-screen task (the estimate form) that is still a sheet: slides up on phones, centred on desktop.
+ * Focus is kept inside, but it is NOT swipe-to-close (its own header sits at the top edge) and Escape does not close it:
+ * pop-ups opened over it are still hand-built overlays that ignore Escape, so it would close the form underneath them.
+ */
 export function FullSheet({ children, onClose, z = 50, label }: { children: ReactNode; onClose?: () => void; z?: number; label: string }) {
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
-  }, []);
+  const panelRef = useRef<HTMLDivElement>(null);
+  useSheetBehavior(panelRef, onClose ?? (() => {}), { escape: false });
   return (
     <div
-      className="fixed inset-0 flex justify-center bg-paper animate-sheet-up md:animate-fade-in md:items-center md:bg-[var(--scrim)] md:p-6"
+      ref={panelRef} tabIndex={-1}
+      className="fixed inset-0 flex justify-center bg-paper outline-none animate-sheet-up md:animate-fade-in md:items-center md:bg-[var(--scrim)] md:p-6"
       style={{ zIndex: z }} role="dialog" aria-modal="true" aria-label={label}
       onMouseDown={(e) => { if (onClose && e.target === e.currentTarget && window.matchMedia("(min-width: 768px)").matches) onClose(); }}
     >

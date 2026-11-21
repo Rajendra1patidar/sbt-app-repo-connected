@@ -8,6 +8,7 @@ import { WHATSAPP_GREEN, ITEM_CATEGORIES, ITEM_BRANDS } from "../../lib/constant
 import { api } from "../../lib/api";
 import { useAppStore } from "../../store/useAppStore";
 
+import { IconButton } from "../ui/kit";
 // A staff login can read what the app needs from Settings but can't change any of
 // it (the server refuses too) - all they get here is their own PIN.
 export function SettingsView(props: any) {
@@ -85,7 +86,7 @@ function OwnerSettingsView({ settings, setSettings }: any) {
           {categories.map((c) => (
             <span key={c} className="inline-flex items-center gap-1.5 rounded-full bg-paper px-3 py-1.5 text-xs font-semibold text-ink/70">
               {c}
-              <button type="button" onClick={() => removeCategory(c)} className="text-faint hover:text-bad-600"><X size={12} /></button>
+              <IconButton label={`Remove category ${c}`} tone="faint" layout="inline" className="-my-1 -mr-1.5" onClick={() => removeCategory(c)}><X size={12} /></IconButton>
             </span>
           ))}
         </div>
@@ -110,7 +111,7 @@ function OwnerSettingsView({ settings, setSettings }: any) {
           {brands.map((b) => (
             <span key={b} className="inline-flex items-center gap-1.5 rounded-full bg-paper px-3 py-1.5 text-xs font-semibold text-ink/70">
               {b}
-              <button type="button" onClick={() => removeBrand(b)} className="text-faint hover:text-bad-600"><X size={12} /></button>
+              <IconButton label={`Remove brand ${b}`} tone="faint" layout="inline" className="-my-1 -mr-1.5" onClick={() => removeBrand(b)}><X size={12} /></IconButton>
             </span>
           ))}
         </div>

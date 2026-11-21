@@ -6,6 +6,7 @@ import { usePagination } from "../../hooks/usePagination";
 import { PAGE_SIZE } from "../../lib/constants";
 import { fmtDate, fmtMoney } from "../../lib/format";
 
+import { IconButton } from "../ui/kit";
 /* ---- Expenses ---- */
 
 export function ExpensesView({ expenses, currency, openModal, removeExpense }: any) {
@@ -42,7 +43,7 @@ export function ExpensesView({ expenses, currency, openModal, removeExpense }: a
               <div className="min-w-0"><p className="font-semibold text-ink truncate">{e.category}</p><p className="text-xs text-faint truncate">{e.vendor || "No vendor"} · {fmtDate(e.date)}</p></div>
               <div className="flex items-center gap-3 shrink-0">
                 <span className="font-semibold text-bad-600">-{fmtMoney(e.amount, currency)}</span>
-                <button onClick={() => removeExpense(e.id)} className="rounded-full p-2 text-bad-600 hover:bg-bad-50"><Trash2 size={16} /></button>
+                <IconButton label="Delete expense" tone="danger" className="-my-1.5" onClick={() => removeExpense(e.id)}><Trash2 size={16} /></IconButton>
               </div>
             </Card>
           ))}

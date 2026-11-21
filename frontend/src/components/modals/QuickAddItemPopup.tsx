@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { X } from "lucide-react";
 
+import { IconButton } from "../ui/kit";
 // Deliberately minimal (name + selling price + unit + opening stock, no category/brand/
 // vendor/box-tracking) — this exists for the fast path of adding a brand-new item while
 // building an estimate, not as a replacement for the full "New Item" form. Category
@@ -17,7 +18,7 @@ export function QuickAddItemPopup({ onCancel, onSave, saving }: any) {
       <div className="animate-pop-in w-full max-w-xs rounded-sheet bg-card p-6 shadow-sheet">
         <div className="flex items-center justify-between">
           <h3 className="font-display text-lg font-semibold text-ink">New item</h3>
-          <button onClick={onCancel} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
+          <IconButton label="Close" className="-mr-1.5" onClick={onCancel}><X size={18} /></IconButton>
         </div>
         <div className="mt-4 space-y-3">
           <div>

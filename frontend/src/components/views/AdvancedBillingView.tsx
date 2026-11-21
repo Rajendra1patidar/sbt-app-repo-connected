@@ -11,7 +11,7 @@ export function AdvancedBillingView({ autoReminder, setAutoReminder, overdueCoun
             <h3 className="font-display text-base font-semibold text-ink">WhatsApp payment reminders</h3>
             <p className="mt-1 text-sm text-faint">Show a banner for overdue estimates with one-tap WhatsApp messaging.</p>
           </div>
-          <button onClick={() => setAutoReminder((v: boolean) => !v)} className={`h-7 w-12 shrink-0 rounded-full p-0.5 transition ${autoReminder ? "bg-good-500" : "bg-paper"}`}>
+          <button type="button" role="switch" aria-checked={autoReminder} aria-label="WhatsApp payment reminders" onClick={() => setAutoReminder((v: boolean) => !v)} className={`relative h-7 w-12 shrink-0 rounded-full p-0.5 transition before:absolute before:-inset-x-1 before:-inset-y-2 before:content-[''] ${autoReminder ? "bg-good-500" : "bg-paper"}`}>
             <span className={`block h-6 w-6 rounded-full bg-card transition ${autoReminder ? "translate-x-5" : "translate-x-0"}`} />
           </button>
         </div>

@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { SearchableSelect } from "../common/SearchableSelect";
 import { fmtMoney, round2, today } from "../../lib/format";
 
+import { IconButton } from "../ui/kit";
 /**
  * A customer can have several due estimates at once (e.g. a new estimate plus
  * an older unpaid one) — this shows all of them and lets the amount received
@@ -32,14 +33,7 @@ export function PaymentAllocationModal({ customers, estimates, currency, initial
   // vs. opened generically (e.g. from the Payments tab) with nothing picked yet.
   const isContextual = !!initialCustomerId;
 
-  // Archived customers are left out, unless this is the one the payment was opened from or they still
-  // owe money (people do pay old dues after you stop dealing with them).
-  const owedBy = (id: string) => (estimates || [])
-    .filter((e: any) => e.customerId === id && e.status !== "Paid")
-    .reduce((sum: number, e: any) => sum + Math.max(0, Number(e.total || 0) - Number(e.amountPaid || 0)), 0);
-  const customerOptions = (customers || [])
-    .filter((c: any) => !c.archived || c.id === initialCustomerId || owedBy(c.id) > 0.005)
-    .map((c: any) => ({ value: c.id, label: c.name }));
+  const customerOptions = (customers || []).map((c: any) => ({ value: c.id, label: c.name }));
   const customerName = customers.find((c: any) => c.id === customerId)?.name || "";
 
   const dueEstimates = useMemo(
@@ -115,7 +109,7 @@ export function PaymentAllocationModal({ customers, estimates, currency, initial
       <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="font-display text-lg font-semibold text-ink">Record Payment</h3>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
+          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
         </div>
 
         <div className="space-y-4">
@@ -224,7 +218,7 @@ export function PaymentAllocationModal({ customers, estimates, currency, initial
         <div className="mt-6 flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
           <button disabled={!canSave} onClick={save}
-            className="flex-1 rounded-full bg-brand-500 py-3 text-sm font-semibold text-white disabled:opacity-40">
+            className="flex-1 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40">
             Save
           </button>
         </div>

@@ -1,4 +1,5 @@
 import { fmtMoney, fmtNum } from "./format";
+import { notice } from "./confirm";
 
 /* ---- Contractor share message/print builders ----
  * `c` here is a ContractorScorecardView aggregate that already carries the
@@ -58,7 +59,7 @@ export function printContractorReport(rows: { name: string; c: any }[], periodLa
   }).join("");
 
   const w = window.open("", "_blank", "width=800,height=900");
-  if (!w) { alert("Please allow pop-ups to print."); return; }
+  if (!w) { void notice({ title: "Allow pop-ups to print", message: "Your browser blocked the print window. Allow pop-ups for this site, then try again." }); return; }
   w.document.write(`<!doctype html><html><head><title>${heading}</title><style>
     @page { size: A4; margin: 14mm; }
     body { font-family: Arial, Helvetica, sans-serif; color:#0f172a; }

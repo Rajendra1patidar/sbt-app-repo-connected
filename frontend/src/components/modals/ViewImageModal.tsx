@@ -1,6 +1,7 @@
 import React from "react";
 import { X } from "lucide-react";
 
+import { IconButton } from "../ui/kit";
 /** Full-screen preview for a single photo — currently just the vendor
  *  invoice image attached to an order, but deliberately generic (title +
  *  url) so any other "tap a thumbnail to see it full-size" need can reuse it. */
@@ -17,9 +18,9 @@ export function ViewImageModal({ title, url, onClose }: { title?: string; url: s
         >
           Open original
         </a>
-        <button onClick={onClose} className="rounded-full bg-white/10 p-2 text-white hover:bg-white/20">
+        <IconButton label="Close" tone="inverse" onClick={onClose}>
           <X size={18} />
-        </button>
+        </IconButton>
       </div>
       {title && <p className="absolute top-5 left-4 text-sm font-semibold text-white/80">{title}</p>}
       <img

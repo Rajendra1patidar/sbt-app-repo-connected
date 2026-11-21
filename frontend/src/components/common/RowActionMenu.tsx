@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { MoreVertical } from "lucide-react";
 
+import { IconButton } from "../ui/kit";
 export interface RowAction {
   key: string;
   label: string;
@@ -21,13 +22,9 @@ export function RowActionMenu({ actions }: { actions: RowAction[] }) {
 
   return (
     <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        aria-label="More actions"
-        className="flex h-9 w-9 items-center justify-center rounded-full text-faint hover:bg-paper active:scale-95 transition"
-      >
+      <IconButton label="More actions" tone="faint" layout="compact" onClick={() => setOpen((o) => !o)}>
         <MoreVertical size={17} />
-      </button>
+      </IconButton>
       {open && (
         <>
           <div className="fixed inset-0 z-[55]" onClick={() => setOpen(false)} />

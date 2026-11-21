@@ -3,14 +3,15 @@ import { ArrowRight, Search, X } from "lucide-react";
 import { Badge } from "../common/UIPrimitives";
 import { fmtMoney, fmtNum } from "../../lib/format";
 
+import { IconButton } from "../ui/kit";
 /* ---- Global Search ---- */
 
 export function GlobalSearchOverlay({ customers, items, estimates, currency, onSelectCustomer, onSelectItem, onSelectEstimate, onClose }: any) {
   const [q, setQ] = useState("");
   const query = q.trim().toLowerCase();
 
-  const matchedCustomers = query ? customers.filter((c: any) => !c.archived && (
-    c.name.toLowerCase().includes(query) || (c.location || "").toLowerCase().includes(query) || (c.phone || "").includes(query))
+  const matchedCustomers = query ? customers.filter((c: any) =>
+    c.name.toLowerCase().includes(query) || (c.location || "").toLowerCase().includes(query) || (c.phone || "").includes(query)
   ).slice(0, 6) : [];
 
   const matchedItems = query ? items.filter((it: any) =>
@@ -39,7 +40,7 @@ export function GlobalSearchOverlay({ customers, items, estimates, currency, onS
             placeholder="Search customers, items, estimates..."
             className="flex-1 text-sm focus:outline-none"
           />
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
+          <IconButton label="Close search" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
         </div>
 
         <div className="p-4 space-y-5">
@@ -55,7 +56,7 @@ export function GlobalSearchOverlay({ customers, items, estimates, currency, onS
                       <p className="text-sm font-semibold text-ink">{c.name}</p>
                       {c.location && <p className="text-xs text-faint">{c.location}</p>}
                     </div>
-                    <ArrowRight size={14} className="text-faint" />
+                    <ArrowRight size={14} className="text-ink/30" />
                   </button>
                 ))}
               </div>
@@ -72,7 +73,7 @@ export function GlobalSearchOverlay({ customers, items, estimates, currency, onS
                       <p className="text-sm font-semibold text-ink">{it.name}</p>
                       <p className="text-xs text-faint">{it.category ? `${it.category} · ` : ""}Stock: {fmtNum(it.stock ?? 0)}</p>
                     </div>
-                    <ArrowRight size={14} className="text-faint" />
+                    <ArrowRight size={14} className="text-ink/30" />
                   </button>
                 ))}
               </div>

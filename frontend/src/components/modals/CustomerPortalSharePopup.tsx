@@ -4,6 +4,7 @@ import { api } from "../../lib/api";
 import { waLink } from "../../lib/contactLinks";
 import { PORTAL_URL, portalAccessMessage } from "../../lib/portalAccess";
 
+import { IconButton } from "../ui/kit";
 /**
  * Lets the owner give a customer access to their own account page (ledger + bookings).
  * Generating a PIN replaces any previous one, so it's a deliberate two-step: confirm,
@@ -49,12 +50,12 @@ export function CustomerPortalSharePopup({ customer, onClose }: { customer: any;
             <KeyRound size={18} className="text-brand-600" />
             <h3 className="font-display text-lg font-semibold text-ink">Share account link</h3>
           </div>
-          <button onClick={onClose} aria-label="Close" className="text-faint"><X size={18} /></button>
+          <IconButton label="Close" tone="faint" className="-mr-2 -my-2" onClick={onClose}><X size={18} /></IconButton>
         </div>
         <p className="mt-1 text-sm text-mute">{customer.name}{customer.phone ? ` · ${customer.phone}` : ""}</p>
 
         {!customer.phone && (
-          <p className="mt-3 rounded-xl bg-warn-50 p-3 text-xs font-semibold text-warn-700">
+          <p className="mt-3 rounded-xl bg-warn-50 p-3 text-xs font-semibold text-warn-600">
             This customer has no phone number saved. They log in with their phone number, so add one first (Edit customer).
           </p>
         )}

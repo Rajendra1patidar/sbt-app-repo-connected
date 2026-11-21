@@ -7,7 +7,9 @@ import {
 import { triggerOfflineSync } from "../../lib/offlineSync";
 import { useAppStore } from "../../store/useAppStore";
 import { fmtMoney } from "../../lib/format";
+import { confirm } from "../../lib/confirm";
 
+import { IconButton } from "../ui/kit";
 /**
  * "Waiting to sync" — everything done offline that hasn't reached the server
  * yet (new estimates, edits, payments, returns, customers...), with a
@@ -60,20 +62,20 @@ export function OfflineSyncPanel() {
     try { await triggerOfflineSync(); } finally { setSyncing(false); }
   };
 
-  const cancel = (a: OfflineAction) => {
+  const cancel = async (a: OfflineAction) => {
     const extra = a.type === "estimate" || a.type === "customer" ? "\n\nAnything queued for it (payments, returns, edits) is removed too." : "";
-    if (!window.confirm(`Remove this unsynced change?\n\n${describe(a)}${extra}`)) return;
+    if (!(await confirm({ title: "Remove this unsynced change?", message: `${describe(a)}${extra}`, confirmLabel: "Remove", tone: "danger" }))) return;
     cancelQueuedAction(a.id);
     fetchAll(); // rebuild the lists from the last synced data + what's still queued
   };
 
   const retry = async (f: FailedAction, overwrite = false) => {
-    if (overwrite && !window.confirm("Apply your version anyway? This overwrites whatever was changed on this estimate elsewhere.")) return;
+    if (overwrite && !(await confirm({ title: "Apply your version anyway?", message: "This overwrites whatever was changed on this estimate elsewhere.", confirmLabel: "Apply mine", tone: "danger" }))) return;
     if (retryFailedAction(f.action.id, { overwrite })) await sync();
   };
 
-  const discard = (f: FailedAction) => {
-    if (!window.confirm(`Discard this change for good?\n\n${describe(f.action)}`)) return;
+  const discard = async (f: FailedAction) => {
+    if (!(await confirm({ title: "Discard this change for good?", message: describe(f.action), confirmLabel: "Discard", tone: "danger" }))) return;
     discardFailedAction(f.action.id);
     fetchAll();
   };
@@ -116,7 +118,7 @@ export function OfflineSyncPanel() {
           {open && queue.map((a) => (
             <div key={a.id} className="flex items-center gap-2 text-xs">
               <span className="flex-1">{describe(a)}</span>
-              <button onClick={() => cancel(a)} aria-label="Remove this unsynced change" className="rounded-full p-1 text-warn-700"><X size={14} /></button>
+              <IconButton label="Remove this unsynced change" layout="compact" onClick={() => cancel(a)}><X size={14} /></IconButton>
             </div>
           ))}
         </div>

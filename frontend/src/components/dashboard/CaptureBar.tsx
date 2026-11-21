@@ -151,9 +151,7 @@ function understand(action: CaptureAction | null, destination: { label: string; 
   }
 }
 
-export function CaptureBar({ items, customers: allCustomers, vendors, estimates, currency, role, savePurchase, savePayment, saveCustomer, saveExpense, saveReturn, openModal, showToast, go }: any) {
-  // Archived customers are hidden here too: a sale typed for one should not match them.
-  const customers = useMemo(() => (allCustomers || []).filter((c: any) => !c.archived), [allCustomers]);
+export function CaptureBar({ items, customers, vendors, estimates, currency, role, savePurchase, savePayment, saveCustomer, saveExpense, saveReturn, openModal, showToast, go }: any) {
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<PendingAction | null>(null);
@@ -170,10 +168,6 @@ export function CaptureBar({ items, customers: allCustomers, vendors, estimates,
     let action: CaptureAction | null = null;
     try { action = parseCapture(text, { items, customers, vendors, estimates }); } catch { action = null; }
     const destination = action && action.kind !== "unknown" ? null : findDestination(text, role);
-    // Staff can't record expenses, so don't promise a confirm sheet that would only be refused.
-    if (role === "staff" && action?.kind === "expense") {
-      return { action, destination, understood: { chips: [{ text: "Expense", muted: true }], kind: "expense", caption: "Only the owner can record expenses." } as Understood };
-    }
     return { action, destination, understood: understand(action, destination, currency) };
   }, [value, items, customers, vendors, estimates, currency, role]);
 
@@ -248,11 +242,6 @@ export function CaptureBar({ items, customers: allCustomers, vendors, estimates,
       setBusy(false);
     }
 
-    if (action.kind === "expense" && role === "staff") {
-      showToast("Only the owner can record expenses");
-      resetAll();
-      return;
-    }
     if (action.kind === "add_customer" && action.existing) {
       showToast(`“${action.existing.name}” already exists — opening their edit form`);
       openModal("customer", { editingCustomer: action.existing });
@@ -318,7 +307,7 @@ export function CaptureBar({ items, customers: allCustomers, vendors, estimates,
     <>
       <div className={cx("rounded-[20px] border bg-card px-3 pb-3 pt-2.5 shadow-capture transition-colors", focused ? "border-brand-400" : "border-edge")}>
         <div className="flex h-11 items-center gap-2.5">
-          <span className="flex text-insight-600"><SparkIcon size={22} className={busy ? "animate-pulse" : ""} /></span>
+          <span className="flex text-insight-500"><SparkIcon size={22} className={busy ? "animate-pulse" : ""} /></span>
           <input
             ref={inputRef} value={value} disabled={busy}
             onChange={(e) => setValue(e.target.value)}
@@ -328,7 +317,7 @@ export function CaptureBar({ items, customers: allCustomers, vendors, estimates,
             className="min-w-0 flex-1 border-0 bg-transparent text-[16px] text-ink outline-none placeholder:text-faint"
           />
           <button type="button" aria-label="Review and save" onClick={submit} disabled={!canSubmit}
-            className={cx("flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white transition active:scale-95", canSubmit ? "bg-brand-500" : "bg-rule")}>
+            className={cx("flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white transition active:scale-95", canSubmit ? "bg-brand-500" : "bg-rule")}>
             <ArrowUpIcon size={22} />
           </button>
         </div>
@@ -347,7 +336,7 @@ export function CaptureBar({ items, customers: allCustomers, vendors, estimates,
           <>
             <div className="mb-2.5 mt-1.5 h-px bg-line" />
             <div className="flex flex-wrap gap-1.5">
-              {EXAMPLES.filter((c) => role !== "staff" || c.label !== "Logged expense").map((c) => (
+              {EXAMPLES.map((c) => (
                 <button key={c.label} type="button" onClick={() => fill(c.fill)}
                   className="h-7 rounded-[14px] border border-edge px-2.5 text-[12px] font-medium text-mute transition active:scale-95">
                   {c.label}

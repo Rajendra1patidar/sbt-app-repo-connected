@@ -7,6 +7,7 @@ import { PAGE_SIZE } from "../../lib/constants";
 import { fmtDate, fmtMoney, fmtNum } from "../../lib/format";
 import { TransactionDetailModal, DetailRow } from "../dashboard/TransactionDetailModal";
 
+import { IconButton } from "../ui/kit";
 /* ---- Purchases ---- */
 
 type GroupBy = "item" | "vendor";
@@ -143,7 +144,7 @@ export function PurchasesView({ purchases, vendors, items, currency, openModal, 
                           <IndianRupee size={12} /> Pay
                         </button>
                       )}
-                      <button onClick={(e) => { e.stopPropagation(); removePurchase(p.id); }} className="rounded-full p-2 text-bad-600 hover:bg-bad-50"><Trash2 size={16} /></button>
+                      <IconButton label="Delete purchase" tone="danger" className="-my-1.5" onClick={(e) => { e.stopPropagation(); removePurchase(p.id); }}><Trash2 size={16} /></IconButton>
                     </div>
                   </Row>
                 ))}

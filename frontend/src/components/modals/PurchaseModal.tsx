@@ -4,6 +4,7 @@ import { SearchableSelect } from "../common/SearchableSelect";
 import { QuickAddItemPopup } from "./QuickAddItemPopup";
 import { fmtMoney, today, round2 } from "../../lib/format";
 
+import { IconButton } from "../ui/kit";
 // Multi-item purchase entry — same ledger shape as the estimate form (item
 // picker, qty, rate, right-aligned amount, inline payment status) but simpler:
 // no discount column and no previous-due section, since neither concept
@@ -114,7 +115,7 @@ export function PurchaseModal({ vendors, items, godowns, onClose, onSave, onQuic
       <div className="animate-sheet-up sheet-grab w-full sm:max-w-xl max-h-[92vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display text-lg font-semibold text-ink">New Purchase</h3>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
+          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
         </div>
 
         {vendors.length === 0 ? <p className="text-sm text-mute">Add a vendor first.</p>
@@ -183,7 +184,7 @@ export function PurchaseModal({ vendors, items, godowns, onClose, onSave, onQuic
                           <span className="font-display text-sm font-semibold text-ink tabular-nums">{fmtMoney(lineAmounts[i], "")}</span>
                         </div>
                         <div className="mt-1 flex items-center justify-end sm:mt-0">
-                          {lines.length > 1 && <button onClick={() => removeLine(i)} className="rounded-full p-1.5 text-bad-600 hover:bg-bad-50"><Trash2 size={15} /></button>}
+                          {lines.length > 1 && <IconButton label="Remove line" tone="danger" onClick={() => removeLine(i)}><Trash2 size={15} /></IconButton>}
                         </div>
                       </div>
                       {isWeight && (
@@ -220,7 +221,7 @@ export function PurchaseModal({ vendors, items, godowns, onClose, onSave, onQuic
                 {PAYMENT_CHOICES.map((c) => (
                   <button
                     key={c.key} type="button" onClick={() => setPaymentChoice(c.key)}
-                    className={`rounded-xl px-1 py-2 text-xs font-semibold transition ${paymentChoice === c.key ? "bg-brand-500 text-white" : "bg-paper text-mute"}`}
+                    className={`rounded-xl px-1 py-2 text-xs font-semibold transition ${paymentChoice === c.key ? "bg-brand-600 text-white" : "bg-paper text-mute"}`}
                   >
                     {c.label}
                   </button>
@@ -256,7 +257,7 @@ export function PurchaseModal({ vendors, items, godowns, onClose, onSave, onQuic
         <div className="mt-6 flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
           <button disabled={!canSave} onClick={handleSaveClick}
-            className="flex-1 rounded-full bg-brand-500 py-3 text-sm font-semibold text-white disabled:opacity-40">{saving ? "Saving…" : "Save purchase"}</button>
+            className="flex-1 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40">{saving ? "Saving…" : "Save purchase"}</button>
         </div>
       </div>
 

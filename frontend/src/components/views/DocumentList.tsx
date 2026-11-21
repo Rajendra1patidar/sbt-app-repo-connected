@@ -14,6 +14,7 @@ import { PAGE_SIZE, WHATSAPP_GREEN } from "../../lib/constants";
 import { fmtDate, fmtMoney, initials, today } from "../../lib/format";
 import { waLink } from "../../lib/contactLinks";
 
+import { IconButton } from "../ui/kit";
 /* ---- DocumentList ---- */
 
 type SortMode = "newest" | "oldest" | "amount" | "customer";
@@ -258,7 +259,7 @@ export function DocumentList({ type, docs, customers, items, payments, currency,
           <select value={d.status} onChange={(e) => updateStatus(d.id, e.target.value)} className="rounded-full border border-line px-2.5 py-1.5 text-xs font-semibold text-ink/70">
             {["Pending", "Delivered"].map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
-          <button onClick={() => removeDoc(d.id)} className="ml-auto rounded-full p-2 text-bad-600 hover:bg-bad-50"><Trash2 size={15} /></button>
+          <IconButton label="Delete challan" tone="danger" className="ml-auto -my-1.5" onClick={() => removeDoc(d.id)}><Trash2 size={15} /></IconButton>
         </div>
       </Card>
     );
@@ -516,16 +517,8 @@ export function DocumentList({ type, docs, customers, items, payments, currency,
                   <span className="text-ink/70">{fmtMoney(g.total, currency)}</span>
                   {weekGroups.length > 1 && idx === 0 && (
                     <span className="flex items-center gap-1">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); persistCollapsedWeeks(Object.fromEntries(weekGroups.map((wg) => [wg.key, false]))); }}
-                        title="Expand all"
-                        className="rounded-full p-1 hover:bg-paper"
-                      ><ChevronsDown size={13} /></button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); persistCollapsedWeeks(Object.fromEntries(weekGroups.map((wg) => [wg.key, true]))); }}
-                        title="Collapse all"
-                        className="rounded-full p-1 hover:bg-paper"
-                      ><ChevronsUp size={13} /></button>
+                      <IconButton label="Expand all weeks" layout="compact" onClick={(e) => { e.stopPropagation(); persistCollapsedWeeks(Object.fromEntries(weekGroups.map((wg) => [wg.key, false]))); }}><ChevronsDown size={13} /></IconButton>
+                      <IconButton label="Collapse all weeks" layout="compact" onClick={(e) => { e.stopPropagation(); persistCollapsedWeeks(Object.fromEntries(weekGroups.map((wg) => [wg.key, true]))); }}><ChevronsUp size={13} /></IconButton>
                     </span>
                   )}
                   {isCollapsed ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
@@ -558,7 +551,7 @@ function AttentionBanner({ row, customerName, customerPhone, currency, onView }:
   const name = row.kind === "credit" ? row.customer.name : customerName(row.doc.customerId);
   const phone = row.kind === "credit" ? row.customer.phone : customerPhone(row.doc.customerId);
   const palette = row.kind === "overdue" ? { bar: "bg-bad-500" } : row.kind === "credit" ? { bar: "bg-warn-500" } : { bar: "bg-brand-500" };
-  const icon = row.kind === "overdue" ? <AlertTriangle size={13} className="text-bad-600" /> : row.kind === "credit" ? <CreditCard size={13} className="text-warn-700" /> : <Clock size={13} className="text-brand-600" />;
+  const icon = row.kind === "overdue" ? <AlertTriangle size={13} className="text-bad-600" /> : row.kind === "credit" ? <CreditCard size={13} className="text-warn-600" /> : <Clock size={13} className="text-brand-600" />;
   const detail = row.kind === "overdue"
     ? `${row.daysOverdue} day${row.daysOverdue !== 1 ? "s" : ""} overdue · ${fmtMoney(row.balance, currency)}`
     : row.kind === "credit"

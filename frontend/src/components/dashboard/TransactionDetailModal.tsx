@@ -1,6 +1,7 @@
 import React from "react";
 import { X } from "lucide-react";
 
+import { IconButton } from "../ui/kit";
 export interface DetailRow {
   label: string;
   value: string;
@@ -19,7 +20,7 @@ export function TransactionDetailModal({ title, subtitle, rows, accent = "brand"
     brand: "text-brand-600 bg-brand-50",
     good: "text-good-600 bg-good-50",
     bad: "text-bad-600 bg-bad-50",
-    warn: "text-warn-700 bg-warn-50",
+    warn: "text-warn-600 bg-warn-50",
   };
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4" onClick={onClose}>
@@ -33,7 +34,7 @@ export function TransactionDetailModal({ title, subtitle, rows, accent = "brand"
             <span className={`inline-block rounded-full px-2 py-0.5 text-micro font-semibold ${accentClass[accent]}`}>{title}</span>
             {subtitle && <p className="mt-1.5 text-base font-semibold text-ink truncate">{subtitle}</p>}
           </div>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper shrink-0"><X size={18} /></button>
+          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
         </div>
         <div className="divide-y divide-line">
           {rows.map((r, i) => (

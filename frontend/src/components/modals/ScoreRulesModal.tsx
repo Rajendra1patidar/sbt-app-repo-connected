@@ -6,6 +6,7 @@ import { fmtDate, fmtNum } from "../../lib/format";
 import { endOfMonth, endOfQuarter, startOfMonth, startOfQuarter } from "../../lib/period";
 import { ITEM_CATEGORIES } from "../../lib/constants";
 
+import { IconButton } from "../ui/kit";
 /* ---- Points settings: manage category base rates + brand bonus/scheme rules ----
  * A rule with no brand set is a category's base rate. A rule with a brand
  * set is a bonus/penalty added on top of that category's base rate, for
@@ -78,7 +79,7 @@ export function ScoreRulesModal({ scoreRules, items, onSave, onRemove, onClose }
       <div className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
         <div className="flex items-center justify-between mb-1">
           <h3 className="font-display text-lg font-semibold text-ink">Points settings</h3>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
+          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
         </div>
         <p className="mb-4 text-xs text-mute">
           Set a category's base points-per-unit, or add a bonus/penalty for a specific brand. Any rule can be permanent or limited to a scheme window — a scheme always wins over the permanent rate while it's active. New rules only affect estimates from today onward.
@@ -109,8 +110,8 @@ export function ScoreRulesModal({ scoreRules, items, onSave, onRemove, onClose }
                     <p className="text-xs text-mute">{d.rate} · {d.window}{r.label ? ` · ${r.label}` : ""}</p>
                   </div>
                   <div className="flex shrink-0 gap-1">
-                    <button onClick={() => openEdit(r)} className="rounded-full p-1.5 hover:bg-paper"><Pencil size={14} className="text-mute" /></button>
-                    <button onClick={() => onRemove(r.id)} className="rounded-full p-1.5 hover:bg-bad-50"><Trash2 size={14} className="text-bad-600" /></button>
+                    <IconButton label="Edit rule" onClick={() => openEdit(r)}><Pencil size={14} className="text-mute" /></IconButton>
+                    <IconButton label="Delete rule" tone="danger" onClick={() => onRemove(r.id)}><Trash2 size={14} className="text-bad-600" /></IconButton>
                   </div>
                 </div>
               );

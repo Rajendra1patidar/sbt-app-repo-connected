@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { X } from "lucide-react";
 import { fmtMoney, round2 } from "../../lib/format";
 
+import { IconButton } from "../ui/kit";
 export function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
   const alreadyReturned: Record<string, number> = {};
   const alreadyReturnedPieces: Record<string, number> = {};
@@ -46,7 +47,7 @@ export function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
       <div className="animate-sheet-up sheet-grab w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
         <div className="flex items-center justify-between mb-1">
           <h3 className="font-display text-lg font-semibold text-ink">Return items</h3>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
+          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
         </div>
         <p className="mb-4 text-xs text-mute">{doc.number} — enter how many of each item are being returned.</p>
 
@@ -129,7 +130,7 @@ export function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
           <button
             disabled={!canSave}
             onClick={() => canSave && onSave(lines.map((l: any) => ({ itemId: l.itemId, qty: l.returnQty, piecesQty: l.isWeight ? l.returnPieces : undefined })))}
-            className="flex-1 rounded-full bg-bad-500 py-3 text-sm font-semibold text-white disabled:opacity-40"
+            className="flex-1 rounded-full bg-bad-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
           >
             Refund {refundTotal > 0 ? fmtMoney(refundTotal, currency) : ""}
           </button>

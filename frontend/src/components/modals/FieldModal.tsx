@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { MapPin, X } from "lucide-react";
 import { LocationPickerModal } from "./LocationPickerModal";
 
+import { IconButton } from "../ui/kit";
 /* ---- FieldModal ---- */
 
 export function FieldModal({ title, fields, initial, onClose, onSave, danger }: any) {
@@ -28,7 +29,7 @@ export function FieldModal({ title, fields, initial, onClose, onSave, danger }: 
       <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display text-lg font-semibold text-ink">{title}</h3>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
+          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
         </div>
         <div className="space-y-4">
           {visibleFields.map((f: any) => (
@@ -93,7 +94,7 @@ export function FieldModal({ title, fields, initial, onClose, onSave, danger }: 
         <div className="mt-6 flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
           <button disabled={!canSave || saving} onClick={handleSaveClick}
-            className={`flex-1 rounded-full py-3 text-sm font-semibold text-white disabled:opacity-40 ${danger ? "bg-bad-500" : "bg-brand-500"}`}>{saving ? "Saving…" : "Save"}</button>
+            className={`flex-1 rounded-full py-3 text-sm font-semibold text-white disabled:opacity-40 ${danger ? "bg-bad-600" : "bg-brand-600"}`}>{saving ? "Saving…" : "Save"}</button>
         </div>
       </div>
 

@@ -10,6 +10,7 @@ import { StockTakeModal } from "../modals/StockTakeModal";
 import { ItemQuantityMap } from "../items/ItemQuantityMap";
 import { api } from "../../lib/api";
 
+import { IconButton } from "../ui/kit";
 type Tab = "all" | "low" | "dead" | "reorder";
 
 // Same "value" basis as the backend's stockValuation(): weighted-average
@@ -157,7 +158,7 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
     const s = it.stock ?? 0;
     const t = it.lowStock ?? LOW_STOCK_DEFAULT;
     if (s === 0) return "text-bad-600";
-    if (s <= t) return "text-warn-700";
+    if (s <= t) return "text-warn-600";
     return "text-good-600";
   };
 
@@ -275,7 +276,7 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
 
         <div className="mb-3 flex gap-2">
           <div className="relative flex-1">
-            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
+            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/30" />
             <input
               type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search items"
               className="w-full rounded-xl border border-line py-2 pl-8 pr-3 text-sm"
@@ -344,10 +345,10 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
                             <p className={`font-display text-base font-semibold ${stockColor(it)}`}>{stockBreakdown(it)}</p>
                             <p className="text-xs text-faint">{fmtMoney(itemValue(it), settings?.currency)}</p>
                           </div>
-                          <button type="button" onClick={(e) => { e.stopPropagation(); openModal("item", { editingItem: it }); }} className="rounded-full p-2 text-faint hover:bg-paper">
+                          <IconButton label="Edit item" tone="faint" layout="compact" onClick={(e) => { e.stopPropagation(); openModal("item", { editingItem: it }); }}>
                             <Pencil size={15} />
-                          </button>
-                          <ChevronDown size={15} className={`shrink-0 text-faint transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                          </IconButton>
+                          <ChevronDown size={15} className={`shrink-0 text-ink/30 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                         </div>
                       </div>
 
@@ -398,7 +399,7 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
                               </div>
                             )}
 
-                            {loading && <p className="text-xs text-faint">Loading purchase and margin details…</p>}
+                            {loading && <p className="text-xs text-ink/30">Loading purchase and margin details…</p>}
 
                             {detail?.lastPurchase && (
                               <div className="flex items-center justify-between text-xs">

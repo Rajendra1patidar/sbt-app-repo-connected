@@ -6,6 +6,7 @@ import { ITEM_CATEGORIES } from "../../lib/constants";
 import { fmtDate, fmtMoney, fmtNum } from "../../lib/format";
 import { api } from "../../lib/api";
 
+import { IconButton } from "../ui/kit";
 /* ---- Orders ---- */
 
 /** Attach/view/remove the vendor's bill photo for one pending order. Kept as
@@ -71,16 +72,12 @@ export function InvoiceAttachment({ order, attachOrderInvoice, removeOrderInvoic
           {thumbUrl
             ? <img src={thumbUrl} alt="Invoice" className="h-full w-full object-cover" />
             : thumbFailed
-            ? <ImageOff size={14} className="text-faint" />
-            : <Loader2 size={14} className="animate-spin text-faint" />}
+            ? <ImageOff size={14} className="text-ink/30" />
+            : <Loader2 size={14} className="animate-spin text-ink/30" />}
         </button>
-        <button
-          onClick={() => removeOrderInvoice(order.id)}
-          className="rounded-full p-1.5 text-faint hover:bg-bad-50 hover:text-bad-600"
-          title="Remove invoice photo"
-        >
+        <IconButton label="Remove invoice photo" tone="faint" layout="compact" onClick={() => removeOrderInvoice(order.id)}>
           <X size={13} />
-        </button>
+        </IconButton>
       </div>
     );
   }
@@ -96,14 +93,9 @@ export function InvoiceAttachment({ order, attachOrderInvoice, removeOrderInvoic
         {uploading ? <Loader2 size={12} className="animate-spin" /> : <Camera size={12} />}
         {uploading ? "Uploading…" : "Attach bill"}
       </button>
-      <button
-        onClick={() => galleryInputRef.current?.click()}
-        disabled={uploading}
-        title="Choose from gallery"
-        className="inline-flex items-center justify-center rounded-full border border-line p-1.5 text-mute hover:border-brand-300 hover:text-brand-600 disabled:opacity-50"
-      >
+      <IconButton label="Choose from gallery" variant="outline" layout="compact" onClick={() => galleryInputRef.current?.click()} disabled={uploading}>
         <Images size={14} />
-      </button>
+      </IconButton>
       <input
         ref={cameraInputRef}
         type="file"
@@ -248,7 +240,7 @@ export function OrdersView({ orders, items, vendors, categories, currency, openM
                             >
                               <IndianRupee size={12} /> Pay
                             </button>
-                            <button onClick={() => removeOrder(o.id)} className="rounded-full p-1.5 text-bad-600 hover:bg-bad-50"><Trash2 size={14} /></button>
+                            <IconButton label="Delete order" tone="danger" layout="compact" onClick={() => removeOrder(o.id)}><Trash2 size={14} /></IconButton>
                           </div>
                         </div>
                       </Row>
@@ -285,7 +277,7 @@ export function OrdersView({ orders, items, vendors, categories, currency, openM
                               onView={setViewingImage}
                             />
                             <Badge status="Received" />
-                            <button onClick={() => removeOrder(o.id)} className="rounded-full p-1.5 text-bad-600 hover:bg-bad-50"><Trash2 size={14} /></button>
+                            <IconButton label="Delete order" tone="danger" layout="compact" onClick={() => removeOrder(o.id)}><Trash2 size={14} /></IconButton>
                           </div>
                         </div>
                       </Row>

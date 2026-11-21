@@ -3,6 +3,7 @@ import { AlertTriangle, Check, Trash2, X } from "lucide-react";
 import { MAX_ENTRY_ROWS } from "../../lib/constants";
 import { today, round2 } from "../../lib/format";
 
+import { IconButton } from "../ui/kit";
 export function ChallanModal({ onClose, onSave }: any) {
   const [route, setRoute] = useState("");
   const [fromDate, setFromDate] = useState(today());
@@ -37,7 +38,7 @@ export function ChallanModal({ onClose, onSave }: any) {
         {/* Header */}
         <div className="flex items-center justify-between">
           <h3 className="font-display text-lg font-semibold text-ink">New Delivery Challan</h3>
-          <button onClick={onClose} className="rounded-full p-1.5 hover:bg-paper"><X size={18} /></button>
+          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
         </div>
 
         {/* Row 1: Route | From Date | To Date */}
@@ -81,7 +82,7 @@ export function ChallanModal({ onClose, onSave }: any) {
               <div key={i} className="flex items-center gap-2">
                 <input value={r.label} onChange={(e) => updateRow(setExpenses, expenses, i, "label", e.target.value)} placeholder="Expense label (e.g. Fuel)" className="flex-1 rounded-xl border border-line px-3 py-2 text-sm" />
                 <input type="number" value={r.amount} onChange={(e) => updateRow(setExpenses, expenses, i, "amount", e.target.value)} placeholder="Amount" className="w-28 rounded-xl border border-line px-3 py-2 text-sm" />
-                {expenses.length > 1 && <button onClick={() => removeRow(setExpenses, expenses, i)} className="rounded-full p-1.5 text-bad-600 hover:bg-bad-50"><Trash2 size={14} /></button>}
+                {expenses.length > 1 && <IconButton label="Remove expense row" tone="danger" layout="compact" onClick={() => removeRow(setExpenses, expenses, i)}><Trash2 size={14} /></IconButton>}
               </div>
             ))}
           </div>
@@ -101,7 +102,7 @@ export function ChallanModal({ onClose, onSave }: any) {
               <div key={i} className="flex items-center gap-2">
                 <input value={r.label} onChange={(e) => updateRow(setIncomes, incomes, i, "label", e.target.value)} placeholder="Income label (e.g. Freight)" className="flex-1 rounded-xl border border-line px-3 py-2 text-sm" />
                 <input type="number" value={r.amount} onChange={(e) => updateRow(setIncomes, incomes, i, "amount", e.target.value)} placeholder="Amount" className="w-28 rounded-xl border border-line px-3 py-2 text-sm" />
-                {incomes.length > 1 && <button onClick={() => removeRow(setIncomes, incomes, i)} className="rounded-full p-1.5 text-bad-600 hover:bg-bad-50"><Trash2 size={14} /></button>}
+                {incomes.length > 1 && <IconButton label="Remove income row" tone="danger" layout="compact" onClick={() => removeRow(setIncomes, incomes, i)}><Trash2 size={14} /></IconButton>}
               </div>
             ))}
           </div>
@@ -123,7 +124,7 @@ export function ChallanModal({ onClose, onSave }: any) {
               {feeVerified && <Check size={11} className="text-white" />}
             </span>
             <span className={`text-sm font-medium ${feeVerified ? "text-good-700" : "text-ink/70"}`}>Verify delivery fee</span>
-            {!feeVerified && deliveryFee && <span className="ml-auto text-xs font-semibold text-warn-700 flex items-center gap-1"><AlertTriangle size={12} /> Not verified</span>}
+            {!feeVerified && deliveryFee && <span className="ml-auto text-xs font-semibold text-warn-600 flex items-center gap-1"><AlertTriangle size={12} /> Not verified</span>}
           </button>
         </div>
 
@@ -131,7 +132,7 @@ export function ChallanModal({ onClose, onSave }: any) {
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
           <button disabled={!canSave} onClick={() => canSave && onSave({ route, fromDate, toDate, byWhom, transporter, expenses, incomes, deliveryFee: Number(deliveryFee) || 0, feeVerified, total: totalIncomes - totalExpenses + (Number(deliveryFee) || 0) })}
-            className="flex-1 rounded-full bg-brand-500 py-3 text-sm font-semibold text-white disabled:opacity-40">Save Challan</button>
+            className="flex-1 rounded-full bg-brand-600 py-3 text-sm font-semibold text-white disabled:opacity-40">Save Challan</button>
         </div>
       </div>
     </div>

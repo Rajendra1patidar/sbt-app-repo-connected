@@ -3,6 +3,7 @@ import { CheckCircle2, Loader2, X } from "lucide-react";
 import { LOW_STOCK_DEFAULT } from "../../lib/constants";
 import { fmtMoney, fmtNum, today } from "../../lib/format";
 
+import { IconButton } from "../ui/kit";
 function last7Days(): string[] {
   const out: string[] = [];
   const now = new Date();
@@ -61,7 +62,7 @@ export function ItemDetailDrawer({ item, items, godowns, open, onClose, currency
   const isBad = gateStock <= threshold;
   const isWarn = !isBad && gateStock <= threshold * 1.5;
   const statusLabel = isBad ? "Below reorder line — order recommended" : isWarn ? "Watch — approaching reorder line" : "Healthy";
-  const statusColor = isBad ? "text-bad-600" : isWarn ? "text-warn-700" : "text-good-600";
+  const statusColor = isBad ? "text-bad-600" : isWarn ? "text-warn-600" : "text-good-600";
   const iconBg = isBad ? "#B23A2E" : isWarn ? "#B27B1E" : "#2E7D5B";
 
   const maxAbs = Math.max(1, ...movement.map((m) => Math.abs(m.net)));
@@ -116,7 +117,7 @@ export function ItemDetailDrawer({ item, items, godowns, open, onClose, currency
       {open && <div onClick={onClose} className="fixed inset-0 z-[70] bg-[var(--scrim)] backdrop-blur-[1px] animate-fade-in" />}
       <aside className={`fixed z-[71] inset-y-0 right-0 w-full sm:w-[380px] transform bg-card border-l border-line shadow-sheet transition-transform duration-300 ease-out ${open ? "translate-x-0" : "translate-x-full"}`}>
         <div className="flex h-full flex-col overflow-y-auto p-6">
-          <button onClick={onClose} className="mb-4 self-end rounded-full bg-paper p-1.5 hover:bg-line/50"><X size={16} /></button>
+          <IconButton label="Close" variant="filled" className="mb-4 self-end" onClick={onClose}><X size={16} /></IconButton>
 
           <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl text-white" style={{ background: iconBg }}>
             <span className="font-display text-sm font-semibold">{(liveItem.name || "?").slice(0, 2).toUpperCase()}</span>
@@ -170,7 +171,7 @@ export function ItemDetailDrawer({ item, items, godowns, open, onClose, currency
             <div className="mt-3 rounded-xl border border-line bg-paper p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold text-mute">Correct stock to</p>
-                <button onClick={() => setAdjustOpen(false)} className="text-faint hover:text-bad-600"><X size={13} /></button>
+                <IconButton label="Close stock correction" tone="faint" layout="inline" className="-my-1" onClick={() => setAdjustOpen(false)}><X size={13} /></IconButton>
               </div>
               {hasMultipleGodowns && (
                 <div>

@@ -1,20 +1,25 @@
-import React, { useState } from "react";
-import { MapPin, X } from "lucide-react";
+import { useState } from "react";
 import { LocationPickerModal } from "./LocationPickerModal";
+import { FieldBlock, FormSheet, SelectInput, TextArea } from "../ui/blocks";
+import { PinIcon } from "../ui/icons";
+import { Field, Segmented, TextInput, cx } from "../ui/kit";
 
-import { IconButton } from "../ui/kit";
-/* ---- FieldModal ---- */
+/* ---- FieldModal ----
+ * The one generic form: a title, a list of field definitions, Save. Used for customers, items, vendors,
+ * godowns, expenses, payments to vendors and the rest. It is a sheet now, so it swipes down to close,
+ * keeps focus inside, and asks "Discard changes?" instead of throwing away what was typed. */
 
 export function FieldModal({ title, fields, initial, onClose, onSave, danger }: any) {
   const [values, setValues] = useState<any>(() => initial || {});
   const [pickerFor, setPickerFor] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const set = (k: string, v: any) => setValues((s: any) => ({ ...s, [k]: v }));
-  
+
   const visibleFields = fields.filter((f: any) => !f.showIf || f.showIf(values));
   const canSave = visibleFields.every((f: any) => !f.required || (values[f.key] !== undefined && values[f.key] !== ""));
+  const dirty = JSON.stringify(values) !== JSON.stringify(initial || {});
 
-  const handleSaveClick = () => {
+  const handleSave = () => {
     if (!canSave || saving) return;
     setSaving(true);
     // onSave is a store action (saveItem, saveVendor, saveScoreRule, ...) that
@@ -23,80 +28,73 @@ export function FieldModal({ title, fields, initial, onClose, onSave, danger }: 
     // rather than snapping back to "Save" before the backend request lands.
     Promise.resolve(onSave(values)).finally(() => setSaving(false));
   };
-  
+
+  const renderControl = (f: any) => {
+    const value = values[f.key] ?? "";
+    if (f.type === "select") {
+      return (
+        <SelectInput value={value} onChange={(e) => set(f.key, e.target.value)}>
+          <option value="" disabled>Choose…</option>
+          {f.options.map((o: any) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </SelectInput>
+      );
+    }
+    if (f.type === "textarea") {
+      return <TextArea value={value} onChange={(e) => set(f.key, e.target.value)} placeholder={f.placeholder} />;
+    }
+    if (f.type === "datalist") {
+      return (
+        <>
+          <TextInput list={`${f.key}-options`} type="text" value={value} onChange={(e) => set(f.key, e.target.value)} placeholder={f.placeholder} />
+          <datalist id={`${f.key}-options`}>{f.options.map((o: any) => <option key={o} value={o} />)}</datalist>
+        </>
+      );
+    }
+    return (
+      <TextInput
+        type={f.type || "text"} value={value} placeholder={f.placeholder}
+        inputMode={f.type === "number" ? "decimal" : f.type === "tel" ? "tel" : undefined}
+        step={f.type === "number" ? "any" : undefined}
+        readOnly={f.readOnly} disabled={f.readOnly}
+        onChange={(e) => set(f.key, e.target.value)}
+        className={cx(f.readOnly && "!bg-fill text-mute")}
+      />
+    );
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4">
-      <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display text-lg font-semibold text-ink">{title}</h3>
-          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
-        </div>
-        <div className="space-y-4">
-          {visibleFields.map((f: any) => (
-            <div key={f.key}>
-              <label className="mb-1 block text-xs font-semibold text-mute">{f.label}{f.required && <span className="text-bad-600"> *</span>}</label>
-              {f.type === "select" ? (
-                <select value={values[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)}
-                  className="w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400">
-                  <option value="" disabled>Choose...</option>
-                  {f.options.map((o: any) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-              ) : f.type === "toggle" ? (
-                <div className="flex gap-2 rounded-full border border-line p-1 bg-paper">
-                  {f.options.map((o: any) => (
-                    <button
-                      key={o.value}
-                      type="button"
-                      onClick={() => set(f.key, o.value)}
-                      className={`flex-1 rounded-full px-3 py-2 text-xs font-semibold transition ${
- values[f.key] === o.value
- ? "bg-card text-brand-600 "
- : "bg-paper text-ink/70 hover:text-ink"
- }`}
-                    >
-                      {o.label}
+    <>
+      <FormSheet title={title} onClose={onClose} dirty={dirty} onSave={handleSave} canSave={canSave} saving={saving} saveTone={danger ? "danger" : "action"}>
+        <div className="space-y-4 pt-1">
+          {visibleFields.map((f: any, i: number) => {
+            const label = <>{f.label}{f.required && <span className="text-bad-600"> *</span>}</>;
+            const hint = f.helpText;
+            // A segmented control and an input-with-a-button are not one input, so they get a plain label
+            // block (a <label> around two controls would send a tap on the label to the wrong one).
+            if (f.type === "toggle") {
+              return (
+                <FieldBlock key={`${f.key}-${i}`} label={label} hint={hint}>
+                  <Segmented ariaLabel={f.label} options={f.options} value={values[f.key] ?? ""} onChange={(v) => set(f.key, v)} />
+                </FieldBlock>
+              );
+            }
+            if (f.type === "location") {
+              return (
+                <FieldBlock key={`${f.key}-${i}`} label={label} hint={hint}>
+                  <div className="flex gap-2">
+                    <TextInput type="text" value={values[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)} placeholder={f.placeholder} aria-label={f.label} />
+                    <button type="button" onClick={() => setPickerFor(f.key)}
+                      className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-control border border-rule bg-card px-3.5 text-[15px] font-medium text-brand-600 transition active:opacity-60">
+                      <PinIcon size={18} /> Map
                     </button>
-                  ))}
-                </div>
-              ) : f.type === "textarea" ? (
-                <textarea value={values[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)}
-                  rows={3} placeholder={f.placeholder}
-                  className="w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400" />
-              ) : f.type === "datalist" ? (
-                <>
-                  <input list={`${f.key}-options`} type="text" value={values[f.key] ?? ""}
-                    onChange={(e) => set(f.key, e.target.value)} placeholder={f.placeholder}
-                    className="w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400" />
-                  <datalist id={`${f.key}-options`}>
-                    {f.options.map((o: any) => <option key={o} value={o} />)}
-                  </datalist>
-                </>
-              ) : f.type === "location" ? (
-                <div className="flex gap-2">
-                  <input type="text" value={values[f.key] ?? ""}
-                    onChange={(e) => set(f.key, e.target.value)} placeholder={f.placeholder}
-                    className="w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400" />
-                  <button type="button" onClick={() => setPickerFor(f.key)}
-                    className="flex shrink-0 items-center gap-1 rounded-xl border border-line px-3 py-2.5 text-xs font-semibold text-ink/70 hover:bg-paper">
-                    <MapPin size={14} /> Map
-                  </button>
-                </div>
-              ) : (
-                <input type={f.type || "text"} value={values[f.key] ?? ""}
-                  onChange={(e) => set(f.key, e.target.value)} placeholder={f.placeholder}
-                  readOnly={f.readOnly} disabled={f.readOnly}
-                  className={`w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 ${f.readOnly ? "bg-paper text-mute" : ""}`} />
-              )}
-              {f.helpText && <p className="mt-1 text-xs text-faint">{f.helpText}</p>}
-            </div>
-          ))}
+                  </div>
+                </FieldBlock>
+              );
+            }
+            return <Field key={`${f.key}-${i}`} label={label} hint={hint}>{renderControl(f)}</Field>;
+          })}
         </div>
-        <div className="mt-6 flex gap-3">
-          <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
-          <button disabled={!canSave || saving} onClick={handleSaveClick}
-            className={`flex-1 rounded-full py-3 text-sm font-semibold text-white disabled:opacity-40 ${danger ? "bg-bad-600" : "bg-brand-600"}`}>{saving ? "Saving…" : "Save"}</button>
-        </div>
-      </div>
+      </FormSheet>
 
       {pickerFor && (
         <LocationPickerModal
@@ -112,8 +110,6 @@ export function FieldModal({ title, fields, initial, onClose, onSave, danger }: 
           }}
         />
       )}
-    </div>
+    </>
   );
 }
-
-/* ---- LocationPickerModal (Google Maps + Places) ---- */

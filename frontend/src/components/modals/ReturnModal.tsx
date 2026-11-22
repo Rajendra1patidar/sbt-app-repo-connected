@@ -1,8 +1,10 @@
-import React, { useState } from "react";
-import { X } from "lucide-react";
-import { fmtMoney, round2 } from "../../lib/format";
+import { useState } from "react";
+import { FormSheet } from "../ui/blocks";
+import { Group, GroupRow, Stepper } from "../ui/kit";
+import { round2 } from "../../lib/format";
+import { inr, inrRate, qtyText } from "../../lib/money";
 
-import { IconButton } from "../ui/kit";
+/** Return items: how many of each item came back, and the refund that comes with it. */
 export function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
   const alreadyReturned: Record<string, number> = {};
   const alreadyReturnedPieces: Record<string, number> = {};
@@ -29,8 +31,10 @@ export function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
 
   const [qtyMap, setQtyMap] = useState<Record<string, string>>({});
   const [piecesMap, setPiecesMap] = useState<Record<string, string>>({});
-  const setQty = (itemId: string, v: string) => setQtyMap((m) => ({ ...m, [itemId]: v }));
-  const setPieces = (itemId: string, v: string) => setPiecesMap((m) => ({ ...m, [itemId]: v }));
+  // Typing more than what can still be returned snaps back to that limit, so the number on screen is the number that saves.
+  const clamp = (v: string, max: number) => (v !== "" && Number(v) > max ? String(max) : v);
+  const setQty = (l: any, v: string) => setQtyMap((m) => ({ ...m, [l.itemId]: clamp(v, l.qty - l.returned) }));
+  const setPieces = (l: any, v: string) => setPiecesMap((m) => ({ ...m, [l.itemId]: clamp(v, Number(l.piecesQty || 0) - l.returnedPieces) }));
 
   const lines = returnableLines
     .map((l: any) => ({
@@ -41,101 +45,73 @@ export function ReturnModal({ doc, items, currency, onClose, onSave }: any) {
     .filter((l: any) => l.returnQty > 0 && (!l.isWeight || l.returnPieces > 0));
   const refundTotal = round2(lines.reduce((s: number, l: any) => s + l.returnQty * l.rate, 0));
   const canSave = lines.length > 0;
+  const touched = Object.values(qtyMap).some((v) => Number(v) > 0) || Object.values(piecesMap).some((v) => Number(v) > 0);
+
+  const fillAll = () => {
+    const qm: Record<string, string> = {};
+    const pm: Record<string, string> = {};
+    for (const l of returnableLines) {
+      qm[l.itemId] = String(l.qty - l.returned);
+      if (l.isWeight) pm[l.itemId] = String(Number(l.piecesQty || 0) - l.returnedPieces);
+    }
+    setQtyMap(qm);
+    setPiecesMap(pm);
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4 animate-fade-in">
-      <div className="animate-sheet-up sheet-grab w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="font-display text-lg font-semibold text-ink">Return items</h3>
-          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
-        </div>
-        <p className="mb-4 text-xs text-mute">{doc.number} — enter how many of each item are being returned.</p>
+    <FormSheet title="Return items" onClose={onClose} dirty={touched} canSave={canSave} saveTone="danger" tall={returnableLines.length > 3}
+      saveLabel={refundTotal > 0 ? `Refund ${inr(refundTotal, currency)}` : "Refund"}
+      onSave={() => canSave && onSave(lines.map((l: any) => ({ itemId: l.itemId, qty: l.returnQty, piecesQty: l.isWeight ? l.returnPieces : undefined })))}>
+      <p className="text-[15px] leading-[21px] text-mute">
+        <span className="font-doc text-[14px]">{doc.number}</span>: how many of each item are being returned?
+      </p>
 
-        {returnableLines.length === 0 ? (
-          <p className="text-sm text-mute">Every item on this estimate has already been returned.</p>
-        ) : (
-          <>
-            {returnableLines.length > 1 && (
-              <button
-                type="button"
-                onClick={() => {
-                  const qm: Record<string, string> = {};
-                  const pm: Record<string, string> = {};
-                  for (const l of returnableLines) {
-                    qm[l.itemId] = String(l.qty - l.returned);
-                    if (l.isWeight) pm[l.itemId] = String(Number(l.piecesQty || 0) - l.returnedPieces);
-                  }
-                  setQtyMap(qm);
-                  setPiecesMap(pm);
-                }}
-                className="mb-3 w-full rounded-xl border-2 border-dashed border-bad-300 bg-bad-50 px-4 py-2.5 text-xs font-semibold text-bad-600 hover:bg-bad-100"
-              >
-                Customer returning everything — fill all quantities
-              </button>
-            )}
-            <div className="hidden sm:grid mb-1 grid-cols-[1fr_72px_96px] gap-2 px-1 text-[12px] font-semibold text-faint">
-              <span>Item</span><span>Qty</span><span className="text-right">Refund</span>
-            </div>
-            <div className="space-y-2">
-              {returnableLines.map((l: any, i: number) => {
-                const qty = Math.min(Number(qtyMap[l.itemId] || 0), l.qty - l.returned);
-                const lineRefund = round2(qty * l.rate);
-                return (
-                  <div key={l.itemId} style={{ animationDelay: `${Math.min(i, 6) * 25}ms` }} className="animate-row-in rounded-xl border border-line bg-paper/60 p-2.5 sm:grid sm:grid-cols-[1fr_72px_96px] sm:gap-2 sm:items-center">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-ink truncate">{l.name}</p>
-                      <p className="text-xs text-faint">
-                        {l.qty - l.returned}{l.isWeight ? "kg" : ""} available · {fmtMoney(l.rate, currency)}{l.isWeight ? "/kg" : " each"}
-                        {l.returned > 0 ? ` · ${l.returned} already returned` : ""}
-                      </p>
+      {returnableLines.length === 0 ? (
+        <p className="mt-4 rounded-control bg-paper px-3 py-3 text-[15px] text-mute">Every item on this estimate has already been returned.</p>
+      ) : (
+        <>
+          {returnableLines.length > 1 && (
+            <button type="button" onClick={fillAll} className="mt-4 min-h-[44px] w-full rounded-control bg-bad-50 px-4 py-2.5 text-[15px] font-medium text-bad-600 transition active:opacity-70">
+              Customer is returning everything: fill all quantities
+            </button>
+          )}
+          <Group className="mt-4">
+            {returnableLines.map((l: any) => {
+              const available = l.qty - l.returned;
+              const qty = Math.min(Number(qtyMap[l.itemId] || 0), available);
+              const lineRefund = round2(qty * l.rate);
+              return (
+                <GroupRow key={l.itemId} className="py-3">
+                  <div className="w-full">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-[16px] font-medium text-ink">{l.name}</p>
+                        <p className="text-caption text-mute">
+                          {qtyText(available)}{l.isWeight ? " kg" : ""} available, {inrRate(l.rate, currency)}{l.isWeight ? " a kg" : " each"}
+                          {l.returned > 0 ? `, ${qtyText(l.returned)} already returned` : ""}
+                        </p>
+                      </div>
+                      <Stepper label={l.isWeight ? `${l.name} kg to return` : `${l.name} to return`} decimals max={available}
+                        value={qtyMap[l.itemId] ?? "0"} onChange={(v) => setQty(l, v)} />
                     </div>
-                    <div className="mt-2 sm:mt-0">
-                      <span className="mb-0.5 block text-micro font-semibold text-faint sm:hidden">{l.isWeight ? "Kg to return" : "Qty to return"}</span>
-                      <input
-                        type="number" min="0" max={l.qty - l.returned} placeholder="0"
-                        value={qtyMap[l.itemId] || ""} onChange={(e) => setQty(l.itemId, e.target.value)}
-                        className="w-full sm:w-16 rounded-xl border border-line px-2 py-2 text-sm text-center"
-                      />
-                    </div>
-                    <div className="mt-2 flex items-center justify-between sm:mt-0 sm:block sm:text-right">
-                      <span className="text-micro font-semibold text-faint sm:hidden">Refund</span>
-                      <span className="font-display text-sm font-semibold text-ink tabular-nums">{lineRefund > 0 ? fmtMoney(lineRefund, currency) : "—"}</span>
+                    <div className="mt-1 flex items-center justify-between text-caption">
+                      <span className="text-mute">{l.isWeight ? "Kg to return" : "Qty to return"}</span>
+                      <span className="tabular-nums text-ink">{lineRefund > 0 ? `Refund ${inr(lineRefund, currency)}` : "No refund yet"}</span>
                     </div>
                     {l.isWeight && (
-                      <div className="col-span-full mt-2 sm:mt-1.5">
-                        <span className="mb-0.5 block text-micro font-semibold text-faint">Pieces returned</span>
-                        <input
-                          type="number" min="0" max={Number(l.piecesQty || 0) - l.returnedPieces} placeholder="0"
-                          value={piecesMap[l.itemId] || ""} onChange={(e) => setPieces(l.itemId, e.target.value)}
-                          className="w-full rounded-xl border border-line px-2 py-2 text-sm"
-                        />
+                      <div className="mt-2.5 flex items-center justify-between gap-3">
+                        <span className="text-[15px] text-mute">Pieces returned</span>
+                        <Stepper label={`${l.name} pieces returned`} max={Number(l.piecesQty || 0) - l.returnedPieces}
+                          value={piecesMap[l.itemId] ?? "0"} onChange={(v) => setPieces(l, v)} />
                       </div>
                     )}
                   </div>
-                );
-              })}
-            </div>
-          </>
-        )}
-
-        {refundTotal > 0 && (
-          <div className="mt-4 flex items-center justify-between rounded-xl bg-bad-50 px-4 py-3">
-            <span className="text-sm font-semibold text-bad-600">Refund due</span>
-            <span className="font-display text-lg font-semibold text-bad-700">{fmtMoney(refundTotal, currency)}</span>
-          </div>
-        )}
-
-        <div className="mt-6 flex gap-3">
-          <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
-          <button
-            disabled={!canSave}
-            onClick={() => canSave && onSave(lines.map((l: any) => ({ itemId: l.itemId, qty: l.returnQty, piecesQty: l.isWeight ? l.returnPieces : undefined })))}
-            className="flex-1 rounded-full bg-bad-500 py-3 text-sm font-semibold text-white disabled:opacity-40"
-          >
-            Refund {refundTotal > 0 ? fmtMoney(refundTotal, currency) : ""}
-          </button>
-        </div>
-      </div>
-    </div>
+                </GroupRow>
+              );
+            })}
+          </Group>
+        </>
+      )}
+    </FormSheet>
   );
 }

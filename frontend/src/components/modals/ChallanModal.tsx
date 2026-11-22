@@ -1,140 +1,105 @@
-import React, { useState } from "react";
-import { AlertTriangle, Check, Trash2, X } from "lucide-react";
+import { useState } from "react";
+import { FormSheet } from "../ui/blocks";
+import { CloseIcon, PlusIcon } from "../ui/icons";
+import { Field, Group, GroupLabel, GroupRow, IconButton, Switch, TextInput } from "../ui/kit";
 import { MAX_ENTRY_ROWS } from "../../lib/constants";
 import { today, round2 } from "../../lib/format";
+import { inr } from "../../lib/money";
 
-import { IconButton } from "../ui/kit";
-export function ChallanModal({ onClose, onSave }: any) {
+type Row = { label: string; amount: string };
+const blankRow = (): Row => ({ label: "", amount: "" });
+
+/** New delivery challan: the trip, who took it, what it cost, what it brought in, and the delivery fee. */
+export function ChallanModal({ onClose, onSave, currency = "₹" }: any) {
   const [route, setRoute] = useState("");
   const [fromDate, setFromDate] = useState(today());
   const [toDate, setToDate] = useState(today());
   const [byWhom, setByWhom] = useState("");
   const [transporter, setTransporter] = useState("");
-  const [expenses, setExpenses] = useState([{ label: "", amount: "" }]);
-  const [incomes, setIncomes] = useState([{ label: "", amount: "" }]);
+  const [expenses, setExpenses] = useState<Row[]>([blankRow()]);
+  const [incomes, setIncomes] = useState<Row[]>([blankRow()]);
   const [deliveryFee, setDeliveryFee] = useState("");
   const [feeVerified, setFeeVerified] = useState(false);
-
-  const addRow = (setter: any, list: any[]) => {
-    if (list.length < MAX_ENTRY_ROWS) setter((r: any[]) => [...r, { label: "", amount: "" }]);
-  };
-  const updateRow = (setter: any, list: any[], idx: number, field: string, val: string) => {
-    setter(list.map((r, i) => i === idx ? { ...r, [field]: val } : r));
-  };
-  const removeRow = (setter: any, list: any[], idx: number) => {
-    if (list.length > 1) setter(list.filter((_, i) => i !== idx));
-  };
+  const [saving, setSaving] = useState(false);
 
   const totalExpenses = round2(expenses.reduce((s, r) => s + (Number(r.amount) || 0), 0));
   const totalIncomes = round2(incomes.reduce((s, r) => s + (Number(r.amount) || 0), 0));
   const canSave = route.trim().length > 0;
+  const dirty = !!(route || byWhom || transporter || deliveryFee || feeVerified
+    || expenses.some((r) => r.label || r.amount) || incomes.some((r) => r.label || r.amount)
+    || fromDate !== today() || toDate !== today());
 
-  const inputCls = "w-full rounded-xl border border-line px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300";
-  const labelCls = "mb-1 block text-xs font-semibold text-mute";
+  const save = () => {
+    if (!canSave || saving) return;
+    setSaving(true);
+    // The store saves (and closes this sheet itself); the button only re-enables if it didn't.
+    Promise.resolve(onSave({
+      route, fromDate, toDate, byWhom, transporter, expenses, incomes,
+      deliveryFee: Number(deliveryFee) || 0, feeVerified,
+      total: totalIncomes - totalExpenses + (Number(deliveryFee) || 0),
+    })).finally(() => setSaving(false));
+  };
+
+  const rowsEditor = (
+    noun: string, rows: Row[], setRows: (r: Row[]) => void, labelHint: string, total: number,
+  ) => (
+    <>
+      <GroupLabel right={<span className="tabular-nums">{total > 0 ? `Total ${inr(total, currency)}` : `${rows.length}/${MAX_ENTRY_ROWS}`}</span>}>{noun === "expense" ? "Expenses" : "Income"}</GroupLabel>
+      <Group>
+        {rows.map((r, i) => (
+          <GroupRow key={i} className="!gap-2 py-2">
+            <div className="min-w-0 flex-1">
+              <TextInput value={r.label} aria-label={`${noun} ${i + 1} label`} placeholder={labelHint}
+                onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} />
+            </div>
+            <div className="w-28 shrink-0">
+              <TextInput type="number" inputMode="decimal" step="any" min="0" value={r.amount} aria-label={`${noun} ${i + 1} amount`} placeholder="Amount"
+                onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, amount: e.target.value } : x)))} />
+            </div>
+            {rows.length > 1 && (
+              <IconButton label={`Remove ${noun} row ${i + 1}`} tone="danger" layout="compact" onClick={() => setRows(rows.filter((_, j) => j !== i))}><CloseIcon size={18} /></IconButton>
+            )}
+          </GroupRow>
+        ))}
+        {rows.length < MAX_ENTRY_ROWS && (
+          <GroupRow onClick={() => setRows([...rows, blankRow()])} className="h-12">
+            <span className="flex items-center gap-2 text-[16px] font-medium text-brand-600"><PlusIcon size={18} /> Add {noun}</span>
+          </GroupRow>
+        )}
+      </Group>
+    </>
+  );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4">
-      <div className="w-full sm:max-w-xl max-h-[93vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet space-y-5">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h3 className="font-display text-lg font-semibold text-ink">New Delivery Challan</h3>
-          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
-        </div>
-
-        {/* Row 1: Route | From Date | To Date */}
-        <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label className={labelCls}>Route *</label>
-            <input value={route} onChange={(e) => setRoute(e.target.value)} placeholder="e.g. Mumbai → Pune" className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>From date</label>
-            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>To date</label>
-            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={inputCls} />
-          </div>
-        </div>
-
-        {/* By Whom | Transporter */}
+    <FormSheet title="New challan" onClose={onClose} dirty={dirty} onSave={save} saveLabel="Save challan" canSave={canSave} saving={saving} tall>
+      <div className="space-y-3.5 pt-1">
+        <Field label="Route *"><TextInput autoFocus value={route} onChange={(e) => setRoute(e.target.value)} placeholder="e.g. Mumbai to Pune" /></Field>
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={labelCls}>By Whom</label>
-            <input value={byWhom} onChange={(e) => setByWhom(e.target.value)} placeholder="Driver / person name" className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>Transporter</label>
-            <input value={transporter} onChange={(e) => setTransporter(e.target.value)} placeholder="Transport company / vehicle" className={inputCls} />
-          </div>
+          <Field label="From date"><TextInput type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} /></Field>
+          <Field label="To date"><TextInput type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} /></Field>
         </div>
-
-        {/* Expense Types */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className={labelCls}>Expense Types</label>
-            {expenses.length < MAX_ENTRY_ROWS && (
-              <button onClick={() => addRow(setExpenses, expenses)} className="text-xs font-semibold text-brand-600">+ Add ({expenses.length}/{MAX_ENTRY_ROWS})</button>
-            )}
-          </div>
-          <div className="space-y-2">
-            {expenses.map((r, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <input value={r.label} onChange={(e) => updateRow(setExpenses, expenses, i, "label", e.target.value)} placeholder="Expense label (e.g. Fuel)" className="flex-1 rounded-xl border border-line px-3 py-2 text-sm" />
-                <input type="number" value={r.amount} onChange={(e) => updateRow(setExpenses, expenses, i, "amount", e.target.value)} placeholder="Amount" className="w-28 rounded-xl border border-line px-3 py-2 text-sm" />
-                {expenses.length > 1 && <IconButton label="Remove expense row" tone="danger" layout="compact" onClick={() => removeRow(setExpenses, expenses, i)}><Trash2 size={14} /></IconButton>}
-              </div>
-            ))}
-          </div>
-          {totalExpenses > 0 && <p className="mt-1 text-right text-xs text-faint">Total: <span className="font-semibold text-bad-600">₹{totalExpenses.toFixed(2)}</span></p>}
-        </div>
-
-        {/* Income Types */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className={labelCls}>Income Types</label>
-            {incomes.length < MAX_ENTRY_ROWS && (
-              <button onClick={() => addRow(setIncomes, incomes)} className="text-xs font-semibold text-brand-600">+ Add ({incomes.length}/{MAX_ENTRY_ROWS})</button>
-            )}
-          </div>
-          <div className="space-y-2">
-            {incomes.map((r, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <input value={r.label} onChange={(e) => updateRow(setIncomes, incomes, i, "label", e.target.value)} placeholder="Income label (e.g. Freight)" className="flex-1 rounded-xl border border-line px-3 py-2 text-sm" />
-                <input type="number" value={r.amount} onChange={(e) => updateRow(setIncomes, incomes, i, "amount", e.target.value)} placeholder="Amount" className="w-28 rounded-xl border border-line px-3 py-2 text-sm" />
-                {incomes.length > 1 && <IconButton label="Remove income row" tone="danger" layout="compact" onClick={() => removeRow(setIncomes, incomes, i)}><Trash2 size={14} /></IconButton>}
-              </div>
-            ))}
-          </div>
-          {totalIncomes > 0 && <p className="mt-1 text-right text-xs text-faint">Total: <span className="font-semibold text-good-600">₹{totalIncomes.toFixed(2)}</span></p>}
-        </div>
-
-        {/* Delivery Fee */}
-        <div className={`rounded-2xl border p-4 space-y-3 ${!feeVerified && deliveryFee ? "border-warn-400 bg-warn-50" : "border-line bg-paper"}`}>
-          <div>
-            <label className={labelCls}>Delivery Fee</label>
-            <input type="number" value={deliveryFee} onChange={(e) => setDeliveryFee(e.target.value)} placeholder="0.00" className={`w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-card ${!feeVerified && deliveryFee ? "border-warn-400" : "border-line"}`} />
-          </div>
-          <button
-            type="button"
-            onClick={() => setFeeVerified((v) => !v)}
-            className="flex items-center gap-2.5 w-full rounded-xl px-3 py-2.5 transition select-none"
-          >
-            <span className={`w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center transition ${feeVerified ? "border-good-500 bg-good-500" : "border-line bg-card"}`}>
-              {feeVerified && <Check size={11} className="text-white" />}
-            </span>
-            <span className={`text-sm font-medium ${feeVerified ? "text-good-700" : "text-ink/70"}`}>Verify delivery fee</span>
-            {!feeVerified && deliveryFee && <span className="ml-auto text-xs font-semibold text-warn-700 flex items-center gap-1"><AlertTriangle size={12} /> Not verified</span>}
-          </button>
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
-          <button disabled={!canSave} onClick={() => canSave && onSave({ route, fromDate, toDate, byWhom, transporter, expenses, incomes, deliveryFee: Number(deliveryFee) || 0, feeVerified, total: totalIncomes - totalExpenses + (Number(deliveryFee) || 0) })}
-            className="flex-1 rounded-full bg-brand-500 py-3 text-sm font-semibold text-white disabled:opacity-40">Save Challan</button>
-        </div>
+        <Field label="By whom"><TextInput value={byWhom} onChange={(e) => setByWhom(e.target.value)} placeholder="Driver or person's name" /></Field>
+        <Field label="Transporter"><TextInput value={transporter} onChange={(e) => setTransporter(e.target.value)} placeholder="Transport company or vehicle" /></Field>
       </div>
-    </div>
+
+      {rowsEditor("expense", expenses, setExpenses, "What for (e.g. Fuel)", totalExpenses)}
+      {rowsEditor("income", incomes, setIncomes, "What from (e.g. Freight)", totalIncomes)}
+
+      <GroupLabel>Delivery fee</GroupLabel>
+      <Field label="Fee charged for the trip">
+        <TextInput type="number" inputMode="decimal" step="any" min="0" value={deliveryFee} onChange={(e) => setDeliveryFee(e.target.value)} placeholder="0" />
+      </Field>
+      <Group className="mt-3">
+        <GroupRow className="min-h-[56px] py-2">
+          <div className="flex w-full items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[16px] text-ink">Delivery fee verified</p>
+              {deliveryFee && !feeVerified && <p className="text-caption text-warn-700">Not verified yet</p>}
+            </div>
+            <Switch checked={feeVerified} onChange={setFeeVerified} label="Delivery fee verified" />
+          </div>
+        </GroupRow>
+      </Group>
+    </FormSheet>
   );
 }

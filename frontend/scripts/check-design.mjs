@@ -16,6 +16,8 @@ const UNUSED = new Set([
   "components/modals/DocumentModal.tsx", "components/modals/StatusChoicePopup.tsx", "components/modals/ItemPickerSheet.tsx",
   "components/dashboard/AlertStrip.tsx", "components/dashboard/BalanceBeam.tsx", "components/dashboard/DueThisWeek.tsx",
   "components/dashboard/PositionBar.tsx", "components/dashboard/TodaySnapshot.tsx", "components/dashboard/UnderlineTabs.tsx",
+  // Left behind when Challans moved to ChallansView (step 7); safe to `git rm`.
+  "components/views/DocumentList.tsx", "components/modals/EstimateFilterSheet.tsx", "components/common/SwipeRow.tsx",
 ]);
 
 function* walk(dir) {

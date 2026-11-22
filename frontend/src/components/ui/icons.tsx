@@ -54,3 +54,11 @@ export const ShareIcon = (p: IconProps) => <Svg {...p}><path d="M12 4v11M7.5 8.5
 export const TrashIcon = (p: IconProps) => <Svg {...p}><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12M9 7V4h6v3" /></Svg>;
 export const EyeIcon = (p: IconProps) => <Svg {...p}><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="3" /></Svg>;
 export const RestoreIcon = (p: IconProps) => <Svg {...p}><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4" /></Svg>;
+
+/* Added with the Sell screens (step 7). */
+export const MoreIcon = (p: IconProps) => <Svg {...p} filled><circle cx="5.5" cy="12" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="18.5" cy="12" r="1.7" /></Svg>;
+export const MessageIcon = (p: IconProps) => <Svg {...p}><path d="M4 5h16v11H10l-4 4v-4H4z" /></Svg>;
+export const KeyIcon = (p: IconProps) => <Svg {...p}><circle cx="8" cy="15" r="4" /><path d="M11 12l8-8M16 7l2.5 2.5M14 9l2 2" /></Svg>;
+export const PinIcon = (p: IconProps) => <Svg {...p}><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z" /><circle cx="12" cy="10" r="2.4" /></Svg>;
+export const ArchiveIcon = (p: IconProps) => <Svg {...p}><path d="M4 6h16v4H4zM5.5 10v9a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-9M10 14h4" /></Svg>;
+export const CopyIcon = (p: IconProps) => <Svg {...p}><path d="M9 9h10v11H9zM5 15V4h10" /></Svg>;

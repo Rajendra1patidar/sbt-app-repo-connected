@@ -31,7 +31,7 @@ import { CashFlowForecastView } from "./views/CashFlowForecastView";
 import { CustomerDetailView } from "./views/CustomerDetailView";
 import { CustomersView } from "./views/CustomersView";
 import { Dashboard } from "./views/Dashboard";
-import { DocumentList } from "./views/DocumentList";
+import { ChallansView } from "./views/ChallansView";
 import { EstimatesView } from "./views/EstimatesView";
 import { HubView } from "./views/HubView";
 import { StockHealthView } from "./views/StockHealthView";
@@ -231,7 +231,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <Route path="/team" element={<HubView tabId="team" role={role} data={data} currency={settings.currency} scoreRules={scoreRules} openModal={openModal} go={goToView} onSearch={() => setGlobalSearchOpen(true)} />} />
       <Route path="/stock" element={<StockHealthView items={items} estimates={activeEstimates} purchases={purchases} vendors={vendors} godowns={godowns} reorderSuggestions={reorderSuggestions} currency={settings.currency} openModal={openModal} go={goToView} onSearch={() => setGlobalSearchOpen(true)} />} />
       <Route path="/customers" element={
-        <CustomersView customers={customers} estimates={activeEstimates} openModal={openModal} removeCustomer={removeCustomer} restoreCustomer={restoreCustomer} role={role}
+        <CustomersView customers={customers} estimates={activeEstimates} currency={settings.currency} openModal={openModal} removeCustomer={removeCustomer} restoreCustomer={restoreCustomer} role={role}
           onSelectCustomer={(id: string) => navigate(`/customers/${id}`)} />
       } />
       <Route path="/customers/:customerId" element={<CustomerDetailRoute />} />
@@ -244,7 +244,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <Route path="/ledger" element={<LedgerReportsView currency={settings.currency} />} />
       <Route path="/bank-reconciliation" element={<BankReconciliationView currency={settings.currency} />} />
       <Route path="/financial-years" element={<FinancialYearView currency={settings.currency} />} />
-      <Route path="/challans" element={<DocumentList type="challan" docs={challans} customers={customers} currency={settings.currency} openModal={openModal} removeDoc={(id: string) => removeDoc("challan", id)} updateStatus={(id: string, s: string) => updateDocStatus("challan", id, s)} />} />
+      <Route path="/challans" element={<ChallansView docs={challans} currency={settings.currency} openModal={openModal} removeDoc={(id: string) => removeDoc("challan", id)} updateStatus={(id: string, s: string) => updateDocStatus("challan", id, s)} />} />
       <Route path="/estimates" element={
         <div>
           <div className="px-5 pt-1"><OfflineSyncPanel /></div>
@@ -421,7 +421,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     }
 
     if (type === "challan")
-      return <ChallanModal onClose={closeModal} onSave={saveChallan} />;
+      return <ChallanModal onClose={closeModal} onSave={saveChallan} currency={settings.currency} />;
 
     if (type === "estimate")
       return <EstimateSheet customers={customers} items={items} godowns={godowns} estimates={activeEstimates} payments={payments} settings={settings}
@@ -494,6 +494,12 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
   // These screens draw their own large title (and its actions); every other destination gets the shared one.
   const ownsTitle = ["dashboard", "sell", "stock", "money", "team", "estimates"].includes(view);
   const blocked = role === "staff" && OWNER_ONLY_NAV_IDS.has(view);
+  // The one main task of a screen that uses the shared title: the solid "+" beside search.
+  const screenActions: Record<string, { label: string; onClick: () => void }> = {
+    customers: { label: "New customer", onClick: () => openModal("customer") },
+    payments: { label: "Record payment", onClick: () => openModal("payment") },
+    challans: { label: "New challan", onClick: () => openModal("challan") },
+  };
 
   return (
     <div className="flex h-screen bg-paper font-sans text-ink">
@@ -501,7 +507,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       <div className="relative min-w-0 flex-1 overflow-y-auto">
         <OfflineBanner />
         <div className="mx-auto w-full max-w-[760px]">
-          {!blocked && !ownsTitle && <ScreenTitle view={view} onNav={goToView} onSearch={() => setGlobalSearchOpen(true)} />}
+          {!blocked && !ownsTitle && <ScreenTitle view={view} onNav={goToView} onSearch={() => setGlobalSearchOpen(true)} action={screenActions[view]} />}
           {blocked ? <OwnerOnlyNotice onHome={() => goToView("dashboard")} /> : routes}
         </div>
       </div>

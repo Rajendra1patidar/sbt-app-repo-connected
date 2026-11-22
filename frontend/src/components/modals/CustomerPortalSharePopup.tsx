@@ -1,21 +1,24 @@
 import { useState } from "react";
-import { Check, Copy, KeyRound, X } from "lucide-react";
 import { api } from "../../lib/api";
+import { confirm } from "../../lib/confirm";
 import { waLink } from "../../lib/contactLinks";
 import { PORTAL_URL, portalAccessMessage } from "../../lib/portalAccess";
+import { CheckIcon, CopyIcon, WhatsAppIcon } from "../ui/icons";
+import { PrimaryButton, SecondaryButton, Sheet, TextButton } from "../ui/kit";
 
-import { IconButton } from "../ui/kit";
 /**
  * Lets the owner give a customer access to their own account page (ledger + bookings).
  * Generating a PIN replaces any previous one, so it's a deliberate two-step: confirm,
  * then show the link + PIN with one-tap WhatsApp / copy. The PIN is only ever shown here —
- * the server stores just a hash.
+ * the server stores just a hash. So closing the sheet after a PIN is made but before it was sent
+ * or copied asks first (a swipe or a tap outside would otherwise lose it).
  */
 export function CustomerPortalSharePopup({ customer, onClose }: { customer: any; onClose: () => void }) {
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [handedOver, setHandedOver] = useState(false); // sent on WhatsApp or copied: the PIN is safe
 
   const message = portalAccessMessage(customer.name, pin);
 
@@ -36,68 +39,70 @@ export function CustomerPortalSharePopup({ customer, onClose }: { customer: any;
     try {
       await navigator.clipboard.writeText(message);
       setCopied(true);
+      setHandedOver(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError("Couldn't copy — long-press the text above to copy it.");
+      setError("Couldn't copy. Long-press the link above to copy it.");
     }
   };
 
+  const attemptClose = async () => {
+    if (pin && !handedOver) {
+      const leave = await confirm({
+        title: "Close without sending?", message: "This PIN can't be shown again. You can always make a new one.",
+        confirmLabel: "Close", cancelLabel: "Stay", tone: "danger",
+      });
+      if (!leave) return;
+    }
+    onClose();
+  };
+
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--scrim)] p-4" onClick={onClose}>
-      <div className="w-full max-w-sm rounded-sheet bg-card p-6 shadow-sheet" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <KeyRound size={18} className="text-brand-600" />
-            <h3 className="font-display text-lg font-semibold text-ink">Share account link</h3>
-          </div>
-          <IconButton label="Close" tone="faint" className="-mr-2 -my-2" onClick={onClose}><X size={18} /></IconButton>
+    <Sheet
+      z={60} onClose={attemptClose} title="Account link"
+      trailing={<TextButton tone="quiet" onClick={attemptClose} className="-mr-1 shrink-0 px-1">{pin ? "Done" : "Cancel"}</TextButton>}
+      footer={!pin ? (
+        <PrimaryButton onClick={generate} disabled={loading || !customer.phone}>{loading ? "Generating…" : "Generate PIN"}</PrimaryButton>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <a href={customer.phone ? waLink(customer.phone, message) : undefined} target="_blank" rel="noreferrer" onClick={() => setHandedOver(true)}
+            className="flex h-[52px] w-full items-center justify-center gap-2 rounded-[14px] bg-brand-500 text-[16px] font-semibold text-white transition active:scale-[0.985]">
+            <WhatsAppIcon size={20} /> Send on WhatsApp
+          </a>
+          <SecondaryButton size="lg" onClick={copy}>
+            <span className="inline-flex items-center justify-center gap-2">{copied ? <><CheckIcon size={18} /> Copied</> : <><CopyIcon size={18} /> Copy message</>}</span>
+          </SecondaryButton>
         </div>
-        <p className="mt-1 text-sm text-mute">{customer.name}{customer.phone ? ` · ${customer.phone}` : ""}</p>
+      )}
+    >
+      <p className="text-[16px] font-medium text-ink">{customer.name}</p>
+      <p className="text-caption text-mute">{customer.phone || "No phone number saved"}</p>
 
-        {!customer.phone && (
-          <p className="mt-3 rounded-xl bg-warn-50 p-3 text-xs font-semibold text-warn-700">
-            This customer has no phone number saved. They log in with their phone number, so add one first (Edit customer).
+      {!customer.phone && (
+        <p className="mt-3 rounded-control bg-warn-50 px-3 py-2.5 text-[14px] leading-[19px] text-warn-700">
+          This customer has no phone number saved. They log in with their phone number, so add one first (Edit customer).
+        </p>
+      )}
+
+      {!pin ? (
+        <>
+          <p className="mt-4 text-[16px] leading-6 text-mute">
+            This creates a 4-digit PIN so {customer.name} can open the link and see their own ledger and bookings. If they already have a PIN, it stops working.
           </p>
-        )}
-
-        {!pin ? (
-          <>
-            <p className="mt-4 text-sm text-ink/70">
-              This creates a 4-digit PIN so {customer.name} can open the link and see their own ledger and bookings.
-              If they already have a PIN, it stops working.
-            </p>
-            {error && <p className="mt-3 text-sm font-semibold text-bad-600">{error}</p>}
-            <div className="mt-5 flex gap-2">
-              <button onClick={onClose} className="flex-1 rounded-full border border-line py-2.5 text-sm font-semibold text-mute">Cancel</button>
-              <button onClick={generate} disabled={loading || !customer.phone}
-                className="flex-1 rounded-full bg-brand-500 py-2.5 text-sm font-semibold text-white disabled:opacity-50 active:scale-[0.98]">
-                {loading ? "Generating…" : "Generate PIN"}
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="mt-4 rounded-2xl bg-paper p-4 text-center">
-              <p className="text-xs font-semibold text-faint">PIN</p>
-              <p className="font-display text-3xl font-semibold tracking-[0.4em] text-ink">{pin}</p>
-            </div>
-            <p className="mt-3 break-all rounded-xl border border-line/70 p-3 text-xs text-mute">{PORTAL_URL}</p>
-            <p className="mt-2 text-xs text-faint">Note this PIN down or send it now — it can't be shown again (you can always generate a new one).</p>
-            {error && <p className="mt-2 text-sm font-semibold text-bad-600">{error}</p>}
-            <div className="mt-4 flex gap-2">
-              <a href={customer.phone ? waLink(customer.phone, message) : undefined} target="_blank" rel="noreferrer"
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-good-500 py-2.5 text-sm font-semibold text-white active:scale-[0.98]">
-                Send on WhatsApp
-              </a>
-              <button onClick={copy}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-line py-2.5 text-sm font-semibold text-ink/70 active:scale-[0.98]">
-                {copied ? <><Check size={15} /> Copied</> : <><Copy size={15} /> Copy</>}
-              </button>
-            </div>
-            <button onClick={onClose} className="mt-3 w-full rounded-full py-2 text-sm font-semibold text-mute">Done</button>
-          </>
-        )}
-      </div>
-    </div>
+          {error && <p className="mt-3 text-[14px] font-medium text-bad-600">{error}</p>}
+        </>
+      ) : (
+        <>
+          <div className="mt-4 rounded-group bg-paper px-4 py-4 text-center">
+            <p className="text-micro text-mute">PIN</p>
+            <p className="text-[40px] font-semibold leading-[48px] tracking-[0.4em] tabular-nums text-ink">{pin}</p>
+          </div>
+          <p className="mt-3 break-all text-caption text-mute">{PORTAL_URL}</p>
+          <p className="mt-2 text-caption text-mute">Note this PIN down or send it now: it can't be shown again (you can always generate a new one).</p>
+          {error && <p className="mt-2 text-[14px] font-medium text-bad-600">{error}</p>}
+        </>
+      )}
+      <div className="h-3" />
+    </Sheet>
   );
 }

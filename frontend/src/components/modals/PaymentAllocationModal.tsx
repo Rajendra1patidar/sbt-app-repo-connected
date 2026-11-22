@@ -1,9 +1,17 @@
-import React, { useMemo, useState } from "react";
-import { X } from "lucide-react";
-import { SearchableSelect } from "../common/SearchableSelect";
-import { fmtMoney, round2, today } from "../../lib/format";
+import { useMemo, useState } from "react";
+import { CustomerPickerSheet } from "../estimate/CustomerPickerSheet";
+import { FieldBlock, FormSheet } from "../ui/blocks";
+import { Field, Group, GroupLabel, GroupRow, Segmented, TextInput, cx } from "../ui/kit";
+import { round2, today } from "../../lib/format";
+import { inr } from "../../lib/money";
 
-import { IconButton } from "../ui/kit";
+const METHODS = [
+  { value: "Cash", label: "Cash" },
+  { value: "UPI", label: "UPI" },
+  { value: "Bank Transfer", label: "Bank" },
+  { value: "Card", label: "Card" },
+];
+
 /**
  * A customer can have several due estimates at once (e.g. a new estimate plus
  * an older unpaid one) — this shows all of them and lets the amount received
@@ -28,13 +36,26 @@ export function PaymentAllocationModal({ customers, estimates, currency, initial
   const [totalAmount, setTotalAmount] = useState("");
   const [customized, setCustomized] = useState(false);
   const [allocations, setAllocations] = useState<Record<string, string>>({});
+  const [picking, setPicking] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   // Opened from a specific estimate/customer (a row's "Record payment" action)
   // vs. opened generically (e.g. from the Payments tab) with nothing picked yet.
   const isContextual = !!initialCustomerId;
 
-  const customerOptions = (customers || []).map((c: any) => ({ value: c.id, label: c.name }));
-  const customerName = customers.find((c: any) => c.id === customerId)?.name || "";
+  const customerName = (customers || []).find((c: any) => c.id === customerId)?.name || "";
+
+  // What each customer owes across their open estimates: shown in the picker, and what lets an
+  // archived customer who still owes money be chosen (an archived customer who owes nothing isn't offered).
+  const owes = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of estimates || []) {
+      const due = round2(Number(e.total || 0) - Number(e.amountPaid || 0));
+      if (e.status !== "Paid" && due > 0) m.set(e.customerId, round2((m.get(e.customerId) || 0) + due));
+    }
+    return m;
+  }, [estimates]);
+  const pickable = useMemo(() => (customers || []).filter((c: any) => !c.archived || (owes.get(c.id) || 0) > 0), [customers, owes]);
 
   const dueEstimates = useMemo(
     () =>
@@ -47,9 +68,10 @@ export function PaymentAllocationModal({ customers, estimates, currency, initial
   );
   const isSingle = dueEstimates.length === 1;
   const singleDue = isSingle ? dueEstimates[0] : null;
-  // Prefer the estimate this was opened from if it's still in the due list,
-  // purely for the "EST-0231" label on the single-estimate view.
-  const contextEstimate = dueEstimates.find((e: any) => e.id === initialInvoiceId) || dueEstimates[0];
+  // The estimate this was opened from (if it's still due), or the only one due: named under the
+  // customer. With several due and none chosen, the line summarises them instead of naming one.
+  const contextEstimate = dueEstimates.find((e: any) => e.id === initialInvoiceId) || (isSingle ? dueEstimates[0] : null);
+  const totalDue = round2(dueEstimates.reduce((s: number, e: any) => s + e.due, 0));
 
   const enteredTotal = Number(totalAmount) || 0;
 
@@ -85,144 +107,131 @@ export function PaymentAllocationModal({ customers, estimates, currency, initial
     if (enteredTotal >= singleDue.due) {
       const extra = round2(enteredTotal - singleDue.due);
       return extra > 0
-        ? { tone: "good", text: `Marks it Paid, plus ${fmtMoney(extra, currency)} extra recorded as advance` }
+        ? { tone: "good", text: `Marks it Paid, plus ${inr(extra, currency)} extra recorded as advance` }
         : { tone: "good", text: "This will mark the estimate Paid" };
     }
-    return { tone: "warn", text: `${fmtMoney(singleDue.due - enteredTotal, currency)} will still be due — status becomes Partially Paid` };
+    return { tone: "warn", text: `${inr(singleDue.due - enteredTotal, currency)} will still be due: status becomes Part paid` };
   })();
 
   const canSave = isSingle
     ? !!customerId && enteredTotal > 0
     : !!customerId && enteredTotal > 0 && !overAllocated && (allocatedSum > 0 || advanceAmount > 0);
+  const dirty = totalAmount !== "" || customized || (!isContextual && customerId !== "");
 
   const save = () => {
-    if (!canSave) return;
+    if (!canSave || saving) return;
     const allocationList = isSingle
       ? [{ invoiceId: singleDue.id, amount: Math.min(enteredTotal, singleDue.due) }]
       : dueEstimates.map((e: any) => ({ invoiceId: e.id, amount: effectiveAllocations[e.id] || 0 })).filter((a: any) => a.amount > 0);
     const advance = isSingle ? round2(Math.max(0, enteredTotal - singleDue.due)) : advanceAmount;
-    onSave({ customerId, date, method, allocations: allocationList, advanceAmount: advance });
+    setSaving(true);
+    // The store records it and closes this sheet; the button only re-enables if that didn't happen.
+    Promise.resolve(onSave({ customerId, date, method, allocations: allocationList, advanceAmount: advance })).finally(() => setSaving(false));
   };
 
+  const linkBtn = "-my-3 inline-flex min-h-[44px] items-center text-[14px] font-medium text-brand-600 active:opacity-60 disabled:opacity-30";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4">
-      <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-display text-lg font-semibold text-ink">Record Payment</h3>
-          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
-        </div>
+    <>
+      <FormSheet title="Record payment" onClose={onClose} dirty={dirty} onSave={save} canSave={canSave} saving={saving}
+        saveLabel={enteredTotal > 0 ? `Record ${inr(enteredTotal, currency)}` : "Record payment"}>
+        <div className="pt-1">
+          <Group>
+            {isContextual ? (
+              <GroupRow className="min-h-[60px] py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-[16px] font-medium text-ink">{customerName}</p>
+                  {contextEstimate
+                    ? <p className="truncate text-caption text-mute"><span className="font-doc text-[12.5px]">{contextEstimate.number}</span>, {inr(contextEstimate.due, currency)} due</p>
+                    : dueEstimates.length > 1 && <p className="truncate text-caption text-mute">{dueEstimates.length} estimates, {inr(totalDue, currency)} due</p>}
+                </div>
+              </GroupRow>
+            ) : (
+              <GroupRow onClick={() => setPicking(true)} chevron className="min-h-[60px] py-2.5" ariaLabel={customerName ? `Customer: ${customerName}. Change` : "Choose a customer"}>
+                <p className="text-micro text-mute">Customer</p>
+                <p className={cx("truncate text-[16px]", customerName ? "font-medium text-ink" : "text-mute")}>{customerName || "Choose a customer"}</p>
+              </GroupRow>
+            )}
+          </Group>
 
-        <div className="space-y-4">
-          {isContextual ? (
-            <div className="rounded-xl bg-paper px-3 py-2.5">
-              <p className="text-sm font-semibold text-ink">{contextEstimate ? `${contextEstimate.number} · ${customerName}` : customerName}</p>
-              {contextEstimate && <p className="text-xs text-mute">{fmtMoney(contextEstimate.due, currency)} due</p>}
-            </div>
-          ) : (
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-mute">Customer <span className="text-bad-600">*</span></label>
-              <SearchableSelect options={customerOptions} value={customerId} onChange={setCustomerId} placeholder="Select a customer" />
-            </div>
-          )}
-
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-mute">Amount received <span className="text-bad-600">*</span></label>
-            <input
-              type="number" min="0" placeholder="0.00" autoFocus
-              value={totalAmount}
-              onChange={(e) => setTotalAmount(e.target.value)}
-              className="w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
-            />
-          </div>
+          <label className="mt-3 block rounded-group bg-paper px-4 py-3">
+            <span className="text-micro text-mute">Amount received</span>
+            <span className="flex items-baseline gap-1">
+              <span className="text-[28px] font-light text-faint">{currency}</span>
+              <input
+                type="number" inputMode="decimal" step="any" min="0" placeholder="0" autoFocus
+                value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)}
+                className="min-w-0 flex-1 bg-transparent text-[34px] font-light leading-[44px] tabular-nums text-ink outline-none placeholder:text-faint"
+              />
+            </span>
+          </label>
 
           {customerId && isSingle && singlePreview && (
-            <p className={`text-xs font-semibold ${singlePreview.tone === "good" ? "text-good-700" : "text-warn-700"}`}>{singlePreview.text}</p>
+            <p className={cx("mt-2 px-1 text-[14px] leading-[19px]", singlePreview.tone === "good" ? "text-good-600" : "text-warn-700")}>{singlePreview.text}</p>
           )}
 
           {customerId && !isSingle && (
             dueEstimates.length === 0 ? (
-              <p className="rounded-xl bg-paper px-3 py-2.5 text-xs text-mute">No due estimates for this customer — this will be recorded as a general advance.</p>
+              <p className="mt-3 rounded-control bg-paper px-3 py-2.5 text-[14px] leading-[19px] text-mute">No due estimates for this customer. This will be recorded as a general advance.</p>
             ) : (
-              <div>
-                <div className="mb-1.5 flex items-center justify-between">
-                  <label className="block text-xs font-semibold text-mute">Apply to which estimate(s)?</label>
-                  {!customized && (
-                    <button type="button" onClick={startCustomizing} disabled={enteredTotal <= 0}
-                      className="text-xs font-semibold text-brand-600 disabled:opacity-30">
-                      Customize split
-                    </button>
-                  )}
-                </div>
-                {!customized ? (
-                  <div className="space-y-1.5 rounded-xl bg-paper px-3 py-2.5">
-                    {dueEstimates.map((e: any) => {
-                      const amt = autoAllocations[e.id] || 0;
-                      return (
-                        <div key={e.id} className="flex items-center justify-between text-sm">
-                          <span className="font-semibold text-ink">{e.number}</span>
-                          <span className={`font-semibold ${amt >= e.due ? "text-good-700" : "text-mute"}`}>{fmtMoney(amt, currency)} of {fmtMoney(e.due, currency)}</span>
+              <>
+                <GroupLabel right={
+                  !customized
+                    ? <button type="button" onClick={startCustomizing} disabled={enteredTotal <= 0} className={linkBtn}>Customize split</button>
+                    : <button type="button" onClick={() => setCustomized(false)} className={linkBtn}>Automatic split</button>
+                }>Applies to</GroupLabel>
+                <Group>
+                  {dueEstimates.map((e: any) => {
+                    const amt = autoAllocations[e.id] || 0;
+                    return (
+                      <GroupRow key={e.id} className="min-h-[56px] py-2">
+                        <div className="flex w-full items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate font-doc text-[15px] text-ink">{e.number}</p>
+                            {customized && <p className="text-caption text-mute">{inr(e.due, currency)} due</p>}
+                          </div>
+                          {customized ? (
+                            <div className="w-28 shrink-0">
+                              <TextInput type="number" inputMode="decimal" step="any" min="0" max={e.due} placeholder="0" aria-label={`Amount for ${e.number}`}
+                                value={allocations[e.id] || ""} onChange={(ev) => setAllocation(e.id, ev.target.value)} className="text-right" />
+                            </div>
+                          ) : (
+                            <span className={cx("shrink-0 text-[15px] tabular-nums", amt >= e.due ? "font-medium text-good-600" : "text-mute")}>{inr(amt, currency)} of {inr(e.due, currency)}</span>
+                          )}
                         </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {dueEstimates.map((e: any) => (
-                      <div key={e.id} className="flex items-center gap-2 rounded-xl border border-line p-2.5">
-                        <div className="flex-1 min-w-0">
-                          <p className="truncate text-sm font-semibold text-ink">{e.number}</p>
-                          <p className="text-xs text-faint">{fmtMoney(e.due, currency)} due</p>
-                        </div>
-                        <input
-                          type="number" min="0" max={e.due} placeholder="0.00"
-                          value={allocations[e.id] || ""}
-                          onChange={(ev) => setAllocation(e.id, ev.target.value)}
-                          className="w-24 rounded-xl border border-line px-2 py-2 text-right text-sm"
-                        />
-                      </div>
-                    ))}
-                    <button type="button" onClick={() => setCustomized(false)} className="text-xs font-semibold text-faint">
-                      Use automatic split instead
-                    </button>
-                  </div>
-                )}
-              </div>
+                      </GroupRow>
+                    );
+                  })}
+                </Group>
+              </>
             )
           )}
 
           {!isSingle && customized && overAllocated && (
-            <p className="text-xs font-semibold text-bad-600">You've allocated more than the amount received — adjust the split above.</p>
+            <p className="mt-2 px-1 text-[14px] leading-[19px] text-bad-600">You've allocated more than the amount received. Adjust the split above.</p>
           )}
           {!isSingle && !overAllocated && advanceAmount > 0 && dueEstimates.length > 0 && (
-            <p className="rounded-xl bg-good-50 px-3 py-2 text-xs text-good-700">
-              {fmtMoney(advanceAmount, currency)} left over after those estimates — will be recorded as a general advance for this customer.
+            <p className="mt-3 rounded-control bg-good-50 px-3 py-2.5 text-[14px] leading-[19px] text-good-600">
+              {inr(advanceAmount, currency)} is left over after those estimates. It will be recorded as a general advance for this customer.
             </p>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-mute">Method</label>
-              <select value={method} onChange={(e) => setMethod(e.target.value)}
-                className="w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400">
-                {["Cash", "Bank Transfer", "UPI", "Card"].map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-mute">Date</label>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-                className="w-full rounded-xl border border-line px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400" />
-            </div>
-          </div>
+          <FieldBlock label="Method" className="mt-4">
+            <Segmented ariaLabel="Payment method" options={METHODS} value={method} onChange={setMethod} />
+          </FieldBlock>
+          <Field label="Date" className="mt-3.5">
+            <TextInput type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </Field>
         </div>
+      </FormSheet>
 
-        <div className="mt-6 flex gap-3">
-          <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
-          <button disabled={!canSave} onClick={save}
-            className="flex-1 rounded-full bg-brand-500 py-3 text-sm font-semibold text-white disabled:opacity-40">
-            Save
-          </button>
-        </div>
-      </div>
-    </div>
+      {picking && (
+        <CustomerPickerSheet
+          customers={pickable} owes={owes} selectedId={customerId} currency={currency}
+          onClose={() => setPicking(false)}
+          onPick={(c: any) => { setCustomerId(c.id); setCustomized(false); setAllocations({}); setPicking(false); }}
+        />
+      )}
+    </>
   );
 }

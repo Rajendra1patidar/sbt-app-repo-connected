@@ -349,7 +349,7 @@ export function HeroMoney({ value, currency = "₹", size = "hero", className, s
 
 export const fieldClass = "h-11 w-full rounded-control border-0 bg-paper px-3 text-[16px] tabular-nums text-ink outline-none placeholder:text-faint focus:ring-2 focus:ring-brand-500/40";
 
-export function Field({ label, children, className, hint }: { label: string; children: ReactNode; className?: string; hint?: ReactNode }) {
+export function Field({ label, children, className, hint }: { label: ReactNode; children: ReactNode; className?: string; hint?: ReactNode }) {
   return (
     <label className={cx("block", className)}>
       <span className="mb-1 block text-micro text-mute">{label}</span>

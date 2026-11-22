@@ -1,29 +1,47 @@
-import React, { useState } from "react";
-import { Archive, KeyRound, MapPin, MessageSquare, Plus, RotateCcw, Search } from "lucide-react";
-import { Card, EmptyState, PillButton, WhatsAppButton } from "../common/UIPrimitives";
-import { RowActionMenu } from "../common/RowActionMenu";
+import { useMemo, useState } from "react";
 import { Pagination } from "../common/Pagination";
-import { Segmented } from "../ui/kit";
+import { CustomerPortalSharePopup } from "../modals/CustomerPortalSharePopup";
+import { ActionRow, EmptyNote } from "../ui/blocks";
+import { ArchiveIcon, EditIcon, KeyIcon, MessageIcon, MoreIcon, WhatsAppIcon } from "../ui/icons";
+import { Avatar, Group, GroupLabel, GroupRow, IconButton, SearchField, Segmented, Sheet, StatusChip, TextButton } from "../ui/kit";
 import { usePagination } from "../../hooks/usePagination";
 import { PAGE_SIZE } from "../../lib/constants";
-import { smsLink } from "../../lib/contactLinks";
-import { fmtMoney } from "../../lib/format";
-import { CustomerPortalSharePopup } from "../modals/CustomerPortalSharePopup";
+import { smsLink, waLink } from "../../lib/contactLinks";
+import { estimateState, localToday } from "../../lib/estimates";
+import { inr, inrCompact } from "../../lib/money";
 
 /* ---- Customers ----
  * Customers are archived, never deleted. An archived customer is out of this list (and out of the
  * pickers and the capture bar) but keeps every bill and payment; the Archived tab brings them back.
- * Only the owner archives or restores, so staff never see the tab or the action. */
+ * Only the owner archives or restores, so staff never see the tab or the action.
+ *
+ * One quiet row per customer: tap it to open the customer. The things you can do without opening
+ * them (WhatsApp, SMS, share the account link, edit, archive) are behind the "..." on the row. */
 
-export function CustomersView({ customers, openModal, removeCustomer, restoreCustomer, role, estimates, onSelectCustomer }: any) {
+const greeting = (name: string) => `Hi ${name}, reaching out from ${name}'s account.`;
+
+export function CustomersView({ customers, openModal, removeCustomer, restoreCustomer, role, estimates, onSelectCustomer, currency = "₹" }: any) {
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"active" | "archived">("active");
   const [portalCustomer, setPortalCustomer] = useState<any>(null);
+  const [actionsFor, setActionsFor] = useState<any>(null);
   const isStaff = role === "staff";
-  const balanceFor = (customerId: string) =>
-    (estimates || [])
-      .filter((e: any) => String(e.customerId) === String(customerId))
-      .reduce((s: number, e: any) => s + (Number(e.total || 0) - Number(e.amountPaid || 0)), 0);
+  const todayStr = localToday();
+
+  // What each customer owes (the same sum as before: billed minus paid, across their open estimates),
+  // and whether any of their bills is past its due date. One pass over the estimates, not one per row.
+  const standing = useMemo(() => {
+    const m = new Map<string, { balance: number; overdue: boolean }>();
+    for (const e of estimates || []) {
+      const id = String(e.customerId);
+      const cur = m.get(id) || { balance: 0, overdue: false };
+      cur.balance += Number(e.total || 0) - Number(e.amountPaid || 0);
+      if (estimateState(e, todayStr).key === "overdue") cur.overdue = true;
+      m.set(id, cur);
+    }
+    return m;
+  }, [estimates, todayStr]);
+  const owedBy = (id: string) => Math.round((standing.get(String(id))?.balance || 0) * 100) / 100;
 
   const archivedCount = customers.filter((c: any) => c.archived).length;
   const activeCount = customers.length - archivedCount;
@@ -39,107 +57,90 @@ export function CustomersView({ customers, openModal, removeCustomer, restoreCus
     (c.location || "").toLowerCase().includes(q)
   );
   const { pageItems, page, setPage, totalPages, total, pageSize } = usePagination(filteredCustomers, PAGE_SIZE);
+  const owedInPool = useMemo(() => pool.reduce((s: number, c: any) => s + Math.max(0, owedBy(c.id)), 0), [pool, standing]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const row = (c: any) => {
+    const archived = !!c.archived;
+    const owed = owedBy(c.id);
+    const overdue = !!standing.get(String(c.id))?.overdue && owed > 0;
+    const sub = [c.phone, c.location].filter(Boolean).join(", ") || c.email || "No phone yet";
+    return (
+      // The row is a div so the "..." can be its own button beside the one that opens the customer.
+      <GroupRow key={c.id} className="!gap-0 pr-1.5">
+        <button type="button" onClick={() => onSelectCustomer(c.id)}
+          className="-ml-4 flex min-h-[68px] min-w-0 flex-1 items-center gap-3 py-2.5 pl-4 text-left transition-colors active:bg-paper">
+          <Avatar name={c.name} size={40} className={archived ? "!bg-chip !text-chipText" : ""} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-lead font-medium text-ink">{c.name}</p>
+            <p className="truncate text-caption text-mute">{sub}</p>
+          </div>
+          {owed > 0 && (
+            <div className="shrink-0 pl-1 text-right">
+              <p className="text-lead font-medium tabular-nums text-ink">{inr(owed, currency)}</p>
+              {overdue
+                ? <StatusChip tone="overdue" small className="mt-0.5">Overdue</StatusChip>
+                : <p className="text-micro text-mute">{archived ? "Still owes" : "Owes"}</p>}
+            </div>
+          )}
+        </button>
+        {archived
+          ? (!isStaff && <TextButton onClick={() => restoreCustomer(c.id)} className="shrink-0 px-2 text-[15px]" aria-label={`Restore ${c.name}`}>Restore</TextButton>)
+          : <IconButton label={`Actions for ${c.name}`} tone="faint" layout="compact" onClick={() => setActionsFor(c)}><MoreIcon size={20} /></IconButton>}
+      </GroupRow>
+    );
+  };
 
   return (
-    <div className="space-y-3 px-5 pb-28">
+    <div className="px-5 pb-28 md:pb-12">
       {portalCustomer && <CustomerPortalSharePopup customer={portalCustomer} onClose={() => setPortalCustomer(null)} />}
-      <div className="flex items-center justify-between pt-1">
-        <p className="text-sm text-faint">
-          {showing === "archived"
-            ? `${archivedCount} archived`
-            : `${activeCount} customer${activeCount !== 1 ? "s" : ""}`}
-        </p>
-        <PillButton onClick={() => openModal("customer")}><Plus size={16} /> New Customer</PillButton>
-      </div>
-      {!isStaff && archivedCount > 0 && (
-        <Segmented
-          ariaLabel="Customer list"
-          options={[{ value: "active", label: `Active (${activeCount})` }, { value: "archived", label: `Archived (${archivedCount})` }]}
-          value={showing}
-          onChange={(v) => { setView(v as "active" | "archived"); setSearch(""); }}
-        />
+
+      {actionsFor && (
+        <Sheet onClose={() => setActionsFor(null)} label={`Actions for ${actionsFor.name}`}>
+          <h2 className="truncate text-section text-ink">{actionsFor.name}</h2>
+          <p className="truncate text-[15px] text-mute">{actionsFor.phone || "No phone number saved"}</p>
+          <Group className="mt-4">
+            <ActionRow icon={<WhatsAppIcon size={20} />} label="Send WhatsApp message" disabled={!actionsFor.phone}
+              href={actionsFor.phone ? waLink(actionsFor.phone, greeting(actionsFor.name)) : undefined} onClick={() => setActionsFor(null)} />
+            <ActionRow icon={<MessageIcon size={20} />} label="Send SMS" disabled={!actionsFor.phone}
+              href={actionsFor.phone ? smsLink(actionsFor.phone, greeting(actionsFor.name)) : undefined} onClick={() => setActionsFor(null)} />
+            <ActionRow icon={<KeyIcon size={20} />} label="Share account link" onClick={() => { const c = actionsFor; setActionsFor(null); setPortalCustomer(c); }} />
+            <ActionRow icon={<EditIcon size={20} />} label="Edit customer" onClick={() => { const c = actionsFor; setActionsFor(null); openModal("customer", { editingCustomer: c }); }} />
+            {!isStaff && <ActionRow icon={<ArchiveIcon size={20} />} label="Archive customer" danger onClick={() => { const c = actionsFor; setActionsFor(null); removeCustomer(c.id); }} />}
+          </Group>
+          <div className="h-2" />
+        </Sheet>
       )}
-      {customers.length > 0 && (
-        <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, phone, email or location..."
-            aria-label="Search customers"
-            className="w-full rounded-xl border border-line bg-card py-2.5 pl-9 pr-3 text-sm"
+
+      {!isStaff && archivedCount > 0 && (
+        <div className="mt-4">
+          <Segmented
+            ariaLabel="Customer list"
+            options={[{ value: "active", label: `Active (${activeCount})` }, { value: "archived", label: `Archived (${archivedCount})` }]}
+            value={showing}
+            onChange={(v) => { setView(v as "active" | "archived"); setSearch(""); }}
           />
         </div>
       )}
-      {customers.length === 0
-        ? <Card><EmptyState text="Add your first customer." cta="New Customer" onCta={() => openModal("customer")} /></Card>
-        : pool.length === 0
-        ? <Card><p className="text-center text-sm text-faint">{showing === "archived" ? "No archived customers." : "No active customers. Add one, or restore someone from Archived."}</p></Card>
-        : pageItems.length === 0
-        ? <Card><p className="text-center text-sm text-faint">No customers match your search.</p></Card>
-        : <>
-          {pageItems.map((c: any, idx: number) => {
-          const balance = balanceFor(c.id);
-          const archived = !!c.archived;
-          const initials = (c.name || "?").trim().split(/\s+/).slice(0, 2).map((w: string) => w[0]).join("").toUpperCase();
-          return (
-            <Card key={c.id} style={{ animationDelay: `${Math.min(idx, 8) * 25}ms` }} className="animate-row-in flex items-center gap-3 justify-between cursor-pointer" onClick={() => onSelectCustomer(c.id)}>
-              <div className="flex items-center gap-3 min-w-0">
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-display text-xs font-semibold ${archived ? "bg-chip text-mute" : balance > 0 ? "bg-bad-50 text-bad-600" : "bg-good-50 text-good-600"}`}>{initials}</div>
-                <div className="min-w-0">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <p className="truncate font-semibold text-ink">{c.name}</p>
-                    {archived && <span className="shrink-0 rounded-full bg-chip px-2 py-0.5 text-xs font-medium text-chipText">Archived</span>}
-                  </div>
-                  <p className="text-xs text-faint truncate">{c.email || "No email"}{c.phone ? ` · ${c.phone}` : ""}</p>
-                  {c.location && (
-                    <a
-                      href={c.lat && c.lng ? `https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.location)}`}
-                      target="_blank" rel="noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="mt-0.5 flex items-center gap-1 text-xs text-faint hover:text-brand-600 hover:underline"
-                    >
-                      <MapPin size={11} /> {c.location}
-                    </a>
-                  )}
-                  {balance > 0 && <p className="mt-1 text-xs font-semibold text-bad-600">{archived ? "Still owes" : "Due"} {fmtMoney(balance, "₹")}</p>}
-                </div>
-              </div>
-              <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                {archived ? (
-                  <button
-                    type="button"
-                    onClick={() => restoreCustomer(c.id)}
-                    className="flex min-h-[44px] items-center gap-1 rounded-full border border-line px-3 text-xs font-semibold text-brand-600 active:scale-[0.97]"
-                  >
-                    <RotateCcw size={14} aria-hidden="true" /> Restore
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => setPortalCustomer(c)}
-                      aria-label="Share account link with customer"
-                      title="Share account link"
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-brand-300 bg-brand-50 text-brand-700 active:scale-[0.94]"
-                    >
-                      <KeyRound size={15} />
-                    </button>
-                    <WhatsAppButton compact phone={c.phone} message={`Hi ${c.name}, reaching out from ${c.name}'s account.`} />
-                    <RowActionMenu
-                      actions={[
-                        ...(c.phone ? [{ key: "sms", label: "Send SMS", icon: MessageSquare, href: smsLink(c.phone, `Hi ${c.name}, reaching out from ${c.name}'s account.`), onClick: () => {} }] : []),
-                        ...(isStaff ? [] : [{ key: "archive", label: "Archive customer", icon: Archive, onClick: () => removeCustomer(c.id) }]),
-                      ]}
-                    />
-                  </>
-                )}
-              </div>
-            </Card>
-          );
-          })}
-          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} />
+
+      {customers.length > 0 && (
+        <SearchField className="mt-3 !h-11" value={search} onChange={setSearch} placeholder="Search name, phone or place" ariaLabel="Search customers" />
+      )}
+
+      {customers.length === 0 ? (
+        <Group className="mt-4"><EmptyNote text="Add your first customer to start tracking what they buy and what they owe." cta="New customer" onCta={() => openModal("customer")} /></Group>
+      ) : pool.length === 0 ? (
+        <Group className="mt-4"><p className="px-4 py-8 text-center text-[15px] text-mute">{showing === "archived" ? "No archived customers." : "No active customers. Add one, or restore someone from Archived."}</p></Group>
+      ) : pageItems.length === 0 ? (
+        <Group className="mt-4"><p className="px-4 py-8 text-center text-[15px] text-mute">No customers match your search.</p></Group>
+      ) : (
+        <>
+          <GroupLabel right={owedInPool > 0 ? <span className="tabular-nums">Owed {inrCompact(owedInPool, currency)}</span> : undefined}>
+            {showing === "archived" ? `${archivedCount} archived` : `${activeCount} customer${activeCount === 1 ? "" : "s"}`}
+          </GroupLabel>
+          <Group>{pageItems.map(row)}</Group>
+          <div className="mt-2"><Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} /></div>
         </>
-      }
+      )}
     </div>
   );
 }

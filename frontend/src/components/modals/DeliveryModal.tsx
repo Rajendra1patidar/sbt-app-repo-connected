@@ -1,15 +1,18 @@
-import React, { useState } from "react";
-import { X } from "lucide-react";
+import { useState } from "react";
+import { FormSheet } from "../ui/blocks";
+import { Group, GroupRow, Stepper } from "../ui/kit";
 import { bookingLineProgress } from "../../lib/bookingLogic";
+import { qtyText } from "../../lib/money";
 
-import { IconButton } from "../ui/kit";
+/** Record collection: how much of each booked item the customer is taking right now. */
 export function DeliveryModal({ doc, items, onClose, onSave }: any) {
   const rows = bookingLineProgress(doc)
     .filter((r: any) => r.remaining > 0)
     .map((r: any) => ({ ...r, name: items.find((it: any) => it.id === r.itemId)?.name || "Item" }));
 
   const [qtyMap, setQtyMap] = useState<Record<string, string>>({});
-  const setQty = (itemId: string, v: string) => setQtyMap((m) => ({ ...m, [itemId]: v }));
+  // Typing more than what's left snaps back to what's left, so the number on screen is the number that saves.
+  const setQty = (r: any, v: string) => setQtyMap((m) => ({ ...m, [r.itemId]: v !== "" && Number(v) > r.remaining ? String(r.remaining) : v }));
 
   const lines = rows
     .map((r: any) => ({ ...r, collectQty: Math.min(Number(qtyMap[r.itemId] || 0), r.remaining) }))
@@ -17,60 +20,31 @@ export function DeliveryModal({ doc, items, onClose, onSave }: any) {
   const canSave = lines.length > 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4 animate-fade-in">
-      <div className="animate-sheet-up sheet-grab w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="font-display text-lg font-semibold text-ink">Record collection</h3>
-          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
-        </div>
-        <p className="mb-4 text-xs text-mute">{doc.number} — enter how many of each booked item the customer is taking right now. Can't exceed what's still remaining.</p>
+    <FormSheet title="Record collection" onClose={onClose} dirty={lines.length > 0} canSave={canSave} saveLabel="Record collection"
+      onSave={() => canSave && onSave(lines.map((l: any) => ({ itemId: l.itemId, qty: l.collectQty })))}>
+      <p className="text-[15px] leading-[21px] text-mute">
+        <span className="font-doc text-[14px]">{doc.number}</span>: how much of each booked item is the customer taking now? It can't be more than what's left.
+      </p>
 
-        {rows.length === 0 ? (
-          <p className="text-sm text-mute">Everything booked on this estimate has already been collected.</p>
-        ) : (
-          <>
-            <div className="hidden sm:grid mb-1 grid-cols-[1fr_72px_88px] gap-2 px-1 text-[12px] font-semibold text-faint">
-              <span>Item</span><span>Collect</span><span className="text-right">Remaining</span>
-            </div>
-            <div className="space-y-2">
-              {rows.map((r: any, i: number) => (
-                <div key={r.itemId} style={{ animationDelay: `${Math.min(i, 6) * 25}ms` }} className="animate-row-in rounded-xl border border-line bg-paper/60 p-2.5 sm:grid sm:grid-cols-[1fr_72px_88px] sm:gap-2 sm:items-center">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-ink truncate">{r.name}</p>
-                    <p className="text-xs text-faint">
-                      {r.remaining} of {r.booked} remaining
-                      {r.delivered > 0 ? ` · ${r.delivered} collected so far` : ""}
-                    </p>
-                  </div>
-                  <div className="mt-2 sm:mt-0">
-                    <span className="mb-0.5 block text-micro font-semibold text-faint sm:hidden">Collecting now</span>
-                    <input
-                      type="number" min="0" max={r.remaining} placeholder="0"
-                      value={qtyMap[r.itemId] || ""} onChange={(e) => setQty(r.itemId, e.target.value)}
-                      className="w-full sm:w-16 rounded-xl border border-line px-2 py-2 text-sm text-center"
-                    />
-                  </div>
-                  <div className="mt-2 flex items-center justify-between sm:mt-0 sm:block sm:text-right">
-                    <span className="text-micro font-semibold text-faint sm:hidden">Remaining</span>
-                    <span className="font-display text-sm font-semibold text-ink tabular-nums">{r.remaining}</span>
-                  </div>
+      {rows.length === 0 ? (
+        <p className="mt-4 rounded-control bg-paper px-3 py-3 text-[15px] text-mute">Everything booked on this estimate has already been collected.</p>
+      ) : (
+        <Group className="mt-4">
+          {rows.map((r: any) => (
+            <GroupRow key={r.itemId} className="min-h-[68px] py-2.5">
+              <div className="flex w-full items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-[16px] font-medium text-ink">{r.name}</p>
+                  <p className="text-caption text-mute">
+                    {qtyText(r.remaining)} of {qtyText(r.booked)} left{r.delivered > 0 ? `, ${qtyText(r.delivered)} collected so far` : ""}
+                  </p>
                 </div>
-              ))}
-            </div>
-          </>
-        )}
-
-        <div className="mt-6 flex gap-3">
-          <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
-          <button
-            disabled={!canSave}
-            onClick={() => canSave && onSave(lines.map((l: any) => ({ itemId: l.itemId, qty: l.collectQty })))}
-            className="flex-1 rounded-full bg-brand-500 py-3 text-sm font-semibold text-white disabled:opacity-40"
-          >
-            Record collection
-          </button>
-        </div>
-      </div>
-    </div>
+                <Stepper label={r.name} decimals max={r.remaining} value={qtyMap[r.itemId] ?? "0"} onChange={(v) => setQty(r, v)} />
+              </div>
+            </GroupRow>
+          ))}
+        </Group>
+      )}
+    </FormSheet>
   );
 }

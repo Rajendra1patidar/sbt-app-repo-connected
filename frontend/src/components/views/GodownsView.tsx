@@ -1,225 +1,182 @@
-import React, { useMemo, useState } from "react";
-import { ArrowLeftRight, ChevronDown, ChevronUp, MapPin, Pencil, Plus, Search, Star, Trash2, User as UserIcon, Warehouse } from "lucide-react";
-import { Card, EmptyState, GhostButton, PillButton, SectionDivider, StatStrip } from "../common/UIPrimitives";
-import { LOW_STOCK_DEFAULT } from "../../lib/constants";
-import { fmtMoney, fmtNum } from "../../lib/format";
+import { useMemo, useState } from "react";
+import { ArrowLeftRight, Pencil, Star, Trash2, Warehouse } from "lucide-react";
+import { ActionRow, DetailRow, EmptyNote } from "../ui/blocks";
+import { Group, GroupLabel, GroupRow, SearchField, Sheet, StatusChip } from "../ui/kit";
+import { inr, inrCompact, qtyText } from "../../lib/money";
+import { stockState, stockText } from "../../lib/stockStatus";
+import { ValueBars } from "../items/ValueBars";
 import { GodownsMapCard } from "./GodownsMapCard";
 
-import { IconButton } from "../ui/kit";
-/* ---- Godowns ---- */
+/* ---- Godowns ----
+ * Where your stock is kept. One row per godown with what it holds and its share of the whole.
+ * Tap a row for the sheet: the numbers, the categories that make up its value, the items inside,
+ * and the actions (move stock out of it, make it the default, edit, archive). */
 
-export function GodownsView({ godowns, items, openModal, removeGodown, saveGodown, setDefaultGodown, settings, deadStock }: any) {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [showAllFor, setShowAllFor] = useState<string | null>(null);
-  const [breakdownSearch, setBreakdownSearch] = useState("");
-  const [breakdownSort, setBreakdownSort] = useState<"value" | "name">("value");
+const ITEM_PREVIEW = 8;
 
-  const deadStockIds = useMemo(() => new Set((deadStock || []).map((d: any) => d.itemId)), [deadStock]);
+export function GodownsView({ godowns, items, openModal, removeGodown, setDefaultGodown, settings, deadStock }: any) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const currency = settings?.currency;
+  const deadIds = useMemo(() => new Set((deadStock || []).map((d: any) => String(d.itemId))), [deadStock]);
 
-  // Same cost-basis valuation the backend uses elsewhere (purchasePrice ×
-  // qty on hand — kg for weight-tracked items, pieces otherwise), just
-  // narrowed to what's sitting in one specific godown. isLow/isDead reflect
-  // the item's overall status (stock is tracked per-item, not per-godown),
-  // so they surface which godown is actually holding a dwindling or
-  // stagnant item rather than re-deriving location-specific thresholds.
+  // Cost-basis value of what sits in one godown: purchase price × quantity there (kg for weight items,
+  // pieces otherwise). Low / dead reflect the item overall; stock is tracked per item, not per godown.
   const itemsAt = (godownId: string) =>
     (items || [])
+      .filter((it: any) => !it.deleted)
       .map((it: any) => {
         const entry = (it.stockByGodown || []).find((g: any) => String(g.godownId) === String(godownId));
         if (!entry) return null;
         const qty = it.trackingMode === "weight" ? (entry.stockKg ?? 0) : (entry.stock ?? 0);
         if (qty <= 0) return null;
+        const st = stockState(it);
         return {
-          id: it.id,
-          name: it.name,
-          unit: it.unit,
-          category: it.category || "Others",
-          qty,
+          id: it.id, name: it.name, category: it.category || "Others",
+          qtyText: stockText(it, entry.stock ?? 0, entry.stockKg ?? 0),
           value: qty * (it.purchasePrice ?? 0),
-          isLow: (it.stock ?? 0) <= (it.lowStock ?? LOW_STOCK_DEFAULT),
-          isDead: deadStockIds.has(it.id),
+          low: st === "low" || st === "out", dead: deadIds.has(String(it.id)),
         };
       })
-      .filter(Boolean);
+      .filter(Boolean) as { id: string; name: string; category: string; qtyText: string; value: number; low: boolean; dead: boolean }[];
 
-  const stockCountFor = (godownId: string) => itemsAt(godownId).length;
-  const valueFor = (godownId: string) => itemsAt(godownId).reduce((sum: number, i: any) => sum + i.value, 0);
-  const totalValue = (godowns || []).reduce((sum: number, g: any) => sum + valueFor(g.id), 0);
-
-  const categoryBreakdown = (breakdown: any[]) => {
-    const map = new Map<string, number>();
-    for (const it of breakdown) map.set(it.category, (map.get(it.category) || 0) + it.value);
-    return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
-  };
+  const stats = useMemo(() => (godowns || []).map((g: any) => {
+    const list = itemsAt(g.id);
+    return { g, list, count: list.length, value: list.reduce((s, i) => s + i.value, 0) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [godowns, items, deadIds]);
+  const totalValue = stats.reduce((s: number, x: any) => s + x.value, 0);
+  const opened = openId ? stats.find((x: any) => x.g.id === openId) : null;
 
   return (
-    <div className="space-y-3 px-5 pb-28">
-      <div className="flex items-center justify-between pt-1">
-        <p className="text-sm text-faint">{godowns.length} godown{godowns.length !== 1 ? "s" : ""}</p>
-        <div className="flex gap-2">
-          {godowns.length > 1 && (
-            <GhostButton onClick={() => openModal("stockTransfer")}>
-              <ArrowLeftRight size={14} /> Transfer
-            </GhostButton>
-          )}
-          <PillButton onClick={() => openModal("godown")}><Plus size={16} /> New Godown</PillButton>
-        </div>
-      </div>
-
-      {godowns.length > 0 && (
-        <StatStrip
-          stats={[
-            { label: "Total value", value: fmtMoney(totalValue, settings?.currency) },
-            { label: "Godowns", value: fmtNum(godowns.length) },
-          ]}
-        />
-      )}
-
-      {godowns.length === 0 ? (
-        <Card>
-          <EmptyState
-            text="Add your warehouses and storage locations to start tracking stock by location."
-            cta="New Godown"
-            onCta={() => openModal("godown")}
-          />
-        </Card>
+    <div className="px-5 pb-28 md:pb-12">
+      {(godowns || []).length === 0 ? (
+        <Group className="mt-4"><EmptyNote text="Add your warehouses and storage places to track stock by location." cta="New godown" onCta={() => openModal("godown")} /></Group>
       ) : (
         <>
+          <p className="mt-3 px-1 text-caption text-mute">{godowns.length} godown{godowns.length === 1 ? "" : "s"}, {inrCompact(totalValue, currency)} in stock at cost</p>
           <GodownsMapCard godowns={godowns} />
-          <SectionDivider />
-        {godowns.map((g: any, idx: number) => {
-          const itemCount = stockCountFor(g.id);
-          const value = valueFor(g.id);
-          const share = totalValue > 0 ? (value / totalValue) * 100 : 0;
-          const isExpanded = expandedId === g.id;
-          const fullBreakdown = isExpanded ? itemsAt(g.id) : [];
-          const searched = breakdownSearch.trim()
-            ? fullBreakdown.filter((it: any) => it.name.toLowerCase().includes(breakdownSearch.trim().toLowerCase()))
-            : fullBreakdown;
-          const breakdown = [...searched].sort((a: any, b: any) => breakdownSort === "value" ? b.value - a.value : a.name.localeCompare(b.name));
-          const showAll = showAllFor === g.id;
-          const visibleBreakdown = showAll ? breakdown : breakdown.slice(0, 5);
-          const catBars = isExpanded ? categoryBreakdown(fullBreakdown) : [];
-          const maxCat = catBars[0]?.[1] || 1;
-          return (
-            <div key={g.id} className={idx > 0 ? "pt-3" : ""}>
-              {idx > 0 && <SectionDivider className="mb-3" />}
-              <button
-                type="button"
-                onClick={() => { setExpandedId(isExpanded ? null : g.id); setShowAllFor(null); setBreakdownSearch(""); }}
-                className="flex w-full items-start gap-3 justify-between text-left"
-                disabled={itemCount === 0}
-              >
-                <div className="flex items-start gap-3 min-w-0">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600">
-                    <Warehouse size={18} />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <p className="font-semibold text-ink truncate">{g.name}</p>
-                      {g.isDefault && (
-                        <span className="inline-flex items-center gap-0.5 rounded-full bg-brand-50 px-1.5 py-0.5 text-micro font-semibold text-brand-600">
-                          <Star size={9} fill="currentColor" /> Default
-                        </span>
-                      )}
-                    </div>
-                    {g.location && (
-                      <p className="mt-0.5 flex items-center gap-1 text-xs text-faint truncate"><MapPin size={11} /> {g.location}</p>
-                    )}
-                    {g.manager && (
-                      <p className="mt-0.5 flex items-center gap-1 text-xs text-faint truncate"><UserIcon size={11} /> {g.manager}</p>
-                    )}
-                    {totalValue > 0 && (
-                      <div className="mt-1.5 h-1 w-24 overflow-hidden rounded-full bg-paper">
-                        <div className="h-full rounded-full bg-brand-400" style={{ width: `${Math.max(3, share)}%` }} />
+
+          {godowns.length > 1 && (
+            <Group className="mt-4">
+              <GroupRow onClick={() => openModal("stockTransfer")} chevron className="h-[52px]">
+                <span className="flex items-center gap-3 text-[16px] text-ink"><ArrowLeftRight size={20} className="text-mute" /> Transfer stock between godowns</span>
+              </GroupRow>
+            </Group>
+          )}
+
+          <GroupLabel>Godowns</GroupLabel>
+          <Group>
+            {stats.map(({ g, count, value }: any) => {
+              const share = totalValue > 0 ? (value / totalValue) * 100 : 0;
+              return (
+                <GroupRow key={g.id} onClick={() => setOpenId(g.id)} className="min-h-[72px] py-3">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-600"><Warehouse size={18} /></span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-lead font-medium text-ink">{g.name}</p>
+                      <div className="mt-0.5 flex items-center gap-1.5">
+                        {g.isDefault && <StatusChip tone="action" small dot={false}>Default</StatusChip>}
+                        <p className="min-w-0 truncate text-caption text-mute">{g.location || g.manager || "No location set"}</p>
                       </div>
-                    )}
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <div className="text-right">
-                    <p className="text-base font-semibold text-ink">{fmtMoney(value, settings?.currency)}</p>
-                    <p className="text-xs text-faint">{itemCount} item{itemCount !== 1 ? "s" : ""} · {share.toFixed(0)}% of total</p>
-                  </div>
-                  {itemCount > 0 && (isExpanded ? <ChevronUp size={16} className="text-faint" /> : <ChevronDown size={16} className="text-faint" />)}
-                </div>
-              </button>
-
-              {isExpanded && fullBreakdown.length > 0 && (
-                <div className="border-t border-line/70 mt-3 pt-3">
-                  {catBars.length > 1 && (
-                    <div className="mb-3 space-y-1.5">
-                      {catBars.map(([cat, v]) => (
-                        <div key={cat} className="flex items-center gap-2">
-                          <span className="w-14 shrink-0 truncate text-[12px] text-mute">{cat}</span>
-                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-paper">
-                            <div className="h-full rounded-full bg-brand-300" style={{ width: `${Math.max(4, (v / maxCat) * 100)}%` }} />
-                          </div>
-                          <span className="w-14 shrink-0 text-right font-mono text-[12px] text-faint">{fmtMoney(v, settings?.currency)}</span>
-                        </div>
-                      ))}
                     </div>
-                  )}
-
-                  {fullBreakdown.length > 8 && (
-                    <div className="mb-3 flex gap-2">
-                      <div className="relative flex-1">
-                        <Search size={12} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faint" />
-                        <input
-                          type="text" value={breakdownSearch} onChange={(e) => setBreakdownSearch(e.target.value)} placeholder="Search this godown"
-                          className="w-full rounded-lg border border-line py-1.5 pl-7 pr-2 text-xs"
-                        />
-                      </div>
-                      <select value={breakdownSort} onChange={(e) => setBreakdownSort(e.target.value as any)} className="rounded-lg border border-line px-2 py-1.5 text-[12px] font-semibold text-ink/70">
-                        <option value="value">Value ↓</option>
-                        <option value="name">Name A-Z</option>
-                      </select>
+                    <div className="shrink-0 text-right">
+                      <p className="text-lead font-medium tabular-nums text-ink">{inrCompact(value, currency)}</p>
+                      <p className="text-caption tabular-nums text-mute">{count} item{count === 1 ? "" : "s"}, {Math.round(share)}%</p>
                     </div>
-                  )}
-
-                  <p className="mb-2 text-xs font-semibold text-faint">{showAll ? `All ${breakdown.length} items` : "Top items by value"}</p>
-                  {breakdown.length === 0 ? (
-                    <p className="text-xs text-faint">No items match that search.</p>
-                  ) : (
-                    <ul className="space-y-1.5">
-                      {visibleBreakdown.map((it: any) => (
-                        <li key={it.id} className="flex items-center justify-between text-sm">
-                          <span className="flex min-w-0 items-center gap-1.5">
-                            <span className="min-w-0 truncate text-ink/80">{it.name}</span>
-                            {it.isLow && <span className="shrink-0 rounded-full bg-warn-100 px-1.5 py-0.5 text-micro font-semibold text-warn-700">Low</span>}
-                            {!it.isLow && it.isDead && <span className="shrink-0 rounded-full bg-paper px-1.5 py-0.5 text-micro font-semibold text-faint">Dead</span>}
-                          </span>
-                          <span className="shrink-0 pl-2 font-mono text-xs text-mute">{fmtMoney(it.value, settings?.currency)}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {!showAll && breakdown.length > 5 && (
-                    <button onClick={() => setShowAllFor(g.id)} className="mt-2.5 w-full rounded-full border border-line py-2 text-xs font-semibold text-mute">
-                      View all {breakdown.length} items
-                    </button>
-                  )}
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-1 pt-2">
-                {!g.isDefault && (
-                  <IconButton label="Make default godown" tone="faint" onClick={() => setDefaultGodown(g.id)}>
-                    <Star size={15} />
-                  </IconButton>
-                )}
-                <IconButton label="Edit godown" tone="faint" onClick={() => openModal("godown", { editingGodown: g })}>
-                  <Pencil size={15} />
-                </IconButton>
-                <IconButton label="Archive godown" tone="danger" onClick={() => removeGodown(g.id)}>
-                  <Trash2 size={16} />
-                </IconButton>
-              </div>
-            </div>
-          );
-        })}
+                  </div>
+                </GroupRow>
+              );
+            })}
+          </Group>
         </>
       )}
+
+      {opened && (
+        <GodownSheet
+          godown={opened.g} list={opened.list} value={opened.value} totalValue={totalValue} currency={currency} canTransfer={godowns.length > 1}
+          onClose={() => setOpenId(null)}
+          onTransfer={() => { setOpenId(null); openModal("stockTransfer", { fromGodownId: opened.g.id }); }}
+          onDefault={() => { setOpenId(null); setDefaultGodown(opened.g.id); }}
+          onEdit={() => { setOpenId(null); openModal("godown", { editingGodown: opened.g }); }}
+          onArchive={() => { setOpenId(null); removeGodown(opened.g.id); }}
+        />
+      )}
     </div>
+  );
+}
+
+function GodownSheet({ godown: g, list, value, totalValue, currency, canTransfer, onClose, onTransfer, onDefault, onEdit, onArchive }: any) {
+  const [search, setSearch] = useState("");
+  const [all, setAll] = useState(false);
+  const share = totalValue > 0 ? (value / totalValue) * 100 : 0;
+
+  const categories = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const it of list) map.set(it.category, (map.get(it.category) || 0) + it.value);
+    return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
+  }, [list]);
+
+  const q = search.trim().toLowerCase();
+  const sorted = useMemo(() => [...list].filter((it: any) => !q || it.name.toLowerCase().includes(q)).sort((a: any, b: any) => b.value - a.value), [list, q]);
+  const visible = all || q ? sorted : sorted.slice(0, ITEM_PREVIEW);
+
+  return (
+    <Sheet onClose={onClose} label={`Godown ${g.name}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="break-words text-section text-ink">{g.name}</h2>
+          <p className="mt-0.5 text-[15px] text-mute">{g.location || "No location set"}</p>
+        </div>
+        {g.isDefault && <StatusChip tone="action" dot={false} className="mt-1">Default</StatusChip>}
+      </div>
+
+      <Group className="mt-4">
+        <DetailRow label="Stock value">{inr(value, currency)}</DetailRow>
+        <DetailRow label="Items">{list.length}</DetailRow>
+        <DetailRow label="Share of all stock">{Math.round(share)}%</DetailRow>
+        {g.manager && <DetailRow label="Manager">{g.manager}</DetailRow>}
+        {g.capacity != null && g.capacity !== "" && <DetailRow label="Capacity">{qtyText(g.capacity)}</DetailRow>}
+        {g.notes && <DetailRow label="Notes">{g.notes}</DetailRow>}
+      </Group>
+
+      {categories.length > 1 && (
+        <>
+          <GroupLabel>What it is worth</GroupLabel>
+          <ValueBars rows={categories} currency={currency} />
+        </>
+      )}
+
+      <GroupLabel right={list.length > ITEM_PREVIEW && !q ? <span>{list.length} items</span> : undefined}>{all || q ? "Items here" : "Biggest by value"}</GroupLabel>
+      {list.length > 8 && <SearchField className="mb-2 !h-11" value={search} onChange={setSearch} placeholder="Search this godown" />}
+      <Group>
+        {list.length === 0 ? <p className="px-4 py-6 text-center text-[15px] text-mute">Nothing is stored here yet.</p>
+          : visible.length === 0 ? <p className="px-4 py-6 text-center text-[15px] text-mute">No items match.</p>
+          : visible.map((it: any) => (
+            <div key={it.id} className="flex min-h-[56px] items-center justify-between gap-3 border-t border-line px-4 py-2 first:border-t-0">
+              <div className="min-w-0">
+                <p className="truncate text-[16px] text-ink">{it.name}</p>
+                <p className="truncate text-caption tabular-nums text-mute">{it.qtyText}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {it.low && <StatusChip tone="caution" small>Low</StatusChip>}
+                {!it.low && it.dead && <StatusChip tone="neutral" small dot={false}>No sale 90d</StatusChip>}
+                <span className="text-[16px] tabular-nums text-ink">{inrCompact(it.value, currency)}</span>
+              </div>
+            </div>
+          ))}
+      </Group>
+      {!all && !q && list.length > ITEM_PREVIEW && (
+        <button type="button" onClick={() => setAll(true)} className="mt-1 h-11 w-full text-[15px] font-medium text-brand-600">Show all {list.length} items</button>
+      )}
+
+      <GroupLabel>Manage</GroupLabel>
+      <Group>
+        {canTransfer && <ActionRow icon={<ArrowLeftRight size={20} />} label="Move stock out of here" onClick={onTransfer} />}
+        {!g.isDefault && <ActionRow icon={<Star size={20} />} label="Make default godown" hint="New stock arrives here" onClick={onDefault} />}
+        <ActionRow icon={<Pencil size={20} />} label="Edit godown" onClick={onEdit} />
+        <ActionRow icon={<Trash2 size={20} />} label="Archive godown" danger onClick={onArchive} />
+      </Group>
+      <div className="h-3" />
+    </Sheet>
   );
 }

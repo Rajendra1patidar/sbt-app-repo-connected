@@ -1,9 +1,11 @@
-import React, { useState } from "react";
-import { Plus, Trash2, X } from "lucide-react";
+import { useState } from "react";
+import { EmptyNote, FieldBlock, FormSheet, TextArea } from "../ui/blocks";
+import { PlusIcon, TrashIcon } from "../ui/icons";
+import { Field, Group, IconButton, SecondaryButton, TextInput } from "../ui/kit";
 import { SearchableSelect } from "../common/SearchableSelect";
-import { fmtMoney, today, round2 } from "../../lib/format";
+import { round2, today } from "../../lib/format";
+import { inr } from "../../lib/money";
 
-import { IconButton } from "../ui/kit";
 /* ---- OrderModal ----
  * Multi-item order entry — same shape as PurchaseModal: one vendor, one
  * date, one notes field shared across every line, but each line picks its
@@ -19,30 +21,28 @@ export function OrderModal({ items, vendors, currency, onClose, onSave, prefill 
   const itemById = (id: string) => activeItems.find((it: any) => it.id === id);
 
   const initialItemId = prefill?.itemId || activeItems[0]?.id || "";
-  const [vendorId, setVendorId] = useState(prefill?.vendorId || "");
+  const initialVendor = prefill?.vendorId || "";
+  const initialLines: OrderLine[] = [{
+    itemId: initialItemId,
+    qty: prefill?.qty || 1,
+    rate: prefill?.rate ?? (itemById(initialItemId)?.purchasePrice ?? ""),
+  }];
+  const [vendorId, setVendorId] = useState(initialVendor);
   const [date, setDate] = useState(today());
   const [notes, setNotes] = useState("");
-  const [lines, setLines] = useState<OrderLine[]>([
-    {
-      itemId: initialItemId,
-      qty: prefill?.qty || 1,
-      rate: prefill?.rate ?? (itemById(initialItemId)?.purchasePrice ?? ""),
-    },
-  ]);
+  const [lines, setLines] = useState<OrderLine[]>(initialLines);
   const [saving, setSaving] = useState(false);
+  const [initialJson] = useState(() => JSON.stringify(initialLines));
 
   const addLine = () => setLines((l) => [...l, { itemId: "", qty: 1, rate: 0 }]);
-  const updateLine = (i: number, patch: Partial<OrderLine>) =>
-    setLines((l) => l.map((ln, idx) => (idx === i ? { ...ln, ...patch } : ln)));
+  const updateLine = (i: number, patch: Partial<OrderLine>) => setLines((l) => l.map((ln, idx) => (idx === i ? { ...ln, ...patch } : ln)));
   const removeLine = (i: number) => setLines((l) => l.filter((_, idx) => idx !== i));
 
   const lineAmounts = lines.map((ln) => round2(Number(ln.qty || 0) * Number(ln.rate || 0)));
   const total = round2(lineAmounts.reduce((s, a) => s + a, 0));
 
-  const canSave =
-    lines.length > 0 &&
-    lines.every((l) => l.itemId && Number(l.qty) > 0 && Number(l.rate) >= 0 && l.rate !== "") &&
-    !saving;
+  const canSave = lines.length > 0 && lines.every((l) => l.itemId && Number(l.qty) > 0 && Number(l.rate) >= 0 && l.rate !== "") && !saving;
+  const dirty = JSON.stringify(lines) !== initialJson || notes.trim() !== "" || vendorId !== initialVendor;
 
   const handleSaveClick = () => {
     if (!canSave) return;
@@ -57,98 +57,58 @@ export function OrderModal({ items, vendors, currency, onClose, onSave, prefill 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4 animate-fade-in">
-      <div className="animate-sheet-up sheet-grab w-full sm:max-w-xl max-h-[92vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display text-lg font-semibold text-ink">New Order</h3>
-          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
-        </div>
+    <FormSheet tall title="New order" onClose={onClose} dirty={dirty} canSave={!!canSave && items.length > 0} saving={saving} saveLabel="Place order" savingLabel="Placing…" onSave={handleSaveClick}>
+      {items.length === 0 ? <EmptyNote text="Add an item first, then order more of it." /> : (
+        <div className="space-y-5 pt-1">
+          <div className="grid grid-cols-2 gap-3">
+            <FieldBlock label="Vendor">
+              <SearchableSelect options={vendors.map((v: any) => ({ value: v.id, label: v.name }))} value={vendorId} onChange={setVendorId} placeholder="If you know it" />
+            </FieldBlock>
+            <Field label="Date"><TextInput type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+          </div>
 
-        {items.length === 0 ? <p className="text-sm text-mute">Add items first.</p> : (
-          <div className="space-y-5">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-mute">Vendor (optional)</label>
-                <SearchableSelect
-                  options={vendors.map((v: any) => ({ value: v.id, label: v.name }))}
-                  value={vendorId}
-                  onChange={setVendorId}
-                  placeholder="Select vendor, if known"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-mute">Date</label>
-                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
-              </div>
-            </div>
-
-            <div className="border-t border-line pt-4">
-              <label className="mb-2 block text-xs font-semibold text-mute">Items *</label>
-              <div className="hidden sm:grid mb-1 grid-cols-[2.4fr_80px_110px_110px_28px] gap-2 px-1 text-[12px] font-semibold text-faint">
-                <span>Item</span><span>Qty</span><span>Rate</span><span className="text-right">Amount</span><span />
-              </div>
-              <div className="space-y-2">
-                {lines.map((ln, i) => {
-                  const it = itemById(ln.itemId);
-                  const showBoxReminder = it && it.trackingMode === "box" && it.piecesPerBox > 0;
-                  return (
-                    <div key={i} className="rounded-xl border border-line bg-paper/60 p-2">
-                      <div className="sm:grid sm:grid-cols-[2.4fr_80px_110px_110px_28px] sm:gap-2 sm:items-center">
+          <div>
+            <span className="mb-1.5 block text-micro text-mute">Items <span className="text-bad-600">*</span></span>
+            <div className="space-y-2.5">
+              {lines.map((ln, i) => {
+                const it = itemById(ln.itemId);
+                const showBoxReminder = it && it.trackingMode === "box" && it.piecesPerBox > 0;
+                return (
+                  <div key={i} className="rounded-group border border-line p-3">
+                    <div className="flex items-start gap-2">
+                      <div className="min-w-0 flex-1">
                         <SearchableSelect
                           options={activeItems.map((opt: any) => ({ value: opt.id, label: `${opt.name} (current stock: ${opt.stock ?? 0})`, keywords: opt.category || "" }))}
                           value={ln.itemId}
                           onChange={(v: string) => updateLine(i, { itemId: v, rate: itemById(v)?.purchasePrice || itemById(v)?.sellingPrice || 0 })}
                           placeholder="Select item"
                         />
-                        <div className="mt-2 sm:mt-0">
-                          <span className="mb-0.5 block text-micro font-semibold text-faint sm:hidden">Qty</span>
-                          <input type="number" min="1" value={ln.qty} onChange={(e) => updateLine(i, { qty: e.target.value })} className="w-full rounded-xl border border-line px-2 py-2 text-sm" />
-                        </div>
-                        <div className="mt-2 sm:mt-0">
-                          <span className="mb-0.5 block text-micro font-semibold text-faint sm:hidden">Rate</span>
-                          <input type="number" min="0" step="0.01" value={ln.rate} onChange={(e) => updateLine(i, { rate: e.target.value })} className="w-full rounded-xl border border-line px-2 py-2 text-sm" />
-                        </div>
-                        <div className="mt-2 flex items-center justify-between sm:mt-0 sm:block sm:text-right">
-                          <span className="text-micro font-semibold text-faint sm:hidden">Amount</span>
-                          <span className="font-display text-sm font-semibold text-ink tabular-nums">{fmtMoney(lineAmounts[i], "")}</span>
-                        </div>
-                        <div className="mt-1 flex items-center justify-end sm:mt-0">
-                          {lines.length > 1 && <IconButton label="Remove line" tone="danger" onClick={() => removeLine(i)}><Trash2 size={15} /></IconButton>}
-                        </div>
                       </div>
-                      {showBoxReminder && (
-                        <p className="mt-2 text-[12px] font-semibold text-brand-700">This item comes in a box of {it.piecesPerBox} pieces</p>
-                      )}
+                      {lines.length > 1 && <IconButton label={`Remove line ${i + 1}`} tone="danger" className="-mr-1.5" onClick={() => removeLine(i)}><TrashIcon size={18} /></IconButton>}
                     </div>
-                  );
-                })}
-              </div>
-              <button
-                type="button" onClick={addLine}
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-brand-300 bg-brand-50 px-4 py-3.5 text-sm font-semibold text-brand-600 transition hover:bg-brand-100 hover:border-brand-400 active:scale-[0.98]"
-              >
-                <Plus size={19} /> Add line
-              </button>
+                    <div className="mt-3 grid grid-cols-[1fr_1fr_1fr] gap-2">
+                      <Field label="Qty"><TextInput type="number" inputMode="decimal" min="1" value={ln.qty} onChange={(e) => updateLine(i, { qty: e.target.value })} /></Field>
+                      <Field label="Rate"><TextInput type="number" inputMode="decimal" min="0" step="0.01" value={ln.rate} onChange={(e) => updateLine(i, { rate: e.target.value })} /></Field>
+                      <div>
+                        <span className="mb-1 block text-micro text-mute">Amount</span>
+                        <div className="flex h-11 items-center justify-end text-[16px] font-medium tabular-nums text-ink">{inr(lineAmounts[i], currency)}</div>
+                      </div>
+                    </div>
+                    {showBoxReminder && <p className="mt-2 text-micro text-brand-600">This item comes in a box of {it.piecesPerBox} pieces.</p>}
+                  </div>
+                );
+              })}
             </div>
-
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-mute">Notes</label>
-              <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
-            </div>
-
-            <div className="flex items-center justify-between rounded-xl bg-paper px-4 py-3">
-              <span className="text-sm font-semibold text-mute">Total</span>
-              <span className="font-display text-lg font-semibold text-ink">{fmtMoney(total, currency)}</span>
-            </div>
+            <SecondaryButton className="mt-2.5" onClick={addLine}><span className="inline-flex items-center justify-center gap-1.5"><PlusIcon size={18} /> Add another item</span></SecondaryButton>
           </div>
-        )}
 
-        <div className="mt-6 flex gap-3">
-          <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
-          <button disabled={!canSave} onClick={handleSaveClick}
-            className="flex-1 rounded-full bg-brand-500 py-3 text-sm font-semibold text-white disabled:opacity-40">{saving ? "Placing…" : "Place Order"}</button>
+          <Field label="Notes"><TextArea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" /></Field>
+
+          <Group>
+            <div className="flex min-h-[48px] items-center justify-between px-4"><span className="text-[16px] text-mute">Total</span><span className="text-[17px] font-semibold tabular-nums text-ink">{inr(total, currency)}</span></div>
+          </Group>
         </div>
-      </div>
-    </div>
+      )}
+    </FormSheet>
   );
 }

@@ -1,168 +1,167 @@
-import React, { useState } from "react";
-import { IndianRupee, PackagePlus, Plus, Search, Trash2 } from "lucide-react";
-import { Card, EmptyState, PillButton, Badge, Row } from "../common/UIPrimitives";
-import { Pagination } from "../common/Pagination";
-import { usePagination } from "../../hooks/usePagination";
-import { PAGE_SIZE } from "../../lib/constants";
-import { fmtDate, fmtMoney, fmtNum } from "../../lib/format";
-import { TransactionDetailModal, DetailRow } from "../dashboard/TransactionDetailModal";
+import { useMemo, useState } from "react";
+import { DetailRow, EmptyNote } from "../ui/blocks";
+import { ChevronDownIcon } from "../ui/icons";
+import { Group, GroupLabel, GroupRow, PrimaryButton, SearchField, Segmented, Sheet, StatusChip, TextButton, cx, type ChipTone } from "../ui/kit";
+import { groupByRecency, sortNewest } from "../../lib/estimates";
+import { round2 } from "../../lib/format";
+import { inr, inrCompact, inrRate, qtyText, shortDate } from "../../lib/money";
 
-import { IconButton } from "../ui/kit";
-/* ---- Purchases ---- */
+/* ---- Purchases ----
+ * What you bought from vendors, grouped by week and month like Estimates and Payments. Each row is one
+ * item on one bill, with whether you've paid for it. Tap a row for the figures; paying and deleting live
+ * in that sheet, so a stray tap on the list can't do either. */
 
-type GroupBy = "item" | "vendor";
+type Filter = "all" | "due" | "paid";
+const SEARCH_CAP = 80;
 
-function groupRecords(records: any[], labelFor: (r: any) => string, keyFor: (r: any) => string) {
-  const map = new Map<string, { key: string; label: string; records: any[] }>();
-  for (const r of records) {
-    const key = keyFor(r);
-    if (!map.has(key)) map.set(key, { key, label: labelFor(r), records: [] });
-    map.get(key)!.records.push(r);
-  }
-  return [...map.values()].sort(
-    (a, b) => b.records.reduce((s, r) => s + (r.amount || 0), 0) - a.records.reduce((s, r) => s + (r.amount || 0), 0)
-  );
-}
+const STATUS: Record<string, { tone: ChipTone; label: string }> = {
+  paid: { tone: "paid", label: "Paid" },
+  partial: { tone: "partial", label: "Part paid" },
+  due: { tone: "due", label: "Due" },
+};
+const statusOf = (p: any) => STATUS[p.paymentStatus === "paid" ? "paid" : p.paymentStatus === "partial" ? "partial" : "due"];
+const remainingOf = (p: any) => Math.max(0, round2((p.amount || 0) - (p.amountPaid || 0)));
 
 export function PurchasesView({ purchases, vendors, items, currency, openModal, removePurchase }: any) {
+  const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
-  const [groupBy, setGroupBy] = useState<GroupBy>("item");
-  const [detail, setDetail] = useState<{ title: string; subtitle?: string; rows: DetailRow[]; accent?: "brand" | "good" | "bad" | "warn" } | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [capped, setCapped] = useState(true);
 
-  const vendorName = (id: string) => vendors.find((v: any) => v.id === id)?.name || "Unknown vendor";
-  const itemName = (id: string) => items.find((i: any) => i.id === id)?.name || "Unknown item";
+  const vendorName = (id: string) => (vendors || []).find((v: any) => v.id === id)?.name || "Unknown vendor";
+  const itemName = (id: string) => (items || []).find((i: any) => i.id === id)?.name || "Unknown item";
 
   const q = search.trim().toLowerCase();
-  const filtered = !q
-    ? purchases
-    : purchases.filter((p: any) => vendorName(p.vendorId).toLowerCase().includes(q) || itemName(p.itemId).toLowerCase().includes(q));
-
-  const statusBadge = (status: string) => (status === "paid" ? "Paid" : status === "partial" ? "Partially Paid" : "Due");
-  const round2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
-
-  const groups = groupBy === "vendor"
-    ? groupRecords(filtered, (p) => vendorName(p.vendorId), (p) => p.vendorId || "__none__")
-    : groupRecords(filtered, (p) => itemName(p.itemId), (p) => p.itemId || "__none__");
-  const { pageItems: pageGroups, page, setPage, totalPages, total, pageSize } = usePagination(groups, PAGE_SIZE);
-
-  const openPurchaseDetail = (p: any) => {
-    const remaining = round2((p.amount || 0) - (p.amountPaid || 0));
-    setDetail({
-      title: `Purchase · ${p.paymentStatus === "paid" ? "Paid" : p.paymentStatus === "partial" ? "Partially Paid" : "Due"}`,
-      subtitle: itemName(p.itemId),
-      accent: p.paymentStatus === "paid" ? "good" : p.paymentStatus === "partial" ? "warn" : "bad",
-      rows: [
-        { label: "Item", value: itemName(p.itemId) },
-        { label: "Vendor", value: vendorName(p.vendorId) },
-        { label: "Quantity", value: fmtNum(p.qty) },
-        { label: "Rate", value: fmtMoney(p.rate || 0, currency) },
-        { label: "Date", value: fmtDate(p.date) },
-        ...(p.notes ? [{ label: "Notes", value: p.notes }] : []),
-        { label: "Payment status", value: statusBadge(p.paymentStatus) },
-        { label: "Amount paid", value: fmtMoney(p.amountPaid || 0, currency) },
-        { label: remaining > 0 ? "Remaining" : "Status", value: remaining > 0 ? fmtMoney(remaining, currency) : "Fully paid" },
-        { label: "Amount", value: fmtMoney(p.amount || 0, currency), emphasis: true },
-      ],
+  const visible = useMemo(() => {
+    const list = (purchases || []).filter((p: any) => {
+      if (filter === "paid" && p.paymentStatus !== "paid") return false;
+      if (filter === "due" && p.paymentStatus === "paid") return false;
+      if (!q) return true;
+      return vendorName(p.vendorId).toLowerCase().includes(q) || itemName(p.itemId).toLowerCase().includes(q) || String(p.notes || "").toLowerCase().includes(q);
     });
+    return sortNewest(list);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [purchases, vendors, items, filter, q]);
+
+  const groups = useMemo(() => (q ? [] : groupByRecency(visible)), [visible, q]);
+  const isCollapsed = (key: string, index: number) => (collapsed[key] !== undefined ? collapsed[key] : index > 1);
+  const opened = openId ? (purchases || []).find((p: any) => p.id === openId) : null;
+  const dueCount = (purchases || []).filter((p: any) => p.paymentStatus !== "paid").length;
+  const owedTotal = (purchases || []).reduce((s: number, p: any) => s + remainingOf(p), 0);
+
+  const row = (p: any) => {
+    const st = statusOf(p);
+    return (
+      <GroupRow key={p.id} onClick={() => setOpenId(p.id)} className="min-h-[68px] py-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-lead font-medium text-ink">{vendorName(p.vendorId)}</p>
+            <p className="truncate text-caption text-mute">{itemName(p.itemId)}</p>
+            <p className="truncate text-caption tabular-nums text-mute">{qtyText(p.qtyKg || p.qty)}{p.qtyKg ? " kg" : ""} at {inrRate(p.rate, currency)}, {shortDate(p.date)}</p>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-lead font-medium tabular-nums text-ink">{inr(p.amount || 0, currency)}</p>
+            <StatusChip tone={st.tone} className="mt-1">{st.label}</StatusChip>
+          </div>
+        </div>
+      </GroupRow>
+    );
+  };
+
+  const groupRight = (docs: any[]) => {
+    const due = docs.reduce((s, p) => s + remainingOf(p), 0);
+    return due > 0
+      ? <span className="tabular-nums text-warn-700">{inrCompact(due, currency)} due</span>
+      : <span className="tabular-nums">{inrCompact(docs.reduce((s, p) => s + (p.amount || 0), 0), currency)}</span>;
   };
 
   return (
-    <div className="space-y-3 px-5 pb-28">
-      <div className="flex items-center justify-between pt-1">
-        <p className="text-sm text-faint">{purchases.length} purchase{purchases.length !== 1 ? "s" : ""}</p>
-        <PillButton onClick={() => openModal("purchase")}><Plus size={16} /> New Purchase</PillButton>
+    <div className="px-5 pb-28 md:pb-12">
+      {(purchases || []).length > 0 && (
+        <p className="mt-3 px-1 text-caption text-mute">
+          {owedTotal > 0 ? <>You owe vendors <span className="tabular-nums text-warn-700">{inr(owedTotal, currency)}</span> on {dueCount} purchase{dueCount === 1 ? "" : "s"}</> : "Everything you bought is paid for"}
+        </p>
+      )}
+      <div className="mt-3">
+        <Segmented ariaLabel="Filter purchases" value={filter} onChange={(v) => { setFilter(v as Filter); setCapped(true); }}
+          options={[{ value: "all", label: "All" }, { value: "due", label: dueCount > 0 ? `Due (${dueCount})` : "Due" }, { value: "paid", label: "Paid" }]} />
       </div>
-      {purchases.length > 0 && (
-        <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by vendor or item..."
-            className="w-full rounded-xl border border-line bg-card py-2.5 pl-9 pr-3 text-sm"
-          />
-        </div>
-      )}
-      {purchases.length > 0 && (
-        <div className="flex gap-2">
-          <button
-            type="button" onClick={() => setGroupBy("item")}
-            className={`flex-1 rounded-full py-2 text-xs font-semibold ${groupBy === "item" ? "bg-ink text-white" : "border border-line/70 text-mute"}`}
-          >
-            By item
-          </button>
-          <button
-            type="button" onClick={() => setGroupBy("vendor")}
-            className={`flex-1 rounded-full py-2 text-xs font-semibold ${groupBy === "vendor" ? "bg-ink text-white" : "border border-line/70 text-mute"}`}
-          >
-            By vendor
-          </button>
-        </div>
-      )}
-      {purchases.length === 0 ? (
-        <Card>
-          <EmptyState
-            text="Record what you pay suppliers — this is what keeps your item cost and profit numbers accurate."
-            cta="New Purchase"
-            onCta={() => openModal("purchase")}
-          />
-        </Card>
-      ) : filtered.length === 0 ? (
-        <p className="text-center text-sm text-faint py-6">No purchases match your search.</p>
-      ) : (
+      <SearchField className="mt-3 !h-11" value={search} onChange={setSearch} placeholder="Search vendor, item or note" />
+
+      {(purchases || []).length === 0 ? (
+        <Group className="mt-4"><EmptyNote text="Record what you pay vendors. It keeps your item cost and profit numbers right." cta="New purchase" onCta={() => openModal("purchase")} /></Group>
+      ) : visible.length === 0 ? (
+        <Group className="mt-4"><p className="px-4 py-8 text-center text-[15px] text-mute">{q ? `No purchases match “${search}”.` : filter === "due" ? "Nothing is waiting to be paid." : "Nothing here."}</p></Group>
+      ) : q ? (
         <>
-          {pageGroups.map((group) => {
-            const groupTotal = group.records.reduce((s: number, r: any) => s + (r.amount || 0), 0);
-            const groupDue = group.records.reduce((s: number, r: any) => s + Math.max(0, round2((r.amount || 0) - (r.amountPaid || 0))), 0);
-            return (
-              <div key={group.key} className="mb-3">
-                <div className="flex items-center justify-between px-1 pb-1 pt-2">
-                  <span className="text-sm font-semibold text-ink">{group.label}</span>
-                  <span className={`text-xs ${groupDue > 0 ? "text-bad-600 font-semibold" : "text-faint"}`}>
-                    {groupDue > 0 ? `${fmtMoney(groupDue, currency)} due` : `${fmtMoney(groupTotal, currency)} total`}
-                  </span>
-                </div>
-                {group.records.map((p: any) => (
-                  <Row key={p.id} className="flex items-center justify-between gap-2" onClick={() => openPurchaseDetail(p)}>
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600"><PackagePlus size={18} /></div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-ink truncate">{groupBy === "vendor" ? itemName(p.itemId) : vendorName(p.vendorId)}</p>
-                        <p className="text-xs text-faint">{fmtNum(p.qty)} @ {fmtMoney(p.rate, currency)} · {fmtDate(p.date)}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="text-right">
-                        <p className="font-semibold text-ink">{fmtMoney(p.amount, currency)}</p>
-                        <Badge status={statusBadge(p.paymentStatus)} />
-                      </div>
-                      {p.paymentStatus !== "paid" && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); openModal("purchasePayment", { purchaseId: p.id, vendorName: vendorName(p.vendorId), remaining: round2(p.amount - p.amountPaid), pending: p.status !== "Received" }); }}
-                          className="inline-flex items-center gap-1 rounded-full bg-brand-500 px-2.5 py-1.5 text-xs font-semibold text-white"
-                        >
-                          <IndianRupee size={12} /> Pay
-                        </button>
-                      )}
-                      <IconButton label="Delete purchase" tone="danger" className="-my-1.5" onClick={(e) => { e.stopPropagation(); removePurchase(p.id); }}><Trash2 size={16} /></IconButton>
-                    </div>
-                  </Row>
-                ))}
-              </div>
-            );
-          })}
-          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} />
+          <GroupLabel right={<span>{visible.length} purchase{visible.length === 1 ? "" : "s"}</span>}>Results</GroupLabel>
+          <Group>{(capped ? visible.slice(0, SEARCH_CAP) : visible).map(row)}</Group>
+          {capped && visible.length > SEARCH_CAP && (
+            <button type="button" onClick={() => setCapped(false)} className="mt-1 h-11 w-full text-[15px] font-medium text-brand-600">Show all {visible.length}</button>
+          )}
         </>
+      ) : (
+        groups.map((g, i) => {
+          const folded = g.collapsible && isCollapsed(g.key, i);
+          return (
+            <div key={g.key}>
+              <GroupLabel right={groupRight(g.docs)}>
+                {g.collapsible ? (
+                  <button type="button" onClick={() => setCollapsed({ ...collapsed, [g.key]: !folded })} aria-expanded={!folded} className="inline-flex min-h-[28px] items-center gap-1">
+                    <ChevronDownIcon size={14} className={cx("transition-transform", folded && "-rotate-90")} />
+                    {g.label} <span className="text-faint">· {g.docs.length}</span>
+                  </button>
+                ) : g.label}
+              </GroupLabel>
+              {!folded && <Group>{g.docs.map(row)}</Group>}
+            </div>
+          );
+        })
       )}
-      {detail && (
-        <TransactionDetailModal
-          title={detail.title}
-          subtitle={detail.subtitle}
-          rows={detail.rows}
-          accent={detail.accent}
-          onClose={() => setDetail(null)}
+
+      {opened && (
+        <PurchaseSheet
+          purchase={opened} vendor={vendorName(opened.vendorId)} item={itemName(opened.itemId)} currency={currency}
+          onClose={() => setOpenId(null)}
+          onPay={() => { setOpenId(null); openModal("purchasePayment", { purchaseId: opened.id, vendorName: vendorName(opened.vendorId), remaining: remainingOf(opened), pending: opened.status !== "Received" }); }}
+          onDelete={() => { setOpenId(null); removePurchase(opened.id); }}
         />
       )}
     </div>
+  );
+}
+
+function PurchaseSheet({ purchase: p, vendor, item, currency, onClose, onPay, onDelete }: any) {
+  const st = statusOf(p);
+  const remaining = remainingOf(p);
+  return (
+    <Sheet onClose={onClose} label={`Purchase from ${vendor}`}
+      footer={remaining > 0 ? <PrimaryButton onClick={onPay}>Pay {inr(remaining, currency)}</PrimaryButton> : undefined}>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="min-w-0 truncate text-section text-ink">{item}</h2>
+        <p className="shrink-0 text-section tabular-nums text-ink">{inr(p.amount || 0, currency)}</p>
+      </div>
+      <div className="mt-1 flex items-center gap-2">
+        <StatusChip tone={st.tone}>{st.label}</StatusChip>
+        <p className="min-w-0 truncate text-[15px] text-mute">{vendor}</p>
+      </div>
+
+      <Group className="mt-4">
+        <DetailRow label="Date">{shortDate(p.date)}</DetailRow>
+        <DetailRow label="Quantity">{qtyText(p.qty)}{p.qtyKg ? `, ${qtyText(p.qtyKg)} kg` : ""}</DetailRow>
+        <DetailRow label={p.qtyKg ? "Rate a kg" : "Rate"}>{inrRate(p.rate || 0, currency)}</DetailRow>
+        {p.notes && <DetailRow label="Notes">{p.notes}</DetailRow>}
+      </Group>
+      <Group className="mt-4">
+        <DetailRow label="Paid" tone={p.amountPaid > 0 ? "good" : undefined}>{inr(p.amountPaid || 0, currency)}</DetailRow>
+        <DetailRow label={remaining > 0 ? "Still to pay" : "Status"} tone={remaining > 0 ? "warn" : "good"}>{remaining > 0 ? inr(remaining, currency) : "Fully paid"}</DetailRow>
+      </Group>
+
+      <div className="mt-4 flex justify-center">
+        <TextButton tone="risk" onClick={onDelete}>Delete purchase</TextButton>
+      </div>
+      <div className="h-1" />
+    </Sheet>
   );
 }

@@ -77,7 +77,8 @@ export function useSheetBehavior(
     if (!panel.contains(document.activeElement)) panel.focus({ preventScroll: true });
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (!isTop() || e.isComposing) return;
+      // `defaultPrevented`: something inside already handled this key (a dropdown closing on Escape), so the sheet must not also act on it.
+      if (!isTop() || e.isComposing || e.defaultPrevented) return;
       // Many pop-ups in the app are still hand-built overlays that don't register here (they move onto
       // the shared sheet screen by screen). If focus is inside one of those, stacked above this sheet,
       // leave its Tab and Escape alone: only act when focus is in this sheet or nowhere in particular.

@@ -18,6 +18,8 @@ const UNUSED = new Set([
   "components/dashboard/PositionBar.tsx", "components/dashboard/TodaySnapshot.tsx", "components/dashboard/UnderlineTabs.tsx",
   // Left behind when Challans moved to ChallansView (step 7); safe to `git rm`.
   "components/views/DocumentList.tsx", "components/modals/EstimateFilterSheet.tsx", "components/common/SwipeRow.tsx",
+  // Replaced by the shared item sheet (items/ItemSheet.tsx) in step 8; safe to `git rm`.
+  "components/items/ItemDetailDrawer.tsx",
 ]);
 
 function* walk(dir) {

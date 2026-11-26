@@ -1,9 +1,10 @@
-import React, { useState } from "react";
-import { ArrowRight, X } from "lucide-react";
+import { useState } from "react";
+import { FieldBlock, FormSheet, SelectInput } from "../ui/blocks";
+import { Field, TextInput } from "../ui/kit";
 import { SearchableSelect } from "../common/SearchableSelect";
+import { qtyText } from "../../lib/money";
 
-import { IconButton } from "../ui/kit";
-// `prefill` (optional) lets the Stock screen open this with the item and both godowns already chosen.
+// `prefill` (optional) lets the Stock screens open this with the item and the godowns already chosen.
 export function TransferModal({ items, godowns, onClose, onSave, prefill }: any) {
   const [itemId, setItemId] = useState(prefill?.itemId || "");
   const [fromGodownId, setFromGodownId] = useState(prefill?.fromGodownId || godowns.find((g: any) => g.isDefault)?.id || godowns[0]?.id || "");
@@ -17,89 +18,63 @@ export function TransferModal({ items, godowns, onClose, onSave, prefill }: any)
   const atSource = item?.stockByGodown?.find((g: any) => String(g.godownId) === String(fromGodownId));
   const availablePieces = atSource?.stock ?? 0;
   const availableKg = atSource?.stockKg ?? 0;
+  const overPieces = Number(qty) > availablePieces;
+  const overKg = isWeight && Number(qtyKg) > availableKg;
 
   const canSave =
     itemId && fromGodownId && toGodownId && fromGodownId !== toGodownId &&
     Number(qty) > 0 && Number(qty) <= availablePieces &&
     (!isWeight || (Number(qtyKg) > 0 && Number(qtyKg) <= availableKg));
+  const dirty = qty !== "" || qtyKg !== "" || itemId !== (prefill?.itemId || "") || toGodownId !== (prefill?.toGodownId || "");
 
   const submit = async () => {
     setSubmitting(true);
-    await onSave({ itemId, fromGodownId, toGodownId, qty: Number(qty), qtyKg: isWeight ? Number(qtyKg) : undefined });
-    setSubmitting(false);
+    try {
+      await onSave({ itemId, fromGodownId, toGodownId, qty: Number(qty), qtyKg: isWeight ? Number(qtyKg) : undefined });
+    } finally { setSubmitting(false); }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4">
-      <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display text-lg font-semibold text-ink">Transfer stock</h3>
-          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
+    <FormSheet title="Transfer stock" onClose={onClose} dirty={dirty} canSave={!!canSave} saving={submitting} saveLabel="Transfer" savingLabel="Moving…" onSave={submit}>
+      <div className="space-y-4 pt-1">
+        <FieldBlock label="Item" required>
+          <SearchableSelect
+            options={items.filter((it: any) => !it.deleted).map((it: any) => ({ value: it.id, label: it.name, keywords: it.category || "" }))}
+            value={itemId}
+            onChange={(v: string) => { setItemId(v); setQty(""); setQtyKg(""); }}
+            placeholder="Select item"
+          />
+        </FieldBlock>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="From">
+            <SelectInput value={fromGodownId} onChange={(e) => { setFromGodownId(e.target.value); if (e.target.value === toGodownId) setToGodownId(""); }}>
+              {godowns.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </SelectInput>
+          </Field>
+          <Field label="To">
+            <SelectInput value={toGodownId} onChange={(e) => setToGodownId(e.target.value)}>
+              <option value="">Select</option>
+              {godowns.filter((g: any) => g.id !== fromGodownId).map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </SelectInput>
+          </Field>
         </div>
 
-        <div className="space-y-3">
-          <div>
-            <span className="mb-1 block text-xs font-semibold text-mute">Item</span>
-            <SearchableSelect
-              options={items.map((it: any) => ({ value: it.id, label: it.name, keywords: it.category || "" }))}
-              value={itemId}
-              onChange={(v: string) => { setItemId(v); setQty(""); setQtyKg(""); }}
-              placeholder="Select item"
-            />
-          </div>
+        {item && (
+          <p className="text-[15px] text-mute">
+            At the source: {isWeight ? `${qtyText(availableKg)} kg, ${qtyText(availablePieces)} pc` : `${qtyText(availablePieces)} ${item.unit || "unit"}`}
+          </p>
+        )}
 
-          <div className="flex items-center gap-2">
-            <div className="flex-1 min-w-0">
-              <span className="mb-1 block text-xs font-semibold text-mute">From</span>
-              <select value={fromGodownId} onChange={(e) => setFromGodownId(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm">
-                {godowns.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
-              </select>
-            </div>
-            <ArrowRight size={16} className="mt-5 shrink-0 text-faint" />
-            <div className="flex-1 min-w-0">
-              <span className="mb-1 block text-xs font-semibold text-mute">To</span>
-              <select value={toGodownId} onChange={(e) => setToGodownId(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm">
-                <option value="">Select</option>
-                {godowns.filter((g: any) => g.id !== fromGodownId).map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {item && (
-            <p className="text-xs text-faint">
-              Available at source: {isWeight ? `${availableKg}kg / ${availablePieces}pc` : `${availablePieces} ${item.unit || "unit"}`}
-            </p>
-          )}
-
-          <div>
-            <span className="mb-1 block text-xs font-semibold text-mute">{isWeight ? "Pieces to move" : "Qty to move"}</span>
-            <input
-              type="number" min="0" max={availablePieces} value={qty} onChange={(e) => setQty(e.target.value)}
-              placeholder="0" className="w-full rounded-xl border border-line px-3 py-2.5 text-sm"
-            />
-          </div>
-          {isWeight && (
-            <div>
-              <span className="mb-1 block text-xs font-semibold text-mute">Weight (kg) to move — re-weigh, don't estimate</span>
-              <input
-                type="number" min="0" max={availableKg} value={qtyKg} onChange={(e) => setQtyKg(e.target.value)}
-                placeholder="0" className="w-full rounded-xl border border-line px-3 py-2.5 text-sm"
-              />
-            </div>
-          )}
-        </div>
-
-        <div className="mt-6 flex gap-3">
-          <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
-          <button
-            disabled={!canSave || submitting}
-            onClick={submit}
-            className="flex-1 rounded-full bg-brand-500 py-3 text-sm font-semibold text-white disabled:opacity-40"
-          >
-            Transfer
-          </button>
-        </div>
+        <Field label={isWeight ? "Pieces to move" : "Quantity to move"} hint={overPieces ? <span className="text-bad-600">Only {qtyText(availablePieces)} at the source.</span> : undefined}>
+          <TextInput type="number" inputMode="decimal" min="0" max={availablePieces} value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" />
+        </Field>
+        {isWeight && (
+          <Field label="Weight to move, in kg" hint={overKg ? <span className="text-bad-600">Only {qtyText(availableKg)} kg at the source.</span> : "Weigh it again. Don't estimate."}>
+            <TextInput type="number" inputMode="decimal" min="0" max={availableKg} value={qtyKg} onChange={(e) => setQtyKg(e.target.value)} placeholder="0" />
+          </Field>
+        )}
       </div>
-    </div>
+    </FormSheet>
   );
 }

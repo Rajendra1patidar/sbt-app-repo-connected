@@ -1,41 +1,26 @@
-import React, { useState } from "react";
+import { useState } from "react";
+import { FormSheet } from "../ui/blocks";
+import { Field, TextButton, TextInput } from "../ui/kit";
+import { inrRate } from "../../lib/money";
 
+// Opens over the estimate form (and its Add item sheet), so it sits at layer 70.
 export function RateEditPopup({ itemName, listPrice, rate, onCancel, onReset, onSave }: any) {
   const [value, setValue] = useState(String(rate));
   const numeric = Number(value);
   const canSave = value !== "" && !isNaN(numeric) && numeric >= 0;
   const isOverridden = Number(rate) !== Number(listPrice);
+
   return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-[var(--scrim)] p-4 animate-fade-in">
-      <div className="animate-sheet-up w-full sm:max-w-xs rounded-sheet bg-card p-5 shadow-sheet">
-        <h3 className="font-display text-base font-semibold text-ink">Edit rate</h3>
-        <p className="mb-4 mt-0.5 text-xs text-mute">{itemName} — this estimate only</p>
-
-        <label className="mb-1.5 block text-xs font-semibold text-mute">Rate per unit</label>
-        <div className="flex items-center rounded-xl border-[1.5px] border-brand-600 px-3 py-2.5">
-          <span className="mr-1 text-mute">₹</span>
-          <input
-            type="number" min="0" autoFocus value={value}
-            onChange={(e) => setValue(e.target.value)}
-            className="w-full border-none p-0 font-display text-base font-semibold text-ink outline-none"
-          />
+    <FormSheet z={70} title="Edit rate" onClose={onCancel} dirty={value !== String(rate)} canSave={canSave} saveLabel="Save rate" onSave={() => canSave && onSave(numeric)}>
+      <p className="-mt-1 mb-4 text-[15px] leading-[21px] text-mute">{itemName}. This changes the rate on this estimate only. The price saved on the Items list stays as it is.</p>
+      <Field label="Rate per unit (₹)" hint={`List price ${inrRate(Number(listPrice))}`}>
+        <TextInput autoFocus type="number" inputMode="decimal" min="0" value={value} onChange={(e) => setValue(e.target.value)} />
+      </Field>
+      {isOverridden && (
+        <div className="mt-2">
+          <TextButton className="-ml-1 px-1" onClick={onReset}>Reset to list price ({inrRate(Number(listPrice))})</TextButton>
         </div>
-        <p className="mb-4 mt-1.5 text-xs text-faint">Item's list price: ₹{Number(listPrice).toFixed(2)}</p>
-
-        <p className="mb-4 text-[12px] leading-relaxed text-faint">
-          This only changes the rate on this estimate. Your saved item price in the Items list won't be affected.
-        </p>
-
-        <div className="flex gap-2">
-          <button onClick={onCancel} className="flex-1 rounded-xl bg-paper py-2.5 text-sm font-semibold text-ink/70">Cancel</button>
-          <button disabled={!canSave} onClick={() => canSave && onSave(numeric)} className="flex-1 rounded-xl bg-brand-500 py-2.5 text-sm font-semibold text-white disabled:opacity-40">Save rate</button>
-        </div>
-        {isOverridden && (
-          <button onClick={onReset} className="mt-3 text-left text-xs font-semibold text-brand-600 underline">
-            ↺ Reset to list price (₹{Number(listPrice).toFixed(2)})
-          </button>
-        )}
-      </div>
-    </div>
+      )}
+    </FormSheet>
   );
 }

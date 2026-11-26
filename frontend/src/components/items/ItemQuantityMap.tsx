@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { LOW_STOCK_DEFAULT } from "../../lib/constants";
 import { fmtNum } from "../../lib/format";
+import { TextButton } from "../ui/kit";
 
 /* ---- Item quantity map ----
  * Replaces the old value-sized treemap (StockTreemap), which let the 2-3
@@ -18,7 +19,7 @@ const PALETTE = [
   { bg: "bg-warn-50", text: "text-warn-700" },
   { bg: "bg-advance-50", text: "text-advance-700" },
   { bg: "bg-bad-50", text: "text-bad-700" },
-  { bg: "bg-paper", text: "text-ink/70" },
+  { bg: "bg-paper", text: "text-mute" },
 ];
 
 const RING: Record<Health, string> = {
@@ -84,13 +85,14 @@ export function ItemQuantityMap({ items, onSelectItem }: any) {
 
   return (
     <div>
-      <div className="mb-0.5 flex items-center justify-between">
-        <p className="text-sm font-semibold text-ink">Item quantity map</p>
-        {active && (
-          <button onClick={() => setOpenCat(null)} className="text-xs font-semibold text-brand-600">← Back</button>
-        )}
-      </div>
-      <p className="mb-3 text-xs text-faint">{active ? active.name : "By category, sized by quantity on hand"}</p>
+      {active ? (
+        <div className="mb-1 flex items-center justify-between gap-3">
+          <p className="min-w-0 truncate text-[16px] font-medium text-ink">{active.name}</p>
+          <TextButton className="shrink-0" onClick={() => setOpenCat(null)}>All categories</TextButton>
+        </div>
+      ) : (
+        <p className="mb-1 text-caption text-mute">Sized by how much is on hand. Tap a category to see its items.</p>
+      )}
 
       <div className="flex flex-wrap items-center justify-center gap-3 py-2">
         {!active
@@ -128,7 +130,7 @@ export function ItemQuantityMap({ items, onSelectItem }: any) {
             })}
       </div>
 
-      <div className="mt-2 flex justify-center gap-4 text-[12px] text-faint">
+      <div className="mt-2 flex justify-center gap-4 text-micro text-mute">
         <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-bad-400" /> Reorder</span>
         <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-warn-400" /> Low</span>
       </div>

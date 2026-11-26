@@ -235,7 +235,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
           onSelectCustomer={(id: string) => navigate(`/customers/${id}`)} />
       } />
       <Route path="/customers/:customerId" element={<CustomerDetailRoute />} />
-      <Route path="/items" element={<ItemsView items={items} categories={itemCategories} brands={itemBrands} openModal={openModal} currency={settings.currency} removeItem={removeItem} purchases={purchases} estimates={activeEstimates} applyStockAdjustments={applyStockAdjustments} godowns={godowns} />} />
+      <Route path="/items" element={<ItemsView items={items} categories={itemCategories} brands={itemBrands} openModal={openModal} currency={settings.currency} removeItem={removeItem} purchases={purchases} estimates={activeEstimates} applyStockAdjustments={applyStockAdjustments} godowns={godowns} reorderSuggestions={reorderSuggestions} deadStock={deadStock} />} />
       <Route path="/orders" element={<OrdersView orders={orders} items={items} vendors={vendors} categories={itemCategories} currency={settings.currency} openModal={openModal} payOrder={payOrder} removeOrder={removeOrder} attachOrderInvoice={attachOrderInvoice} removeOrderInvoice={removeOrderInvoice} />} />
       <Route path="/vendors" element={<VendorsView vendors={vendors} purchases={purchases} currency={settings.currency} openModal={openModal} removeVendor={removeVendor} />} />
       <Route path="/godowns" element={<GodownsView godowns={godowns} items={items} openModal={openModal} removeGodown={removeGodown} saveGodown={saveGodown} setDefaultGodown={setDefaultGodown} settings={settings} deadStock={deadStock} />} />
@@ -261,7 +261,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       } />
       <Route path="/payments" element={<PaymentsView payments={payments} customers={customers} currency={settings.currency} openModal={openModal} removePayment={removePayment} estimates={activeEstimates} />} />
       <Route path="/expenses" element={<ExpensesView expenses={expenses} currency={settings.currency} openModal={openModal} removeExpense={removeExpense} />} />
-      <Route path="/inventory" element={<ToDoTrackingView items={items} settings={settings} categories={itemCategories} orders={orders} openModal={openModal} reorderSuggestions={reorderSuggestions} deadStock={deadStock} applyStockAdjustments={applyStockAdjustments} godowns={godowns} />} />
+      <Route path="/inventory" element={<ToDoTrackingView items={items} settings={settings} categories={itemCategories} orders={orders} openModal={openModal} reorderSuggestions={reorderSuggestions} deadStock={deadStock} applyStockAdjustments={applyStockAdjustments} godowns={godowns} purchases={purchases} estimates={activeEstimates} removeItem={removeItem} />} />
       <Route path="/stock-adjustments" element={<StockAdjustmentHistoryView items={items} currency={settings.currency} />} />
       <Route path="/labour" element={<LabourTrackingView sessions={labourSessions} knownWorkers={labourWorkers} onSave={saveLabourSession} onRemove={removeLabourSession} currency={settings.currency} estimates={activeEstimates} items={items} customers={customers} />} />
       <Route path="/contractors" element={<ContractorScorecardView estimates={activeEstimates} items={items} currency={settings.currency} contractors={contractors} scoreRules={scoreRules} onSavePhone={saveContractorPhone} onSaveScoreRule={saveScoreRule} onRemoveScoreRule={removeScoreRule} showToast={showToast} />} />
@@ -366,7 +366,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
       return <TransferModal items={items} godowns={godowns} onClose={closeModal} onSave={transferStock} prefill={payload} />;
 
     if (type === "purchase")
-      return <PurchaseModal vendors={vendors} items={items} godowns={godowns} onClose={closeModal} onSave={savePurchaseBatch} onQuickAddItem={quickAddItem} />;
+      return <PurchaseModal vendors={vendors} items={items} godowns={godowns} currency={settings.currency} onClose={closeModal} onSave={savePurchaseBatch} onQuickAddItem={quickAddItem} />;
 
     if (type === "vendorPayment") {
       return <FieldModal title={`Pay ${payload?.vendorName || "Vendor"} (unallocated)`} fields={[
@@ -399,7 +399,7 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     if (type === "order") return <OrderModal items={items} vendors={vendors} currency={settings.currency} onClose={closeModal} onSave={saveOrder} prefill={payload} />;
 
     if (type === "orderDetail")
-      return <OrderDetailModal order={payload?.order} items={items} vendors={vendors} currency={settings.currency}
+      return <OrderDetailModal order={(orders || []).find((o: any) => o.id === payload?.order?.id) || payload?.order} items={items} vendors={vendors} currency={settings.currency}
         payOrder={payOrder} removeOrder={removeOrder} attachOrderInvoice={attachOrderInvoice} removeOrderInvoice={removeOrderInvoice}
         onClose={closeModal} />;
 
@@ -499,6 +499,11 @@ export function InvoiceApp({ onSignOut }: { onSignOut: () => void }) {
     customers: { label: "New customer", onClick: () => openModal("customer") },
     payments: { label: "Record payment", onClick: () => openModal("payment") },
     challans: { label: "New challan", onClick: () => openModal("challan") },
+    items: { label: "New item", onClick: () => openModal("item") },
+    godowns: { label: "New godown", onClick: () => openModal("godown") },
+    orders: { label: "New order", onClick: () => openModal("order") },
+    vendors: { label: "New vendor", onClick: () => openModal("vendor") },
+    purchases: { label: "New purchase", onClick: () => openModal("purchase") },
   };
 
   return (

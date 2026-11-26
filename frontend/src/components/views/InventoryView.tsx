@@ -1,195 +1,96 @@
-import React, { useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
-import { ChevronDown, ClipboardList, MapPin, Pencil, Printer, Search } from "lucide-react";
-import { useVirtualizer } from "@tanstack/react-virtual";
-import { SectionDivider, StatStrip } from "../common/UIPrimitives";
-import { ITEM_CATEGORIES, LOW_STOCK_DEFAULT } from "../../lib/constants";
-import { fmtDate, fmtMoney, fmtNum } from "../../lib/format";
-import { waLink } from "../../lib/contactLinks";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { EmptyNote, FilterChips, StatRow } from "../ui/blocks";
+import { Group, GroupLabel, GroupRow, HeroMoney, PrimaryButton, SearchField, SecondaryButton, Segmented, StatusChip, cx } from "../ui/kit";
+import { ItemSheet } from "../items/ItemSheet";
+import { FoldedGroup } from "../items/FoldedGroup";
+import { QuantityMapGroup } from "../items/QuantityMapGroup";
+import { ValueBars } from "../items/ValueBars";
 import { StockTakeModal } from "../modals/StockTakeModal";
-import { ItemQuantityMap } from "../items/ItemQuantityMap";
-import { api } from "../../lib/api";
+import { ITEM_CATEGORIES } from "../../lib/constants";
+import { notice } from "../../lib/confirm";
+import { fmtMoney } from "../../lib/format";
+import { inr, qtyText } from "../../lib/money";
+import { stockState, stockText, stockValue } from "../../lib/stockStatus";
 
-import { IconButton } from "../ui/kit";
+/* ---- Inventory: what you hold, and the stock take ----
+ * The numbers at the top, the Stock take button (count a shelf, paste the list, check it, apply it),
+ * then every item with its stock and value, filtered by All / Low / Dead / Reorder.
+ * Tap an item for the same sheet Items opens: where it sits, last sold, last bought, margin, the
+ * reorder advice, and the way to correct its stock. */
+
 type Tab = "all" | "low" | "dead" | "reorder";
+type Sort = "stock" | "value" | "name";
+const PAGE = 50;
 
-// Same "value" basis as the backend's stockValuation(): weighted-average
-// purchasePrice × whatever's on hand (kg for weight-tracked items, pieces
-// otherwise) — cost basis, not what it'd sell for.
-function itemValue(it: any): number {
-  const qty = it.trackingMode === "weight" ? (it.stockKg ?? 0) : (it.stock ?? 0);
-  return qty * (it.purchasePrice ?? 0);
-}
+const esc = (s: any) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
 
-// Full quantity label for a given (stock, stockKg) pair — always shows both
-// pieces and box count for box-tracked items (not just the box count), and
-// kg for weight-tracked items. Used in the by-godown breakdown and last
-// purchase/sale detail, where there's room to show both units.
-function qtyLabel(it: any, stock?: number, stockKg?: number): string {
-  if (it.trackingMode === "weight") return `${fmtNum(stockKg ?? 0)} kg`;
-  if (it.trackingMode === "box" && it.piecesPerBox > 0) {
-    const pieces = stock ?? 0;
-    const boxes = Math.floor(pieces / it.piecesPerBox);
-    const loose = pieces % it.piecesPerBox;
-    return `${fmtNum(pieces)} pc (${boxes} box${loose > 0 ? ` + ${loose} pc` : ""})`;
-  }
-  return `${fmtNum(stock ?? 0)} ${it.unit || "unit"}`;
-}
+export function ToDoTrackingView({ items, settings, categories, openModal, reorderSuggestions, deadStock, applyStockAdjustments, godowns, purchases, estimates, removeItem }: any) {
+  const navigate = useNavigate();
+  const currency = settings?.currency;
+  const active = useMemo(() => (items || []).filter((it: any) => !it.deleted), [items]);
 
-// Compact form for the collapsed row's headline figure — boxes + any loose
-// pieces, without repeating the total piece count that qtyLabel shows.
-function stockBreakdown(it: any): string {
-  if (it.trackingMode === "weight") return `${fmtNum(it.stockKg ?? 0)} kg`;
-  if (it.trackingMode === "box" && it.piecesPerBox > 0) {
-    const boxes = Math.floor((it.stock ?? 0) / it.piecesPerBox);
-    const loose = (it.stock ?? 0) % it.piecesPerBox;
-    return `${boxes} box + ${loose} pc`;
-  }
-  return fmtNum(it.stock ?? 0);
-}
+  const deadById: Map<string, any> = useMemo(() => new Map((deadStock || []).map((d: any) => [String(d.itemId), d])), [deadStock]);
+  const reorderById: Map<string, any> = useMemo(() => new Map((reorderSuggestions || []).filter((s: any) => s.mode === "pace").map((s: any) => [String(s.itemId), s])), [reorderSuggestions]);
 
-/** Value tied up per category, for the at-a-glance breakdown bar. Sorted
- * highest-value first so the categories actually worth attention lead. */
-function CategoryValueCard({ items, currency }: any) {
-  const byCategory = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const it of items) {
-      const cat = it.category || "Others";
-      map.set(cat, (map.get(cat) || 0) + itemValue(it));
-    }
-    return [...map.entries()]
-      .filter(([, v]) => v > 0)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6);
-  }, [items]);
+  const lowItems = active.filter((it: any) => { const st = stockState(it); return st === "low" || st === "out"; });
+  const deadItems = active.filter((it: any) => deadById.has(String(it.id)));
+  const reorderItems = active.filter((it: any) => reorderById.has(String(it.id)));
 
-  if (byCategory.length === 0) return null;
-  const max = byCategory[0][1];
-
-  return (
-    <div>
-      <p className="mb-2.5 text-sm font-semibold text-ink">Value by category</p>
-      <div className="space-y-2">
-        {byCategory.map(([cat, value]) => (
-          <div key={cat} className="flex items-center gap-2">
-            <span className="w-16 shrink-0 truncate text-xs text-ink/70">{cat}</span>
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-paper">
-              <div className="h-full rounded-full bg-brand-400" style={{ width: `${Math.max(4, (value / max) * 100)}%` }} />
-            </div>
-            <span className="w-16 shrink-0 text-right font-mono text-xs text-mute">{fmtMoney(value, currency)}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-export function ToDoTrackingView({ items, settings, categories, orders, openModal, reorderSuggestions, deadStock, applyStockAdjustments, godowns }: any) {
-  const initialTab = useMemo((): Tab => {
-    const lowCount = items.filter((it: any) => (it.stock ?? 0) <= (it.lowStock ?? LOW_STOCK_DEFAULT)).length;
-    if (lowCount > 0) return "low";
-    const deadCount = (deadStock || []).length;
-    if (deadCount > 0) return "dead";
-    const reorderCount = (reorderSuggestions || []).filter((s: any) => s.mode === "pace").length;
-    if (reorderCount > 0) return "reorder";
-    return "all";
+  // Open on whatever needs attention first. Only on mount, so a later refresh never overrides the person's own choice.
+  const initialTab = useMemo((): Tab => (lowItems.length > 0 ? "low" : deadItems.length > 0 ? "dead" : reorderItems.length > 0 ? "reorder" : "all"),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // only on mount — user's own tab clicks shouldn't get overridden by later data refreshes
-
+    []);
   const [tab, setTab] = useState<Tab>(initialTab);
   const [category, setCategory] = useState("All");
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<"stock" | "value" | "name">("stock");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<Sort>("stock");
+  const [limit, setLimit] = useState(PAGE);
+  const [openId, setOpenId] = useState<string | null>(null);
   const [stockTakeOpen, setStockTakeOpen] = useState(false);
-  const [insights, setInsights] = useState<Record<string, any>>({});
-  const [insightsLoading, setInsightsLoading] = useState<Record<string, boolean>>({});
-  const cats = categories?.length ? categories : ITEM_CATEGORIES;
 
-  // Last purchase, last sale, and margin all live behind one endpoint that
-  // shares its pace/reorder math with the bulk suggestions list — fetched
-  // once per item, on first expand, rather than for every row up front.
-  const toggleExpanded = (itemId: string) => {
-    const next = expandedId === itemId ? null : itemId;
-    setExpandedId(next);
-    if (next && !insights[next] && !insightsLoading[next]) {
-      setInsightsLoading((s) => ({ ...s, [next]: true }));
-      api.items
-        .insights(next)
-        .then((data: any) => setInsights((s) => ({ ...s, [next]: data })))
-        .catch(() => setInsights((s) => ({ ...s, [next]: null })))
-        .finally(() => setInsightsLoading((s) => ({ ...s, [next]: false })));
-    }
-  };
+  const configured: string[] = categories?.length ? categories : ITEM_CATEGORIES;
+  const categoryOptions = useMemo(() => {
+    const present = new Set<string>(active.map((it: any) => it.category || "Others"));
+    const ordered = [...configured.filter((c) => present.has(c)), ...[...present].filter((c) => !configured.includes(c)).sort()];
+    return ordered.length > 1 ? [{ value: "All", label: "All" }, ...ordered.map((c) => ({ value: c, label: c }))] : [];
+  }, [active, configured]);
 
-  const deadStockById: Map<string, any> = new Map((deadStock || []).map((d: any) => [d.itemId, d]));
-  const reorderById: Map<string, any> = new Map((reorderSuggestions || []).filter((s: any) => s.mode === "pace").map((s: any) => [s.itemId, s]));
+  const totalValue = active.reduce((s: number, it: any) => s + stockValue(it), 0);
+  const deadValue = (deadStock || []).reduce((s: number, d: any) => s + (d.value || 0), 0);
 
-  const lowItems = items.filter((it: any) => (it.stock ?? 0) <= (it.lowStock ?? LOW_STOCK_DEFAULT));
-  const deadItems = items.filter((it: any) => deadStockById.has(it.id));
-  const reorderItems = items.filter((it: any) => reorderById.has(it.id));
+  const byCategory = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const it of active) map.set(it.category || "Others", (map.get(it.category || "Others") || 0) + stockValue(it));
+    return [...map.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  }, [active]);
 
-  const tabItems = tab === "low" ? lowItems : tab === "dead" ? deadItems : tab === "reorder" ? reorderItems : items;
-  const categoryFiltered = category === "All" ? tabItems : tabItems.filter((it: any) => (it.category || "Others") === category);
-  const searchFiltered = search.trim()
-    ? categoryFiltered.filter((it: any) => it.name?.toLowerCase().includes(search.trim().toLowerCase()))
-    : categoryFiltered;
-  const allItems = [...searchFiltered].sort((a: any, b: any) => {
-    if (sortBy === "value") return itemValue(b) - itemValue(a);
-    if (sortBy === "name") return (a.name || "").localeCompare(b.name || "");
-    return (a.stock ?? 0) - (b.stock ?? 0);
-  });
+  const tabItems = tab === "low" ? lowItems : tab === "dead" ? deadItems : tab === "reorder" ? reorderItems : active;
+  const q = search.trim().toLowerCase();
+  const list = useMemo(() => [...tabItems
+    .filter((it: any) => category === "All" || (it.category || "Others") === category)
+    .filter((it: any) => !q || String(it.name || "").toLowerCase().includes(q))]
+    .sort((a: any, b: any) => sortBy === "value" ? stockValue(b) - stockValue(a) : sortBy === "name" ? String(a.name || "").localeCompare(String(b.name || ""), undefined, { numeric: true }) : (a.stock ?? 0) - (b.stock ?? 0)),
+  [tabItems, category, q, sortBy]);
+  const shown = list.slice(0, limit);
+  const opened = openId ? active.find((it: any) => it.id === openId) : null;
+  const reset = () => setLimit(PAGE);
 
-  const totalValue = items.reduce((sum: number, it: any) => sum + itemValue(it), 0);
-  const deadStockValue = (deadStock || []).reduce((sum: number, d: any) => sum + (d.value || 0), 0);
-
-  // Which godown(s) an item actually sits in, for the location tag in the
-  // list — only meaningful once there's more than one godown to distinguish.
+  // Which godown an item sits in, once there is more than one to tell apart.
   const locationLabel = (it: any): string | null => {
     if (!godowns || godowns.length <= 1) return null;
     const present = (it.stockByGodown || []).filter((g: any) => (g.stock ?? 0) > 0 || (g.stockKg ?? 0) > 0);
     if (present.length === 0) return null;
-    if (present.length > 1) return `${present.length} locations`;
-    const gd = godowns.find((g: any) => String(g.id) === String(present[0].godownId));
-    return gd?.name || null;
+    if (present.length > 1) return `${present.length} godowns`;
+    return godowns.find((g: any) => String(g.id) === String(present[0].godownId))?.name || null;
   };
-
-  const stockColor = (it: any) => {
-    const s = it.stock ?? 0;
-    const t = it.lowStock ?? LOW_STOCK_DEFAULT;
-    if (s === 0) return "text-bad-600";
-    if (s <= t) return "text-warn-700";
-    return "text-good-600";
-  };
-
-  // Last confirmed sale for whichever item is currently expanded — computed
-  // on demand rather than for every row, since scanning `orders` per item is
-  // only cheap one at a time.
-  const lastOrderFor = (itemId: string) =>
-    (orders || [])
-      .filter((o: any) => o.itemId === itemId)
-      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-
-  // Full Inventory Stock can run into the hundreds or thousands of rows for a
-  // godown with a large catalogue. Rendering every row at once was fine for a
-  // few dozen items but starts to visibly lag scrolling well before that —
-  // virtualizing keeps scroll smooth regardless of catalogue size. Rows can
-  // now expand in place (value/last-sold/pace/reorder detail), so heights are
-  // measured dynamically rather than assumed fixed.
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const rowVirtualizer = useVirtualizer({
-    count: allItems.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => 62,
-    overscan: 8,
-  });
 
   const printInventory = () => {
-    const rowsHtml = items.map((it: any) =>
-      `<tr><td>${it.name}</td><td>${it.unit || "unit"}</td><td style="text-align:right;">${stockBreakdown(it)}</td><td style="text-align:right;">${fmtMoney(itemValue(it), settings?.currency)}</td></tr>`
+    const rowsHtml = active.map((it: any) =>
+      `<tr><td>${esc(it.name)}</td><td>${esc(it.unit || "unit")}</td><td style="text-align:right;">${esc(stockText(it))}</td><td style="text-align:right;">${esc(fmtMoney(stockValue(it), currency))}</td></tr>`
     ).join("");
     const w = window.open("", "_blank", "width=560,height=760");
-    if (!w) return;
+    if (!w) { void notice({ title: "Allow pop-ups to print", message: "Your browser blocked the print window. Allow pop-ups for this site, then tap Print again." }); return; }
     w.document.write(`<!doctype html><html><head><title>Inventory</title><style>
       @page { size: A4; margin: 14mm; }
       body { font-family: Arial, Helvetica, sans-serif; color: #0f172a; font-size: 12px; }
@@ -198,7 +99,7 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
       th, td { text-align: left; padding: 4px 6px; border-bottom: 0.2mm solid #e2e8f0; font-size: 11px; }
       th { color: #64748b; font-weight: 600; }
     </style></head><body>
-      <h1>${settings?.orgName || "Business"} — Inventory</h1>
+      <h1>${esc(settings?.orgName || "Business")} — Inventory</h1>
       <table><thead><tr><th>Item</th><th>Unit</th><th style="text-align:right;">In stock</th><th style="text-align:right;">Value</th></tr></thead>
       <tbody>${rowsHtml}</tbody></table>
     </body></html>`);
@@ -206,252 +107,95 @@ export function ToDoTrackingView({ items, settings, categories, orders, openModa
     w.onload = () => { w.focus(); w.print(); };
   };
 
-  const TABS: { key: Tab; label: string; count: number }[] = [
-    { key: "all", label: "All", count: items.length },
-    { key: "low", label: "Low", count: lowItems.length },
-    { key: "dead", label: "Dead", count: deadItems.length },
-    { key: "reorder", label: "Reorder", count: reorderItems.length },
+  const row = (it: any) => {
+    const st = stockState(it);
+    const dead = deadById.get(String(it.id));
+    const where = locationLabel(it);
+    return (
+      <GroupRow key={it.id} onClick={() => setOpenId(it.id)} className="min-h-[64px] py-2.5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-lead font-medium text-ink">{it.name}</p>
+            <p className="truncate text-caption text-mute">{[it.category || "Others", where].filter(Boolean).join(", ")}</p>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className={cx("text-lead font-medium tabular-nums", st === "out" ? "text-bad-600" : st === "low" ? "text-warn-700" : "text-ink")}>{stockText(it)}</p>
+            <p className="text-caption tabular-nums text-mute">{inr(stockValue(it), currency)}</p>
+            {st === "out" ? <StatusChip tone="risk" small className="mt-1">Out</StatusChip>
+              : st === "low" ? <StatusChip tone="caution" small className="mt-1">Low</StatusChip>
+              : dead ? <StatusChip tone="neutral" small dot={false} className="mt-1">No sale 90d</StatusChip> : null}
+          </div>
+        </div>
+      </GroupRow>
+    );
+  };
+
+  const tabs: { value: Tab; label: string }[] = [
+    { value: "all", label: "All" },
+    { value: "low", label: `Low ${lowItems.length}` },
+    { value: "dead", label: `Dead ${deadItems.length}` },
+    { value: "reorder", label: `Reorder ${reorderItems.length}` },
   ];
+  const emptyText = tab === "low" ? "Nothing is low on stock." : tab === "dead" ? "Everything has sold in the last 90 days." : tab === "reorder" ? "Nothing needs reordering yet." : "No items match.";
 
   return (
-    <div className="space-y-5 px-5 pb-28">
-
-      <div className="flex items-center gap-5">
-        <button
-          type="button"
-          onClick={() => setStockTakeOpen(true)}
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink"
-        >
-          <ClipboardList size={15} /> Stock take
-        </button>
-        <Link to="/stock-adjustments" className="text-sm font-semibold text-mute">
-          History
-        </Link>
+    <div className="px-5 pb-28 md:pb-12">
+      <div className="mt-4">
+        <p className="text-caption text-mute">Stock at cost</p>
+        <HeroMoney value={totalValue} currency={currency} size="md" showPaise={false} />
+      </div>
+      <div className="mt-3">
+        <StatRow stats={[
+          { label: "Items", value: qtyText(active.length) },
+          { label: "Low or out", value: qtyText(lowItems.length), tone: lowItems.length > 0 ? "warn" : undefined },
+          { label: "Dead stock", value: inr(deadValue, currency) },
+        ]} />
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <PrimaryButton size="md" onClick={() => setStockTakeOpen(true)}>Start a stock take</PrimaryButton>
+        <SecondaryButton onClick={() => navigate("/stock-adjustments")}>Past corrections</SecondaryButton>
       </div>
 
-      <StatStrip
-        stats={[
-          { label: "Stock value", value: fmtMoney(totalValue, settings?.currency) },
-          { label: "Items tracked", value: fmtNum(items.length) },
-          { label: "Low stock", value: fmtNum(lowItems.length), tone: lowItems.length > 0 ? "warn" : "default" },
-          { label: "Dead stock tied up", value: fmtMoney(deadStockValue, settings?.currency) },
-        ]}
-      />
+      {active.length === 0 ? (
+        <Group className="mt-4"><EmptyNote text="Add your items first, then come back to count them." cta="New item" onCta={() => openModal("item")} /></Group>
+      ) : (
+        <>
+          <QuantityMapGroup className="mt-4" items={active} onSelectItem={(it: any) => setOpenId(it.id)} />
+          {byCategory.length > 1 && (
+            <FoldedGroup title="Value by category" className="mt-3"><ValueBars bare rows={byCategory} currency={currency} /></FoldedGroup>
+          )}
 
-      <SectionDivider />
-
-      <ItemQuantityMap items={items} onSelectItem={(it: any) => { setTab("all"); setCategory("All"); setSearch(""); toggleExpanded(it.id); }} />
-
-      <SectionDivider />
-
-      <CategoryValueCard items={items} currency={settings?.currency} />
-
-      <SectionDivider />
-
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-base font-semibold text-ink">Inventory · {fmtNum(items.length)}</h3>
-          <button onClick={printInventory} className="inline-flex items-center gap-1.5 text-xs font-semibold text-mute">
-            <Printer size={12} /> Print
-          </button>
-        </div>
-
-        <div className="mb-3 flex gap-2 overflow-x-auto pb-0.5">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => { setTab(t.key); setExpandedId(null); }}
-              className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold ${
-                tab === t.key
-                  ? "bg-brand-500 text-white"
-                  : t.key === "low" && t.count > 0
-                  ? "bg-warn-100 text-warn-700"
-                  : "bg-paper text-ink/70"
-              }`}
-            >
-              {t.label} {t.count}
-            </button>
-          ))}
-        </div>
-
-        <div className="mb-3 flex gap-2">
-          <div className="relative flex-1">
-            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
-            <input
-              type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search items"
-              className="w-full rounded-xl border border-line py-2 pl-8 pr-3 text-sm"
-            />
+          <div className="mt-5">
+            <Segmented ariaLabel="Which items" options={tabs} value={tab} onChange={(v) => { setTab(v as Tab); reset(); }} />
           </div>
-          <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="rounded-xl border border-line px-2 py-2 text-xs font-semibold text-ink/70">
-            <option value="stock">Stock ↑</option>
-            <option value="value">Value ↓</option>
-            <option value="name">Name A-Z</option>
-          </select>
-        </div>
-        <div className="mb-3 flex flex-wrap gap-2">
-          {["All", ...cats].map((c) => (
-            <button key={c} onClick={() => setCategory(c)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${category === c ? "bg-ink text-white" : "bg-paper text-ink/70"}`}>{c}</button>
-          ))}
-        </div>
-
-        {items.length === 0 ? (
-          <p className="text-sm text-faint">No items added yet. Go to Items to add your first product.</p>
-        ) : allItems.length === 0 ? (
-          <p className="text-sm text-faint">No items match this search, category, or filter.</p>
-        ) : (
-          <div ref={scrollRef} className="max-h-[560px] overflow-y-auto">
-            <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>
-              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                const it = allItems[virtualRow.index];
-                const isExpanded = expandedId === it.id;
-                const isLow = (it.stock ?? 0) <= (it.lowStock ?? LOW_STOCK_DEFAULT);
-                const dead = deadStockById.get(it.id);
-                const reorder = reorderById.get(it.id);
-                const lastOrder = isExpanded ? lastOrderFor(it.id) : null;
-                return (
-                  <div
-                    key={it.id}
-                    data-index={virtualRow.index}
-                    ref={rowVirtualizer.measureElement}
-                    style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${virtualRow.start}px)` }}
-                    className="pb-0"
-                  >
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => toggleExpanded(it.id)}
-                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleExpanded(it.id); } }}
-                      className={`w-full cursor-pointer border-t border-line/70 px-1 py-3 text-left active:bg-paper/50 ${virtualRow.index === 0 ? "border-t-0 pt-0" : ""}`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-ink">{it.name}</p>
-                          <p className="text-xs text-faint">
-                            {it.unit || "unit"} · {it.category || "Others"}
-                            {locationLabel(it) && (
-                              <span className="ml-1 inline-flex items-center gap-0.5"><MapPin size={9} className="inline" /> {locationLabel(it)}</span>
-                            )}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="text-right">
-                            <div className="h-4">
-                              {isLow ? (
-                                <span className="inline-block rounded-full bg-warn-100 px-2 py-0.5 text-micro font-semibold text-warn-700">Low</span>
-                              ) : dead ? (
-                                <span className="inline-block rounded-full bg-paper px-2 py-0.5 text-micro font-semibold text-faint">No sale 90d+</span>
-                              ) : null}
-                            </div>
-                            <p className={`font-display text-base font-semibold ${stockColor(it)}`}>{stockBreakdown(it)}</p>
-                            <p className="text-xs text-faint">{fmtMoney(itemValue(it), settings?.currency)}</p>
-                          </div>
-                          <IconButton label="Edit item" tone="faint" layout="compact" onClick={(e) => { e.stopPropagation(); openModal("item", { editingItem: it }); }}>
-                            <Pencil size={15} />
-                          </IconButton>
-                          <ChevronDown size={15} className={`shrink-0 text-faint transition-transform ${isExpanded ? "rotate-180" : ""}`} />
-                        </div>
-                      </div>
-
-                      {isExpanded && (() => {
-                        const detail = insights[it.id];
-                        const loading = insightsLoading[it.id];
-                        const present = (it.stockByGodown || []).filter((g: any) => (g.stock ?? 0) > 0 || (g.stockKg ?? 0) > 0);
-                        const lastSaleDate = detail?.lastSale?.date ?? dead?.lastSaleDate ?? (lastOrder ? lastOrder.date : null);
-                        return (
-                          <div className="mt-3 space-y-1.5 border-t border-line/70 pt-3">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-faint">Value on hand</span>
-                              <span className="font-semibold text-ink">{fmtMoney(itemValue(it), settings?.currency)}</span>
-                            </div>
-
-                            {godowns && godowns.length > 1 && present.length > 0 && (
-                              <div className="py-1">
-                                <p className="mb-1 text-micro font-semibold text-faint">By godown</p>
-                                <div className="space-y-1">
-                                  {present.map((g: any) => {
-                                    const gd = godowns.find((x: any) => String(x.id) === String(g.godownId));
-                                    return (
-                                      <div key={String(g.godownId)} className="flex items-center justify-between text-xs">
-                                        <span className="text-mute">{gd?.name || "Unknown godown"}</span>
-                                        <span className="font-semibold text-ink">{qtyLabel(it, g.stock, g.stockKg)}</span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-faint">Last sold</span>
-                              <span className="font-semibold text-ink">
-                                {lastSaleDate ? fmtDate(lastSaleDate) : "No sales yet"}
-                                {detail?.lastSale?.rate != null ? ` · ${fmtMoney(detail.lastSale.rate, settings?.currency)}` : ""}
-                              </span>
-                            </div>
-
-                            {reorder && (
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="text-faint">Sales pace</span>
-                                <span className="font-semibold text-ink">
-                                  {reorder.dailyRate != null ? `${fmtNum(reorder.dailyRate)}/day` : "—"}
-                                  {reorder.daysLeft != null ? ` · ~${reorder.daysLeft}d cover left` : ""}
-                                </span>
-                              </div>
-                            )}
-
-                            {loading && <p className="text-xs text-faint">Loading purchase and margin details…</p>}
-
-                            {detail?.lastPurchase && (
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="text-faint">Last purchase</span>
-                                <span className="font-semibold text-ink text-right">
-                                  {fmtDate(detail.lastPurchase.date)} · {qtyLabel(it, detail.lastPurchase.qty, detail.lastPurchase.qtyKg)} @ {fmtMoney(detail.lastPurchase.rate, settings?.currency)}
-                                  {detail.lastPurchase.vendor ? ` (${detail.lastPurchase.vendor.name})` : ""}
-                                </span>
-                              </div>
-                            )}
-
-                            {detail?.margin && (
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="text-faint">Margin</span>
-                                <span className="font-semibold text-ink">
-                                  {fmtMoney(detail.margin.perUnit, settings?.currency)}
-                                  {detail.margin.percent != null ? ` (${fmtNum(detail.margin.percent)}%)` : ""}
-                                </span>
-                              </div>
-                            )}
-
-                            {reorder && (
-                              <>
-                                {reorder.mode === "pace" && reorder.dailyRate != null && (
-                                  <p className="pt-1 text-[12px] text-faint">
-                                    At {fmtNum(reorder.dailyRate)}/day, stock won't cover the vendor's usual {reorder.leadTimeDays}-day lead time — ordering now keeps you covered.
-                                  </p>
-                                )}
-                                {reorder.vendor && (
-                                  <a
-                                    href={waLink(reorder.vendor.phone, `Hi ${reorder.vendor.name}, I'd like to order ${fmtNum(reorder.suggestedQty)} ${it.unit || "unit"} of ${it.name}.`)}
-                                    target="_blank" rel="noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="mt-1 inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-line bg-paper px-3 py-2 text-xs font-semibold text-ink/80"
-                                  >
-                                    Reorder +{fmtNum(reorder.suggestedQty)} from {reorder.vendor.name} ↗
-                                  </a>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          <SearchField className="mt-3 !h-11" value={search} onChange={(v) => { setSearch(v); reset(); }} placeholder="Search items" />
+          {categoryOptions.length > 0 && <FilterChips className="mt-3" ariaLabel="Category" options={categoryOptions} value={category} onChange={(v) => { setCategory(v); reset(); }} />}
+          <div className="mt-3">
+            <Segmented ariaLabel="Sort" options={[{ value: "stock", label: "Lowest first" }, { value: "value", label: "Most value" }, { value: "name", label: "A to Z" }]} value={sortBy} onChange={(v) => { setSortBy(v as Sort); reset(); }} />
           </div>
-        )}
-      </div>
 
+          <GroupLabel right={<button type="button" onClick={printInventory} className="min-h-[28px] text-[13px] font-medium text-brand-600">Print all</button>}>{list.length} item{list.length === 1 ? "" : "s"}</GroupLabel>
+          {list.length === 0 ? (
+            <Group><p className="px-4 py-8 text-center text-[15px] text-mute">{emptyText}</p></Group>
+          ) : (
+            <>
+              <Group>{shown.map(row)}</Group>
+              {list.length > shown.length && (
+                <button type="button" onClick={() => setLimit(limit + PAGE)} className="mt-1 h-11 w-full text-[15px] font-medium text-brand-600">Show {Math.min(PAGE, list.length - shown.length)} more</button>
+              )}
+            </>
+          )}
+        </>
+      )}
+
+      {opened && (
+        <ItemSheet
+          item={opened} items={items} godowns={godowns} currency={currency} purchases={purchases} estimates={estimates}
+          reorderSuggestions={reorderSuggestions} deadStock={deadStock}
+          openModal={openModal} applyStockAdjustments={applyStockAdjustments} removeItem={removeItem}
+          onClose={() => setOpenId(null)}
+        />
+      )}
       {stockTakeOpen && (
         <StockTakeModal items={items} godowns={godowns} applyStockAdjustments={applyStockAdjustments} onClose={() => setStockTakeOpen(false)} />
       )}

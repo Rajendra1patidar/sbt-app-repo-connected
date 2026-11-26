@@ -1,87 +1,86 @@
 import { useEffect, useState } from "react";
-import { Clock, TrendingDown, TrendingUp } from "lucide-react";
+import { TrendingDown, TrendingUp } from "lucide-react";
+import { EmptyNote } from "../ui/blocks";
+import { Group, GroupLabel, InsightNote, StatusChip, TextButton, cx } from "../ui/kit";
 import { api } from "../../lib/api";
-import { Card, EmptyState } from "../common/UIPrimitives";
-import { fmtMoney } from "../../lib/format";
+import { inrCompact, inrRate, qtyText } from "../../lib/money";
 
-/* ---- Vendor scorecard: real spend, real fulfillment time, real price trends per item ---- */
+/* ---- Vendor scorecard: real spend, real fulfilment time, real price trends per item ---- */
 
 export function VendorScorecardView({ currency }: { currency: string }) {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError("");
     api.reports
       .vendorScorecard()
-      .then(setRows)
-      .catch((err: any) => setError(err?.message || "Couldn't load this report"))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((r: any[]) => { if (!cancelled) setRows(r); })
+      .catch((err: any) => { if (!cancelled) setError(err?.message || "Couldn't load this report"); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [attempt]);
 
   return (
-    <div className="space-y-4 px-5 pb-28">
-      <Card className="space-y-1">
-        <h3 className="text-sm font-semibold text-ink">How this works</h3>
-        <p className="text-xs text-faint">
-          Fulfillment time is measured from real order and receipt dates — there's no promised-delivery-date on file,
-          so this reports what actually happened rather than an "on-time %" against an expectation nobody recorded.
-        </p>
-      </Card>
+    <div className="px-5 pb-28 md:pb-12">
+      <InsightNote className="mt-4">
+        Fulfilment time is measured from the real order and receipt dates. There's no promised delivery date on file, so this shows what actually happened, not an on-time percentage against a date nobody recorded.
+      </InsightNote>
 
-      {error && <p className="rounded-xl bg-bad-50 px-3 py-2 text-xs font-semibold text-bad-600">{error}</p>}
+      {error && (
+        <Group className="mt-4">
+          <p className="px-4 pt-5 text-center text-[15px] text-bad-600">{error}</p>
+          <div className="flex justify-center pb-3"><TextButton onClick={() => setAttempt(attempt + 1)}>Try again</TextButton></div>
+        </Group>
+      )}
 
       {loading ? (
-        <p className="py-10 text-center text-sm text-faint">Loading…</p>
-      ) : rows.length === 0 ? (
-        <EmptyState text="No purchases recorded against any vendor yet." />
+        <p className="py-12 text-center text-[15px] text-mute">Loading…</p>
+      ) : !error && rows.length === 0 ? (
+        <Group className="mt-4"><EmptyNote text="Nothing has been bought from any vendor yet." /></Group>
       ) : (
-        <div className="space-y-3">
-          {rows.map((v) => (
-            <Card key={v.vendorId} className="space-y-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-ink">{v.name}</p>
-                  {v.phone && <p className="text-xs text-faint">{v.phone}</p>}
+        rows.map((v) => (
+          <div key={v.vendorId}>
+            <GroupLabel right={<span className="tabular-nums">{inrCompact(v.totalSpend, currency)} spent</span>}>{v.name}</GroupLabel>
+            <Group>
+              <div className="grid grid-cols-2 divide-x divide-line">
+                <div className="px-4 py-3">
+                  <p className="text-micro text-mute">Purchases</p>
+                  <p className="mt-0.5 text-lead font-medium tabular-nums text-ink">{v.purchaseCount}</p>
                 </div>
-                <p className="shrink-0 font-display text-lg font-semibold text-ink">{fmtMoney(v.totalSpend, currency)}</p>
+                <div className="px-4 py-3">
+                  <p className="text-micro text-mute">Usually arrives in</p>
+                  <p className="mt-0.5 text-lead font-medium tabular-nums text-ink">{v.avgFulfillmentDays != null ? `${qtyText(v.avgFulfillmentDays)} days` : "No data yet"}</p>
+                </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <p className="text-faint">Purchases</p>
-                  <p className="font-semibold text-ink">{v.purchaseCount}</p>
+              {v.pendingOrders > 0 && (
+                <div className="flex flex-wrap items-center gap-2 border-t border-line px-4 py-3">
+                  <StatusChip tone="caution">{v.pendingOrders} order{v.pendingOrders === 1 ? "" : "s"} pending</StatusChip>
+                  {v.oldestPendingDays != null && <span className="text-caption text-mute">The oldest is {v.oldestPendingDays} days old</span>}
                 </div>
-                <div>
-                  <p className="text-faint">Avg. fulfillment</p>
-                  <p className="font-semibold text-ink">{v.avgFulfillmentDays != null ? `${v.avgFulfillmentDays} days` : "No data yet"}</p>
-                </div>
-                {v.pendingOrders > 0 && (
-                  <div className="col-span-2 flex items-center gap-1.5 rounded-xl bg-warn-50 px-3 py-2 text-warn-700">
-                    <Clock size={13} />
-                    {v.pendingOrders} order{v.pendingOrders !== 1 ? "s" : ""} still pending
-                    {v.oldestPendingDays != null && ` — oldest is ${v.oldestPendingDays} days old`}
-                  </div>
-                )}
-              </div>
-
+              )}
               {v.priceTrends?.length > 0 && (
-                <div className="space-y-1.5 border-t border-line pt-2">
-                  <p className="text-xs font-semibold text-mute">Price trends</p>
+                <div className="border-t border-line">
+                  <p className="px-4 pb-1 pt-3 text-micro text-mute">Price trends</p>
                   {v.priceTrends.slice(0, 5).map((t: any) => (
-                    <div key={t.itemId} className="flex items-center justify-between text-xs">
-                      <span className="truncate text-ink/70">{t.name}</span>
-                      <span className={`flex shrink-0 items-center gap-1 font-semibold ${t.changePct > 0 ? "text-bad-600" : t.changePct < 0 ? "text-good-600" : "text-faint"}`}>
-                        {t.changePct > 0 ? <TrendingUp size={12} /> : t.changePct < 0 ? <TrendingDown size={12} /> : null}
-                        {fmtMoney(t.firstRate, currency)} → {fmtMoney(t.latestRate, currency)} ({t.changePct > 0 ? "+" : ""}{t.changePct}%)
+                    <div key={t.itemId} className="flex min-h-[48px] items-center justify-between gap-3 px-4 py-2">
+                      <span className="min-w-0 truncate text-[16px] text-ink">{t.name}</span>
+                      <span className={cx("flex shrink-0 items-center gap-1 text-caption tabular-nums", t.changePct > 0 ? "text-bad-600" : t.changePct < 0 ? "text-good-600" : "text-mute")}>
+                        {t.changePct > 0 ? <TrendingUp size={14} /> : t.changePct < 0 ? <TrendingDown size={14} /> : null}
+                        {inrRate(t.firstRate, currency)} → {inrRate(t.latestRate, currency)} ({t.changePct > 0 ? "+" : ""}{t.changePct}%)
                       </span>
                     </div>
                   ))}
                 </div>
               )}
-            </Card>
-          ))}
-        </div>
+              {v.phone && <p className="border-t border-line px-4 py-3 text-caption text-mute">{v.phone}</p>}
+            </Group>
+          </div>
+        ))
       )}
     </div>
   );

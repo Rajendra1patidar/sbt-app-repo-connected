@@ -38,6 +38,7 @@ export function SearchableSelect({ options, value, onChange, placeholder }: any)
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const selected = options.find((o: any) => o.value === value);
 
@@ -59,7 +60,11 @@ export function SearchableSelect({ options, value, onChange, placeholder }: any)
     if (open) {
       // Focus the search box the moment the dropdown opens so typing starts
       // immediately — no extra click needed.
-      requestAnimationFrame(() => inputRef.current?.focus());
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+        // Inside a sheet the menu can open below the visible part of the form; bring it into view.
+        menuRef.current?.scrollIntoView({ block: "nearest" });
+      });
     }
   }, [open]);
 
@@ -105,34 +110,34 @@ export function SearchableSelect({ options, value, onChange, placeholder }: any)
       onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) { setOpen(false); setQuery(""); } }}
     >
       <button
-        type="button"
+        type="button" aria-haspopup="listbox" aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between rounded-xl border border-line bg-card px-3 py-2.5 text-left text-sm"
+        className="flex h-11 w-full items-center justify-between rounded-control bg-paper px-3 text-left text-[16px]"
       >
         <span className={selected ? "truncate text-ink" : "truncate text-faint"}>
           {selected ? selected.label : (placeholder || "Select...")}
         </span>
-        <ChevronDown size={15} className="ml-2 shrink-0 text-faint" />
+        <ChevronDown size={18} className="ml-2 shrink-0 text-mute" />
       </button>
       {open && (
-        <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-xl border border-line bg-card shadow-sheet">
+        <div ref={menuRef} className="absolute z-30 mt-1 w-full overflow-hidden rounded-control border border-line bg-card shadow-sheet">
           <div className="sticky top-0 flex items-center gap-2 border-b border-line bg-card p-2">
-            <Search size={14} className="shrink-0 text-faint" />
+            <Search size={16} className="shrink-0 text-mute" />
             <input
               ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={onKeyDown}
               placeholder="Search..."
-              className="w-full text-sm outline-none"
+              className="h-9 w-full bg-transparent text-[16px] text-ink outline-none placeholder:text-faint"
             />
           </div>
           <div ref={listRef} className="max-h-56 overflow-y-auto">
             {partial && visible.length > 0 && (
-              <p className="bg-warn-50 px-3 py-1.5 text-[12px] font-semibold text-warn-700">No item has all your words. Closest matches:</p>
+              <p className="bg-warn-50 px-3 py-1.5 text-micro font-medium text-warn-700">No item has all your words. Closest matches:</p>
             )}
             {visible.length === 0 ? (
-              <p className="px-3 py-2 text-xs text-faint">No matches</p>
+              <p className="px-3 py-3 text-[15px] text-mute">No matches</p>
             ) : (
               visible.map((o: any, i: number) => (
                 <button
@@ -141,8 +146,8 @@ export function SearchableSelect({ options, value, onChange, placeholder }: any)
                   data-idx={i}
                   onClick={() => choose(o.value)}
                   onMouseEnter={() => setActiveIndex(i)}
-                  className={`block w-full px-3 py-2 text-left text-sm leading-snug ${
-                    o.value === value ? "bg-brand-50 font-semibold text-brand-700" : "text-ink/80"
+                  className={`block min-h-[44px] w-full px-3 py-2.5 text-left text-[15px] leading-snug ${
+                    o.value === value ? "bg-brand-50 font-semibold text-brand-700" : "text-ink"
                   } ${i === activeIndex ? "bg-paper" : ""}`}
                 >
                   {highlight(o.label, q)}
@@ -150,14 +155,14 @@ export function SearchableSelect({ options, value, onChange, placeholder }: any)
                       "saria" for an item just named "Kamdhenu 10mm") — show the category
                       so it's clear why this row matched */}
                   {o.keywords && q && matchRanges(cleanLabel(o.label), q).length === 0 && (
-                    <span className="ml-1.5 text-xs font-normal text-faint">— {o.keywords}</span>
+                    <span className="ml-1.5 text-caption font-normal text-mute">— {o.keywords}</span>
                   )}
                 </button>
               ))
             )}
           </div>
           {filtered.length > MAX_RESULTS && (
-            <p className="border-t border-line px-3 py-1.5 text-[12px] text-faint">
+            <p className="border-t border-line px-3 py-2 text-micro text-mute">
               {filtered.length - MAX_RESULTS} more match{filtered.length - MAX_RESULTS !== 1 ? "es" : ""} — keep typing to narrow it down
             </p>
           )}

@@ -1,10 +1,12 @@
-import React, { useState } from "react";
-import { Plus, Trash2, X } from "lucide-react";
+import { useState } from "react";
+import { EmptyNote, FieldBlock, FormSheet, SelectInput, TextArea } from "../ui/blocks";
+import { PlusIcon, TrashIcon } from "../ui/icons";
+import { Field, Group, IconButton, SecondaryButton, Segmented, TextButton, TextInput } from "../ui/kit";
 import { SearchableSelect } from "../common/SearchableSelect";
 import { QuickAddItemPopup } from "./QuickAddItemPopup";
-import { fmtMoney, today, round2 } from "../../lib/format";
+import { round2, today } from "../../lib/format";
+import { inr } from "../../lib/money";
 
-import { IconButton } from "../ui/kit";
 // Multi-item purchase entry — same ledger shape as the estimate form (item
 // picker, qty, rate, right-aligned amount, inline payment status) but simpler:
 // no discount column and no previous-due section, since neither concept
@@ -22,16 +24,17 @@ import { IconButton } from "../ui/kit";
 // individually-reversible restock records, which is exactly how deleting a
 // single line item off an old purchase already worked.
 const PAYMENT_CHOICES = [
-  { key: "unpaid", label: "Unpaid", desc: "Nothing paid yet" },
-  { key: "partial", label: "Partial", desc: "Paying part now" },
-  { key: "paid", label: "Paid", desc: "Paid in full" },
+  { key: "unpaid", label: "Unpaid", desc: "Nothing paid yet." },
+  { key: "partial", label: "Part paid", desc: "You're paying some of it now." },
+  { key: "paid", label: "Paid", desc: "Paid in full." },
 ] as const;
 
 type PurchaseLine = { itemId: string; qty: number | string; qtyKg?: number | string; rate: number | string };
 
-export function PurchaseModal({ vendors, items, godowns, onClose, onSave, onQuickAddItem }: any) {
+export function PurchaseModal({ vendors, items, godowns, currency, onClose, onSave, onQuickAddItem }: any) {
   const activeItems = items.filter((it: any) => !it.deleted);
-  const [vendorId, setVendorId] = useState(vendors[0]?.id || "");
+  const initialVendor = vendors[0]?.id || "";
+  const [vendorId, setVendorId] = useState(initialVendor);
   const [date, setDate] = useState(today());
   const [godownId, setGodownId] = useState(godowns?.find((g: any) => g.isDefault)?.id || godowns?.[0]?.id || "");
   const [lines, setLines] = useState<PurchaseLine[]>([{ itemId: "", qty: 1, rate: 0 }]);
@@ -47,7 +50,7 @@ export function PurchaseModal({ vendors, items, godowns, onClose, onSave, onQuic
   const removeLine = (i: number) => setLines((l) => l.filter((_, idx) => idx !== i));
   const itemById = (id: string) => activeItems.find((it: any) => it.id === id);
 
-  const lineAmounts = lines.map((ln, i) => {
+  const lineAmounts = lines.map((ln) => {
     const it = itemById(ln.itemId);
     const isWeight = it?.trackingMode === "weight";
     return round2((isWeight ? Number(ln.qtyKg || 0) : Number(ln.qty || 0)) * Number(ln.rate || 0));
@@ -66,6 +69,7 @@ export function PurchaseModal({ vendors, items, godowns, onClose, onSave, onQuic
       return it?.trackingMode !== "weight" || Number(l.qtyKg) > 0;
     }) &&
     total > 0 && partialValid && !saving;
+  const dirty = lines.some((l) => l.itemId) || notes.trim() !== "" || paymentChoice !== "unpaid" || amountPaid !== "" || vendorId !== initialVendor;
 
   // splits one batch-level "amount paid now" across lines proportionally to
   // each line's own amount, so the sum across lines always matches exactly
@@ -87,7 +91,12 @@ export function PurchaseModal({ vendors, items, godowns, onClose, onSave, onQuic
     try {
       const item = await onQuickAddItem(v);
       if (item) {
-        setLines((l) => [...l, { itemId: item.id, qty: 1, rate: item.purchasePrice || item.sellingPrice || 0 }]);
+        // Fill the empty line the person was on, if there is one, rather than leaving it blank above a new one.
+        setLines((l) => {
+          const blank = l.findIndex((ln) => !ln.itemId);
+          const filled = { itemId: item.id, qty: 1, rate: item.purchasePrice || item.sellingPrice || 0 };
+          return blank >= 0 ? l.map((ln, i) => (i === blank ? { ...ln, ...filled } : ln)) : [...l, filled];
+        });
         setShowAddItem(false);
       }
     } finally {
@@ -110,160 +119,90 @@ export function PurchaseModal({ vendors, items, godowns, onClose, onSave, onQuic
     Promise.resolve(onSave(payload)).finally(() => setSaving(false));
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4 animate-fade-in">
-      <div className="animate-sheet-up sheet-grab w-full sm:max-w-xl max-h-[92vh] overflow-y-auto rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display text-lg font-semibold text-ink">New Purchase</h3>
-          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
-        </div>
+  const blocked = vendors.length === 0 ? "Add a vendor first, then record what you bought from them."
+    : activeItems.length === 0 && !onQuickAddItem ? "Add an item first." : "";
 
-        {vendors.length === 0 ? <p className="text-sm text-mute">Add a vendor first.</p>
-          : activeItems.length === 0 && !onQuickAddItem ? <p className="text-sm text-mute">Add an item first.</p>
-          : (
-          <div className="space-y-5">
+  return (
+    <>
+      <FormSheet tall title="New purchase" onClose={onClose} dirty={dirty} canSave={!!canSave && !blocked} saving={saving} saveLabel="Save purchase" savingLabel="Saving…" onSave={handleSaveClick}>
+        {blocked ? <EmptyNote text={blocked} /> : (
+          <div className="space-y-5 pt-1">
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-mute">Vendor *</label>
-                <SearchableSelect
-                  options={vendors.map((v: any) => ({ value: v.id, label: v.name }))}
-                  value={vendorId} onChange={setVendorId} placeholder="Select vendor"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-mute">Date</label>
-                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
-              </div>
+              <FieldBlock label="Vendor" required>
+                <SearchableSelect options={vendors.map((v: any) => ({ value: v.id, label: v.name }))} value={vendorId} onChange={setVendorId} placeholder="Select vendor" />
+              </FieldBlock>
+              <Field label="Date"><TextInput type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
             </div>
 
             {godowns && godowns.length > 1 && (
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-mute">Receiving into</label>
-                <select value={godownId} onChange={(e) => setGodownId(e.target.value)} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm">
+              <Field label="Receiving into">
+                <SelectInput value={godownId} onChange={(e) => setGodownId(e.target.value)}>
                   {godowns.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                </select>
-              </div>
+                </SelectInput>
+              </Field>
             )}
 
-            <div className="border-t border-line pt-4">
-              <div className="mb-2 flex items-center justify-between">
-                <label className="block text-xs font-semibold text-mute">Items *</label>
-                {onQuickAddItem && (
-                  <button type="button" onClick={() => setShowAddItem(true)}
-                    className="flex items-center gap-1.5 rounded-full bg-brand-50 py-1 pl-1.5 pr-3 text-xs font-semibold text-brand-700 transition-all duration-150 hover:bg-brand-100 active:scale-95">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-white"><Plus size={12} /></span>
-                    New item
-                  </button>
-                )}
+            <div>
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-micro text-mute">Items <span className="text-bad-600">*</span></span>
+                {onQuickAddItem && <TextButton className="-mr-1 px-1" onClick={() => setShowAddItem(true)}>New item</TextButton>}
               </div>
-              <div className="hidden sm:grid mb-1 grid-cols-[2.4fr_80px_110px_110px_28px] gap-2 px-1 text-[12px] font-semibold text-faint">
-                <span>Item</span><span>Qty</span><span>Rate</span><span className="text-right">Amount</span><span />
-              </div>
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {lines.map((ln, i) => {
                   const it = itemById(ln.itemId);
                   const isWeight = it?.trackingMode === "weight";
                   return (
-                    <div key={i} className="rounded-xl border border-line bg-paper/60 p-2">
-                      <div className="sm:grid sm:grid-cols-[2.4fr_80px_110px_110px_28px] sm:gap-2 sm:items-center">
-                        <SearchableSelect
-                          options={activeItems.map((opt: any) => ({ value: opt.id, label: `${opt.name} (stock: ${opt.trackingMode === "weight" ? `${opt.stockKg ?? 0}kg` : opt.stock ?? 0})`, keywords: opt.category || "" }))}
-                          value={ln.itemId} onChange={(v: string) => updateLine(i, { itemId: v, rate: itemById(v)?.purchasePrice || itemById(v)?.sellingPrice || 0 })}
-                          placeholder="Select item"
-                        />
-                        <div className="mt-2 sm:mt-0">
-                          <span className="mb-0.5 block text-micro font-semibold text-faint sm:hidden">{isWeight ? "Pieces" : "Qty"}</span>
-                          <input type="number" min="1" value={ln.qty} onChange={(e) => updateLine(i, { qty: e.target.value })} className="w-full rounded-xl border border-line px-2 py-2 text-sm" />
+                    <div key={i} className="rounded-group border border-line p-3">
+                      <div className="flex items-start gap-2">
+                        <div className="min-w-0 flex-1">
+                          <SearchableSelect
+                            options={activeItems.map((opt: any) => ({ value: opt.id, label: `${opt.name} (stock: ${opt.trackingMode === "weight" ? `${opt.stockKg ?? 0}kg` : opt.stock ?? 0})`, keywords: opt.category || "" }))}
+                            value={ln.itemId} onChange={(v: string) => updateLine(i, { itemId: v, rate: itemById(v)?.purchasePrice || itemById(v)?.sellingPrice || 0 })}
+                            placeholder="Select item"
+                          />
                         </div>
-                        <div className="mt-2 sm:mt-0">
-                          <span className="mb-0.5 block text-micro font-semibold text-faint sm:hidden">Rate{isWeight ? "/kg" : ""}</span>
-                          <input type="number" min="0" value={ln.rate} onChange={(e) => updateLine(i, { rate: e.target.value })} className="w-full rounded-xl border border-line px-2 py-2 text-sm" />
-                        </div>
-                        <div className="mt-2 flex items-center justify-between sm:mt-0 sm:block sm:text-right">
-                          <span className="text-micro font-semibold text-faint sm:hidden">Amount</span>
-                          <span className="font-display text-sm font-semibold text-ink tabular-nums">{fmtMoney(lineAmounts[i], "")}</span>
-                        </div>
-                        <div className="mt-1 flex items-center justify-end sm:mt-0">
-                          {lines.length > 1 && <IconButton label="Remove line" tone="danger" onClick={() => removeLine(i)}><Trash2 size={15} /></IconButton>}
+                        {lines.length > 1 && <IconButton label={`Remove line ${i + 1}`} tone="danger" className="-mr-1.5" onClick={() => removeLine(i)}><TrashIcon size={18} /></IconButton>}
+                      </div>
+                      <div className="mt-3 grid grid-cols-[1fr_1fr_1fr] gap-2">
+                        <Field label={isWeight ? "Pieces" : "Qty"}><TextInput type="number" inputMode="decimal" min="0" value={ln.qty} onChange={(e) => updateLine(i, { qty: e.target.value })} /></Field>
+                        <Field label={`Rate${isWeight ? " a kg" : ""}`}><TextInput type="number" inputMode="decimal" min="0" value={ln.rate} onChange={(e) => updateLine(i, { rate: e.target.value })} /></Field>
+                        <div>
+                          <span className="mb-1 block text-micro text-mute">Amount</span>
+                          <div className="flex h-11 items-center justify-end text-[16px] font-medium tabular-nums text-ink">{inr(lineAmounts[i], currency)}</div>
                         </div>
                       </div>
                       {isWeight && (
-                        <div className="mt-2">
-                          <span className="mb-0.5 block text-micro font-semibold text-faint">Weight received (kg) — re-weigh, don't estimate</span>
-                          <input type="number" min="0.01" step="0.01" value={ln.qtyKg ?? ""} onChange={(e) => updateLine(i, { qtyKg: e.target.value })} placeholder="0" className="w-full rounded-xl border border-line px-2 py-2 text-sm" />
-                        </div>
+                        <Field className="mt-3" label="Weight received, in kg" hint="Weigh it again. Don't estimate.">
+                          <TextInput type="number" inputMode="decimal" min="0" step="0.01" value={ln.qtyKg ?? ""} onChange={(e) => updateLine(i, { qtyKg: e.target.value })} placeholder="0" />
+                        </Field>
                       )}
                     </div>
                   );
                 })}
               </div>
-              <button
-                type="button" onClick={addLine}
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-brand-300 bg-brand-50 px-4 py-3.5 text-sm font-semibold text-brand-600 transition hover:bg-brand-100 hover:border-brand-400 active:scale-[0.98]"
-              >
-                <Plus size={19} /> Add line
-              </button>
+              <SecondaryButton className="mt-2.5" onClick={addLine}><span className="inline-flex items-center justify-center gap-1.5"><PlusIcon size={18} /> Add another item</span></SecondaryButton>
             </div>
 
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-mute">Notes</label>
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full rounded-xl border border-line px-3 py-2.5 text-sm" />
-            </div>
+            <Field label="Notes"><TextArea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" /></Field>
 
-            <div className="flex items-center justify-between rounded-xl bg-paper px-4 py-3">
-              <span className="text-sm font-semibold text-mute">Total</span>
-              <span className="font-display text-lg font-semibold text-ink">{total.toFixed(2)}</span>
-            </div>
+            <FieldBlock label="Payment" hint={PAYMENT_CHOICES.find((c) => c.key === paymentChoice)?.desc}>
+              <Segmented ariaLabel="Payment status" options={PAYMENT_CHOICES.map((c) => ({ value: c.key, label: c.label }))} value={paymentChoice} onChange={(v) => setPaymentChoice(v as any)} />
+            </FieldBlock>
+            {isPartialChoice && (
+              <Field label="Paid now" hint={amountPaid !== "" && !partialValid ? <span className="text-bad-600">Enter more than 0 and less than {inr(total, currency)}.</span> : lines.length > 1 && amountPaid !== "" ? `Split across ${lines.length} items in proportion to each amount.` : undefined}>
+                <TextInput type="number" inputMode="decimal" min="0" max={total} value={amountPaid} onChange={(e) => setAmountPaid(e.target.value)} placeholder="0" />
+              </Field>
+            )}
 
-            <div>
-              <label className="mb-2 block text-xs font-semibold text-mute">Payment status</label>
-              <div className="grid grid-cols-3 gap-1.5">
-                {PAYMENT_CHOICES.map((c) => (
-                  <button
-                    key={c.key} type="button" onClick={() => setPaymentChoice(c.key)}
-                    className={`rounded-xl px-1 py-2 text-xs font-semibold transition ${paymentChoice === c.key ? "bg-brand-500 text-white" : "bg-paper text-mute"}`}
-                  >
-                    {c.label}
-                  </button>
-                ))}
-              </div>
-              <p className="mt-1.5 text-[12px] text-faint">{PAYMENT_CHOICES.find((c) => c.key === paymentChoice)?.desc}</p>
-
-              {isPartialChoice && (
-                <div className="mt-2 rounded-xl border border-line bg-paper/60 p-3">
-                  <label className="mb-1 block text-xs font-semibold text-mute">Amount paid now</label>
-                  <input
-                    type="number" min="0" max={total} value={amountPaid}
-                    onChange={(e) => setAmountPaid(e.target.value)}
-                    placeholder="0" className="w-full rounded-xl border border-line px-3 py-2.5 text-sm"
-                  />
-                  {amountPaid !== "" && !partialValid && (
-                    <p className="mt-1 text-[12px] text-bad-600">Enter an amount more than 0 and less than {fmtMoney(total, "")}.</p>
-                  )}
-                  {lines.length > 1 && amountPaid !== "" && partialValid && (
-                    <p className="mt-1 text-[12px] text-faint">Split across {lines.length} items proportionally to each item's amount.</p>
-                  )}
-                </div>
-              )}
-
-              <div className="mt-2 flex items-center justify-between rounded-xl bg-paper px-4 py-2.5">
-                <span className="text-xs font-semibold text-mute">Balance owed after saving</span>
-                <span className="font-display text-sm font-semibold text-ink">{fmtMoney(balanceAfter, "")}</span>
-              </div>
-            </div>
+            <Group>
+              <div className="flex min-h-[48px] items-center justify-between px-4"><span className="text-[16px] text-mute">Total</span><span className="text-[17px] font-semibold tabular-nums text-ink">{inr(total, currency)}</span></div>
+              <div className="flex min-h-[48px] items-center justify-between border-t border-line px-4"><span className="text-[16px] text-mute">You'll owe after saving</span><span className="text-[16px] tabular-nums text-ink">{inr(balanceAfter, currency)}</span></div>
+            </Group>
           </div>
         )}
+      </FormSheet>
 
-        <div className="mt-6 flex gap-3">
-          <button onClick={onClose} className="flex-1 rounded-full border border-line py-3 text-sm font-semibold text-ink/70">Cancel</button>
-          <button disabled={!canSave} onClick={handleSaveClick}
-            className="flex-1 rounded-full bg-brand-500 py-3 text-sm font-semibold text-white disabled:opacity-40">{saving ? "Saving…" : "Save purchase"}</button>
-        </div>
-      </div>
-
-      {showAddItem && (
-        <QuickAddItemPopup saving={addingItem} onCancel={() => setShowAddItem(false)} onSave={handleQuickAddItem} />
-      )}
-    </div>
+      {showAddItem && <QuickAddItemPopup saving={addingItem} onCancel={() => setShowAddItem(false)} onSave={handleQuickAddItem} />}
+    </>
   );
 }

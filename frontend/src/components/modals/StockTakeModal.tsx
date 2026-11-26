@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from "react";
-import { CheckCircle2, ClipboardPaste, Loader2, X } from "lucide-react";
-import { fmtNum } from "../../lib/format";
+import { useMemo, useState } from "react";
+import { FormSheet, SelectInput, TextArea } from "../ui/blocks";
+import { CloseIcon } from "../ui/icons";
+import { Field, Group, IconButton, PrimaryButton, Sheet, StatusChip, TextButton, TextInput, cx } from "../ui/kit";
+import { qtyText } from "../../lib/money";
 import { matchStockTakeLines, parseStockTakeText, StockTakeMatch } from "../../lib/stockTakeParser";
 
-import { IconButton } from "../ui/kit";
 type Step = "paste" | "review" | "done";
 
 interface RowState {
@@ -15,6 +16,9 @@ interface RowState {
   // parse from — it's always entered manually here, never guessed.
   newStockKg: string;
 }
+
+const deltaText = (d: number | null, unit = "") => (d === null || d === 0 ? "" : ` (${d > 0 ? "+" : "−"}${qtyText(Math.abs(d))}${unit})`);
+const deltaTone = (d: number | null) => (d === null || d === 0 ? "text-mute" : d > 0 ? "text-good-600" : "text-bad-600");
 
 export function StockTakeModal({ items, godowns, onClose, applyStockAdjustments }: any) {
   const [step, setStep] = useState<Step>("paste");
@@ -50,15 +54,9 @@ export function StockTakeModal({ items, godowns, onClose, applyStockAdjustments 
     setStep("review");
   };
 
-  const setRowItemId = (idx: number, itemId: string) => {
-    setRows((rs) => rs.map((r, i) => (i === idx ? { ...r, itemId: itemId || null } : r)));
-  };
-  const setRowStock = (idx: number, v: string) => {
-    setRows((rs) => rs.map((r, i) => (i === idx ? { ...r, newStock: v } : r)));
-  };
-  const setRowStockKg = (idx: number, v: string) => {
-    setRows((rs) => rs.map((r, i) => (i === idx ? { ...r, newStockKg: v } : r)));
-  };
+  const setRowItemId = (idx: number, itemId: string) => setRows((rs) => rs.map((r, i) => (i === idx ? { ...r, itemId: itemId || null } : r)));
+  const setRowStock = (idx: number, v: string) => setRows((rs) => rs.map((r, i) => (i === idx ? { ...r, newStock: v } : r)));
+  const setRowStockKg = (idx: number, v: string) => setRows((rs) => rs.map((r, i) => (i === idx ? { ...r, newStockKg: v } : r)));
   const removeRow = (idx: number) => setRows((rs) => rs.filter((_, i) => i !== idx));
 
   const itemById = useMemo(() => new Map<string, any>(items.map((it: any) => [it.id, it])), [items]);
@@ -70,6 +68,7 @@ export function StockTakeModal({ items, godowns, onClose, applyStockAdjustments 
 
   const unmatchedCount = rows.filter((r) => !r.itemId).length;
   const readyCount = rows.filter(rowReady).length;
+  const godownName = godowns?.find((g: any) => g.id === godownId)?.name;
 
   const submit = async () => {
     const lines = rows
@@ -81,164 +80,120 @@ export function StockTakeModal({ items, godowns, onClose, applyStockAdjustments 
       }));
     if (!lines.length) return;
     setSubmitting(true);
-    const res = await applyStockAdjustments(lines, "Stock take", hasMultipleGodowns ? godownId : undefined);
-    setSubmitting(false);
-    setResult(res);
-    setStep("done");
+    try {
+      const res = await applyStockAdjustments(lines, "Stock take", hasMultipleGodowns ? godownId : undefined);
+      setResult(res);
+      setStep("done");
+    } finally { setSubmitting(false); }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--scrim)] p-0 sm:p-4">
-      <div className="w-full sm:max-w-lg rounded-t-sheet sm:rounded-sheet bg-card px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-sheet max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between mb-4 shrink-0">
-          <h3 className="font-display text-lg font-semibold text-ink">Stock take</h3>
-          <IconButton label="Close" className="-mr-1.5" onClick={onClose}><X size={18} /></IconButton>
+  /* ---- 1. paste the counted list ---- */
+  if (step === "paste") {
+    return (
+      <FormSheet tall title="Stock take" onClose={onClose} dirty={text.trim() !== ""} canSave={text.trim() !== ""} saveLabel="Read the list" onSave={parse}>
+        <div className="space-y-4 pt-1">
+          {hasMultipleGodowns && (
+            <Field label="Counting at" hint="Every line is counted against this godown only. Stock at your other godowns is left as it is.">
+              <SelectInput value={godownId} onChange={(e) => setGodownId(e.target.value)}>
+                {godowns.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </SelectInput>
+            </Field>
+          )}
+          <Field label="Your counted list" hint={'One item per line, like "3. Duraguard PPC - 245". Each line is matched to an item, and you check them before anything is saved.'}>
+            <TextArea autoFocus rows={10} className="font-mono !text-[15px]" value={text} onChange={(e) => setText(e.target.value)} placeholder={"1. Wonder plus - 223\n2. Wonder PPC - 795\n..."} />
+          </Field>
         </div>
+      </FormSheet>
+    );
+  }
 
-        {step === "paste" && (
-          <div className="space-y-3 overflow-y-auto">
-            {hasMultipleGodowns && (
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-mute">Counting stock at</label>
-                <select
-                  value={godownId}
-                  onChange={(e) => setGodownId(e.target.value)}
-                  className="w-full rounded-xl border border-line px-3 py-2.5 text-sm font-semibold"
-                >
-                  {godowns.map((g: any) => (
-                    <option key={g.id} value={g.id}>{g.name}</option>
-                  ))}
-                </select>
-                <p className="mt-1 text-[12px] text-faint">Every line below will be counted against this location only — stock at your other godowns is left untouched.</p>
+  /* ---- 3. what happened ---- */
+  if (step === "done") {
+    const failed = (result?.results || []).filter((r: any) => !r.ok);
+    return (
+      <Sheet onClose={onClose} title="Stock take done" footer={<PrimaryButton onClick={onClose}>Done</PrimaryButton>}>
+        <div className="min-h-[190px]">
+          <div className="flex items-center gap-2 pt-1">
+            <StatusChip tone={result?.failed ? "caution" : "paid"}>{result?.succeeded ?? 0} of {result?.total ?? 0} lines applied{result?.failed ? `, ${result.failed} failed` : ""}</StatusChip>
+          </div>
+          <p className="mt-3 text-[15px] leading-[21px] text-mute">
+            {result?.failed ? "The lines that went through are saved. Fix the ones below and count them again." : "Your stock and its value are updated. Each correction is listed under Past corrections."}
+          </p>
+        {failed.length > 0 && (
+          <Group className="mt-4">
+            {failed.map((r: any, i: number) => (
+              <div key={i} className="border-t border-line px-4 py-3 first:border-t-0">
+                <p className="text-[16px] text-ink">{itemById.get(r.itemId)?.name || r.itemId}</p>
+                <p className="text-caption text-bad-600">{r.message}</p>
               </div>
-            )}
-            <p className="text-xs text-mute">
-              Paste your counted list below, one item per line — e.g. <span className="italic">"3. Duraguard ppc - 245"</span>.
-              I'll match each line to an item and let you review before anything is saved.
-            </p>
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              rows={10}
-              placeholder={"1. Wonder plus - 223\n2. Wonder PPC - 795\n..."}
-              className="w-full rounded-xl border border-line px-3 py-2.5 text-sm font-mono"
-            />
-            <button
-              type="button"
-              onClick={parse}
-              disabled={!text.trim()}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-500 px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"
-            >
-              <ClipboardPaste size={16} /> Parse list
-            </button>
-          </div>
+            ))}
+          </Group>
         )}
+        </div>
+        <div className="h-3" />
+      </Sheet>
+    );
+  }
 
-        {step === "review" && (
-          <div className="flex flex-col overflow-hidden">
-            <div className="mb-2 flex items-center justify-between shrink-0">
-              <p className="text-xs text-mute">
-                {rows.length} lines parsed · {readyCount} ready{unmatchedCount ? ` · ${unmatchedCount} need a match` : ""}
-                {hasMultipleGodowns && <> · at <span className="font-semibold text-ink/70">{godowns.find((g: any) => g.id === godownId)?.name}</span></>}
-              </p>
-              <button onClick={() => setStep("paste")} className="text-xs font-semibold text-brand-600">Edit list</button>
-            </div>
-            <div className="overflow-y-auto space-y-2 pr-1">
-              {rows.map((r, idx) => {
-                const currentItem = r.itemId ? itemById.get(r.itemId) : null;
-                const isWeight = currentItem?.trackingMode === "weight";
-                const atGodown = stockAtGodown(currentItem);
-                const oldStock = currentItem ? atGodown.stock : null;
-                const oldStockKg = currentItem ? atGodown.stockKg : null;
-                const delta = currentItem && r.newStock.trim() !== "" ? Number(r.newStock) - (oldStock ?? 0) : null;
-                const deltaKg = isWeight && r.newStockKg.trim() !== "" ? Number(r.newStockKg) - (oldStockKg ?? 0) : null;
-                return (
-                  <div key={idx} className={`rounded-xl border px-3 py-2.5 ${r.itemId ? "border-line" : "border-warn-300 bg-warn-50"}`}>
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-xs text-faint truncate flex-1">{r.match.rawName}</p>
-                      <IconButton label="Remove row" tone="faint" layout="inline" className="-my-1" onClick={() => removeRow(idx)}><X size={13} /></IconButton>
-                    </div>
-                    <div className="mt-1.5 flex items-center gap-2">
-                      <select
-                        value={r.itemId || ""}
-                        onChange={(e) => setRowItemId(idx, e.target.value)}
-                        className="flex-1 min-w-0 rounded-lg border border-line px-2 py-1.5 text-xs font-semibold"
-                      >
-                        <option value="">— No match, pick item —</option>
-                        {r.match.candidates.map((c: any) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                        {!r.match.candidates.some((c: any) => c.id === r.itemId) && currentItem && (
-                          <option value={currentItem.id}>{currentItem.name}</option>
-                        )}
-                      </select>
-                      <input
-                        type="number"
-                        value={r.newStock}
-                        onChange={(e) => setRowStock(idx, e.target.value)}
-                        placeholder={isWeight ? "pieces" : undefined}
-                        className="w-20 rounded-lg border border-line px-2 py-1.5 text-xs font-semibold text-right"
-                      />
-                    </div>
-                    {isWeight && (
-                      <div className="mt-1.5 flex items-center gap-2">
-                        <span className="flex-1 text-micro font-semibold text-faint">Weight (kg) — re-weigh</span>
-                        <input
-                          type="number"
-                          value={r.newStockKg}
-                          onChange={(e) => setRowStockKg(idx, e.target.value)}
-                          placeholder="kg"
-                          className="w-20 rounded-lg border border-line px-2 py-1.5 text-xs font-semibold text-right"
-                        />
-                      </div>
-                    )}
-                    {currentItem && (
-                      <p className={`mt-1 text-xs ${delta === 0 ? "text-faint" : delta! > 0 ? "text-good-600" : "text-bad-600"}`}>
-                        {fmtNum(oldStock ?? 0)} → {r.newStock || "?"} {isWeight ? "pc" : r.match.item?.unit || currentItem.unit || ""}
-                        {delta !== null && delta !== 0 ? ` (${delta > 0 ? "+" : ""}${fmtNum(delta)})` : ""}
-                      </p>
-                    )}
-                    {isWeight && deltaKg !== null && (
-                      <p className={`text-xs ${deltaKg === 0 ? "text-faint" : deltaKg > 0 ? "text-good-600" : "text-bad-600"}`}>
-                        {fmtNum(oldStockKg ?? 0)}kg → {r.newStockKg}kg{deltaKg !== 0 ? ` (${deltaKg > 0 ? "+" : ""}${fmtNum(deltaKg)}kg)` : ""}
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-              {rows.length === 0 && <p className="text-sm text-faint py-4 text-center">No lines with a readable quantity were found.</p>}
-            </div>
-            <button
-              type="button"
-              onClick={submit}
-              disabled={submitting || readyCount === 0}
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-500 px-4 py-3 text-sm font-semibold text-white disabled:opacity-40 shrink-0"
-            >
-              {submitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-              Apply {readyCount} adjustment{readyCount === 1 ? "" : "s"}
-            </button>
-          </div>
-        )}
+  /* ---- 2. check each line ---- */
+  return (
+    <FormSheet tall title="Check the counts" onClose={onClose} dirty canSave={readyCount > 0} saving={submitting}
+      saveLabel={`Apply ${readyCount} count${readyCount === 1 ? "" : "s"}`} savingLabel="Applying…" onSave={submit}>
+      <div className="flex items-center justify-between gap-3 pt-1">
+        <p className="min-w-0 text-[15px] leading-[21px] text-mute">
+          {rows.length} line{rows.length === 1 ? "" : "s"} read, {readyCount} ready{unmatchedCount ? `, ${unmatchedCount} need a match` : ""}
+          {hasMultipleGodowns && godownName ? `. Counting at ${godownName}.` : "."}
+        </p>
+        <TextButton className="-mr-1 shrink-0 px-1" onClick={() => setStep("paste")}>Edit list</TextButton>
+      </div>
 
-        {step === "done" && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-xl bg-good-50 px-4 py-3">
-              <CheckCircle2 size={18} className="text-good-600" />
-              <p className="text-sm font-semibold text-good-700">
-                {result?.succeeded ?? 0}/{result?.total ?? 0} lines applied{result?.failed ? `, ${result.failed} failed` : ""}
-              </p>
-            </div>
-            {result?.results?.some((r: any) => !r.ok) && (
-              <div className="max-h-40 overflow-y-auto space-y-1">
-                {result.results.filter((r: any) => !r.ok).map((r: any, i: number) => (
-                  <p key={i} className="text-xs text-bad-600">{itemById.get(r.itemId)?.name || r.itemId}: {r.message}</p>
-                ))}
+      <div className="mt-3 space-y-2.5">
+        {rows.map((r, idx) => {
+          const currentItem = r.itemId ? itemById.get(r.itemId) : null;
+          const isWeight = currentItem?.trackingMode === "weight";
+          const atGodown = stockAtGodown(currentItem);
+          const delta = currentItem && r.newStock.trim() !== "" ? Number(r.newStock) - (atGodown.stock ?? 0) : null;
+          const deltaKg = isWeight && r.newStockKg.trim() !== "" ? Number(r.newStockKg) - (atGodown.stockKg ?? 0) : null;
+          return (
+            <div key={idx} className={cx("rounded-group border p-3", r.itemId ? "border-line" : "border-warn-300 bg-warn-50")}>
+              <div className="flex items-center justify-between gap-2">
+                <p className="min-w-0 flex-1 truncate text-caption text-mute">You wrote: {r.match.rawName}</p>
+                {!r.itemId && <StatusChip tone="caution" small>Needs a match</StatusChip>}
+                <IconButton label={`Remove the line ${r.match.rawName}`} layout="inline" tone="faint" onClick={() => removeRow(idx)}><CloseIcon size={14} /></IconButton>
               </div>
-            )}
-            <button onClick={onClose} className="w-full rounded-full bg-brand-500 py-3 text-sm font-semibold text-white">Done</button>
-          </div>
+              <div className="mt-2 flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <SelectInput aria-label={`Item for ${r.match.rawName}`} value={r.itemId || ""} onChange={(e) => setRowItemId(idx, e.target.value)} className="!text-[15px]">
+                    <option value="">Pick the item</option>
+                    {r.match.candidates.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {!r.match.candidates.some((c: any) => c.id === r.itemId) && currentItem && <option value={currentItem.id}>{currentItem.name}</option>}
+                  </SelectInput>
+                </div>
+                <TextInput aria-label={isWeight ? "Pieces counted" : "Counted"} type="number" inputMode="decimal" value={r.newStock} onChange={(e) => setRowStock(idx, e.target.value)}
+                  placeholder={isWeight ? "pieces" : undefined} className="!w-24 shrink-0 text-right" />
+              </div>
+              {isWeight && (
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="min-w-0 flex-1 text-caption text-mute">Weight in kg. Weigh it again.</span>
+                  <TextInput aria-label="Weight in kg" type="number" inputMode="decimal" value={r.newStockKg} onChange={(e) => setRowStockKg(idx, e.target.value)} placeholder="kg" className="!w-24 shrink-0 text-right" />
+                </div>
+              )}
+              {currentItem && (
+                <p className={cx("mt-2 text-caption tabular-nums", deltaTone(delta))}>
+                  {qtyText(atGodown.stock ?? 0)} → {r.newStock || "?"} {isWeight ? "pc" : currentItem.unit || ""}{deltaText(delta)}
+                </p>
+              )}
+              {isWeight && deltaKg !== null && (
+                <p className={cx("text-caption tabular-nums", deltaTone(deltaKg))}>{qtyText(atGodown.stockKg ?? 0)} kg → {r.newStockKg} kg{deltaText(deltaKg, " kg")}</p>
+              )}
+            </div>
+          );
+        })}
+        {rows.length === 0 && (
+          <Group><p className="px-4 py-8 text-center text-[15px] text-mute">No line with a readable quantity was found. Go back and check the list.</p></Group>
         )}
       </div>
-    </div>
+      <div className="h-3" />
+    </FormSheet>
   );
 }

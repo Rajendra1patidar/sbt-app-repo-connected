@@ -86,6 +86,50 @@ export function FormSheet({
   );
 }
 
+/* ------------------------------------------------------------------ filters */
+
+/**
+ * A row of filter chips for a list with many categories (item categories, brands). One line that
+ * scrolls sideways on a phone, and wraps on a wide screen. The chosen chip is blue; tapping it again
+ * does nothing, "All" is always the way back.
+ */
+export function FilterChips({ options, value, onChange, ariaLabel, className }: {
+  options: { value: string; label: string; count?: number }[]; value: string; onChange: (v: string) => void; ariaLabel: string; className?: string;
+}) {
+  return (
+    <div role="group" aria-label={ariaLabel}
+      className={cx("-mx-5 flex gap-2 overflow-x-auto px-5 pb-0.5 md:mx-0 md:flex-wrap md:overflow-visible md:px-0", className)}>
+      {options.map((o) => {
+        const active = o.value === value;
+        return (
+          <button key={o.value} type="button" aria-pressed={active} onClick={() => onChange(o.value)}
+            className={cx(
+              "inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-[14px] font-medium transition active:scale-[0.97]",
+              active ? "border-brand-500 bg-brand-50 text-brand-600" : "border-edge bg-card text-ink",
+            )}>
+            {o.label}
+            {o.count != null && <span className={active ? "text-brand-600" : "text-faint"}>{o.count}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Three or four numbers side by side in one grouped surface (found / lost / net, items / low / dead). */
+export function StatRow({ stats }: { stats: { label: string; value: ReactNode; tone?: "good" | "bad" | "warn" }[] }) {
+  return (
+    <div className="grid overflow-hidden rounded-group border border-line bg-card" style={{ gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))` }}>
+      {stats.map((s, i) => (
+        <div key={s.label} className={cx("min-w-0 px-3 py-3", i > 0 && "border-l border-line")}>
+          <p className="truncate text-micro text-mute">{s.label}</p>
+          <p className={cx("mt-0.5 truncate text-lead font-medium tabular-nums", s.tone === "good" ? "text-good-600" : s.tone === "bad" ? "text-bad-600" : s.tone === "warn" ? "text-warn-700" : "text-ink")}>{s.value}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ lists */
 
 /** One row of an action list inside a sheet: icon, label, optional hint. A link when `href` is set. */

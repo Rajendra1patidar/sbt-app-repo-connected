@@ -1,111 +1,152 @@
-import React, { useState } from "react";
-import { AlertTriangle, Pencil, Plus, Search, Trash2 } from "lucide-react";
-import { Card, EmptyState, PillButton, Row, SectionDivider } from "../common/UIPrimitives";
-import { Pagination } from "../common/Pagination";
-import { usePagination } from "../../hooks/usePagination";
-import { ITEM_BRANDS, ITEM_CATEGORIES, LOW_STOCK_DEFAULT, PAGE_SIZE } from "../../lib/constants";
-import { fmtMoney, fmtNum } from "../../lib/format";
-import { ItemQuantityMap } from "../items/ItemQuantityMap";
-import { ItemDetailDrawer } from "../items/ItemDetailDrawer";
+import { useMemo, useState } from "react";
+import { EmptyNote, FilterChips } from "../ui/blocks";
+import { ChevronDownIcon } from "../ui/icons";
+import { Group, GroupLabel, GroupRow, SearchField, StatusChip, cx } from "../ui/kit";
+import { ItemSheet } from "../items/ItemSheet";
+import { QuantityMapGroup } from "../items/QuantityMapGroup";
+import { ITEM_CATEGORIES } from "../../lib/constants";
+import { inrCompact, inrRate } from "../../lib/money";
+import { stockState, stockText, stockValue, unitName } from "../../lib/stockStatus";
 
-import { IconButton } from "../ui/kit";
-/* ---- Items (with stock display) ---- */
+/* ---- Items ----
+ * What you sell, with the price and what is on hand. Grouped by category (the first two open, the
+ * rest folded), narrowed by category and brand chips, or searched across everything.
+ * Tap a row for the item's sheet: stock by godown, value, margin, the last 7 days, and the actions
+ * (correct stock, edit, delete), so nothing on a row can be changed by a stray tap. */
 
-export function ItemsView({ items, categories, brands, openModal, removeItem, currency, purchases, estimates, applyStockAdjustments, godowns }: any) {
+const SEARCH_CAP = 80;
+const GROUP_CAP = 40;
+
+const byName = (a: any, b: any) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { numeric: true, sensitivity: "base" });
+
+export function ItemsView({ items, categories, brands, openModal, removeItem, currency, purchases, estimates, applyStockAdjustments, godowns, reorderSuggestions, deadStock }: any) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [brand, setBrand] = useState("All");
-  const [drawerItem, setDrawerItem] = useState<any>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const cats = categories?.length ? categories : ITEM_CATEGORIES;
-  const brandList = brands?.length ? brands : ITEM_BRANDS;
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [uncapped, setUncapped] = useState<Record<string, boolean>>({});
 
-  const openDrawer = (it: any) => { setDrawerItem(it); setDrawerOpen(true); };
-  const closeDrawer = () => setDrawerOpen(false);
+  const active = useMemo(() => (items || []).filter((it: any) => !it.deleted), [items]);
+  const configured: string[] = categories?.length ? categories : ITEM_CATEGORIES;
 
-  const filtered = items.filter((it: any) => {
-    if (it.deleted) return false;
-    const q = search.trim().toLowerCase();
+  // Chips list only what exists: a category with no items would be a dead end.
+  const categoryOptions = useMemo(() => {
+    const present = new Set<string>(active.map((it: any) => it.category || "Others"));
+    const ordered = [...configured.filter((c) => present.has(c)), ...[...present].filter((c) => !configured.includes(c)).sort()];
+    return [{ value: "All", label: "All" }, ...ordered.map((c) => ({ value: c, label: c }))];
+  }, [active, configured]);
+  const brandOptions = useMemo(() => {
+    const present = [...new Set<string>(active.map((it: any) => it.brand || "").filter(Boolean))].sort();
+    return present.length > 1 ? [{ value: "All", label: "All brands" }, ...present.map((b) => ({ value: b, label: b }))] : [];
+  }, [active]);
+
+  const q = search.trim().toLowerCase();
+  const filtered = useMemo(() => active.filter((it: any) => {
     const matchesSearch = !q
-      || it.name.toLowerCase().includes(q)
-      || (it.brand || "").toLowerCase().includes(q)
-      || (it.category || "").toLowerCase().includes(q)
-      || (it.unit || "").toLowerCase().includes(q);
-    const matchesCategory = category === "All" || (it.category || "Others") === category;
-    const matchesBrand = brand === "All" || (it.brand || "") === brand;
-    return matchesSearch && matchesCategory && matchesBrand;
-  });
-  const { pageItems, page, setPage, totalPages, total, pageSize } = usePagination(filtered, PAGE_SIZE);
+      || String(it.name || "").toLowerCase().includes(q)
+      || String(it.brand || "").toLowerCase().includes(q)
+      || String(it.category || "").toLowerCase().includes(q)
+      || String(it.unit || "").toLowerCase().includes(q);
+    return matchesSearch && (category === "All" || (it.category || "Others") === category) && (brand === "All" || (it.brand || "") === brand);
+  }).sort(byName), [active, q, category, brand]);
+
+  const groups = useMemo(() => {
+    const map = new Map<string, any[]>();
+    for (const it of filtered) { const c = it.category || "Others"; if (!map.has(c)) map.set(c, []); map.get(c)!.push(it); }
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([key, list]) => ({ key, list, value: list.reduce((s, it) => s + stockValue(it), 0) }));
+  }, [filtered]);
+
+  const totalValue = active.reduce((s: number, it: any) => s + stockValue(it), 0);
+  const attention = active.filter((it: any) => { const st = stockState(it); return st === "low" || st === "out"; }).length;
+  const narrowed = category !== "All" || brand !== "All";
+  const opened = openId ? active.find((it: any) => it.id === openId) : null;
+  const isCollapsed = (key: string, index: number) => (collapsed[key] !== undefined ? collapsed[key] : index > 1);
+
+  const row = (it: any, showCategory: boolean) => {
+    const state = stockState(it);
+    const price = Number(it.sellingPrice ?? it.price ?? 0);
+    const caption = [showCategory ? it.category || "Others" : "", it.brand, `${inrRate(price, currency)} a ${unitName(it)}`].filter(Boolean).join(", ");
+    return (
+      <GroupRow key={it.id} onClick={() => setOpenId(it.id)} className="min-h-[64px] py-2.5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-lead font-medium text-ink">{it.name}</p>
+            <p className="truncate text-caption text-mute">{caption}</p>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className={cx("text-lead font-medium tabular-nums", state === "out" ? "text-bad-600" : state === "low" ? "text-warn-700" : "text-ink")}>{stockText(it)}</p>
+            {state === "out" && <StatusChip tone="risk" small className="mt-1">Out</StatusChip>}
+            {state === "low" && <StatusChip tone="caution" small className="mt-1">Low</StatusChip>}
+          </div>
+        </div>
+      </GroupRow>
+    );
+  };
+
+  const capped = (key: string, list: any[], cap: number) => (uncapped[key] ? list : list.slice(0, cap));
+  const showAll = (key: string, list: any[], cap: number, noun: string) => !uncapped[key] && list.length > cap && (
+    <button type="button" onClick={() => setUncapped({ ...uncapped, [key]: true })} className="mt-1 h-11 w-full text-[15px] font-medium text-brand-600">Show all {list.length} {noun}</button>
+  );
 
   return (
-    <div className="space-y-3 px-5 pb-28">
-      <div className="flex items-center justify-between pt-1">
-        <p className="text-sm text-faint">{items.length} item{items.length !== 1 ? "s" : ""}</p>
-        <PillButton onClick={() => openModal("item")}><Plus size={16} /> New Item</PillButton>
-      </div>
-      <div className="relative">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search items..."
-          className="w-full rounded-xl border border-line bg-card py-2.5 pl-9 pr-3 text-sm"
-        />
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {["All", ...cats].map((c) => (
-          <button key={c} onClick={() => setCategory(c)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${category === c ? "bg-brand-500 text-white" : "bg-paper text-ink/70"}`}>{c}</button>
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {["All", ...brandList].map((b) => (
-          <button key={b} onClick={() => setBrand(b)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${brand === b ? "bg-ink text-white" : "bg-paper text-mute"}`}>{b}</button>
-        ))}
-      </div>
+    <div className="px-5 pb-28 md:pb-12">
+      {active.length > 0 && (
+        <p className="mt-3 px-1 text-caption text-mute">
+          {active.length} item{active.length === 1 ? "" : "s"}, {inrCompact(totalValue, currency)} in stock at cost
+          {attention > 0 && <span className="text-warn-700">, {attention} low or out</span>}
+        </p>
+      )}
+      <SearchField className="mt-3 !h-11" value={search} onChange={setSearch} placeholder="Search name, brand or category" />
+      {categoryOptions.length > 2 && <FilterChips className="mt-3" ariaLabel="Category" options={categoryOptions} value={category} onChange={setCategory} />}
+      {brandOptions.length > 0 && <FilterChips className="mt-2" ariaLabel="Brand" options={brandOptions} value={brand} onChange={setBrand} />}
 
-      {filtered.length > 0 && (
+      {active.length === 0 ? (
+        <Group className="mt-4"><EmptyNote text="Add the items you sell, with their price and how many you hold." cta="New item" onCta={() => openModal("item")} /></Group>
+      ) : filtered.length === 0 ? (
+        <Group className="mt-4"><p className="px-4 py-8 text-center text-[15px] text-mute">No items match{q ? ` “${search}”` : " these filters"}.</p></Group>
+      ) : (
         <>
-          <SectionDivider className="!my-1" />
-          <ItemQuantityMap items={filtered} onSelectItem={openDrawer} />
-          <SectionDivider className="!my-1" />
+          {!q && !narrowed && <QuantityMapGroup className="mt-4" items={filtered} onSelectItem={(it: any) => setOpenId(it.id)} />}
+
+          {q || narrowed ? (
+            <>
+              <GroupLabel right={<span>{filtered.length} item{filtered.length === 1 ? "" : "s"}</span>}>{q ? "Results" : [category !== "All" ? category : "", brand !== "All" ? brand : ""].filter(Boolean).join(", ")}</GroupLabel>
+              <Group>{capped("flat", filtered, q ? SEARCH_CAP : GROUP_CAP).map((it: any) => row(it, !!q))}</Group>
+              {showAll("flat", filtered, q ? SEARCH_CAP : GROUP_CAP, "items")}
+            </>
+          ) : (
+            groups.map((g, i) => {
+              const folded = isCollapsed(g.key, i);
+              return (
+                <div key={g.key}>
+                  <GroupLabel right={<span className="tabular-nums">{inrCompact(g.value, currency)}</span>}>
+                    <button type="button" onClick={() => setCollapsed({ ...collapsed, [g.key]: !folded })} aria-expanded={!folded} className="inline-flex min-h-[28px] items-center gap-1">
+                      <ChevronDownIcon size={14} className={cx("transition-transform", folded && "-rotate-90")} />
+                      {g.key} <span className="text-faint">· {g.list.length}</span>
+                    </button>
+                  </GroupLabel>
+                  {!folded && (
+                    <>
+                      <Group>{capped(g.key, g.list, GROUP_CAP).map((it: any) => row(it, false))}</Group>
+                      {showAll(g.key, g.list, GROUP_CAP, g.key.toLowerCase())}
+                    </>
+                  )}
+                </div>
+              );
+            })
+          )}
         </>
       )}
 
-      {items.length === 0
-        ? <Card><EmptyState text="Add items you sell." cta="New Item" onCta={() => openModal("item")} /></Card>
-        : filtered.length === 0
-        ? <p className="text-center text-sm text-faint py-6">No items match your search/filter.</p>
-        : <>
-          {pageItems.map((it: any) => {
-          const threshold = it.lowStock ?? LOW_STOCK_DEFAULT;
-          const isLow = (it.stock ?? 0) <= threshold;
-          return (
-            <Row key={it.id} className="flex items-center justify-between gap-2" onClick={() => openDrawer(it)}>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-semibold text-ink truncate">{it.name}</p>
-                  <span className="rounded-full bg-paper px-2 py-0.5 text-xs font-semibold text-mute">{it.category || "Others"}</span>
-                  {it.brand && <span className="rounded-full bg-ink/5 px-2 py-0.5 text-xs font-semibold text-mute">{it.brand}</span>}
-                  {isLow && <span className="rounded-full bg-warn-100 px-2 py-0.5 text-xs font-semibold text-warn-700 flex items-center gap-1"><AlertTriangle size={10} /> Low stock</span>}
-                </div>
-                <p className="text-xs text-faint">{it.unit || "unit"} · Stock: <span className={`font-semibold ${isLow ? "text-warn-700" : "text-ink/80"}`}>{fmtNum(it.stock ?? 0)}</span> (alert at ≤{fmtNum(threshold)})</p>
-              </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <div className="text-right">
-                  <p className="text-xs text-faint">Sell: <span className="font-semibold text-ink">{fmtMoney(it.sellingPrice ?? it.price, currency)}</span></p>
-                  {it.purchasePrice > 0 && <p className="text-xs text-faint">Buy: <span className="font-semibold text-ink/70">{fmtMoney(it.purchasePrice, currency)}</span></p>}
-                </div>
-                <IconButton label="Edit item" tone="faint" className="-my-1.5" onClick={(e) => { e.stopPropagation(); openModal("item", { editingItem: it }); }}><Pencil size={16} /></IconButton>
-                <IconButton label="Delete item" tone="danger" className="-my-1.5" onClick={(e) => { e.stopPropagation(); removeItem(it.id); }}><Trash2 size={16} /></IconButton>
-              </div>
-            </Row>
-          );
-          })}
-          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} />
-        </>
-      }
-
-      <ItemDetailDrawer item={drawerItem} items={items} godowns={godowns} open={drawerOpen} onClose={closeDrawer} currency={currency} purchases={purchases} estimates={estimates} openModal={openModal} applyStockAdjustments={applyStockAdjustments} />
+      {opened && (
+        <ItemSheet
+          item={opened} items={items} godowns={godowns} currency={currency} purchases={purchases} estimates={estimates}
+          reorderSuggestions={reorderSuggestions} deadStock={deadStock}
+          openModal={openModal} applyStockAdjustments={applyStockAdjustments} removeItem={removeItem}
+          onClose={() => setOpenId(null)}
+        />
+      )}
     </div>
   );
 }

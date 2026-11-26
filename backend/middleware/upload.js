@@ -1,8 +1,8 @@
 const multer = require("multer");
 
 // Invoice photos are received as multipart/form-data, held in memory just
-// long enough to stream to Cloudinary (see purchaseController.attachInvoice),
-// then discarded — nothing ever touches this server's disk. 8MB comfortably
+// long enough to be stored (see purchaseController.attachInvoice and
+// services/invoicePhotoStorage.js), then discarded — nothing ever touches this server's disk. 8MB comfortably
 // covers a phone camera photo; the frontend also compresses before upload so
 // in practice most uploads land well under 1MB.
 const upload = multer({

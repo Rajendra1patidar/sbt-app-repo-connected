@@ -2,7 +2,8 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./index.css";
-import "mapbox-gl/dist/mapbox-gl.css";
+// The map stylesheet is NOT imported here: lib/mapbox.ts loads it together with the map code, so
+// only the screens that show a map download it.
 
 // Wake the Render backend the moment the app opens (free plan sleeps after ~15 min idle).
 // Fire-and-forget: no waiting, errors ignored. no-cors so it never causes CORS noise.

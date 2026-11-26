@@ -49,6 +49,22 @@ describe("errorHandler", () => {
     expect(res.json.mock.calls[0][0].message).toBe("Not allowed by CORS");
   });
 
+  test("in production a 5xx keeps its message only when the error marks it safe to show (expose)", () => {
+    process.env.NODE_ENV = "production";
+    const res = res0();
+    errorHandler(Object.assign(new Error("Check the Cloudinary settings on the server."), { status: 502, expose: true }), req, res, jest.fn());
+    expect(res.status).toHaveBeenCalledWith(502);
+    expect(res.json.mock.calls[0][0].message).toBe("Check the Cloudinary settings on the server.");
+    expect(sendErrorAlert).toHaveBeenCalledTimes(1); // exposing the message never silences the alert
+  });
+
+  test("expose must be exactly true: a truthy look-alike still gets the generic message", () => {
+    process.env.NODE_ENV = "production";
+    const res = res0();
+    errorHandler(Object.assign(new Error("secret db path /var/x"), { status: 500, expose: "yes" }), req, res, jest.fn());
+    expect(res.json.mock.calls[0][0].message).toBe("Something went wrong on the server. Please try again.");
+  });
+
   test("outside production the real message and stack are included for debugging", () => {
     process.env.NODE_ENV = "development";
     const res = res0();

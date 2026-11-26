@@ -24,6 +24,8 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
+      # Optional, not listed here on purpose: INVOICE_PHOTO_STORAGE=telegram sends NEW vendor invoice
+      # photos to Telegram instead of private Cloudinary (see CLOUDINARY-SETUP.md).
       # Nightly jobs and backups (see BACKUPS.md)
       - key: CRON_SECRET
         sync: false

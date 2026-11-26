@@ -1,155 +1,297 @@
-import { useMemo, useState } from "react";
-import { EmptyNote, FilterChips } from "../ui/blocks";
-import { ChevronDownIcon } from "../ui/icons";
-import { Group, GroupLabel, GroupRow, SearchField, Segmented, StatusChip, cx, type ChipTone } from "../ui/kit";
+import React, { useEffect, useRef, useState } from "react";
+import { Camera, IndianRupee, ImageOff, Images, Loader2, Plus, Search, Trash2, X } from "lucide-react";
+import { Badge, Card, EmptyState, PillButton, Row, SectionDivider } from "../common/UIPrimitives";
+import { ViewImageModal } from "../modals/ViewImageModal";
 import { ITEM_CATEGORIES } from "../../lib/constants";
-import { groupByRecency, sortNewest } from "../../lib/estimates";
-import { round2 } from "../../lib/format";
-import { inr, inrCompact, inrRate, qtyText, shortDate } from "../../lib/money";
+import { fmtDate, fmtMoney, fmtNum } from "../../lib/format";
+import { api } from "../../lib/api";
 
-/* ---- Orders ----
- * Stock you've ordered from vendors. Pending orders (still to arrive) are grouped by vendor, so
- * "what is Kamdhenu sending me, and what do I owe for it" is one glance; received orders are grouped
- * by week and month. Tap an order for its sheet: the figures, the vendor's bill photo, Pay and Delete. */
+import { IconButton } from "../ui/kit";
+/* ---- Orders ---- */
 
-type Tab = "pending" | "received";
-const SEARCH_CAP = 80;
+/** Attach/view/remove the vendor's bill photo for one pending order. Kept as
+ *  a small self-contained control (its own uploading state, its own hidden
+ *  file input) so each card manages its own upload independently of the rest
+ *  of the list.
+ *
+ *  Invoice photos are private (new ones on Cloudinary, older ones in a Telegram
+ *  chat; see backend/services/invoicePhotoStorage.js), fetched
+ *  through our own authenticated API rather than a public URL — a plain
+ *  <img src> can't send an Authorization header, so the photo is pulled down
+ *  as a Blob here and turned into a local object URL for display.
+ *
+ *  Two separate hidden file inputs back the "attach" buttons: one with
+ *  capture="environment" (opens the camera directly) and one without (opens
+ *  the photo gallery/file picker), since a single input can't reliably offer
+ *  both choices across mobile browsers. */
+export function InvoiceAttachment({ order, attachOrderInvoice, removeOrderInvoice, onView }: any) {
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [thumbUrl, setThumbUrl] = useState<string | null>(null);
+  const [thumbFailed, setThumbFailed] = useState(false);
+  const fileId = order.invoiceImage?.fileId;
 
-const PAY: Record<string, { tone: ChipTone; label: string }> = {
-  paid: { tone: "paid", label: "Paid" },
-  partial: { tone: "partial", label: "Part paid" },
-  due: { tone: "due", label: "Due" },
-};
-const payOf = (o: any) => PAY[o.paymentStatus === "paid" ? "paid" : o.paymentStatus === "partial" ? "partial" : "due"];
+  useEffect(() => {
+    if (!fileId) { setThumbUrl(null); setThumbFailed(false); return; }
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    setThumbFailed(false);
+    api.orders.getInvoiceImage(order.id)
+      .then((blob: Blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setThumbUrl(objectUrl);
+      })
+      .catch(() => { if (!cancelled) setThumbFailed(true); });
+    // Object URLs are only valid in this tab's memory — revoke on cleanup so
+    // switching orders (or unmounting) doesn't leak them.
+    return () => { cancelled = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [fileId, order.id]);
 
-export function OrdersView({ orders, items, vendors, categories, currency, openModal }: any) {
-  const [tab, setTab] = useState<Tab>("pending");
-  const [category, setCategory] = useState("All");
-  const [search, setSearch] = useState("");
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const [capped, setCapped] = useState(true);
-
-  const itemOf = (id: string) => (items || []).find((it: any) => it.id === id);
-  const itemName = (id: string) => itemOf(id)?.name || "Unknown item";
-  const itemCategory = (id: string) => itemOf(id)?.category || "Others";
-  const vendorName = (id?: string) => (id ? (vendors || []).find((v: any) => v.id === id)?.name : null);
-
-  const configured: string[] = categories?.length ? categories : ITEM_CATEGORIES;
-  const categoryOptions = useMemo(() => {
-    const present = new Set<string>((orders || []).map((o: any) => itemCategory(o.itemId)));
-    const ordered = [...configured.filter((c) => present.has(c)), ...[...present].filter((c) => !configured.includes(c)).sort()];
-    return ordered.length > 1 ? [{ value: "All", label: "All" }, ...ordered.map((c) => ({ value: c, label: c }))] : [];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders, items, configured]);
-
-  const q = search.trim().toLowerCase();
-  const matching = useMemo(() => (orders || [])
-    .filter((o: any) => category === "All" || itemCategory(o.itemId) === category)
-    .filter((o: any) => !q || itemName(o.itemId).toLowerCase().includes(q) || (vendorName(o.vendorId) || "").toLowerCase().includes(q) || String(o.notes || "").toLowerCase().includes(q)),
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  [orders, items, vendors, category, q]);
-  const pending = matching.filter((o: any) => o.status === "Pending");
-  const received = matching.filter((o: any) => o.status === "Received");
-  const list = tab === "pending" ? pending : received;
-
-  const allPending = (orders || []).filter((o: any) => o.status === "Pending");
-  const stillToPay = allPending.reduce((s: number, o: any) => s + Math.max(0, round2((o.amount || 0) - (o.amountPaid || 0))), 0);
-  const sumOf = (docs: any[]) => docs.reduce((s, o) => s + (o.amount || 0), 0);
-
-  const byVendor = useMemo(() => {
-    const map = new Map<string, { key: string; label: string; docs: any[] }>();
-    for (const o of sortNewest(pending)) {
-      const key = o.vendorId || "__none__";
-      if (!map.has(key)) map.set(key, { key, label: vendorName(o.vendorId) || "No vendor yet", docs: [] });
-      map.get(key)!.docs.push(o);
+  const onPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // lets picking the exact same file again re-trigger onChange
+    if (!file) return;
+    setUploading(true);
+    try {
+      await attachOrderInvoice(order.id, file);
+    } finally {
+      setUploading(false);
     }
-    return [...map.values()].sort((a, b) => sumOf(b.docs) - sumOf(a.docs));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pending, vendors]);
-  const receivedGroups = useMemo(() => (q ? [] : groupByRecency(sortNewest(received))), [received, q]);
-  const isCollapsed = (key: string, index: number) => (collapsed[key] !== undefined ? collapsed[key] : index > 1);
+  };
 
-  const row = (o: any, withVendor: boolean) => {
-    const st = o.status === "Received" ? { tone: "paid" as ChipTone, label: "Received" } : payOf(o);
-    const meta = [`${qtyText(o.qty)} at ${inrRate(o.rate || 0, currency)}`, shortDate(o.date), withVendor ? vendorName(o.vendorId) : null].filter(Boolean).join(", ");
+  if (fileId) {
     return (
-      <GroupRow key={o.id} onClick={() => openModal("orderDetail", { order: o })} className="min-h-[68px] py-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate text-lead font-medium text-ink">{itemName(o.itemId)}</p>
-            <p className="truncate text-caption tabular-nums text-mute">{meta}</p>
-            {(o.notes || o.invoiceImage?.fileId) && <p className="truncate text-caption text-mute">{[o.invoiceImage?.fileId ? "Bill attached" : "", o.notes].filter(Boolean).join(", ")}</p>}
-          </div>
-          <div className="shrink-0 text-right">
-            <p className="text-lead font-medium tabular-nums text-ink">{inr(o.amount || 0, currency)}</p>
-            <StatusChip tone={st.tone} className="mt-1">{st.label}</StatusChip>
-          </div>
-        </div>
-      </GroupRow>
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={() => thumbUrl && onView(thumbUrl)}
+          disabled={!thumbUrl}
+          className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-line bg-paper"
+          title={thumbFailed ? "Couldn't load invoice photo" : "View vendor invoice"}
+        >
+          {thumbUrl
+            ? <img src={thumbUrl} alt="Invoice" className="h-full w-full object-cover" />
+            : thumbFailed
+            ? <ImageOff size={14} className="text-faint" />
+            : <Loader2 size={14} className="animate-spin text-faint" />}
+        </button>
+        <IconButton label="Remove invoice photo" tone="faint" layout="compact" onClick={() => removeOrderInvoice(order.id)}>
+          <X size={13} />
+        </IconButton>
+      </div>
     );
-  };
-
-  const foldable = (key: string, index: number, label: string, right: React.ReactNode, count: number, collapsible: boolean) => {
-    const folded = collapsible && isCollapsed(key, index);
-    return {
-      folded,
-      label: (
-        <GroupLabel right={right}>
-          {collapsible ? (
-            <button type="button" onClick={() => setCollapsed({ ...collapsed, [key]: !folded })} aria-expanded={!folded} className="inline-flex min-h-[28px] items-center gap-1">
-              <ChevronDownIcon size={14} className={cx("transition-transform", folded && "-rotate-90")} />
-              {label} <span className="text-faint">· {count}</span>
-            </button>
-          ) : label}
-        </GroupLabel>
-      ),
-    };
-  };
+  }
 
   return (
-    <div className="px-5 pb-28 md:pb-12">
-      {(orders || []).length > 0 && (
-        <p className="mt-3 px-1 text-caption text-mute">
-          {allPending.length > 0
-            ? <>{allPending.length} on the way{stillToPay > 0 && <>, <span className="tabular-nums text-warn-700">{inr(stillToPay, currency)}</span> still to pay</>}</>
-            : "Nothing is waiting to arrive"}
-        </p>
-      )}
-      <div className="mt-3">
-        <Segmented ariaLabel="Orders" value={tab} onChange={(v) => { setTab(v as Tab); setCapped(true); }}
-          options={[{ value: "pending", label: allPending.length > 0 ? `Pending (${allPending.length})` : "Pending" }, { value: "received", label: "Received" }]} />
-      </div>
-      <SearchField className="mt-3 !h-11" value={search} onChange={setSearch} placeholder="Search item, vendor or note" />
-      {categoryOptions.length > 0 && <FilterChips className="mt-3" ariaLabel="Item category" options={categoryOptions} value={category} onChange={setCategory} />}
+    <>
+      <button
+        onClick={() => cameraInputRef.current?.click()}
+        disabled={uploading}
+        title="Take a photo"
+        className="inline-flex items-center gap-1 rounded-full border border-line px-2.5 py-1.5 text-xs font-semibold text-mute hover:border-brand-300 hover:text-brand-600 disabled:opacity-50"
+      >
+        {uploading ? <Loader2 size={12} className="animate-spin" /> : <Camera size={12} />}
+        {uploading ? "Uploading…" : "Attach bill"}
+      </button>
+      <IconButton label="Choose from gallery" variant="outline" layout="compact" onClick={() => galleryInputRef.current?.click()} disabled={uploading}>
+        <Images size={14} />
+      </IconButton>
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={onPick}
+        className="hidden"
+      />
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
+        onChange={onPick}
+        className="hidden"
+      />
+    </>
+  );
+}
 
-      {(orders || []).length === 0 ? (
-        <Group className="mt-4"><EmptyNote text="Place an order to restock. When an order is paid in full, the item's stock goes up automatically." cta="New order" onCta={() => openModal("order")} /></Group>
-      ) : list.length === 0 ? (
-        <Group className="mt-4"><p className="px-4 py-8 text-center text-[15px] text-mute">{q || category !== "All" ? "No orders match." : tab === "pending" ? "Nothing is waiting to arrive." : "No orders have been received yet."}</p></Group>
-      ) : q ? (
-        <>
-          <GroupLabel right={<span>{list.length} order{list.length === 1 ? "" : "s"}</span>}>Results</GroupLabel>
-          <Group>{(capped ? sortNewest(list).slice(0, SEARCH_CAP) : sortNewest(list)).map((o: any) => row(o, true))}</Group>
-          {capped && list.length > SEARCH_CAP && <button type="button" onClick={() => setCapped(false)} className="mt-1 h-11 w-full text-[15px] font-medium text-brand-600">Show all {list.length}</button>}
-        </>
-      ) : tab === "pending" ? (
-        byVendor.map((g) => (
-          <div key={g.key}>
-            <GroupLabel right={<span className="tabular-nums">{inrCompact(sumOf(g.docs), currency)}</span>}>{g.label} <span className="text-faint">· {g.docs.length}</span></GroupLabel>
-            <Group>{g.docs.map((o: any) => row(o, false))}</Group>
-          </div>
-        ))
-      ) : (
-        receivedGroups.map((g, i) => {
-          const f = foldable(g.key, i, g.label, <span className="tabular-nums">{inrCompact(sumOf(g.docs), currency)}</span>, g.docs.length, g.collapsible);
-          return (
-            <div key={g.key}>
-              {f.label}
-              {!f.folded && <Group>{g.docs.map((o: any) => row(o, true))}</Group>}
-            </div>
-          );
-        })
+type GroupBy = "item" | "vendor";
+
+/** Buckets a list of orders/purchases by item or by vendor, sorted with the
+ * highest-value group first, so "which vendor am I most exposed to" or
+ * "how much of this item have I ordered" is a glance rather than a scan. */
+function groupRecords(records: any[], groupBy: GroupBy, labelFor: (r: any) => string, keyFor: (r: any) => string) {
+  const map = new Map<string, { key: string; label: string; records: any[] }>();
+  for (const r of records) {
+    const key = keyFor(r);
+    if (!map.has(key)) map.set(key, { key, label: labelFor(r), records: [] });
+    map.get(key)!.records.push(r);
+  }
+  return [...map.values()].sort(
+    (a, b) => b.records.reduce((s, r) => s + (r.amount || 0), 0) - a.records.reduce((s, r) => s + (r.amount || 0), 0)
+  );
+}
+
+export function OrdersView({ orders, items, vendors, categories, currency, openModal, payOrder, removeOrder, attachOrderInvoice, removeOrderInvoice }: any) {
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
+  const [category, setCategory] = useState("All");
+  const [search, setSearch] = useState("");
+  const [groupBy, setGroupBy] = useState<GroupBy>("item");
+  const cats = categories?.length ? categories : ITEM_CATEGORIES;
+  const itemName = (id: string) => items.find((it: any) => it.id === id)?.name || "Unknown item";
+  const itemCategory = (id: string) => items.find((it: any) => it.id === id)?.category || "Others";
+  const vendorName = (id?: string) => (id ? vendors.find((v: any) => v.id === id)?.name : null);
+  const round2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
+  const statusBadge = (status: string) => (status === "paid" ? "Paid" : status === "partial" ? "Partially Paid" : "Due");
+  const q = search.trim().toLowerCase();
+  const categoryFiltered = orders
+    .filter((o: any) => category === "All" || itemCategory(o.itemId) === category)
+    .filter((o: any) => !q || itemName(o.itemId).toLowerCase().includes(q) || (vendorName(o.vendorId) || "").toLowerCase().includes(q) || (o.notes || "").toLowerCase().includes(q));
+  const pending = categoryFiltered.filter((o: any) => o.status === "Pending");
+  const received = categoryFiltered.filter((o: any) => o.status === "Received");
+
+  const groupsOf = (list: any[]) => groupBy === "vendor"
+    ? groupRecords(list, "vendor", (o) => vendorName(o.vendorId) || "No vendor", (o) => o.vendorId || "__none__")
+    : groupRecords(list, "item", (o) => itemName(o.itemId), (o) => o.itemId);
+
+  const orderMeta = (o: any) => `Qty: ${fmtNum(o.qty)} @ ${fmtMoney(o.rate || 0, currency)} · ${fmtDate(o.date)}${groupBy === "vendor" ? "" : vendorName(o.vendorId) ? ` · ${vendorName(o.vendorId)}` : ""}${o.notes ? ` · ${o.notes}` : ""}`;
+
+  return (
+    <>
+    <div className="space-y-3 px-5 pb-28">
+      <div className="flex items-center justify-between pt-1">
+        <p className="text-sm text-faint">{orders.length} order{orders.length !== 1 ? "s" : ""}</p>
+        <PillButton onClick={() => openModal("order")}><Plus size={16} /> New Order</PillButton>
+      </div>
+      {orders.length > 0 && (
+        <div className="relative">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search orders by item, vendor, or note..."
+            className="w-full rounded-xl border border-line bg-card py-2.5 pl-9 pr-3 text-sm"
+          />
+        </div>
       )}
+      {orders.length > 0 && (
+        <div className="flex gap-2">
+          <button
+            type="button" onClick={() => setGroupBy("item")}
+            className={`flex-1 rounded-full py-2 text-xs font-semibold ${groupBy === "item" ? "bg-ink text-white" : "border border-line/70 text-mute"}`}
+          >
+            By item
+          </button>
+          <button
+            type="button" onClick={() => setGroupBy("vendor")}
+            className={`flex-1 rounded-full py-2 text-xs font-semibold ${groupBy === "vendor" ? "bg-ink text-white" : "border border-line/70 text-mute"}`}
+          >
+            By vendor
+          </button>
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2">
+        {["All", ...cats].map((c) => (
+          <button key={c} onClick={() => setCategory(c)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${category === c ? "bg-brand-500 text-white" : "bg-paper text-ink/70"}`}>{c}</button>
+        ))}
+      </div>
+
+      {orders.length === 0
+        ? <Card><EmptyState text="Place orders to restock your inventory. Paying an order off in full automatically updates the item's stock." cta="New Order" onCta={() => openModal("order")} /></Card>
+        : pending.length === 0 && received.length === 0
+        ? <p className="text-center text-sm text-faint py-6">No orders match this category.</p>
+        : (
+          <>
+            {pending.length > 0 && (
+              <div>
+                <p className="mb-1 px-1 text-xs font-semibold text-faint">Pending ({pending.length})</p>
+                {groupsOf(pending).map((group) => (
+                  <div key={group.key} className="mb-3">
+                    {groupBy === "vendor" && (
+                      <div className="flex items-center justify-between px-1 pb-1 pt-2">
+                        <span className="text-sm font-semibold text-ink">{group.label}</span>
+                        <span className="text-xs text-faint">{fmtMoney(group.records.reduce((s, r) => s + (r.amount || 0), 0), currency)} total</span>
+                      </div>
+                    )}
+                    {group.records.map((o: any) => (
+                      <Row key={o.id} onClick={() => openModal("orderDetail", { order: o })}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-ink">{itemName(o.itemId)}</p>
+                            <p className="text-xs text-faint">{orderMeta(o)}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="font-semibold text-ink">{fmtMoney(o.amount || 0, currency)}</p>
+                            <Badge status={statusBadge(o.paymentStatus)} />
+                          </div>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between gap-2">
+                          <p className="text-xs text-faint">{round2((o.amount || 0) - (o.amountPaid || 0)) > 0 ? `${fmtMoney(round2((o.amount || 0) - (o.amountPaid || 0)), currency)} remaining` : "Fully paid"}</p>
+                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <InvoiceAttachment
+                              order={o}
+                              attachOrderInvoice={attachOrderInvoice}
+                              removeOrderInvoice={removeOrderInvoice}
+                              onView={setViewingImage}
+                            />
+                            <button
+                              onClick={() => payOrder({ id: o.id, amount: o.amount, amountPaid: o.amountPaid, itemName: itemName(o.itemId) })}
+                              className="inline-flex items-center gap-1 rounded-full bg-brand-500 px-2.5 py-1.5 text-xs font-semibold text-white active:scale-[0.98]"
+                            >
+                              <IndianRupee size={12} /> Pay
+                            </button>
+                            <IconButton label="Delete order" tone="danger" layout="compact" onClick={() => removeOrder(o.id)}><Trash2 size={14} /></IconButton>
+                          </div>
+                        </div>
+                      </Row>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+            {pending.length > 0 && received.length > 0 && <SectionDivider className="my-1" />}
+            {received.length > 0 && (
+              <div>
+                <p className="mb-1 px-1 text-xs font-semibold text-faint">Received ({received.length})</p>
+                {groupsOf(received).map((group) => (
+                  <div key={group.key} className="mb-3">
+                    {groupBy === "vendor" && (
+                      <div className="flex items-center justify-between px-1 pb-1 pt-2">
+                        <span className="text-sm font-semibold text-ink">{group.label}</span>
+                        <span className="text-xs text-faint">{fmtMoney(group.records.reduce((s, r) => s + (r.amount || 0), 0), currency)} total</span>
+                      </div>
+                    )}
+                    {group.records.map((o: any) => (
+                      <Row key={o.id} className="flex items-center justify-between gap-2" onClick={() => openModal("orderDetail", { order: o })}>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-ink">{itemName(o.itemId)}</p>
+                          <p className="text-xs text-faint">{orderMeta(o)}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="font-semibold text-ink">{fmtMoney(o.amount || 0, currency)}</p>
+                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <InvoiceAttachment
+                              order={o}
+                              attachOrderInvoice={attachOrderInvoice}
+                              removeOrderInvoice={removeOrderInvoice}
+                              onView={setViewingImage}
+                            />
+                            <Badge status="Received" />
+                            <IconButton label="Delete order" tone="danger" layout="compact" onClick={() => removeOrder(o.id)}><Trash2 size={14} /></IconButton>
+                          </div>
+                        </div>
+                      </Row>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )
+      }
     </div>
+    {viewingImage && <ViewImageModal title="Vendor invoice" url={viewingImage} onClose={() => setViewingImage(null)} />}
+    </>
   );
 }

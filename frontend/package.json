@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "chmod +x node_modules/.bin/* && tsc && vite build",
+    "build": "chmod +x node_modules/.bin/* && tsc && vite build && node scripts/check-precache.mjs",
     "preview": "vite preview",
-    "check:design": "node scripts/check-design.mjs"
+    "check:design": "node scripts/check-design.mjs",
+    "check:precache": "node scripts/check-precache.mjs"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.10",

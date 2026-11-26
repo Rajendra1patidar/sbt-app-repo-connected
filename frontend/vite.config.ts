@@ -32,9 +32,14 @@ export default defineConfig({
         // existing loadError state for the actual data, same as any other
         // network hiccup today.
         globPatterns: ["**/*.{js,css,html,png,svg,ico}"],
-        // mapbox-gl's chunk is ~1.9MB — bump Workbox's default 2MB precache
-        // ceiling slightly so it doesn't get silently skipped from the shell.
-        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+        // Keep the map library OUT of the offline cache. It is ~1.9 MB of script and its stylesheet,
+        // loaded on demand only when a map opens (lib/mapbox.ts), and a map can't work offline
+        // anyway (its tiles come from the internet). Precaching it made every phone download it
+        // up front, on every app update. scripts/check-precache.mjs fails the build if it creeps back.
+        globIgnores: ["**/mapbox-gl-*"],
+        // Workbox's own default (2 MB): a file bigger than this is skipped from the precache with a
+        // warning, rather than quietly making every install heavier.
+        maximumFileSizeToCacheInBytes: 2 * 1024 * 1024,
         runtimeCaching: [
           {
             // GET requests to the API: try the network first (real-time data

@@ -8,6 +8,35 @@
   [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"
 
+# Security policy in REPORT-ONLY mode: nothing is blocked. If the app ever loads something this list
+# doesn't allow, the browser logs "[Report Only] Refused to ..." in its console (open DevTools, Console)
+# and carries on. Once the console stays clean through real use of every screen, rename the header to
+# Content-Security-Policy to start enforcing it. What each line allows:
+#   script-src   only our own files (the theme script is a file, so no inline scripts are allowed)
+#   style-src    our files, Google Fonts, and inline style="" (React and the map need those)
+#   connect-src  our backend on Render, Mapbox (maps + search), Cloudinary (photo uploads)
+#   img-src      our files, data:/blob: (downloaded photos), Cloudinary, Mapbox tiles
+#   worker-src   blob: because the map runs in a background worker
+# If your backend is NOT on *.onrender.com (a custom domain), add it to connect-src.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy-Report-Only = """\
+      default-src 'self'; \
+      script-src 'self'; \
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; \
+      font-src 'self' https://fonts.gstatic.com data:; \
+      img-src 'self' data: blob: https://res.cloudinary.com https://api.mapbox.com https://*.tiles.mapbox.com; \
+      media-src 'self' blob: https://res.cloudinary.com; \
+      connect-src 'self' https://*.onrender.com https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com https://api.cloudinary.com; \
+      worker-src 'self' blob:; \
+      child-src blob:; \
+      manifest-src 'self'; \
+      object-src 'none'; \
+      base-uri 'self'; \
+      form-action 'self'; \
+      frame-ancestors 'none'"""
+
 [build]
   command = "npm run build"
   publish = "dist"

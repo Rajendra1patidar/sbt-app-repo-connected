@@ -17,17 +17,27 @@ export const SERVICE_REGION_DEFAULT_ZOOM = 9;
 let mapboxLoadPromise: Promise<any> | null = null;
 
 /**
- * Loads the mapbox-gl library (already installed via npm) and sets the
+ * Loads the mapbox-gl library (already installed via npm) and its stylesheet, and sets the
  * access token. Returns the mapboxgl module.
+ *
+ * Neither is part of the main app download or the offline cache (about 1.9 MB of script): they
+ * are fetched the first time a map opens. A map needs the internet for its tiles anyway.
  */
 export function loadMapbox(): Promise<any> {
   if (!MAPBOX_TOKEN) return Promise.reject(new Error("no-api-key"));
   if (mapboxLoadPromise) return mapboxLoadPromise;
-  mapboxLoadPromise = import("mapbox-gl").then((mod) => {
-    const mapboxgl = (mod as any).default || mod;
-    mapboxgl.accessToken = MAPBOX_TOKEN;
-    return mapboxgl;
-  });
+  mapboxLoadPromise = Promise.all([import("mapbox-gl"), import("mapbox-gl/dist/mapbox-gl.css")])
+    .then(([mod]) => {
+      const mapboxgl = (mod as any).default || mod;
+      mapboxgl.accessToken = MAPBOX_TOKEN;
+      return mapboxgl;
+    })
+    .catch((err) => {
+      // Offline (or a dropped connection) when the map was first opened: forget the failure, so the
+      // next time a map opens it tries again instead of staying broken until the page is reloaded.
+      mapboxLoadPromise = null;
+      throw err;
+    });
   return mapboxLoadPromise;
 }
 

@@ -1,6 +1,12 @@
 /**
- * Stores vendor invoice photos in the daily-report bot's Telegram chat,
- * instead of a paid/card-gated image host. Reuses the existing report bot
+ * Telegram store for vendor invoice photos. NEW photos now go to private
+ * Cloudinary (services/cloudinaryInvoiceStorage.js, chosen by
+ * services/invoicePhotoStorage.js); this file still serves every photo saved
+ * before that, and is the fallback when Cloudinary isn't set up or
+ * INVOICE_PHOTO_STORAGE=telegram is set.
+ *
+ * Originally: stores vendor invoice photos in the daily-report bot's Telegram
+ * chat, instead of a paid/card-gated image host. Reuses the existing report bot
  * (TELEGRAM_REPORT_BOT_TOKEN / TELEGRAM_REPORT_CHAT_ID — see
  * jobs/dailyReportJob.js) rather than standing up a third bot: invoice
  * photos just interleave with the daily report messages in that same chat.

@@ -11,9 +11,15 @@
  *     resolution, no partial updates. It exists purely so a screen the
  *     user already had synced isn't blank/erroring just because they
  *     opened the app (or refreshed) while offline.
+ *
+ * It is kept in IndexedDB (lib/localDb.ts), not localStorage: the snapshot can be several
+ * megabytes, and in localStorage it competed for the same ~5 MB as the queue of unsynced
+ * work. A copy saved by an older version is moved across the first time the app starts.
+ * Because IndexedDB is asynchronous, saving and loading return promises.
  */
 
-import { DATA_CACHE_KEY as CACHE_KEY, currentAccountId } from "./account";
+import { currentAccountId } from "./account";
+import { kvGet, kvSet, importLegacy, warmUpLocalDb } from "./localDb";
 
 // Keep this to the data views actually render when offline — leaving out
 // reorderSuggestions/notifications/deadStock (derived, cheap to regenerate,
@@ -30,26 +36,63 @@ export interface DataCacheSnapshot {
   data: Record<string, any>;
 }
 
-export function saveDataCache(state: Record<string, any>) {
+// Signed in already (the usual start): open the database now, so by the time the first load asks
+// for the saved copy it is not still waiting for the database to open.
+if (typeof window !== "undefined" && currentAccountId()) warmUpLocalDb();
+
+// A copy saved by an older version lives in localStorage. Move it across once per start. When both
+// places have one, keep the newer. A failed move leaves the old copy exactly where it was.
+let imported: Promise<unknown> | null = null;
+function ensureImported() {
+  if (!imported) {
+    imported = importLegacy("dataCache", (legacyText, currentText) => {
+      if (!currentText) return legacyText;
+      try {
+        const legacy = JSON.parse(legacyText);
+        const current = JSON.parse(currentText);
+        return String(current?.savedAt || "") >= String(legacy?.savedAt || "") ? currentText : legacyText;
+      } catch {
+        return legacyText;
+      }
+    }).catch(() => undefined);
+  }
+  return imported;
+}
+
+// Note on order: both functions queue their storage operation straight away, with no await in
+// front of it. Operations run in the order they were queued (lib/localDb.ts), so a save that was
+// asked for before sign-out is finished BEFORE sign-out's cleanup runs and can't bring the copy back.
+
+export function saveDataCache(state: Record<string, any>): Promise<void> {
   try {
+    // Never save a copy that belongs to nobody: if the person signed out while this load was still
+    // running, there is no account to tag it with, and an untagged copy would be shown to the next login.
+    const accountId = currentAccountId();
+    if (!accountId) return Promise.resolve();
     const data: Record<string, any> = {};
     for (const key of CACHED_FIELDS) data[key] = state[key];
-    const snapshot: DataCacheSnapshot = { savedAt: new Date().toISOString(), accountId: currentAccountId(), data };
-    window.localStorage.setItem(CACHE_KEY, JSON.stringify(snapshot));
+    const snapshot: DataCacheSnapshot = { savedAt: new Date().toISOString(), accountId, data };
+    const text = JSON.stringify(snapshot);
+    void ensureImported(); // queued ahead of the write below (the first time only)
+    return kvSet("dataCache", text).catch(() => {
+      // Storage full or unavailable — the app still works online;
+      // it just won't have an offline fallback this session. Not worth
+      // surfacing to the user over what is itself a convenience feature.
+    });
   } catch {
-    // Quota exceeded or storage unavailable — the app still works online;
-    // it just won't have an offline fallback this session. Not worth
-    // surfacing to the user over what is itself a convenience feature.
+    return Promise.resolve();
   }
 }
 
-export function loadDataCache(): DataCacheSnapshot | null {
+export async function loadDataCache(): Promise<DataCacheSnapshot | null> {
   try {
-    const raw = window.localStorage.getItem(CACHE_KEY);
+    void ensureImported(); // queued ahead of the read below (the first time only)
+    const raw = await kvGet("dataCache");
     if (!raw) return null;
     const snap: DataCacheSnapshot = JSON.parse(raw);
-    // Never show one account's cached data to a different login.
-    if (snap.accountId && snap.accountId !== currentAccountId()) return null;
+    if (!snap || typeof snap !== "object" || !snap.data) return null;
+    // Never show one account's cached data to a different login (or to one that can't be identified).
+    if (!snap.accountId || snap.accountId !== currentAccountId()) return null;
     return snap;
   } catch {
     return null;

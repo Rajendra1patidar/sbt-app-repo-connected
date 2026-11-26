@@ -9,7 +9,7 @@ const { withTransaction } = require("../utils/withTransaction");
 const { assertYearNotLocked } = require("../utils/yearLock");
 const eventBus = require("../services/eventBus");
 const { logAudit } = require("../services/auditLogger");
-const telegramStorage = require("../services/telegramStorage");
+const invoicePhotoStorage = require("../services/invoicePhotoStorage");
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
@@ -380,6 +380,10 @@ exports.remove = async (req, res, next) => {
 
     logAudit({ owner: req.userId, actorId: req.actorId, action: "delete", model: sourceType, docId: doc._id, label: `qty ${doc.qty} @ ${doc.rate}` });
 
+    // A private Cloudinary photo can't be seen or deleted from anywhere but this app, so it goes
+    // with the record (best effort). Old Telegram photos are left in the chat, as they always were.
+    if (doc.invoiceImage && doc.invoiceImage.provider === "cloudinary") invoicePhotoStorage.remove(doc.invoiceImage);
+
     res.json({ message: "Deleted", id: req.params.id });
   } catch (err) {
     next(err);
@@ -389,8 +393,9 @@ exports.remove = async (req, res, next) => {
 // POST /api/purchases/:id/invoice  (multipart/form-data, field name "invoice")
 // Attaches a photo of the vendor's bill to an order/purchase — purely a
 // record-keeping aid, doesn't touch stock, payment status, or the ledger.
+// New photos are stored privately on Cloudinary (see services/invoicePhotoStorage.js).
 // Uploading again (e.g. a clearer retake) replaces the old photo and deletes
-// the old Telegram message so it doesn't sit around orphaned.
+// the old one, wherever it lives, so it doesn't sit around orphaned.
 exports.attachInvoice = async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ message: "No image uploaded" });
@@ -398,16 +403,25 @@ exports.attachInvoice = async (req, res, next) => {
     const doc = await Purchase.findOne({ _id: req.params.id, owner: req.userId });
     if (!doc) return res.status(404).json({ message: "Not found" });
 
-    const previousMessageId = doc.invoiceImage?.messageId;
+    const previous = doc.invoiceImage && doc.invoiceImage.fileId
+      ? { provider: doc.invoiceImage.provider, fileId: doc.invoiceImage.fileId, messageId: doc.invoiceImage.messageId }
+      : null;
 
-    const uploaded = await telegramStorage.uploadFile(req.file.buffer, req.file.originalname || "invoice.jpg");
+    const saved = await invoicePhotoStorage.upload({
+      owner: String(req.userId),
+      buffer: req.file.buffer,
+      filename: req.file.originalname || "invoice.jpg",
+    });
 
-    // Telegram always serves photos back out as JPEG regardless of what was
-    // uploaded, so that's what the proxy route below will set as Content-Type.
-    doc.invoiceImage = { fileId: uploaded.fileId, messageId: uploaded.messageId, mimeType: "image/jpeg", uploadedAt: new Date() };
-    await doc.save();
+    doc.invoiceImage = { ...saved, uploadedAt: new Date() };
+    try {
+      await doc.save();
+    } catch (err) {
+      invoicePhotoStorage.remove(saved); // don't leave the new file orphaned if the record couldn't be saved
+      throw err;
+    }
 
-    if (previousMessageId) telegramStorage.deleteFile(previousMessageId); // best-effort, not awaited
+    if (previous) invoicePhotoStorage.remove(previous); // best-effort, not awaited
 
     res.json(doc);
   } catch (err) {
@@ -422,11 +436,11 @@ exports.removeInvoice = async (req, res, next) => {
     if (!doc) return res.status(404).json({ message: "Not found" });
     if (!doc.invoiceImage?.fileId) return res.json(doc);
 
-    const messageId = doc.invoiceImage.messageId;
+    const previous = { provider: doc.invoiceImage.provider, fileId: doc.invoiceImage.fileId, messageId: doc.invoiceImage.messageId };
     doc.invoiceImage = undefined;
     await doc.save();
 
-    telegramStorage.deleteFile(messageId); // best-effort, not awaited
+    invoicePhotoStorage.remove(previous); // best-effort, not awaited
 
     res.json(doc);
   } catch (err) {
@@ -435,16 +449,17 @@ exports.removeInvoice = async (req, res, next) => {
 };
 
 // GET /api/purchases/:id/invoice-image
-// Proxies the photo's bytes from Telegram through our own authenticated API
-// — the frontend never gets a Telegram URL (which would embed the bot
-// token), and never talks to Telegram directly.
+// Proxies the photo's bytes through our own authenticated API, from wherever
+// the photo lives (Cloudinary for new ones, Telegram for older ones). The
+// frontend never gets a storage address (a Telegram one would embed the bot
+// token, a Cloudinary one would need the secret), and never talks to either.
 exports.getInvoiceImage = async (req, res, next) => {
   try {
     const doc = await Purchase.findOne({ _id: req.params.id, owner: req.userId });
     if (!doc || !doc.invoiceImage?.fileId) return res.status(404).json({ message: "No invoice photo" });
 
-    const buffer = await telegramStorage.downloadFile(doc.invoiceImage.fileId);
-    res.set("Content-Type", doc.invoiceImage.mimeType || "image/jpeg");
+    const { buffer, mimeType } = await invoicePhotoStorage.download(doc.invoiceImage);
+    res.set("Content-Type", mimeType || "image/jpeg");
     res.set("Cache-Control", "private, max-age=86400"); // this exact photo never changes once uploaded
     res.send(buffer);
   } catch (err) {

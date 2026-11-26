@@ -85,7 +85,7 @@ export function EstimatesMapCard({ invoices, currency }: any) {
       if (!hasBounds) {
         // keep default center/zoom
       }
-    }).catch(() => setMapError("Couldn't load the map. Check your Mapbox token."));
+    }).catch(() => setMapError(navigator.onLine === false ? "The map needs an internet connection." : "Couldn't load the map. Check your Mapbox token."));
 
     return () => {
       cancelled = true;

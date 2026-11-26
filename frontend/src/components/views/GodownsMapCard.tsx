@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Group, GroupLabel } from "../ui/kit";
+import React, { useEffect, useRef, useState } from "react";
+import { Card } from "../common/UIPrimitives";
 import { MAPBOX_TOKEN, loadMapbox, SERVICE_REGION_CENTER, SERVICE_REGION_DEFAULT_ZOOM } from "../../lib/mapbox";
 
 /* ---- Godowns map ---- */
@@ -47,7 +47,7 @@ export function GodownsMapCard({ godowns }: any) {
         bounds.extend([g.lng, g.lat]);
       });
       map.fitBounds(bounds, { padding: 40, maxZoom: 12 });
-    }).catch(() => setMapError("Couldn't load the map. Check your Mapbox token."));
+    }).catch(() => setMapError(navigator.onLine === false ? "The map needs an internet connection." : "Couldn't load the map. Check your Mapbox token."));
 
     return () => {
       cancelled = true;
@@ -60,17 +60,15 @@ export function GodownsMapCard({ godowns }: any) {
   if (!apiKey) return null; // silent — GodownsView already works fine without a map
 
   return (
-    <div className="mt-4">
-      <GroupLabel className="!mt-0">Godown locations</GroupLabel>
-      <Group>
-        {pinned.length === 0 ? (
-          <p className="px-4 py-4 text-[15px] text-mute">Pin a godown on the map when you edit it, and it will show up here.</p>
-        ) : mapError ? (
-          <p className="px-4 py-4 text-[15px] text-bad-600">{mapError}</p>
-        ) : (
-          <div ref={mapRef} style={{ width: "100%", height: 220 }} className="bg-paper" />
-        )}
-      </Group>
-    </div>
+    <Card>
+      <h3 className="mb-1 font-display text-base font-semibold text-ink">Godown locations</h3>
+      {pinned.length === 0 ? (
+        <p className="text-sm text-faint">Set a location using the map picker on a godown to see it plotted here.</p>
+      ) : mapError ? (
+        <p className="text-sm text-bad-600">{mapError}</p>
+      ) : (
+        <div ref={mapRef} style={{ width: "100%", height: 220, borderRadius: 12 }} className="mt-2 bg-paper" />
+      )}
+    </Card>
   );
 }

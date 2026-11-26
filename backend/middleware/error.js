@@ -34,9 +34,11 @@ function errorHandler(err, req, res, next) {
 
   // In production a 500 never shows internal wording (database errors, file
   // paths) to the client - the real message is in the server log and the alert.
+  // An error can opt out with `expose = true` when its message was written for the user
+  // (like the photo storage's "check the Cloudinary settings"); the alert still fires.
   const isProd = process.env.NODE_ENV === "production";
-  const message =
-    status >= 500 && isProd ? "Something went wrong on the server. Please try again." : err.message || "Server error";
+  const hideMessage = status >= 500 && isProd && err.expose !== true;
+  const message = hideMessage ? "Something went wrong on the server. Please try again." : err.message || "Server error";
 
   res.status(status).json({
     message,

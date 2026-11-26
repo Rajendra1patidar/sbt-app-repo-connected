@@ -47,13 +47,16 @@ const purchaseSchema = new mongoose.Schema(
     date: { type: String }, // YYYY-MM-DD
     notes: { type: String, trim: true, default: "" },
 
-    // Photo of the vendor's paper bill/invoice for this order or purchase,
-    // stored in the report bot's Telegram chat (see
-    // services/telegramStorage.js) rather than in this document or a paid
-    // image host. `fileId` is how the photo is fetched back; `messageId` is
-    // what lets removeInvoice() clean it up on Telegram when the photo is
-    // replaced or removed.
+    // Photo of the vendor's paper bill/invoice for this order or purchase (see
+    // services/invoicePhotoStorage.js, which knows where each photo lives).
+    //   provider  "cloudinary" = a private Cloudinary file (new photos). Missing = "telegram": every
+    //             photo saved before Cloudinary was added, which keeps loading from Telegram. This is
+    //             why there is no migration, and why nothing may ever default this field.
+    //   fileId    how the photo is fetched back (Telegram's file id, or Cloudinary's public id). The
+    //             app also uses "fileId is set" to mean "this order has a photo".
+    //   messageId Telegram only: what lets a replaced/removed photo be deleted from the chat.
     invoiceImage: {
+      provider: { type: String, enum: ["telegram", "cloudinary"] },
       fileId: { type: String },
       messageId: { type: Number },
       mimeType: { type: String },

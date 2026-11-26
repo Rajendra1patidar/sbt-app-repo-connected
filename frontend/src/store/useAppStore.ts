@@ -204,8 +204,10 @@ export const useAppStore = create<AppState>()((set, get) => ({
     // server answers. (loadDataCache never returns another account's copy; the derived lists are
     // cleared so nothing from a previous login lingers either.)
     if (!account || shownForAccount !== account) {
-      const cached = loadDataCache();
-      if (cached) {
+      const cached = await loadDataCache();
+      // Reading the saved copy takes a moment. If another load finished meanwhile and put fresh data on
+      // screen, applying this older copy now would overwrite it, so look again before using it.
+      if (cached && (!account || shownForAccount !== account)) {
         set({ ...cached.data, reorderSuggestions: [], notifications: [], deadStock: [], loading: false, loadError: "", offlineDataAsOf: cached.savedAt });
         const pending = withOfflinePending(get());
         if (Object.keys(pending).length) set(pending);
@@ -270,7 +272,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       shownForAccount = account;
       // Snapshot this fresh state for the next time the app opens with no
       // connectivity — see the offline fallback below and lib/dataCache.ts.
-      saveDataCache(get());
+      void saveDataCache(get()); // in the background; it never throws
       // Anything still queued (not yet synced) must stay visible.
       const pending = withOfflinePending(get());
       if (Object.keys(pending).length) set(pending);
@@ -283,8 +285,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const serverDown = err?.status === 0 || err?.status === 502 || err?.status === 503 || err?.status === 504;
       if (serverDown) {
         if (!(!!account && shownForAccount === account)) {
-          const cached = loadDataCache();
-          if (cached) {
+          const cached = await loadDataCache();
+          if (cached && !(!!account && shownForAccount === account)) {
             set({ ...cached.data, reorderSuggestions: [], notifications: [], deadStock: [], loading: false, loadError: "", offlineDataAsOf: cached.savedAt });
             const pending = withOfflinePending(get());
             if (Object.keys(pending).length) set(pending);
@@ -295,7 +297,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
           // Keep what is on screen and say it is not live. Truly offline: the banner says so and the
           // app refreshes by itself when the connection returns (lib/offlineSync.ts). Server asleep:
           // keep checking quietly and reload as soon as it answers.
-          const asOf = get().offlineDataAsOf || loadDataCache()?.savedAt || new Date().toISOString();
+          const asOf = get().offlineDataAsOf || (await loadDataCache())?.savedAt || new Date().toISOString();
           const offline = err?.status === 0 && typeof navigator !== "undefined" && !navigator.onLine;
           set({ loading: false, loadError: "", offlineDataAsOf: asOf, serverWaking: !offline });
           if (!offline && !retryingLoad) {
